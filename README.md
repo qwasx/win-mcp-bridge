@@ -1,112 +1,127 @@
+<div align="center">
+
 # win-mcp-bridge
 
-Give an AI agent full, remote control of a Windows PC over MCP — with **no console
-windows ever flashing on screen**, auto-restart supervision, and a clean
-multi-machine story.
+**让 AI 完全操控你的 Windows 电脑 —— 屏幕上不会闪过任何黑窗口。**
 
-This is a hardened deployment layer around
-[Windows-MCP](https://github.com/CursorTouch/Windows-MCP) plus a small file/shell
-bridge, wired to the internet through a Cloudflare Tunnel.
+*Give an AI agent full remote control of a Windows PC — with zero console windows flashing on screen.*
 
-> Built and battle-tested on a real daily-driver Windows box. Every fix in here
-> exists because something actually broke. The **[Hard-won lessons](#hard-won-lessons)**
-> section is the part most people will find useful even if they never run this code.
+[English](README.en.md) · **简体中文**
+
+![license](https://img.shields.io/badge/license-MIT-blue)
+![platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078d4)
+![python](https://img.shields.io/badge/python-3.11%2B-3776ab)
+
+</div>
 
 ---
 
-## What you get
+## 这是什么
+
+一套把 Windows 电脑"交给 AI 远程操控"的**生产级部署层**。
+
+底层的桌面自动化用的是 [Windows-MCP](https://github.com/CursorTouch/Windows-MCP)，这个项目解决的是**让它在真实机器上长期稳定、安静、安全地跑起来**的所有问题。
+
+装好之后，你在任何支持 MCP 的 AI 里说一句话，它就能截图、点击、打字、跑命令、读写文件 —— 而你的屏幕上**什么都不会闪**。
+
+> 这些代码全部跑在一台真实的日常主力机上。里面每一个修复，都是因为真的出过问题。
+> 就算你不用这套代码，**[十条踩坑经验](#十条踩坑经验)** 那节也值得一读。
+
+---
+
+## 能得到什么
 
 | | |
 |---|---|
-| **~24 desktop tools** | screenshot, click, type, UIA tree, PowerShell, registry, whole-disk access |
-| **7 file/shell tools** | read/write files, run commands |
-| **Zero visible windows** | no tray icon, no console, no flash — see [the flash fix](#1-the-console-flash) |
-| **Self-healing** | a supervisor restarts any dead component within 15s |
-| **Portable** | no hardcoded paths or usernames; runs from any folder |
-| **Multi-machine** | one client-side list, many PCs, no identity collisions |
-| **Offline installer** | bundles a private Python; target PC needs nothing pre-installed |
+| 🖥️ **24 个桌面工具** | 截图、点击、键盘、UI 树、PowerShell、注册表、全盘读写 |
+| 📁 **7 个文件工具** | 读写文件、执行命令 |
+| 🔇 **零窗口** | 没有托盘图标、没有控制台、**操控时不闪黑窗**（[怎么做到的](#1-控制台闪窗)） |
+| ♻️ **自愈** | 任何组件挂掉，15 秒内自动拉起 |
+| 📦 **可移植** | 没有硬编码路径和用户名，放哪个文件夹都能跑 |
+| 🖧 **多机管理** | 一份清单管多台电脑，身份互不串台 |
+| 💾 **离线安装** | 自带 Python，**目标电脑什么都不用预装** |
 
 ---
 
-## Architecture
+## 架构
 
 ```
-        Internet
-           │
-   Cloudflare Tunnel            one tunnel per machine (see note)
-           │
-   ┌───────┴────────┐
-   │  cloudflared   │
-   └───────┬────────┘
-           │  ingress by path
-    ┌──────┴───────┐
-    │              │
-/desktop/mcp     /mcp
-    │              │
-127.0.0.1:8010  127.0.0.1:8000
- windows-mcp     bridge_server.py
- (desktop)       (files + shell)
-    │              │
-    └──────┬───────┘
-           │
-    supervisor.py          watchdog: respawns dead children, holds a
-                           single-instance lock on 127.0.0.1:8021
+        公网
+         │
+   Cloudflare 隧道              每台电脑一条独立隧道（原因见下）
+         │
+  ┌──────┴───────┐
+  │ cloudflared  │
+  └──────┬───────┘
+         │  按路径分流
+   ┌─────┴──────┐
+   │            │
+/desktop/mcp   /mcp
+   │            │
+  :8010        :8000
+windows-mcp   bridge_server.py
+（桌面操控）   （文件 + 命令）
+   │            │
+   └─────┬──────┘
+         │
+   supervisor.py      看门狗：进程死了就拉起，
+                      用 127.0.0.1:8021 做单例锁
 ```
 
 ---
 
-## Requirements
+## 需要什么
 
-- Windows 10/11 **64-bit**
-- A Cloudflare account + a domain on it (free tier is fine)
-- **Nothing else.** The installer ships its own Python.
+- Windows 10 / 11，**64 位**
+- 一个 Cloudflare 账号 + 一个域名（免费版够用）
+- **没了。安装包自带 Python。**
 
 ---
 
-## Quick start
+## 快速开始
 
 ```cmd
-git clone https://github.com/<you>/win-mcp-bridge
+git clone https://github.com/<你>/win-mcp-bridge
 cd win-mcp-bridge\setup
-:: right-click install.cmd -> Run as administrator
+:: 右键 install.cmd → 以管理员身份运行
 install.cmd --id pc1
 ```
 
-Admin rights are needed for exactly one thing: registering the logon task.
-Skip it and start manually with `launch.cmd` instead.
+> **管理员权限只在一个地方需要**：注册开机自启任务。
+> 不想给也行，装完手动双击 `launch.cmd` 启动即可。
 
-The installer will:
+安装器会自动完成：
 
-1. unpack a private Python (embeddable, ~11 MB — no registry, no PATH changes)
-2. install `windows-mcp` and the bridge deps (offline if `offline/wheels` exists)
-3. re-apply the patches in `patches/`
-4. run `cloudflared tunnel login` → **you click Authorize once in the browser**
-5. create *this machine's own* tunnel + DNS record
-6. generate `machine.json` with fresh random tokens
-7. register the startup task and launch
+1. 解压一个私有 Python（约 11MB，**不写注册表、不改 PATH、不污染系统**）
+2. 装 `windows-mcp` 和依赖（有离线包就离线装）
+3. 重新打上 `patches/` 里的补丁
+4. 跑 `cloudflared tunnel login` → **你在浏览器点一次 Authorize**
+5. 给**这台机器**建它自己的隧道和域名
+6. 生成 `machine.json`，里面是随机生成的 token
+7. 注册开机任务并启动
 
-At the end it prints a JSON block to paste into your client-side machine list.
+最后会打印一段 JSON，贴进你的机器清单就完事了。
 
-### Day-to-day
+### 日常使用
 
 ```cmd
-launch.cmd            :: start (idempotent)
-launch.cmd status     :: is it up?
-launch.cmd stop
-launch.cmd restart
+launch.cmd            :: 启动（幂等，已在跑不会重复起）
+launch.cmd status     :: 看状态
+launch.cmd stop       :: 全停
+launch.cmd restart    :: 重启
 ```
 
 ---
 
-## Connecting from a client
+## 客户端怎么连
 
 ```python
-import httpx2                      # NOTE: httpx2, not httpx — mcp 2.x uses httpx2
+import httpx2                      # 注意：是 httpx2 不是 httpx，mcp 2.x 用的是它
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
 URL   = "https://pc1.example.com/desktop/mcp"
-TOKEN = "<desktop_token from machine.json>"
+TOKEN = "<machine.json 里的 desktop_token>"
 
 http_client = httpx2.AsyncClient(
     headers={"Authorization": f"Bearer {TOKEN}"},
@@ -120,144 +135,129 @@ async with http_client as hc:
             tools = await s.list_tools()
 ```
 
-A `read` timeout of **180 s** matters: screenshots can be several hundred KB.
+**`read` 超时一定要给到 180 秒** —— 截图可能有几百 KB，短了会断。
 
-See [`examples/fleet.py`](examples/fleet.py) for the multi-machine wrapper.
+多机用法看 [`examples/fleet.py`](examples/fleet.py)。
 
 ---
 
-## Multi-machine
+## 多机管理
 
-**Each PC must get its own tunnel.** This is not a style choice — Cloudflare
-treats two `cloudflared` processes sharing a tunnel UUID as *replicas* and routes
-each request to a **random** one of them
-([docs](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/tunnel-availability/deploy-replicas/)).
-For a remote-control tool that is actively dangerous: your screenshot comes from
-machine A and the click that follows lands on machine B.
+**每台电脑必须有自己的隧道。** 这不是设计洁癖，是硬性要求：
 
-So identity is split out of the code:
+Cloudflare 把共用同一个隧道 ID 的两个 `cloudflared` 当成**副本**，请求会被**随机**发给其中一台（[官方文档](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/tunnel-availability/deploy-replicas/)）。
+
+对远程操控来说这是灾难级的：**你的截图来自 A 机，紧接着那一下点击落在了 B 机上。**
+
+所以身份被彻底拆出代码：
 
 ```
-repo / installer payload          machine.json  (per PC, gitignored)
-─────────────────────────         ──────────────────────────────────
-supervisor.py                     machine_id, label
-bridge_server.py                  hostname          ← its own subdomain
-launch.cmd                        bridge_token      ← its own secrets
-patches/                          desktop_token
-                                  bound_computer    ← anti-cross-wiring guard
+仓库 / 安装包（可复制）        machine.json（一机一份，已 gitignore）
+──────────────────────        ──────────────────────────────────────
+supervisor.py                 machine_id, label
+bridge_server.py              hostname        ← 自己的域名
+launch.cmd                    bridge_token    ← 自己的密钥
+patches/                      desktop_token
+                              bound_computer  ← 防串台保险
 ```
 
-`bound_computer` is a safety net: if you clone a whole install folder to another
-box, the supervisor sees the hostname mismatch and **refuses to start the
-tunnel**, logging how to fix it. Local ports still work.
+`bound_computer` 是最后一道保险：如果你整个文件夹拷到另一台机器，supervisor 发现机器名对不上，会**拒绝启动隧道**并在日志里写明怎么修，本地端口照常可用。
 
-Client side, all of that disappears behind one list:
+客户端这边，上面这些复杂度全部消失：
 
 ```python
-await fleet_status()                  # every machine, one table
-await run_on("office", "ps", "...")   # target one
-await run_on_all("ps", "...")         # broadcast
+await fleet_status()                  # 所有机器，一张表
+await run_on("office", "ps", "...")   # 指定一台
+await run_on_all("ps", "...")         # 广播到所有
 ```
 
 ---
 
-## Hard-won lessons
+## 十条踩坑经验
 
-The interesting part. Each of these cost real debugging time.
+**这部分才是这个仓库最值钱的地方。** 每一条都实打实耗过调试时间。
 
-### 1. The console flash
+### 1. 控制台闪窗
 
-**Symptom.** Every PowerShell tool call flashed a black console window. Fast
-enough that screenshots never caught it.
+**现象**：每次调 PowerShell 工具，屏幕闪一下黑窗口。快到截图根本抓不住。
 
-**Cause.** In `windows_mcp/powershell/utils.py`, the single function every
-PowerShell call funnels through:
+**根因**：在 `windows_mcp/powershell/utils.py` 里 —— 所有 PowerShell 调用的必经之路：
 
 ```python
-creationflags |= subprocess.CREATE_NEW_PROCESS_GROUP   # only this
+creationflags |= subprocess.CREATE_NEW_PROCESS_GROUP   # 只有这一个
 ```
 
-`CREATE_NEW_PROCESS_GROUP` is needed to send `CTRL_BREAK_EVENT` for graceful
-shutdown — but it does **not** stop Windows from allocating a console.
+`CREATE_NEW_PROCESS_GROUP` 是为了能发 `CTRL_BREAK_EVENT` 优雅停止，必须留着。但它**不阻止 Windows 给子进程分配控制台**。
 
-**Fix** (in [`patches/`](patches/)):
+**修复**（见 [`patches/`](patches/)）：
 
 ```python
 creationflags |= subprocess.CREATE_NEW_PROCESS_GROUP
 creationflags |= getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
 
-if kwargs.get("startupinfo") is None:          # belt and braces
+if kwargs.get("startupinfo") is None:          # 双保险
     si = subprocess.STARTUPINFO()
     si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
     si.wShowWindow = 0                          # SW_HIDE
     kwargs["startupinfo"] = si
 ```
 
-`CREATE_NO_WINDOW` and `CREATE_NEW_PROCESS_GROUP` **can coexist** — only
-`DETACHED_PROCESS` conflicts. Graceful shutdown still works.
+> **关键知识点**：`CREATE_NO_WINDOW` 和 `CREATE_NEW_PROCESS_GROUP` **可以共存**，只有 `DETACHED_PROCESS` 才互斥。优雅停止的能力不会丢。
 
-**How to actually verify this.** Eyeballing proves nothing; the flash is ~50 ms.
-Poll for console windows while hammering the API:
+**怎么验证才算数**：肉眼看没用，闪窗只有约 50 毫秒。正确做法是一边猛打命令，一边高频扫描窗口：
 
 ```
-EnumWindows every 50 ms for 12 s, matching ConsoleWindowClass
-             + CASCADIA_HOSTING_WINDOW_CLASS
-concurrently: 12 commands (PowerShell / cmd / ps)
+每 50 毫秒 EnumWindows 一次，持续 12 秒
+匹配 ConsoleWindowClass + CASCADIA_HOSTING_WINDOW_CLASS
+同时并发打 12 条命令（PowerShell / cmd / python）
 → NO_CONSOLE_WINDOW_EVER_APPEARED
 ```
 
-**Caveat:** reinstalling/upgrading `windows-mcp` overwrites this. Re-apply.
+脚本见 [`examples/verify_no_console_flash.py`](examples/verify_no_console_flash.py)。
 
-### 2. The embeddable Python has no `venv`
+> ⚠️ 升级或重装 `windows-mcp` 会覆盖这个补丁，**记得重新打**。
+
+### 2. embeddable 版 Python 没有 venv 模块
 
 ```
 C:\python\python.exe: No module named venv
 ```
 
-Python's embeddable distribution ships without `venv`. Any installer that does
-`python -m venv` will fail on a fresh machine. Install packages directly into the
-embeddable interpreter instead — verified working end to end (server starts,
-answers MCP, patches apply).
+Python 官方的 embeddable 发行版**不带 `venv`**。任何写了 `python -m venv` 的安装脚本，在新电脑上必然失败。
 
-### 3. `#import site` in `python3xx._pth`
+解决：直接把包装进那个解释器。已端到端验证（服务能起、能响应 MCP、补丁生效）。
 
-The embeddable build ships with site imports **commented out**. Leave it and
-`pip`-installed packages are silently unimportable. The installer rewrites:
+### 3. `python3xx._pth` 里的 `#import site`
+
+embeddable 版默认把 site 导入**注释掉了**。不改这一行，`pip` 装的包会**静默地 import 不到**。安装器会自动改写：
 
 ```
 #import site   →   import site
 ```
 
-### 4. Never let a launcher trigger its own scheduled task
+### 4. 绝对不要让启动器去触发自己的计划任务
 
-This one took the whole bridge offline.
+**这一条把整个桥搞挂过。**
 
-The scheduled task ran `launch.cmd`; `launch.cmd`'s start path called
-`schtasks /run /tn "MCP-Stack"`. Task → script → task, forever. The supervisor
-never started and both endpoints went to HTTP 530.
+计划任务跑 `launch.cmd`，而 `launch.cmd` 的启动分支里写了 `schtasks /run /tn "MCP-Stack"`。任务 → 脚本 → 任务，无限自套。supervisor 从没被拉起来，两个端点全返回 HTTP 530。
 
-**The deeper mistake was the verification method.** Three checks in a row
-reported "UP" — because the *old* supervisor process was still alive and masking
-the broken path. Port-is-open is not proof.
+**但更该检讨的是验证方法。** 改完之后连验三次都显示 "UP" —— 因为**老的 supervisor 进程还活着**，把新链路的错误完全掩盖了。端口通不等于链路对。
 
-> **Rule: after changing a startup chain, kill everything and cold-boot through
-> the real path.** Anything less tests the old process.
+> **铁律：改完启动链路，必须杀干净所有进程，走真实路径冷启动验证。**
+> 否则你测的是旧进程。
 
-### 5. Single-instance locking: bind a port, not a PID file
+### 5. 单例锁：绑端口，别用 PID 文件
 
-Duplicate supervisors are easy to spawn and hard to notice. A PID file goes stale
-when a process is killed. A bound socket is released by the kernel automatically:
+重复启动很容易发生，又很难发现。PID 文件在进程被 kill 时会变成过期锁，而绑定的 socket 由内核自动释放：
 
 ```python
 SINGLETON_PORT = 8021
-s.bind(("127.0.0.1", SINGLETON_PORT))   # second instance fails → exits
+s.bind(("127.0.0.1", SINGLETON_PORT))   # 第二个实例绑不上 → 自己退出
 ```
 
-### 6. `pythonw.exe` shows up twice in process lists
+### 6. `pythonw.exe` 在进程列表里会显示两个
 
-A `pythonw.exe` script appears as a **parent/child pair with identical command
-lines**. Two rows is normal. Count only processes whose parent is *not* in the
-set:
+用 `pythonw.exe` 跑的脚本，会出现**命令行完全相同的父子两个进程**。两行是正常的。只统计父进程不在集合内的：
 
 ```powershell
 $all = @(Get-CimInstance Win32_Process | ? { $_.CommandLine -match 'supervisor\.py' })
@@ -265,87 +265,83 @@ $ids = $all.ProcessId
 @($all | ? { $ids -notcontains $_.ParentProcessId }).Count   # → 1
 ```
 
-Or just check listener counts on 8000/8010.
+或者干脆看 8000/8010 的 listener 数量。
 
-### 7. Verify an interpreter by importing, not by `os.path.exists`
+### 7. 验证解释器要真的 import，不能只看文件在不在
 
-A path existing says nothing about whether its dependencies are installed:
+路径存在，完全不代表它的依赖装全了：
 
 ```python
 subprocess.run([exe, "-c", "import mcp,uvicorn,starlette"], timeout=25,
                creationflags=CREATE_NO_WINDOW).returncode == 0
 ```
 
-### 8. Cloudflare buffers SSE
+### 8. Cloudflare 会缓冲 SSE
 
-Large streamed responses (screenshots, 200 KB–900 KB) were intermittently
-truncated — HTTP 200, incomplete body. Forcing plain JSON fixed it:
+大响应（截图 200KB～900KB）会**偶发被拦腰截断** —— HTTP 200，但包不完整。强制走普通 JSON 就好了：
 
 ```
 FASTMCP_JSON_RESPONSE=1
 ```
 
-### 9. cloudflared does not strip path prefixes
+### 9. cloudflared 不剥路径前缀
 
-An ingress rule matching `^/desktop` forwards the path **unchanged**. The backend
-must mount itself at `/desktop/mcp`:
+匹配 `^/desktop` 的 ingress 规则，转发时**原样保留路径**。所以后端必须自己挂在 `/desktop/mcp`：
 
 ```
 FASTMCP_STREAMABLE_HTTP_PATH=/desktop/mcp
 ```
 
-Otherwise you get 404s that look like tunnel problems.
+不然你会得到一堆看起来像隧道问题的 404。
 
-### 10. Portable PowerShell is a 3× speedup
+### 10. 便携版 PowerShell 能快 3 倍
 
-`windows-mcp` prefers `pwsh` when present:
+`windows-mcp` 会优先用 `pwsh`：
 
 ```python
 shell = shell or ("pwsh" if shutil.which("pwsh") else "powershell")
 ```
 
-Windows PowerShell 5.1 cold-start was 5–6 s per call. Dropping a portable `pwsh`
-into the install dir and prepending it to the child `PATH` brought that to 1–2 s.
+Windows PowerShell 5.1 每次冷启动 5~6 秒。把便携版 `pwsh` 丢进安装目录、加到子进程 PATH 前面，降到 1~2 秒。
 
 ---
 
-## Security
+## 安全
 
-This exposes **full Administrator-level control of a PC** to anyone holding a
-token. Be deliberate:
+这套东西等于把**一台电脑的完全管理员控制权**交给持有 token 的人。请务必认真对待：
 
-- `machine.json`, `tunnel.json`, `config.yml`, `cert.pem` are **gitignored** —
-  keep it that way
-- tokens are generated per machine, so a leak is contained to one box
-- to rotate: edit `machine.json`, `launch.cmd restart`, old tokens die instantly
-- consider Cloudflare Access in front of the hostname for a second factor
+- `machine.json` / `tunnel.json` / `config.yml` / `cert.pem` **已在 .gitignore 里** —— 保持这样
+- token 一机一份，所以泄露只影响那一台
+- 轮换方法：改 `machine.json` → `launch.cmd restart`，老 token 立即失效
+- 建议在域名前面套一层 Cloudflare Access 做第二重验证
 
 ---
 
-## Layout
+## 目录结构
 
 ```
 src/
-  supervisor.py       watchdog, identity loading, single-instance lock
-  bridge_server.py    file + shell MCP server (port 8000)
-  launch.cmd          start / stop / status / restart
+  supervisor.py       看门狗、身份加载、单例锁
+  bridge_server.py    文件 + 命令 MCP 服务（8000 端口）
+  launch.cmd          启动 / 停止 / 状态 / 重启
 patches/
-  windows_mcp_powershell_utils.py   drop-in: kills the console flash
+  windows_mcp_powershell_utils.py   直接覆盖：消除控制台闪窗
 setup/
-  install.cmd                 new-machine installer
+  install.cmd                 新机安装器
   config.yml.example
   machine.json.example
 examples/
-  fleet.py            multi-machine client wrapper
+  fleet.py                    多机客户端封装
+  verify_no_console_flash.py  闪窗验证脚本
 docs/
-  TROUBLESHOOTING.md
+  TROUBLESHOOTING.md          排障手册
 ```
 
 ---
 
-## Credits & license
+## 致谢与许可
 
-Desktop automation is [Windows-MCP](https://github.com/CursorTouch/Windows-MCP)
-by CursorTouch (MIT). This repo is the deployment/hardening layer around it.
+桌面自动化能力来自 [Windows-MCP](https://github.com/CursorTouch/Windows-MCP)（CursorTouch，MIT）。
+本仓库是围绕它的部署与加固层。
 
-MIT — see [LICENSE](LICENSE).
+MIT License —— 见 [LICENSE](LICENSE)。
