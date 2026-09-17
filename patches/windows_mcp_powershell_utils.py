@@ -1,3 +1,17 @@
+"""Patched drop-in for windows_mcp/powershell/utils.py.
+
+Derived from windows-mcp 0.8.5 (https://github.com/CursorTouch/Windows-MCP),
+MIT licensed, Copyright (c) the Windows-MCP authors. Modifications by the
+win-mcp-bridge contributors, also MIT.
+
+The change: every subprocess launch here gets CREATE_NO_WINDOW plus a
+STARTUPINFO with SW_HIDE, so driving the desktop over MCP never flashes a
+console window on the user's screen.
+
+Pinned to windows-mcp==0.8.5 -- this file replaces the upstream one wholesale,
+so re-check it against upstream before bumping that version.
+"""
+
 import logging
 import signal
 import subprocess

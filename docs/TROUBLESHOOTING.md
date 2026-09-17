@@ -60,16 +60,32 @@ Verify:
 
 ## Two supervisor processes
 
-Usually **not** a bug — `pythonw.exe` shows a parent/child pair. Count top-level
-processes only:
+Two entries in the process list can mean either of two things, and an earlier
+version of this page wrongly said it was always harmless. Don't count
+processes — **ask who holds the lock on 127.0.0.1:8021**. That is the only
+answer that matters:
 
 ```powershell
-$all = @(Get-CimInstance Win32_Process | ? { $_.CommandLine -match 'supervisor\.py' })
-$ids = $all.ProcessId
-@($all | ? { $ids -notcontains $_.ParentProcessId }).Count    # expect 1
+$owner = (Get-NetTCPConnection -LocalPort 8021 -State Listen -EA SilentlyContinue).OwningProcess
+$all   = @(Get-CimInstance Win32_Process | ? { $_.CommandLine -match 'supervisor\.py' })
+$all | Select ProcessId, ParentProcessId, @{n='holdsLock';e={$_.ProcessId -eq $owner}}
 ```
 
-Genuine duplicates are prevented by the lock on 127.0.0.1:8021.
+* **Exactly one row has `holdsLock = True`** → fine. `pythonw.exe` normally
+  shows a parent/child pair (measured: launching one script really does create
+  two PIDs), and only the child holds the lock.
+* **No row holds the lock** → the stack is not actually up. `launch.cmd stop`
+  then `launch.cmd`.
+* **A second process lingers for more than ~30 s** → it lost the race and is
+  on its way out. Confirm with:
+
+  ```powershell
+  Select-String 'already running' C:\mcp-bridge\logs\supervisor.log | Select -Last 5
+  ```
+
+  Seeing that line is normal (the loser exits by design); seeing it *repeatedly*
+  with a fresh timestamp each logon means something is starting the task twice
+  — check for a duplicate `MCP-Stack` entry in Task Scheduler.
 
 ## "TUNNEL BLOCKED" in supervisor.log
 

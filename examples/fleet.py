@@ -17,11 +17,12 @@ Usage:
         await s.call_tool(...)
 
     await fleet_status()                          # liveness of every machine
-    await run_on("pc1", "ps", "hostname")         # run on one
-    await run_on_all("ps", "hostname")            # run on all
+    await run_on("pc1", "hostname")               # run on one
+    await run_on_all("hostname")                  # run on all
 """
 
 import asyncio
+import base64
 import json
 import os
 import re
@@ -136,24 +137,47 @@ async def fleet_status():
     return dict(zip((m.id for m in ms), results))
 
 
-async def run_on(machine_id, language, code, timeout=120):
+def _as_powershell(code, language="ps"):
+    """Wrap a snippet so stock windows-mcp's PowerShell tool can run it.
+
+    windows-mcp 0.8.5 ships ONE shell tool, named "PowerShell", and it takes
+    {"command": str, "timeout": int}. There is no "RunScript" tool -- earlier
+    revisions of this file called one, which only worked against a private
+    fork. cmd/python are emulated by shelling out from PowerShell.
+    """
+    language = (language or "ps").lower()
+    if language in ("ps", "powershell"):
+        return code
+    if language in ("cmd", "bat"):
+        return f"cmd /c {code}"
+    if language in ("py", "python"):
+        b64 = base64.b64encode(code.encode("utf-8")).decode("ascii")
+        # Round-trip through base64 so quotes/newlines survive the hop.
+        return ("python -c \"import base64,sys;"
+                f"exec(base64.b64decode('{b64}').decode('utf-8'))\"")
+    raise ValueError(f"unknown language: {language!r} (use ps / cmd / python)")
+
+
+async def run_on(machine_id, code, language="ps", timeout=120):
     """Run a snippet on one machine. language: ps / python / cmd"""
     m = pc(machine_id)
     async with m.session("B") as s:
-        r = await s.call_tool("RunScript",
-                              {"code": code, "language": language, "timeout": timeout})
+        r = await s.call_tool("PowerShell",
+                              {"command": _as_powershell(code, language),
+                               "timeout": timeout})
         return clean(render(r))
 
 
-async def run_on_all(language, code, timeout=120):
+async def run_on_all(code, language="ps", timeout=120):
     """Run the same snippet on every enabled machine. Returns {id: output}."""
     ms = all_machines()
 
     async def one(m):
         try:
             async with m.session("B") as s:
-                r = await s.call_tool("RunScript",
-                                      {"code": code, "language": language, "timeout": timeout})
+                r = await s.call_tool("PowerShell",
+                                      {"command": _as_powershell(code, language),
+                                       "timeout": timeout})
                 return clean(render(r))
         except Exception as exc:
             return f"[ERROR] {type(exc).__name__}"
@@ -169,9 +193,9 @@ if __name__ == "__main__":
         # fleet.py run <machine|all> <ps|python|cmd> <code>
         target, lang, code = sys.argv[2], sys.argv[3], " ".join(sys.argv[4:])
         if target == "all":
-            for k, v in asyncio.run(run_on_all(lang, code)).items():
+            for k, v in asyncio.run(run_on_all(code, lang)).items():
                 print(f"--- {k} ---\n{v}")
         else:
-            print(asyncio.run(run_on(target, lang, code)))
+            print(asyncio.run(run_on(target, code, lang)))
     else:
         asyncio.run(fleet_status())

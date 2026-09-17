@@ -35,7 +35,7 @@ run commands, read and write files — and **nothing flashes on your screen.**
 
 | | |
 |---|---|
-| **~24 desktop tools** | screenshot, click, type, UIA tree, PowerShell, registry, whole-disk access |
+| **~20 desktop tools** | screenshot, click, type, UIA tree, PowerShell, registry, whole-disk access |
 | **7 file/shell tools** | read/write files, run commands |
 | **Zero visible windows** | no tray icon, no console, no flash — see [the flash fix](#1-the-console-flash) |
 | **Self-healing** | a supervisor restarts any dead component within 15s |
@@ -83,7 +83,7 @@ run commands, read and write files — and **nothing flashes on your screen.**
 ## Quick start
 
 ```cmd
-git clone https://github.com/<you>/win-mcp-bridge
+git clone https://github.com/qwasx/win-mcp-bridge
 cd win-mcp-bridge\setup
 :: right-click install.cmd -> Run as administrator
 install.cmd --id pc1
@@ -91,6 +91,10 @@ install.cmd --id pc1
 
 Admin rights are needed for exactly one thing: registering the logon task.
 Skip it and start manually with `launch.cmd` instead.
+
+Note: the task runs as the **logged-in user**. Earlier versions passed
+`/rl highest`, which left the whole stack running elevated at all times; that
+has been removed. Elevate individual commands instead when you need to.
 
 The installer will:
 
@@ -331,11 +335,28 @@ into the install dir and prepending it to the child `PATH` brought that to 1–2
 This exposes **full Administrator-level control of a PC** to anyone holding a
 token. Be deliberate:
 
-- `machine.json`, `tunnel.json`, `config.yml`, `cert.pem` are **gitignored** —
-  keep it that way
+- `machine.json`, `tunnel.json`, `config.yml`, `cert.pem`, `.bridge_token` are
+  **gitignored** — keep it that way
 - tokens are generated per machine, so a leak is contained to one box
 - to rotate: edit `machine.json`, `launch.cmd restart`, old tokens die instantly
 - consider Cloudflare Access in front of the hostname for a second factor
+
+**Being straight about the `run_command` denylist:**
+
+It catches typos. It is **not** a security boundary. A regex denylist cannot
+beat `shell=True` — `-enc <base64>`, `sh^utdown`, `cd ..` then operate, or just
+calling the same API a different way all walk right through it. **Assume
+token == full control of the machine.** For real containment use
+`BRIDGE_READONLY=1` and put Cloudflare Access in front; don't lean on the
+denylist.
+
+Auth (tightened in v1.1):
+- only `/` and `/health` are public; everything else requires the Bearer token
+  (deny by default)
+- comparison uses `hmac.compare_digest` (constant time)
+- **`?token=` query-string auth was removed** — query strings end up in
+  uvicorn's access log and in Cloudflare's logs
+- the startup banner prints a fingerprint (`abcd...wxyz`), never the full token
 
 ---
 

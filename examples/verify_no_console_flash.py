@@ -52,19 +52,22 @@ async def main(host, token):
                 await s.initialize()
 
                 watch = asyncio.create_task(
-                    s.call_tool("RunScript",
-                                {"language": "ps", "code": WATCHER, "timeout": 120})
+                    s.call_tool("PowerShell",
+                                {"command": WATCHER, "timeout": 120})
                 )
                 await asyncio.sleep(1)
 
                 noise = []
                 for _ in range(4):
+                    # Stock windows-mcp 0.8.5 exposes exactly one shell tool,
+                    # "PowerShell" (command/timeout). cmd + python are driven
+                    # through it so this works on an unmodified install.
                     noise.append(s.call_tool(
-                        "RunScript", {"language": "ps", "code": "Get-Date", "timeout": 60}))
+                        "PowerShell", {"command": "Get-Date", "timeout": 60}))
                     noise.append(s.call_tool(
-                        "RunScript", {"language": "cmd", "code": "echo hi", "timeout": 60}))
+                        "PowerShell", {"command": "cmd /c echo hi", "timeout": 60}))
                     noise.append(s.call_tool(
-                        "RunScript", {"language": "python", "code": "print(1)", "timeout": 60}))
+                        "PowerShell", {"command": "python -c \"print(1)\"", "timeout": 60}))
                 await asyncio.gather(*noise, return_exceptions=True)
 
                 res = await watch

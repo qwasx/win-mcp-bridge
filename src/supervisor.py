@@ -98,7 +98,11 @@ def _find_python():
     return _pyw_of(sys.executable) or sys.executable, "fallback"
 
 
-PYTHON, _PY_HOW = _find_python()
+# Deliberately NOT resolved at import time: probing spawns several Python
+# processes (seconds each). A losing second instance must exit fast, so this is
+# resolved in main() *after* the singleton lock is held. See _init_runtime().
+PYTHON = None
+_PY_HOW = "unresolved"
 BRIDGE_PY = os.path.join(BASE, "bridge_server.py")
 BRIDGE_LOG = os.path.join(BASE, "bridge.log")
 BRIDGE_PORT = 8000
@@ -130,11 +134,17 @@ def load_identity():
     Tokens are generated on first run."""
     data = dict(_DEFAULT_ID)
     if os.path.exists(MACHINE_FILE):
+        # utf-8-sig: PowerShell 5.1's `Set-Content -Encoding utf8` writes a BOM,
+        # which plain utf-8 json.load rejects.
         try:
-            with open(MACHINE_FILE, "r", encoding="utf-8") as f:
+            with open(MACHINE_FILE, "r", encoding="utf-8-sig") as f:
                 data.update(json.load(f) or {})
         except Exception as exc:
-            log(f"machine.json unreadable ({exc!r}), regenerating")
+            # Do NOT silently regenerate: that would mint new tokens and drop the
+            # hostname, breaking every client. Fail loudly instead.
+            log(f"FATAL: machine.json exists but is unreadable ({exc!r}).")
+            log("Fix the file or delete it to regenerate. Refusing to start.")
+            raise SystemExit(2)
     changed = False
     cn = os.environ.get("COMPUTERNAME", "") or socket.gethostname()
     if not data.get("machine_id"):
@@ -160,9 +170,11 @@ def load_identity():
     return data
 
 
-IDENTITY = load_identity()
-MACHINE_ID = IDENTITY["machine_id"]
-BRIDGE_TOKEN = IDENTITY["bridge_token"]
+# Same reasoning as PYTHON above: load_identity() can WRITE machine.json on
+# first run, so two racing instances could fight over it. Resolved under the lock.
+IDENTITY = {}
+MACHINE_ID = ""
+BRIDGE_TOKEN = ""
 
 # ---- Process 2: Windows-MCP, the desktop automation backend ----
 #  https://github.com/CursorTouch/Windows-MCP  (MIT, pip package: windows-mcp)
@@ -170,7 +182,7 @@ DESKTOP_EXE = os.path.join(BASE, "venv-desktop", "Scripts", "windows-mcp.exe")
 _DESK_PYW = os.path.join(BASE, "venv-desktop", "Scripts", "pythonw.exe")
 DESKTOP_LOG = os.path.join(BASE, "desktop.log")
 DESKTOP_PORT = 8010
-DESKTOP_TOKEN = IDENTITY["desktop_token"]
+DESKTOP_TOKEN = ""
 # Mount the MCP endpoint at /desktop/mcp. cloudflared does NOT strip path
 # prefixes, so the backend must mount itself there for the public URL to match.
 DESKTOP_MCP_PATH = "/desktop/mcp"
@@ -181,19 +193,17 @@ CONFIG = os.path.join(BASE, "config.yml")
 TUNNEL_LOG = os.path.join(BASE, "tunnel.log")
 
 CHECK_INTERVAL = 15
+STARTUP_GRACE = 60        # don't port-check a component for the first 60s
+STABLE_AFTER = 120        # running this long clears the backoff counter
+BACKOFF_BASE = 5
+BACKOFF_MAX = 300
+MAX_LOG_BYTES = 10 * 1024 * 1024
 
 ENV = dict(os.environ)
-ENV["BRIDGE_TOKEN"] = BRIDGE_TOKEN
 ENV["BRIDGE_ROOT"] = BRIDGE_ROOT
 ENV["PYTHONIOENCODING"] = "utf-8"
 ENV["PYTHONUTF8"] = "1"
 ENV["ANONYMIZED_TELEMETRY"] = "false"   # disable windows-mcp PostHog telemetry
-ENV["FASTMCP_STREAMABLE_HTTP_PATH"] = DESKTOP_MCP_PATH
-
-# Force plain application/json instead of text/event-stream.
-# Cloudflare buffers SSE; large responses (screenshots, 200KB-900KB) were
-# intermittently truncated (HTTP 200, incomplete body).
-ENV["FASTMCP_JSON_RESPONSE"] = "1"
 
 # Put a portable PowerShell 7 on the child PATH.
 # windows-mcp does:
@@ -213,6 +223,30 @@ ENV["WINDOWS_MCP_PROFILE_SNAPSHOT"] = "1"
 # Constants are defined above because _usable() needs them.
 
 
+def health_ok(url: str, timeout: int = 5) -> bool:
+    """A real request, not just a TCP connect."""
+    try:
+        import urllib.request
+        with urllib.request.urlopen(url, timeout=timeout) as r:
+            return 200 <= r.status < 400
+    except Exception:
+        return False
+
+
+def rotate_logs():
+    """Logs are append-only forever; a long-lived box accumulates hundreds of MB."""
+    for name in ("supervisor.log", "bridge.log", "desktop.log", "tunnel.log"):
+        p = os.path.join(BASE, name)
+        try:
+            if os.path.exists(p) and os.path.getsize(p) > MAX_LOG_BYTES:
+                old = p + ".1"
+                if os.path.exists(old):
+                    os.remove(old)
+                os.replace(p, old)
+        except OSError:
+            pass
+
+
 def port_open(port: int, host: str = "127.0.0.1") -> bool:
     s = socket.socket()
     s.settimeout(2)
@@ -222,19 +256,32 @@ def port_open(port: int, host: str = "127.0.0.1") -> bool:
         s.close()
 
 
-def spawn(cmd, logfile, tag):
+def spawn(cmd, logfile, tag, extra_env=None, prev=None):
+    # Close the previous run's log handle, otherwise a component that crash-loops
+    # every 15s leaks thousands of file handles a day.
+    if prev is not None:
+        try:
+            if prev.stdout:
+                prev.stdout.close()
+        except Exception:
+            pass
     lf = open(logfile, "a", encoding="utf-8", errors="replace")
+    env = ENV if not extra_env else {**ENV, **extra_env}
     proc = subprocess.Popen(
-        cmd, cwd=BASE, env=ENV, stdin=subprocess.DEVNULL,
+        cmd, cwd=BASE, env=env, stdin=subprocess.DEVNULL,
         stdout=lf, stderr=subprocess.STDOUT,
         creationflags=CREATE_NO_WINDOW | NEW_GROUP, close_fds=True,
     )
+    proc.stdout = lf          # keep a reference so the next spawn can close it
     log(f"{tag} started pid={proc.pid}")
     return proc
 
 
-def start_bridge():
-    return spawn([PYTHON, BRIDGE_PY], BRIDGE_LOG, "bridge")
+def start_bridge(prev=None):
+    return spawn([PYTHON, BRIDGE_PY], BRIDGE_LOG, "bridge", prev=prev)
+
+
+_DESKTOP_HEAD = None
 
 
 def _desktop_head():
@@ -244,6 +291,9 @@ def _desktop_head():
          interpreter, because the Python EMBEDDABLE BUILD HAS NO venv MODULE
          ("No module named venv"), so the installer cannot create one.
     pythonw.exe is preferred: GUI subsystem, no console window."""
+    global _DESKTOP_HEAD
+    if _DESKTOP_HEAD is not None:
+        return _DESKTOP_HEAD
     cands = []
     for d in (os.path.join(BASE, "venv-desktop", "Scripts"),
               os.path.join(BASE, "python", "Scripts"),
@@ -257,34 +307,44 @@ def _desktop_head():
         if not exe or not os.path.exists(exe):
             continue
         if not as_module:
-            return [exe]
+            _DESKTOP_HEAD = [exe]
+            return _DESKTOP_HEAD
         try:
             r = subprocess.run([exe, "-c", "import windows_mcp"],
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                stdin=subprocess.DEVNULL, timeout=25,
                                creationflags=CREATE_NO_WINDOW)
             if r.returncode == 0:
-                return [exe, "-m", "windows_mcp"]
+                _DESKTOP_HEAD = [exe, "-m", "windows_mcp"]
+                return _DESKTOP_HEAD
         except Exception:
             continue
     log("WARNING: no interpreter with windows_mcp found; falling back")
-    return [DESKTOP_EXE]
+    _DESKTOP_HEAD = [DESKTOP_EXE]
+    return _DESKTOP_HEAD
 
 
-def start_desktop():
+def start_desktop(prev=None):
     head = _desktop_head()
     return spawn(
         head + ["serve",
          "--transport", "streamable-http",
          "--host", "127.0.0.1",
          "--port", str(DESKTOP_PORT),
-         "--auth-key", DESKTOP_TOKEN,
          # Bound to 127.0.0.1 (only the tunnel reaches it); this flag only skips the
          # Host check, otherwise TrustedHostMiddleware returns 421 for the public Host.
          "--allow-insecure-remote",
          # Stateless: clients survive a backend restart without re-handshaking.
          "--stateless-http"],
-        DESKTOP_LOG, "desktop",
+        DESKTOP_LOG, "desktop", prev=prev,
+        # Token via env, not argv: any process on the box can read another's
+        # command line (launch.cmd itself does exactly that).
+        # FASTMCP_* is scoped here too, so it can never leak into the bridge.
+        extra_env={
+            "WINDOWS_MCP_AUTH_KEY": DESKTOP_TOKEN,
+            "FASTMCP_STREAMABLE_HTTP_PATH": DESKTOP_MCP_PATH,
+            "FASTMCP_JSON_RESPONSE": "1",
+        },
     )
 
 
@@ -332,11 +392,18 @@ def tunnel_allowed():
     return False
 
 
-def start_tunnel():
+def start_tunnel(prev=None):
     if not tunnel_allowed():
         return None
     ensure_config()
-    return spawn([CLOUDFLARED, "tunnel", "--config", CONFIG, "run"], TUNNEL_LOG, "tunnel")
+    # The tunnel is optional: a missing cloudflared.exe must not take down the
+    # supervisor and orphan the two local servers.
+    try:
+        return spawn([CLOUDFLARED, "tunnel", "--config", CONFIG, "run"],
+                     TUNNEL_LOG, "tunnel", prev=prev)
+    except OSError as exc:
+        log(f"tunnel could not start ({exc!r}); local ports still served")
+        return None
 
 
 
@@ -361,56 +428,110 @@ def acquire_singleton() -> bool:
     return True
 
 
+def _init_runtime():
+    """Resolve everything expensive/stateful. Called only after the lock is held."""
+    global PYTHON, _PY_HOW, IDENTITY, MACHINE_ID, BRIDGE_TOKEN, DESKTOP_TOKEN
+    IDENTITY = load_identity()
+    MACHINE_ID = IDENTITY["machine_id"]
+    BRIDGE_TOKEN = IDENTITY["bridge_token"]
+    DESKTOP_TOKEN = IDENTITY["desktop_token"]
+    PYTHON, _PY_HOW = _find_python()
+
+    ENV["BRIDGE_TOKEN"] = BRIDGE_TOKEN
+
+    # Tell bridge_server which public Host to accept. Without this the
+    # DNS-rebinding guard rejects tunnelled requests with 421, because its
+    # built-in default is only a placeholder. The guard stays ON; we merely
+    # whitelist the hostname we own.
+    pub = (IDENTITY.get("hostname") or "").strip()
+    if pub:
+        ENV["BRIDGE_ALLOWED_HOSTS"] = ",".join([
+            pub, f"{pub}:*", "127.0.0.1", "127.0.0.1:*", "localhost", "localhost:*"])
+        ENV["BRIDGE_ALLOWED_ORIGINS"] = ",".join([
+            f"https://{pub}", "http://127.0.0.1:*", "http://localhost:*"])
+    else:
+        log("WARNING: machine.json has no hostname; /mcp will 421 through the "
+            "tunnel. Set it and restart.")
+
+
 def main() -> int:
+    # Take the lock FIRST. Interpreter probing and identity loading are slow and
+    # can write machine.json, so a losing instance must bail out before either.
     if not acquire_singleton():
         log("another supervisor is already running, exiting")
         return 0
+    rotate_logs()
+    _init_runtime()
     log("supervisor boot")
     log(f"machine={MACHINE_ID} label={IDENTITY.get('label')} "
         f"host={IDENTITY.get('hostname') or '(unset)'}")
     log(f"python={PYTHON} ({_PY_HOW})")
     log("desktop=" + " ".join(_desktop_head()))
-    bridge = start_bridge()
-    time.sleep(10)
-    desktop = start_desktop()
-    time.sleep(14)
-    tunnel = start_tunnel()
+
+    comp = {
+        "bridge":  {"proc": None, "start": start_bridge,  "port": BRIDGE_PORT,
+                    "health": f"http://127.0.0.1:{BRIDGE_PORT}/health"},
+        "desktop": {"proc": None, "start": start_desktop, "port": DESKTOP_PORT,
+                    "health": None},
+        "tunnel":  {"proc": None, "start": start_tunnel,  "port": None,
+                    "health": None},
+    }
+    for c in comp.values():
+        c.update(fails=0, next_try=0.0, started_at=0.0)
+
+    def boot(name, wait):
+        c = comp[name]
+        c["proc"] = c["start"](prev=c["proc"])
+        c["started_at"] = time.monotonic()
+        time.sleep(wait)
+
+    boot("bridge", 10)
+    boot("desktop", 14)
+    boot("tunnel", 0)
 
     while True:
         time.sleep(CHECK_INTERVAL)
-        try:
-            if bridge.poll() is not None:
-                log(f"bridge exited code={bridge.returncode}, restarting")
-                bridge = start_bridge()
-                time.sleep(10)
-            elif not port_open(BRIDGE_PORT):
-                log(f"port {BRIDGE_PORT} not listening, restarting bridge")
-                try:
-                    bridge.kill()
-                except OSError:
-                    pass
-                bridge = start_bridge()
-                time.sleep(10)
+        now = time.monotonic()
+        for name, c in comp.items():
+            try:
+                proc, dead, why = c["proc"], False, ""
+                if proc is None:
+                    dead, why = True, "not running"
+                elif proc.poll() is not None:
+                    dead, why = True, f"exited code={proc.returncode}"
+                elif c["port"] is not None and now - c["started_at"] > STARTUP_GRACE:
+                    # Grace period first: a cold import of mcp/uvicorn can take
+                    # well over 10s on a slow disk, and killing it mid-start
+                    # produces an endless kill/restart loop.
+                    if not port_open(c["port"]):
+                        dead, why = True, f"port {c['port']} not listening"
+                    elif c["health"] and not health_ok(c["health"]):
+                        # TCP accept alone proves nothing: a wedged event loop
+                        # still has the kernel completing handshakes.
+                        dead, why = True, "health check failed"
 
-            if desktop.poll() is not None:
-                log(f"desktop exited code={desktop.returncode}, restarting")
-                desktop = start_desktop()
-                time.sleep(10)
-            elif not port_open(DESKTOP_PORT):
-                log(f"port {DESKTOP_PORT} not listening, restarting desktop")
-                try:
-                    desktop.kill()
-                except OSError:
-                    pass
-                desktop = start_desktop()
-                time.sleep(10)
+                if not dead:
+                    if c["fails"] and now - c["started_at"] > STABLE_AFTER:
+                        c["fails"] = 0      # survived long enough; reset backoff
+                    continue
 
-            if tunnel is not None and tunnel.poll() is not None:
-                log(f"tunnel exited code={tunnel.returncode}, restarting")
-                tunnel = start_tunnel()
-                time.sleep(5)
-        except Exception as exc:  # the watchdog must never die
-            log(f"watchdog error: {exc!r}")
+                if now < c["next_try"]:
+                    continue
+
+                c["fails"] += 1
+                delay = min(BACKOFF_BASE * (2 ** (c["fails"] - 1)), BACKOFF_MAX)
+                c["next_try"] = now + delay
+                log(f"{name} {why}, restarting (attempt {c['fails']}, "
+                    f"next retry in >={delay}s if it fails again)")
+                if proc is not None and proc.poll() is None:
+                    try:
+                        proc.kill()
+                    except OSError:
+                        pass
+                c["proc"] = c["start"](prev=c["proc"])
+                c["started_at"] = time.monotonic()
+            except Exception as exc:      # the watchdog must never die
+                log(f"watchdog error on {name}: {exc!r}")
 
 
 if __name__ == "__main__":

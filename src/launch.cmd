@@ -50,7 +50,10 @@ echo [OK] started: %PYW%
 exit /b 0
 
 :stop
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'supervisor\.py|bridge_server\.py|windows_mcp|cloudflared' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
+rem Only kill processes whose command line points INSIDE %BASE%. The old
+rem pattern matched bare 'windows_mcp|cloudflared' anywhere, so it happily
+rem killed an unrelated cloudflared or a dev's own checkout.
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$b=[regex]::Escape('%BASE%'); Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -and $_.CommandLine -match $b -and $_.CommandLine -match 'supervisor\.py|bridge_server\.py|windows_mcp|cloudflared' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
 echo [OK] stopped
 exit /b 0
 
@@ -62,7 +65,7 @@ exit /b 0
 
 :count
 set "SUPN=0"
-for /f "delims=" %%N in ('powershell -NoProfile -ExecutionPolicy Bypass -Command "@(Get-CimInstance Win32_Process ^| Where-Object { $_.CommandLine -match 'supervisor\.py' }).Count" 2^>nul') do set "SUPN=%%N"
+for /f "delims=" %%N in ('powershell -NoProfile -ExecutionPolicy Bypass -Command "$b=[regex]::Escape('%BASE%'); @(Get-CimInstance Win32_Process ^| Where-Object { $_.CommandLine -and $_.CommandLine -match $b -and $_.CommandLine -match 'supervisor\.py' }).Count" 2^>nul') do set "SUPN=%%N"
 exit /b 0
 
 :status

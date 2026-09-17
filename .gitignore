@@ -16,3 +16,6 @@ venv-desktop/
 offline/
 *.bak
 *.bak-*
+
+# token cached by bridge_server.py on first run
+.bridge_token

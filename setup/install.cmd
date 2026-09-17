@@ -2,29 +2,44 @@
 setlocal enabledelayedexpansion
 rem =====================================================================
 rem  install.cmd  --  MCP Bridge installer for a NEW Windows PC
-rem  ASCII ONLY. Run from the MCP-Bridge-Setup folder.
+rem  ASCII ONLY. Run it straight from a clone of the repo:
+rem      git clone https://github.com/qwasx/win-mcp-bridge
+rem      cd win-mcp-bridge\setup
+rem      install.cmd --id pc2 --sub pc2
 rem
 rem  What it does:
-rem    1. unpack a private Python (no system install, no registry, no admin)
-rem    2. install windows-mcp into that Python (offline if wheels exist)
-rem    3. re-apply the wmc-patch (console-flash fix etc.)
-rem    4. create THIS PC's OWN Cloudflare tunnel + hostname   <-- key step
-rem    5. write machine.json (identity, unique per PC)
-rem    6. register the MCP-Stack scheduled task and start it
-rem    7. print the machines.json entry to paste into your fleet list
+rem    1. copy src/ + patches/ out of the repo into C:\mcp-bridge
+rem    2. unpack a private Python (no system install, no registry, no admin)
+rem    3. install windows-mcp (pinned) into that Python
+rem    4. apply the console-flash patch -- HARD FAILS if it does not stick
+rem    5. create THIS PC's OWN Cloudflare tunnel + hostname   <-- key step
+rem    6. write machine.json (UTF-8 *without BOM*) + register startup task
+rem    7. start and print the machines.json entry for your fleet list
 rem =====================================================================
 
-set "SRC=%~dp0"
-if "%SRC:~-1%"=="\" set "SRC=%SRC:~0,-1%"
+rem  %~dp0 is <repo>\setup\ , so REPO is its parent.
+set "SETUPDIR=%~dp0"
+if "%SETUPDIR:~-1%"=="\" set "SETUPDIR=%SETUPDIR:~0,-1%"
+for %%I in ("%SETUPDIR%\..") do set "REPO=%%~fI"
 set "DEST=C:\mcp-bridge"
 set "PYDIR=%DEST%\python"
+set "WMC_VERSION=0.8.5"
 
 echo(
 echo ==============================================
 echo   MCP Bridge - new machine setup
+echo   source: %REPO%
 echo   target: %DEST%
 echo ==============================================
 echo(
+
+rem Fail fast if this is not actually a clone of the repo.
+if not exist "%REPO%\src\supervisor.py" (
+  echo    ERROR: %REPO%\src\supervisor.py not found.
+  echo           Run this script from inside a clone of win-mcp-bridge,
+  echo           i.e. ^<repo^>\setup\install.cmd
+  pause & exit /b 1
+)
 
 rem ---------- 0. args ----------
 set "SUBDOMAIN="
@@ -37,14 +52,16 @@ shift
 goto args
 :args_done
 if not defined MID set "MID=%COMPUTERNAME%"
-rem lowercase-ish id for convenience
 if not defined SUBDOMAIN set "SUBDOMAIN=%MID%"
 
-rem ---------- 1. copy payload ----------
-echo [1/7] copying files...
+rem ---------- 1. copy program files ----------
+echo [1/7] copying program files...
 if not exist "%DEST%" mkdir "%DEST%"
-xcopy "%SRC%\payload\*" "%DEST%\" /E /I /Y /Q >nul
-if errorlevel 1 (echo    ERROR: copy failed & pause & exit /b 1)
+copy /y "%REPO%\src\supervisor.py"    "%DEST%\" >nul || (echo    ERROR: copy supervisor.py failed & pause & exit /b 1)
+copy /y "%REPO%\src\bridge_server.py" "%DEST%\" >nul || (echo    ERROR: copy bridge_server.py failed & pause & exit /b 1)
+copy /y "%REPO%\src\launch.cmd"       "%DEST%\" >nul || (echo    ERROR: copy launch.cmd failed & pause & exit /b 1)
+if not exist "%DEST%\patches" mkdir "%DEST%\patches"
+copy /y "%REPO%\patches\*.py" "%DEST%\patches\" >nul || (echo    ERROR: copy patches failed & pause & exit /b 1)
 echo       done.
 
 rem ---------- 2. python ----------
@@ -52,10 +69,10 @@ echo [2/7] setting up private Python...
 if exist "%PYDIR%\python.exe" (
   echo       already present, skipping.
 ) else (
-  if exist "%SRC%\offline\python-embed.zip" (
+  if exist "%SETUPDIR%\offline\python-embed.zip" (
     echo       unpacking bundled python-embed.zip
     powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-      "Expand-Archive -Path '%SRC%\offline\python-embed.zip' -DestinationPath '%PYDIR%' -Force"
+      "Expand-Archive -Path '%SETUPDIR%\offline\python-embed.zip' -DestinationPath '%PYDIR%' -Force"
   ) else (
     echo       downloading Python 3.13 embeddable...
     powershell -NoProfile -ExecutionPolicy Bypass -Command ^
@@ -76,8 +93,8 @@ if exist "%PYDIR%\python.exe" (
     "  Set-Content $_.FullName $c }"
 
   rem bootstrap pip
-  if exist "%SRC%\offline\get-pip.py" (
-    "%PYDIR%\python.exe" "%SRC%\offline\get-pip.py" --no-warn-script-location >nul 2>&1
+  if exist "%SETUPDIR%\offline\get-pip.py" (
+    "%PYDIR%\python.exe" "%SETUPDIR%\offline\get-pip.py" --no-warn-script-location >nul 2>&1
   ) else (
     powershell -NoProfile -ExecutionPolicy Bypass -Command ^
       "Invoke-WebRequest 'https://bootstrap.pypa.io/get-pip.py' -OutFile \"$env:TEMP\get-pip.py\" -UseBasicParsing"
@@ -88,10 +105,10 @@ if exist "%PYDIR%\python.exe" (
 )
 echo       python ok.
 
-rem ---------- 3. bridge deps + venv ----------
+rem ---------- 3. dependencies ----------
 echo [3/7] installing dependencies...
 set "PIPSRC="
-if exist "%SRC%\offline\wheels" set "PIPSRC=--no-index --find-links=\"%SRC%\offline\wheels\""
+if exist "%SETUPDIR%\offline\wheels" set "PIPSRC=--no-index --find-links=\"%SETUPDIR%\offline\wheels\""
 
 "%PYDIR%\python.exe" -m pip install %PIPSRC% --quiet --no-warn-script-location mcp uvicorn starlette
 if errorlevel 1 (echo    ERROR: bridge deps failed & pause & exit /b 1)
@@ -100,24 +117,34 @@ rem NOTE: the embeddable Python has NO venv module ("No module named venv").
 rem Verified on 2026-09-16. So we install windows-mcp straight into it --
 rem this was tested end to end: the server starts and answers MCP on
 rem embeddable Python, with the console-flash patch applied.
-echo       installing windows-mcp...
-"%PYDIR%\python.exe" -m pip install %PIPSRC% --quiet --no-warn-script-location windows-mcp
+rem Pinned: the patch in patches/ is written against this exact version's
+rem powershell/utils.py. Bumping it without re-checking the patch will
+rem silently bring the console flash back.
+echo       installing windows-mcp==%WMC_VERSION%...
+"%PYDIR%\python.exe" -m pip install %PIPSRC% --quiet --no-warn-script-location windows-mcp==%WMC_VERSION%
 if errorlevel 1 (echo    ERROR: windows-mcp install failed & pause & exit /b 1)
 echo       done.
 
-rem ---------- 4. re-apply patches ----------
-echo [4/7] applying wmc-patch (console-flash fix)...
-if exist "%DEST%\wmc-patch\files" (
-  for /f "delims=" %%D in ('"%PYDIR%\python.exe" -c "import windows_mcp,os;print(os.path.dirname(windows_mcp.__file__))"') do set "WMCDIR=%%D"
-  if defined WMCDIR (
-    xcopy "%DEST%\wmc-patch\files\*" "!WMCDIR!\" /E /I /Y /Q >nul
-    "%PYDIR%\python.exe" -c "import windows_mcp,os;p=os.path.join(os.path.dirname(windows_mcp.__file__),'powershell','utils.py');print('       patch verified' if 'CREATE_NO_WINDOW' in open(p,encoding='utf-8').read() else '       WARNING: patch NOT applied')"
-  ) else (
-    echo       WARNING: could not locate windows_mcp package.
-  )
-) else (
-  echo       WARNING: wmc-patch not found, console windows may flash.
+rem ---------- 4. console-flash patch ----------
+rem This used to only print a WARNING when it failed, so installs "succeeded"
+rem with the flash still there. It is now a hard error: the whole point of
+rem this project is that nothing pops up on screen.
+echo [4/7] applying console-flash patch...
+set "WMCDIR="
+for /f "delims=" %%D in ('"%PYDIR%\python.exe" -c "import windows_mcp,os;print(os.path.dirname(windows_mcp.__file__))"') do set "WMCDIR=%%D"
+if not defined WMCDIR (echo    ERROR: could not locate the windows_mcp package & pause & exit /b 1)
+
+copy /y "%DEST%\patches\windows_mcp_powershell_utils.py" "!WMCDIR!\powershell\utils.py" >nul
+if errorlevel 1 (echo    ERROR: could not write the patch & pause & exit /b 1)
+
+rem Re-applying is safe: we overwrite the file wholesale rather than appending.
+"%PYDIR%\python.exe" -c "import windows_mcp,os,sys;p=os.path.join(os.path.dirname(windows_mcp.__file__),'powershell','utils.py');s=open(p,encoding='utf-8').read();sys.exit(0 if 'CREATE_NO_WINDOW' in s else 1)"
+if errorlevel 1 (
+  echo    ERROR: patch did not stick - console windows would flash.
+  echo           Aborting rather than shipping a broken install.
+  pause & exit /b 1
 )
+echo       patch verified.
 
 rem ---------- 5. cloudflare tunnel (unique per PC) ----------
 echo [5/7] creating this PC's own Cloudflare tunnel...
@@ -175,16 +202,30 @@ rem write config.yml
 echo       tunnel ready.
 
 rem ---------- 6. identity + task ----------
+rem machine.json MUST be UTF-8 WITHOUT BOM. Windows PowerShell 5.1's
+rem "-Encoding utf8" writes a BOM, which made json.load() fail on the far
+rem side; supervisor.py then quietly generated a fresh identity and the
+rem hostname was lost. WriteAllText with a no-BOM UTF8Encoding is explicit
+rem and behaves the same on PS 5.1 and PS 7.
 echo [6/7] writing identity and registering startup task...
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$o=[ordered]@{machine_id='%MID%';label='%MID%';hostname='%FQDN%';tunnel_name='%TNAME%';" ^
   "bridge_token=[Convert]::ToBase64String((1..32|%%{Get-Random -Max 256})).TrimEnd('=').Replace('+','-').Replace('/','_');" ^
   "desktop_token=[Convert]::ToBase64String((1..32|%%{Get-Random -Max 256})).TrimEnd('=').Replace('+','-').Replace('/','_');" ^
-  "bound_computer=$env:COMPUTERNAME}; $o|ConvertTo-Json|Set-Content '%DEST%\machine.json' -Encoding utf8"
+  "bound_computer=$env:COMPUTERNAME};" ^
+  "$json=$o|ConvertTo-Json;" ^
+  "[System.IO.File]::WriteAllText('%DEST%\machine.json',$json,(New-Object System.Text.UTF8Encoding($false)))"
 
+rem Verify it round-trips through a strict JSON parser before continuing.
+"%PYDIR%\python.exe" -c "import json;json.load(open(r'%DEST%\machine.json',encoding='utf-8'))"
+if errorlevel 1 (echo    ERROR: machine.json is not valid UTF-8 JSON & pause & exit /b 1)
+
+rem Point the task straight at pythonw.exe. Going through cmd.exe /c meant a
+rem console window flashed at every logon -- the one thing we promise not to do.
 schtasks /query /tn "MCP-Stack" >nul 2>&1
 if not errorlevel 1 schtasks /delete /tn "MCP-Stack" /f >nul 2>&1
-schtasks /create /tn "MCP-Stack" /tr "cmd.exe /c \"%DEST%\launch.cmd\"" /sc onlogon /rl highest /f >nul
+schtasks /create /tn "MCP-Stack" /tr "\"%PYDIR%\pythonw.exe\" \"%DEST%\supervisor.py\"" /sc onlogon /f >nul
+if errorlevel 1 (echo    ERROR: could not register the scheduled task & pause & exit /b 1)
 echo       done.
 
 rem ---------- 7. start + report ----------
@@ -202,7 +243,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "[pscustomobject]@{id=$m.machine_id;label=$m.label;hostname=$m.hostname;" ^
   "bridge_token=$m.bridge_token;desktop_token=$m.desktop_token;enabled=$true}|ConvertTo-Json"
 echo(
-echo   Paste the block above into machines.json -> "machines" array.
+echo   Paste the block above into machines.json -^> "machines" array.
 echo(
 pause
 exit /b 0

@@ -33,7 +33,7 @@
 
 | | |
 |---|---|
-| 🖥️ **24 个桌面工具** | 截图、点击、键盘、UI 树、PowerShell、注册表、全盘读写 |
+| 🖥️ **约 20 个桌面工具** | 截图、点击、键盘、UI 树、PowerShell、注册表、全盘读写 |
 | 📁 **7 个文件工具** | 读写文件、执行命令 |
 | 🔇 **零窗口** | 没有托盘图标、没有控制台、**操控时不闪黑窗**（[怎么做到的](#1-控制台闪窗)） |
 | ♻️ **自愈** | 任何组件挂掉，15 秒内自动拉起 |
@@ -81,7 +81,7 @@ windows-mcp   bridge_server.py
 ## 快速开始
 
 ```cmd
-git clone https://github.com/<你>/win-mcp-bridge
+git clone https://github.com/qwasx/win-mcp-bridge
 cd win-mcp-bridge\setup
 :: 右键 install.cmd → 以管理员身份运行
 install.cmd --id pc1
@@ -89,6 +89,9 @@ install.cmd --id pc1
 
 > **管理员权限只在一个地方需要**：注册开机自启任务。
 > 不想给也行，装完手动双击 `launch.cmd` 启动即可。
+>
+> 注意：任务本身以**当前登录用户**的权限运行（早期版本用了 `/rl highest`，
+> 会让整个栈常驻管理员权限，已去掉）。需要提权的操作请在会话里单独提权。
 
 安装器会自动完成：
 
@@ -310,10 +313,24 @@ Windows PowerShell 5.1 每次冷启动 5~6 秒。把便携版 `pwsh` 丢进安�
 
 这套东西等于把**一台电脑的完全管理员控制权**交给持有 token 的人。请务必认真对待：
 
-- `machine.json` / `tunnel.json` / `config.yml` / `cert.pem` **已在 .gitignore 里** —— 保持这样
+- `machine.json` / `tunnel.json` / `config.yml` / `cert.pem` / `.bridge_token` **已在 .gitignore 里** —— 保持这样
 - token 一机一份，所以泄露只影响那一台
 - 轮换方法：改 `machine.json` → `launch.cmd restart`，老 token 立即失效
 - 建议在域名前面套一层 Cloudflare Access 做第二重验证
+
+**关于 `run_command` 的命令黑名单，把话说清楚：**
+
+它只防手滑，**不是安全边界**。正则黑名单挡不住 `shell=True`：
+`-enc <base64>`、`sh^utdown`、`cd ..` 之后再操作、换个写法调同一个 API……
+都能绕过。**请直接按「拿到 token = 拿到整台机器」来评估风险。**
+真要限制能力，用 `BRIDGE_READONLY=1`，外面再套 Cloudflare Access，
+而不是指望黑名单。
+
+鉴权方面（v1.1 收紧）：
+- 只有 `/` 和 `/health` 是公开的，其余全部需要 Bearer token（默认拒绝）
+- token 比较走 `hmac.compare_digest`（常量时间）
+- **已移除 `?token=` 查询串鉴权** —— 它会被 uvicorn 访问日志和 Cloudflare 日志记下来
+- 启动横幅只打 token 指纹（`abcd...wxyz`），不再打印完整值
 
 ---
 
