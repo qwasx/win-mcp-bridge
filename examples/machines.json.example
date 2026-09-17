@@ -1,0 +1,21 @@
+{
+  "_comment": "Client-side machine list. Copy to machines.json and fill in. NEVER commit the real file.",
+  "machines": [
+    {
+      "id": "pc1",
+      "label": "Home PC",
+      "hostname": "pc1.example.com",
+      "bridge_token": "<bridge_token from that PC's machine.json>",
+      "desktop_token": "<desktop_token from that PC's machine.json>",
+      "enabled": true
+    },
+    {
+      "id": "office",
+      "label": "Office PC",
+      "hostname": "office.example.com",
+      "bridge_token": "<...>",
+      "desktop_token": "<...>",
+      "enabled": true
+    }
+  ]
+}

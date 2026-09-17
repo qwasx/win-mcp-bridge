@@ -1,0 +1,16 @@
+# Cloudflare Tunnel config — copy to config.yml and fill in your own values.
+# Get <TUNNEL_ID> from:  cloudflared tunnel create mcp-<yourpc>
+tunnel: <TUNNEL_ID>
+credentials-file: C:\mcp-bridge\tunnel.json
+
+ingress:
+  # Desktop channel (windows-mcp, ~24 tools).
+  # NOTE: cloudflared does NOT strip the path prefix, so the backend must
+  # itself be mounted at /desktop/mcp (see FASTMCP_STREAMABLE_HTTP_PATH).
+  - hostname: <YOUR-HOST>
+    path: ^/desktop
+    service: http://127.0.0.1:8010
+  # File + shell channel
+  - hostname: <YOUR-HOST>
+    service: http://127.0.0.1:8000
+  - service: http_status:404

@@ -1,0 +1,10 @@
+{
+  "_comment": "Per-machine identity. NEVER commit the real file — it is in .gitignore.",
+  "machine_id": "pc1",
+  "label": "Home PC",
+  "hostname": "pc1.example.com",
+  "tunnel_name": "mcp-pc1",
+  "bridge_token": "<generated on first run>",
+  "desktop_token": "<generated on first run>",
+  "bound_computer": "<COMPUTERNAME>"
+}

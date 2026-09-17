@@ -1,0 +1,18 @@
+# ---- SECRETS: never commit ----
+machine.json
+tunnel.json
+config.yml
+*.pem
+cert.pem
+machines.json
+
+# ---- logs / runtime ----
+*.log
+bridge-workspace/
+__pycache__/
+*.pyc
+python/
+venv-desktop/
+offline/
+*.bak
+*.bak-*
