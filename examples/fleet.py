@@ -153,8 +153,19 @@ def _as_powershell(code, language="ps"):
     if language in ("py", "python"):
         b64 = base64.b64encode(code.encode("utf-8")).decode("ascii")
         # Round-trip through base64 so quotes/newlines survive the hop.
-        return ("python -c \"import base64,sys;"
-                f"exec(base64.b64decode('{b64}').decode('utf-8'))\"")
+        # "python" is often NOT on PATH (the bridge ships a private embeddable
+        # interpreter), so resolve one first instead of assuming the bare name.
+        inner = (f"import base64;exec(base64.b64decode('{b64}').decode('utf-8'))")
+        return (
+            "$py = @("
+            "  'C:\\mcp-bridge\\python\\python.exe',"
+            "  'C:\\mcp-bridge\\venv-desktop\\Scripts\\python.exe'"
+            ") | Where-Object { Test-Path $_ } | Select-Object -First 1; "
+            "if (-not $py) { $py = (Get-Command python.exe, python3.exe "
+            "-ErrorAction SilentlyContinue | Select-Object -First 1).Source }; "
+            "if (-not $py) { 'error: no python interpreter found on this machine' } "
+            f"else {{ & $py -c \"{inner}\" 2>&1 | Out-String }}"
+        )
     raise ValueError(f"unknown language: {language!r} (use ps / cmd / python)")
 
 
