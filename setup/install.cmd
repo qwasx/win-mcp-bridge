@@ -21,7 +21,12 @@ rem  %~dp0 is <repo>\setup\ , so REPO is its parent.
 set "SETUPDIR=%~dp0"
 if "%SETUPDIR:~-1%"=="\" set "SETUPDIR=%SETUPDIR:~0,-1%"
 for %%I in ("%SETUPDIR%\..") do set "REPO=%%~fI"
-set "DEST=C:\mcp-bridge"
+rem DEST and TASKNAME can be overridden from the environment. That is what
+rem makes a dry run possible: you can install into a scratch folder with a
+rem different task name without touching a live deployment.
+rem   set "DEST=C:\mcp-test" & set "TASKNAME=MCP-Test" & install.cmd --id test
+if not defined DEST set "DEST=C:\mcp-bridge"
+if not defined TASKNAME set "TASKNAME=MCP-Stack"
 set "PYDIR=%DEST%\python"
 set "WMC_VERSION=0.8.5"
 
@@ -30,8 +35,21 @@ echo ==============================================
 echo   MCP Bridge - new machine setup
 echo   source: %REPO%
 echo   target: %DEST%
+echo   task  : %TASKNAME%
 echo ==============================================
 echo(
+
+rem Refuse to silently clobber an existing install: that would delete a
+rem running scheduled task and overwrite a working machine.json.
+if exist "%DEST%\supervisor.py" (
+  echo   WARNING: %DEST% already contains an installation.
+  echo   Continuing will overwrite program files and re-register the
+  echo   "%TASKNAME%" scheduled task. machine.json WILL be regenerated,
+  echo   which means new tokens and a new tunnel.
+  echo(
+  set /p "GO=  Type YES to continue: "
+  if /i not "!GO!"=="YES" (echo   aborted. & exit /b 1)
+)
 
 rem Fail fast if this is not actually a clone of the repo.
 if not exist "%REPO%\src\supervisor.py" (
@@ -130,11 +148,25 @@ rem This used to only print a WARNING when it failed, so installs "succeeded"
 rem with the flash still there. It is now a hard error: the whole point of
 rem this project is that nothing pops up on screen.
 echo [4/7] applying console-flash patch...
+rem Resolve the package directory. Do NOT inline this in a for /f: cmd mangles
+rem the nested quotes around python.exe plus the -c string and the command
+rem never runs, which aborted the install with a misleading "could not locate"
+rem error. Write it to a temp file and read that back instead.
 set "WMCDIR="
-for /f "delims=" %%D in ('"%PYDIR%\python.exe" -c "import windows_mcp,os;print(os.path.dirname(windows_mcp.__file__))"') do set "WMCDIR=%%D"
+"%PYDIR%\python.exe" -c "import windows_mcp,os;print(os.path.dirname(windows_mcp.__file__))" > "%TEMP%\wmcdir.txt" 2>nul
+if exist "%TEMP%\wmcdir.txt" (
+  for /f "usebackq delims=" %%D in ("%TEMP%\wmcdir.txt") do set "WMCDIR=%%D"
+  del "%TEMP%\wmcdir.txt" >nul 2>&1
+)
 if not defined WMCDIR (echo    ERROR: could not locate the windows_mcp package & pause & exit /b 1)
 
-copy /y "%DEST%\patches\windows_mcp_powershell_utils.py" "!WMCDIR!\powershell\utils.py" >nul
+rem %WMCDIR% not !WMCDIR!: this line is not inside a parenthesised block, so
+rem plain expansion is correct here. The delayed form expanded to an empty
+rem string, the copy silently wrote nothing, and the flash came back.
+if not exist "%WMCDIR%\powershell" (
+  echo    ERROR: %WMCDIR%\powershell does not exist & pause & exit /b 1
+)
+copy /y "%DEST%\patches\windows_mcp_powershell_utils.py" "%WMCDIR%\powershell\utils.py" >nul
 if errorlevel 1 (echo    ERROR: could not write the patch & pause & exit /b 1)
 
 rem Re-applying is safe: we overwrite the file wholesale rather than appending.
@@ -175,13 +207,27 @@ echo       creating tunnel %TNAME%
 "%CF%" tunnel create "%TNAME%" 2>nul
 
 rem locate the credentials json and copy it in
-for /f "delims=" %%U in ('"%CF%" tunnel list --output json ^| powershell -NoProfile -Command "($input | ConvertFrom-Json | Where-Object { $_.name -eq '%TNAME%' } | Select-Object -First 1).id"') do set "TID=%%U"
+rem Same nested-quote trap as the windows_mcp lookup above: resolve via a temp
+rem file rather than inlining a quoted command inside for /f.
+set "TID="
+"%CF%" tunnel list --output json > "%TEMP%\cftunnels.json" 2>nul
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "$j = Get-Content '%TEMP%\cftunnels.json' -Raw | ConvertFrom-Json;" ^
+  "($j | Where-Object { $_.name -eq '%TNAME%' } | Select-Object -First 1).id" ^
+  > "%TEMP%\cftid.txt" 2>nul
+if exist "%TEMP%\cftid.txt" (
+  for /f "usebackq delims=" %%U in ("%TEMP%\cftid.txt") do set "TID=%%U"
+  del "%TEMP%\cftid.txt" >nul 2>&1
+)
+del "%TEMP%\cftunnels.json" >nul 2>&1
 if not defined TID (echo    ERROR: could not resolve tunnel id & pause & exit /b 1)
 copy /y "%USERPROFILE%\.cloudflared\%TID%.json" "%DEST%\tunnel.json" >nul
 
 rem ask for the base domain to build the hostname
 set "ZONE="
-for /f "delims=" %%Z in ('powershell -NoProfile -Command "(Get-Content '%DEST%\_zone.txt' -ErrorAction SilentlyContinue)"') do set "ZONE=%%Z"
+if exist "%DEST%\_zone.txt" (
+  for /f "usebackq delims=" %%Z in ("%DEST%\_zone.txt") do set "ZONE=%%Z"
+)
 if not defined ZONE (
   set /p ZONE=      Base domain (e.g. example.com): 
 )
@@ -222,9 +268,9 @@ if errorlevel 1 (echo    ERROR: machine.json is not valid UTF-8 JSON & pause & e
 
 rem Point the task straight at pythonw.exe. Going through cmd.exe /c meant a
 rem console window flashed at every logon -- the one thing we promise not to do.
-schtasks /query /tn "MCP-Stack" >nul 2>&1
-if not errorlevel 1 schtasks /delete /tn "MCP-Stack" /f >nul 2>&1
-schtasks /create /tn "MCP-Stack" /tr "\"%PYDIR%\pythonw.exe\" \"%DEST%\supervisor.py\"" /sc onlogon /f >nul
+schtasks /query /tn "%TASKNAME%" >nul 2>&1
+if not errorlevel 1 schtasks /delete /tn "%TASKNAME%" /f >nul 2>&1
+schtasks /create /tn "%TASKNAME%" /tr "\"%PYDIR%\pythonw.exe\" \"%DEST%\supervisor.py\"" /sc onlogon /f >nul
 if errorlevel 1 (echo    ERROR: could not register the scheduled task & pause & exit /b 1)
 echo       done.
 
