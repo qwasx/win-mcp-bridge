@@ -87,6 +87,51 @@ $all | Select ProcessId, ParentProcessId, @{n='holdsLock';e={$_.ProcessId -eq $o
   with a fresh timestamp each logon means something is starting the task twice
   — check for a duplicate `MCP-Stack` entry in Task Scheduler.
 
+## I changed something but the stack still behaves the old way
+
+Almost always the singleton lock: your new instance started, found port 8021
+already held by the old one, and exited by design. Restarting is not enough —
+**you have to stop the running instance first.**
+
+```cmd
+C:\mcp-bridge\launch.cmd stop
+timeout /t 3
+C:\mcp-bridge\launch.cmd
+```
+
+Confirm it actually turned over by checking the PIDs changed:
+
+```powershell
+Get-CimInstance Win32_Process | ? { $_.CommandLine -match 'supervisor\.py' } |
+  Select ProcessId, CreationDate
+```
+
+If `CreationDate` is still the old timestamp, nothing restarted. The log will
+say so explicitly:
+
+```
+another supervisor is already running, exiting
+```
+
+This bites hardest when switching the task between normal and elevated
+(`/rl highest`): the privilege change only takes effect for a *newly started*
+supervisor, so the old unelevated one keeps serving and it looks like the
+change did nothing.
+
+## Killing a component to test recovery
+
+The supervisor restarts a dead component with exponential backoff:
+5s, 10s, 20s, 40s ... capped at 300s. A component that stays up for
+`STABLE_AFTER` (120s) resets its counter.
+
+```
+bridge exited code=..., restarting (attempt 1, next retry in >=5s if it fails again)
+bridge exited code=..., restarting (attempt 2, next retry in >=10s if it fails again)
+```
+
+So if you kill something repeatedly in quick succession, later restarts are
+*supposed* to feel slow. Wait, or `launch.cmd restart` to clear the counters.
+
 ## "TUNNEL BLOCKED" in supervisor.log
 
 You copied an install folder from another machine. That identity belongs to a

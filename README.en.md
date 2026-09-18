@@ -89,12 +89,29 @@ cd win-mcp-bridge\setup
 install.cmd --id pc1
 ```
 
-Admin rights are needed for exactly one thing: registering the logon task.
-Skip it and start manually with `launch.cmd` instead.
+**About admin rights**: the only step that may need elevation is registering
+the logon task (`schtasks /create ... /sc onlogon`). On most default Windows
+configurations a normal user can create a logon task for themselves; if group
+policy blocks it, re-run the installer as administrator. You can also skip the
+task entirely and start manually with `launch.cmd`.
 
-Note: the task runs as the **logged-in user**. Earlier versions passed
-`/rl highest`, which left the whole stack running elevated at all times; that
-has been removed. Elevate individual commands instead when you need to.
+The task is created **without `/rl highest`**, so it runs with the logged-in
+user's normal rights. Writing to `HKLM`, `C:\Program Files` or system services
+will be denied; screenshots, clicks, keyboard, user-directory I/O and `HKCU`
+all work fine. To run the whole stack elevated (needed to install software or
+change system settings), add `/rl highest` when creating the task:
+
+```cmd
+schtasks /create /tn "MCP-Stack" /tr "\"C:\mcp-bridge\python\pythonw.exe\" \"C:\mcp-bridge\supervisor.py\"" /sc onlogon /rl highest /f
+```
+
+The trade-off: a leaked token then grants full Administrator control. **Pair it
+with Cloudflare Access.**
+
+⚠️ After changing the privilege level you must **stop the running instance
+first**. Otherwise the singleton lock rejects the new one (you will see
+`another supervisor is already running` in the log) and it will look like the
+change did nothing.
 
 The installer will:
 

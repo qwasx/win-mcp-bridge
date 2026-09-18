@@ -87,11 +87,24 @@ cd win-mcp-bridge\setup
 install.cmd --id pc1
 ```
 
-> **管理员权限只在一个地方需要**：注册开机自启任务。
-> 不想给也行，装完手动双击 `launch.cmd` 启动即可。
+> **关于管理员权限**：安装器唯一可能需要提权的步骤是注册开机自启任务
+> （`schtasks /create ... /sc onlogon`）。在多数默认配置的 Windows 上，
+> 普通用户就能给自己创建 onlogon 任务；如果你的机器有组策略限制而创建失败，
+> 再用管理员重跑一次即可。不想注册任务也行 —— 装完手动运行 `launch.cmd` 一样能用。
 >
-> 注意：任务本身以**当前登录用户**的权限运行（早期版本用了 `/rl highest`，
-> 会让整个栈常驻管理员权限，已去掉）。需要提权的操作请在会话里单独提权。
+> 任务默认**不带 `/rl highest`**，即以当前登录用户的普通权限运行。
+> 这意味着 `HKLM` 写入、写 `Program Files`、改系统服务这类操作会被拒绝，
+> 而截图、点击、键盘、用户目录读写、`HKCU` 全部正常。
+> **想让整套栈以管理员运行**（能装软件、改系统），在建任务时加上 `/rl highest`：
+>
+> ```cmd
+> schtasks /create /tn "MCP-Stack" /tr "\"C:\mcp-bridge\python\pythonw.exe\" \"C:\mcp-bridge\supervisor.py\"" /sc onlogon /rl highest /f
+> ```
+>
+> 代价是：token 一旦泄露，对方拿到的就是完整管理员权限。**建议配合 Cloudflare Access。**
+>
+> ⚠️ 换权限后必须**先停掉正在跑的实例**再启动，否则单例锁会挡住新实例
+> （日志里会看到 `another supervisor is already running`），你会以为改了没生效。
 
 安装器会自动完成：
 
