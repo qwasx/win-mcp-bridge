@@ -19,7 +19,14 @@
 
 ### A. 创建一个 GitHub 细粒度令牌（Fine-grained token）
 
-GitHub → 头像 → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**
+用 **qwasx** 账号登录 GitHub，然后打开这个**预填好的链接**（名称、7 天过期、权限都已勾好）：
+
+https://github.com/settings/personal-access-tokens/new?name=pc1-hardening&description=pc1%20security%20runbook%20-%20delete%20after%20use&target_name=qwasx&expires_in=7&contents=write&pull_requests=write&secrets=write&workflows=write&actions=read
+
+打开后**只需要手动做一件事**：Repository access 选 **Only select repositories**，下拉里选 **`win-mcp-bridge`**。
+核对下表无误后点 **Generate token**，复制 `github_pat_` 开头的那串（只显示一次）。
+
+不用链接的话：GitHub → 右上角头像 → **Settings → Developer settings（左栏最下面）→ Personal access tokens → Fine-grained tokens → Generate new token**，按下表填。
 
 | 设置项 | 填什么 |
 |---|---|
