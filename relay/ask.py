@@ -92,7 +92,7 @@ def main():
         {"id": rid, "task": a.task, "pubkey": pub,
          "requested_at": time.strftime("%Y-%m-%dT%H:%M:%S%z")},
         indent=2) + "\n", encoding="utf-8")
-    git("add", "-A", "relay/request.json", "relay/results")
+    git("add", "-A", "relay/request.json")
     git("commit", "-q", "-m", f"relay: request {a.task} {rid}")
     git("push", "-q", "origin", f"HEAD:{branch}")
     sha = git("rev-parse", "HEAD")
