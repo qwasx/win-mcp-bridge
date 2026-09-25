@@ -52,6 +52,11 @@ jobs:
           import json, os, re, sys
           r = json.load(open("relay/request.json", encoding="utf-8"))
           task, rid, pub = r.get("task"), str(r.get("id", "")), r.get("pubkey", "")
+          if task == "none":                       # placeholder: nothing to do
+              with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+                  f.write("skip=true\n")
+              print("placeholder request - nothing to do")
+              sys.exit(0)
           READ = ("list_tools", "read_start_here", "verify", "rotate_preflight", "rotate_status")
           WRITE = ("scrub_start_here", "rotate_tokens")
           if task not in READ + WRITE:
@@ -70,6 +75,7 @@ jobs:
           EOF
 
       - name: Credentials (repo secrets, or encrypted hand-off)
+        if: steps.req.outputs.skip != 'true'
         env:
           S_URL: ${{ secrets.PC1_URL }}
           S_TOKEN: ${{ secrets.PC1_DESKTOP_TOKEN }}
@@ -87,6 +93,7 @@ jobs:
           fi
 
       - name: Run task on pc1 (output is NOT printed)
+        if: steps.req.outputs.skip != 'true'
         id: run
         env:
           CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
@@ -112,6 +119,7 @@ jobs:
           echo "client exit code: $rc"
 
       - name: Seal and commit result
+        if: steps.req.outputs.skip != 'true'
         env:
           RID: ${{ steps.req.outputs.id }}
         run: |
