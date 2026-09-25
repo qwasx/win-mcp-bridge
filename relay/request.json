@@ -1,6 +1,6 @@
 {
-  "id": "20260925-052527-405f299e",
-  "task": "verify",
+  "id": "gatetest-405f299e",
+  "task": "rotate_tokens",
   "pubkey": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEA0wYi2EQs2h5CS043aNMm\nMQNpXqS8RU+0ezlzYrG6xpo294XoyZlBShehI6i/30N//FaIKXGmhcG4hAHZoMJe\nz+FcK8/qIUyysNqnv4qWyWPPfGya/gVl9zmyNC5sBRCBkI2jC5uRyfxuyAtBMdVX\nPXzD4QMJRh0YmBQ6A0JQoangYbBnzrXeI6yyOQU7Yng6qTtaDMndGFj40wI0Ezxr\nHIy1PAHVOIOBxM7Qx/TjqAU49WclEnPr6VIrvbN8dX4VzmPmuDrYIjYQPuErwk34\nXGKaFRpJqN/+Ik1oBsajJ22vOHt/pE0/+RjVHbMoT7sPo2VGAx1ajFmutsbZ3GAX\nScSzbwA3IL74MSxWkzEBjAwwoK5DYjLum4youo6MJuxQSBHizJL83FG/nhZg7QB6\nj3GL8Tja9Q7im2FwOMaSdVsxmLmPUCxse2s6KKszIXPaZwaWCfUIA55lqKvl5/1N\nTvmacq0XIAXiGzCdJ9nI7wLpp24hj0M+a/0/6jNFkK+RAgMBAAE=\n-----END PUBLIC KEY-----\n",
   "requested_at": "2026-09-25T05:25:27+0000"
 }
