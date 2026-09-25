@@ -52,16 +52,21 @@ jobs:
           import json, os, re, sys
           r = json.load(open("relay/request.json", encoding="utf-8"))
           task, rid, pub = r.get("task"), str(r.get("id", "")), r.get("pubkey", "")
-          if task not in ("list_tools", "read_start_here", "verify"):
+          READ = ("list_tools", "read_start_here", "verify", "rotate_preflight", "rotate_status")
+          WRITE = ("scrub_start_here", "rotate_tokens")
+          if task not in READ + WRITE:
               sys.exit(f"task not allowed: {task!r}")
+          approved = "yes" if (task in WRITE and r.get("approved_by_user") is True) else "no"
+          if task in WRITE and approved != "yes":
+              sys.exit(f"{task} changes the PC; request needs approved_by_user=true")
           if not re.fullmatch(r"[A-Za-z0-9_-]{8,64}", rid):
               sys.exit("bad id")
           if "BEGIN PUBLIC KEY" not in pub:
               sys.exit("no public key - refusing to run (results would be unreadable or public)")
           open(os.environ["RUNNER_TEMP"] + "/pub.pem", "w").write(pub)
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              f.write(f"task={task}\nid={rid}\n")
-          print(f"task={task} id={rid}")
+              f.write(f"task={task}\nid={rid}\napproved={approved}\n")
+          print(f"task={task} id={rid} approved={approved}")
           EOF
 
       - name: Credentials (repo secrets, or encrypted hand-off)
@@ -87,6 +92,7 @@ jobs:
           CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
           TASK: ${{ steps.req.outputs.task }}
+          RELAY_APPROVED: ${{ steps.req.outputs.approved }}
         run: |
           set +e
           export PC_URL="$(cat "$RUNNER_TEMP/pc_url" 2>/dev/null)"

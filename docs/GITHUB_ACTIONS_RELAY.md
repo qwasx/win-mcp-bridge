@@ -45,6 +45,18 @@ relay/ask.py
 | `read_start_here` | ① RunScript 读 README → ② RunScript 读编号文件 | UTF-8 读 `C:\mcp-bridge\START_HERE\README.md`，再按编号（01, 02, …）读完目录里的编号文件，每个附 SHA256 |
 | `verify` | ① RunScript 读 README（只记哈希）→ ② RunScript 只读验证 | 机器名、用户、系统版本；`machine.json` 的 4 个公开字段及 `bound_computer` 是否一致；是否在管理员组、当前进程是否已提权 |
 
+### 加固任务（见 [`SECURITY_RUNBOOK.md`](SECURITY_RUNBOOK.md)，脚本在 `relay/remote_ops.py`）
+
+| task | 类型 | 内容 |
+|---|---|---|
+| `rotate_preflight` | 只读* | 换令牌前预检；*在 `C:\mcp-bridge\backups\` 写报告并起后台探测 |
+| `rotate_status` | 只读 | 读预检探测结果 / 换令牌进度 |
+| `scrub_start_here` | **改动** | 把 START_HERE 文档里的当前令牌换成占位符（先备份） |
+| `rotate_tokens` | **改动** | 备份 `machine.json`、写入新令牌、后台重启桥，新令牌不通自动回滚；新令牌只出现在加密结果里 |
+
+改动任务要求请求里带 `approved_by_user: true`（`ask.py --approved`），客户端还要求 `RELAY_APPROVED=yes`，
+否则拒绝执行（退出码 7）。
+
 - 每次运行都是新的 MCP 会话，所以"**首次远程工具调用必须是 `RunScript(language="python")` 读 README**"
   这条规则在每次运行里都执行一遍。
 - 原版 windows-mcp 0.8.5 **没有 `RunScript`**（见 CHANGELOG 1.1.0）。服务端没有 `RunScript`
@@ -95,6 +107,7 @@ python relay/ask.py verify              # 第 2 步：只读验证
 | 4 | README 读取失败 |
 | 5 | 远程脚本报错 |
 | 6 | Secrets 没配 |
+| 7 | 改动任务没有用户批准标记 |
 
 ## 文件
 
@@ -103,6 +116,8 @@ python relay/ask.py verify              # 第 2 步：只读验证
 | `.github/workflows/pc-relay.yml` | 工作流：校验 → 运行 → 加密 → 提交 |
 | `relay/relay_client.py` | MCP 客户端（mcp 2.x + httpx2，读超时 180 s） |
 | `relay/crypto_box.py` | RSA-OAEP + AES-GCM 封装：`keygen` / `seal` / `open` |
+| `relay/remote_ops.py` | 加固任务在 pc1 上运行的脚本 |
+| `relay/tokens.py` | 本地令牌管理：提取 / 切换 / 写入 Secrets / 清除 |
 | `relay/ask.py` | 请求端：生成密钥、提交请求、交接凭据、等待并解密结果 |
 | `relay/handshake.py` | runner 端：一次性密钥、接收加密凭据 |
 | `relay/request.json` | 最近一次请求（只含公钥，可公开） |

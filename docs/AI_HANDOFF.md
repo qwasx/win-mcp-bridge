@@ -147,7 +147,8 @@ python relay/ask.py verify
 
 ### 限制
 
-- 目前只有 3 个**只读**任务：`list_tools` / `read_start_here` / `verify`。**没有任意命令入口。**
+- 日常只读任务：`list_tools` / `read_start_here` / `verify`。**没有任意命令入口。**
+- 另有安全加固任务（预检、删文档令牌、换令牌），只按 [`SECURITY_RUNBOOK.md`](SECURITY_RUNBOOK.md) 使用。
 - 需要截图、点击、执行命令等能力时，**先问用户**，得到同意后再在 `relay/relay_client.py` 的白名单里新增任务（远程脚本也必须只做被批准的事），并同步更新工作流的校验列表。
 - 不要为了"方便"加一个接受任意代码的明文任务：请求文件在公开仓库里，谁都能看到。
 

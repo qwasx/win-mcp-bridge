@@ -36,7 +36,11 @@ KEY_DIR = Path(os.environ.get("PC_RELAY_KEY_DIR", Path.home() / ".cache" / "pc-r
 PRIV = KEY_DIR / "session_key.pem"
 PUB = KEY_DIR / "session_key.pub.pem"
 CRED = KEY_DIR / "pc1.json"      # {"url": ..., "token": ...}, never committed
-TASKS = ("list_tools", "read_start_here", "verify")
+TASKS = ("list_tools", "read_start_here", "verify",
+         "rotate_preflight", "rotate_status", "scrub_start_here", "rotate_tokens")
+WRITE_TASKS = ("scrub_start_here", "rotate_tokens")
+SECRET_MARK = "NEW_TOKENS_JSON:"
+NEW_TOKENS = KEY_DIR / "new_tokens.json"
 
 
 def git(*args, check=True):
@@ -44,6 +48,13 @@ def git(*args, check=True):
     if check and r.returncode:
         sys.exit(f"git {' '.join(args)} failed:\n{r.stderr.strip()}")
     return r.stdout.strip()
+
+
+def save_private(path, text):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(text)
 
 
 def ensure_key():
@@ -78,7 +89,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("task", choices=TASKS)
     ap.add_argument("--wait", type=int, default=900, help="seconds to wait for the result")
+    ap.add_argument("--approved", action="store_true",
+                    help="the user explicitly approved this PC-changing task in chat")
     a = ap.parse_args()
+    if a.task in WRITE_TASKS and not a.approved:
+        sys.exit(f"{a.task} changes the PC. Get the user's explicit approval, then add --approved.")
 
     branch = git("rev-parse", "--abbrev-ref", "HEAD")
     slug = repo_slug()
@@ -95,6 +110,7 @@ def main():
 
     (HERE / "request.json").write_text(json.dumps(
         {"id": rid, "task": a.task, "pubkey": pub,
+         **({"approved_by_user": True} if a.task in WRITE_TASKS else {}),
          "requested_at": time.strftime("%Y-%m-%dT%H:%M:%S%z")},
         indent=2) + "\n", encoding="utf-8")
     git("add", "relay/request.json")
@@ -132,9 +148,16 @@ def main():
             git("rebase", "-q", f"origin/{branch}")
             box = json.loads((REPO / target).read_text(encoding="ascii"))
             text = crypto_box.open_box(PRIV.read_bytes(), box).decode("utf-8", "replace")
-            (KEY_DIR / f"{rid}.md").write_text(text, encoding="utf-8")
+            shown = []
+            for ln in text.splitlines():
+                if ln.startswith(SECRET_MARK):
+                    save_private(NEW_TOKENS, ln[len(SECRET_MARK):].strip())
+                    shown.append(f"{SECRET_MARK} <REDACTED - saved to {NEW_TOKENS}>")
+                else:
+                    shown.append(ln)
+            save_private(KEY_DIR / f"{rid}.md", text)
             print(f"--- result ({time.time() - t0:.0f}s) ---")
-            print(text)
+            print("\n".join(shown))
             return 0
         st = run_status(slug, sha)
         if st and st != last:

@@ -24,7 +24,10 @@ Env
   CF_ACCESS_CLIENT_SECRET   optional
 
 Usage
-  python relay_client.py <list_tools|read_start_here|verify> [--out result.md] [--quiet]
+  python relay_client.py <task> [--out result.md] [--quiet]
+  tasks: list_tools, read_start_here, verify              (read-only)
+         rotate_preflight, rotate_status                   (read-only, see remote_ops.py)
+         scrub_start_here, rotate_tokens                   (CHANGE the PC: need RELAY_APPROVED=yes)
 """
 
 import argparse
@@ -39,6 +42,10 @@ import time
 import httpx2  # NOTE: httpx2, not httpx -- mcp 2.x uses httpx2
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from remote_ops import SCRIPTS as OPS_SCRIPTS, WRITE_TASKS  # noqa: E402
+SECRET_MARK = "NEW_TOKENS_JSON:"
 
 START_DIR = r"C:\mcp-bridge\START_HERE"
 README = START_DIR + r"\README.md"
@@ -159,10 +166,19 @@ class Out:
         return text
 
     def __call__(self, *parts):
-        line = self.redact(" ".join(str(p) for p in parts))
+        text = self.redact(" ".join(str(p) for p in parts))
+        shown = []
+        for ln in text.split("\n"):
+            if SECRET_MARK in ln:
+                # freshly generated tokens: kept in the --out file (sealed in
+                # relay mode), never printed
+                self.lines.append(ln[ln.index(SECRET_MARK):].strip())
+                shown.append(SECRET_MARK + " <REDACTED - saved in the result file only>")
+            else:
+                self.lines.append(ln)
+                shown.append(ln)
         if not self.quiet:
-            print(line, flush=True)
-        self.lines.append(line)
+            print("\n".join(shown), flush=True)
 
 
 def text_of(result):
@@ -256,9 +272,16 @@ async def main(task, out_path, quiet=False):
                             + json.dumps(rs.input_schema, ensure_ascii=False))
                         return 3
 
+                    if task in WRITE_TASKS and os.environ.get("RELAY_APPROVED") != "yes":
+                        say(f"STOP: '{task}' changes the PC and needs the user's explicit "
+                            "approval (RELAY_APPROVED=yes / ask.py --approved).")
+                        return 7
+
                     async def py(code):
-                        res = await s.call_tool("RunScript",
-                                                {"language": "python", arg: code})
+                        args = {"language": "python", arg: code}
+                        if "timeout" in (rs.input_schema or {}).get("properties", {}):
+                            args["timeout"] = 170
+                        res = await s.call_tool("RunScript", args)
                         return text_of(res), bool(getattr(res, "is_error", False))
 
                     # ---- first remote tool call: ALWAYS the README ----
@@ -280,6 +303,10 @@ async def main(task, out_path, quiet=False):
                         txt, err = await py(PY_VERIFY)
                         say(f"\n# ==== verify (round trip {time.monotonic() - t1:.1f}s) ====\n" + txt)
                         rc = 5 if err else 0
+                    elif task in OPS_SCRIPTS:
+                        txt, err = await py(OPS_SCRIPTS[task])
+                        say(f"\n# ==== {task} ====\n" + txt)
+                        rc = 5 if err else 0
     except Exception as exc:  # never dump request objects (headers!) to logs
         for e in leaf_errors(exc):
             say(f"ERROR: {type(e).__name__}: {say.redact(str(e))[:500]}")
@@ -287,12 +314,13 @@ async def main(task, out_path, quiet=False):
     finally:
         if out_path:
             os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
-            with open(out_path, "w", encoding="utf-8") as f:
+            fd = os.open(out_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write("\n".join(say.lines) + "\n")
     return rc
 
 
-TASKS = ("list_tools", "read_start_here", "verify")
+TASKS = ("list_tools", "read_start_here", "verify", *OPS_SCRIPTS)
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
@@ -303,4 +331,6 @@ if __name__ == "__main__":
     a = ap.parse_args()
     if a.quiet and not a.out:
         ap.error("--quiet needs --out")
+    if a.task == "rotate_tokens" and not a.out:
+        ap.error("rotate_tokens needs --out (the new tokens are written only there)")
     sys.exit(asyncio.run(main(a.task, a.out, a.quiet)) or 0)
