@@ -1,0 +1,105 @@
+# pc-relay: reach a PC behind Cloudflare from GitHub Actions.
+# See docs/GITHUB_ACTIONS_RELAY.md.
+#
+# THIS REPO IS PUBLIC. Therefore:
+#   * nothing that comes back from the PC is ever printed to the log;
+#   * the result is sealed with the requester's one-time RSA public key
+#     (relay/request.json) and committed as relay/results/<id>.enc.json;
+#   * without a valid public key the job refuses to run.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   PC1_URL             https://<pc1 hostname>/desktop/mcp
+#   PC1_DESKTOP_TOKEN   desktop_token from pc1's C:\mcp-bridge\machine.json
+# Optional (only if Cloudflare Access protects the hostname):
+#   CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET
+#
+# Trigger: commit a new relay/request.json (relay/ask.py does this).
+name: pc-relay
+
+on:
+  push:
+    paths:
+      - relay/request.json
+
+permissions:
+  contents: write        # only to commit the sealed result back
+
+concurrency:             # never two sessions on the same PC at once
+  group: pc1
+  cancel-in-progress: false
+
+jobs:
+  relay:
+    # never run for forks' copies of this workflow
+    if: github.repository == 'qwasx/win-mcp-bridge'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps (httpx2, not httpx)
+        run: pip install --disable-pip-version-check -q "mcp==2.2.0" "httpx2==2.13.1" "cryptography>=42"
+
+      - name: Validate request
+        id: req
+        run: |
+          python - <<'EOF'
+          import json, os, re, sys
+          r = json.load(open("relay/request.json", encoding="utf-8"))
+          task, rid, pub = r.get("task"), str(r.get("id", "")), r.get("pubkey", "")
+          if task not in ("list_tools", "read_start_here", "verify"):
+              sys.exit(f"task not allowed: {task!r}")
+          if not re.fullmatch(r"[A-Za-z0-9_-]{8,64}", rid):
+              sys.exit("bad id")
+          if "BEGIN PUBLIC KEY" not in pub:
+              sys.exit("no public key - refusing to run (results would be unreadable or public)")
+          open(os.environ["RUNNER_TEMP"] + "/pub.pem", "w").write(pub)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"task={task}\nid={rid}\n")
+          print(f"task={task} id={rid}")
+          EOF
+
+      - name: Run task on pc1 (output is NOT printed)
+        id: run
+        env:
+          PC_URL: ${{ secrets.PC1_URL }}
+          PC_TOKEN: ${{ secrets.PC1_DESKTOP_TOKEN }}
+          CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          TASK: ${{ steps.req.outputs.task }}
+        run: |
+          set +e
+          python relay/relay_client.py "$TASK" --quiet --out "$RUNNER_TEMP/result.md" \
+            > /dev/null 2> "$RUNNER_TEMP/stderr.txt"
+          rc=$?
+          {
+            echo "# run: $GITHUB_RUN_ID  exit: $rc"
+            cat "$RUNNER_TEMP/result.md" 2>/dev/null
+            if [ -s "$RUNNER_TEMP/stderr.txt" ]; then
+              echo; echo "# stderr (tail)"; tail -n 60 "$RUNNER_TEMP/stderr.txt"
+            fi
+          } > "$RUNNER_TEMP/final.md"
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          echo "client exit code: $rc"
+
+      - name: Seal and commit result
+        env:
+          RID: ${{ steps.req.outputs.id }}
+        run: |
+          mkdir -p relay/results
+          python relay/crypto_box.py seal "$RUNNER_TEMP/pub.pem" "$RUNNER_TEMP/final.md" "relay/results/$RID.enc.json"
+          shred -u "$RUNNER_TEMP/final.md" "$RUNNER_TEMP/result.md" "$RUNNER_TEMP/stderr.txt" 2>/dev/null || true
+          echo "sealed $(wc -c < relay/results/$RID.enc.json) bytes"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "relay/results/$RID.enc.json"
+          git commit -q -m "relay: sealed result $RID"
+          for i in 1 2 3 4 5; do
+            git pull -q --rebase origin "$GITHUB_REF_NAME" && git push -q origin "HEAD:$GITHUB_REF_NAME" && exit 0
+            sleep $((i * 3))
+          done
+          exit 1

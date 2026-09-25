@@ -24,7 +24,7 @@ Env
   CF_ACCESS_CLIENT_SECRET   optional
 
 Usage
-  python relay_client.py <list_tools|read_start_here|verify> [--out result.md]
+  python relay_client.py <list_tools|read_start_here|verify> [--out result.md] [--quiet]
 """
 
 import argparse
@@ -144,9 +144,10 @@ for k, v in out.items():
 class Out:
     """Collects output, redacting the token and any token-looking fields."""
 
-    def __init__(self, secrets):
+    def __init__(self, secrets, quiet=False):
         self.secrets = [s for s in secrets if s]
         self.lines = []
+        self.quiet = quiet
 
     def redact(self, text):
         for s in self.secrets:
@@ -159,7 +160,8 @@ class Out:
 
     def __call__(self, *parts):
         line = self.redact(" ".join(str(p) for p in parts))
-        print(line, flush=True)
+        if not self.quiet:
+            print(line, flush=True)
         self.lines.append(line)
 
 
@@ -195,16 +197,24 @@ def runscript_arg(tool):
     return cands[0] if len(cands) == 1 else None
 
 
-async def main(task, out_path):
-    url = os.environ["PC_URL"]
-    token = os.environ["PC_TOKEN"]
+async def main(task, out_path, quiet=False):
+    url = os.environ.get("PC_URL", "").strip()
+    token = os.environ.get("PC_TOKEN", "").strip()
+    if not url or not token:
+        say = Out([token], quiet=quiet)
+        say("ERROR: PC_URL / PC_TOKEN not set (GitHub secrets PC1_URL / "
+            "PC1_DESKTOP_TOKEN missing?)")
+        if out_path:
+            os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+            open(out_path, "w", encoding="utf-8").write("\n".join(say.lines) + "\n")
+        return 6
     headers = {"Authorization": f"Bearer {token}"}
     cid = os.environ.get("CF_ACCESS_CLIENT_ID", "")
     csec = os.environ.get("CF_ACCESS_CLIENT_SECRET", "")
     if cid and csec:
         headers["CF-Access-Client-Id"] = cid
         headers["CF-Access-Client-Secret"] = csec
-    say = Out([token, csec])
+    say = Out([token, csec], quiet=quiet)
     rc = 0
 
     say(f"# task: {task}")
@@ -288,5 +298,9 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("task", choices=TASKS)
     ap.add_argument("--out", default="")
+    ap.add_argument("--quiet", action="store_true",
+                    help="print nothing; output only goes to --out (public CI logs)")
     a = ap.parse_args()
-    sys.exit(asyncio.run(main(a.task, a.out)) or 0)
+    if a.quiet and not a.out:
+        ap.error("--quiet needs --out")
+    sys.exit(asyncio.run(main(a.task, a.out, a.quiet)) or 0)
