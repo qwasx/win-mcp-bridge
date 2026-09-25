@@ -52,7 +52,16 @@ relay/ask.py
 - `machine.json` 里有令牌，只读 `machine_id / label / hostname / bound_computer` 四个字段。
 - 默认安装的计划任务不带 `/rl highest`，出现"在管理员组但未提权"是正常的。
 
-## 一次性配置（仓库所有者）
+## 凭据：两种方式任选
+
+**A. 加密交接（默认，免配置）**：仓库没配 Secrets 时，runner 在自己的临时虚拟机里生成一次性
+RSA 密钥对，把公钥提交到 `relay/handshake/<id>.runner.pub.pem`；`ask.py` 核对这个提交确实来自
+`github-actions[bot]`，再用它加密 `{url, token}`（来自沙箱里的 `~/.cache/pc-relay/pc1.json`，不进仓库）
+提交回去。runner 解密、在日志里遮盖后使用，结束时删除交接文件。能解开凭据的私钥随 runner 销毁。
+
+**B. 仓库 Secrets**：配置了下面的 Secrets 就直接用，不走交接。
+
+## 仓库 Secrets（可选）
 
 在 **Settings → Secrets and variables → Actions → New repository secret** 添加：
 
@@ -94,7 +103,8 @@ python relay/ask.py verify              # 第 2 步：只读验证
 | `.github/workflows/pc-relay.yml` | 工作流：校验 → 运行 → 加密 → 提交 |
 | `relay/relay_client.py` | MCP 客户端（mcp 2.x + httpx2，读超时 180 s） |
 | `relay/crypto_box.py` | RSA-OAEP + AES-GCM 封装：`keygen` / `seal` / `open` |
-| `relay/ask.py` | 请求端：生成密钥、提交请求、等待并解密结果 |
+| `relay/ask.py` | 请求端：生成密钥、提交请求、交接凭据、等待并解密结果 |
+| `relay/handshake.py` | runner 端：一次性密钥、接收加密凭据 |
 | `relay/request.json` | 最近一次请求（只含公钥，可公开） |
 | `relay/results/*.enc.json` | 密文结果；私钥随会话丢弃后，任何人都解不开 |
 
