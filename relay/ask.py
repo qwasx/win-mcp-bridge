@@ -88,8 +88,8 @@ def main():
     git("fetch", "-q", "origin", f"+refs/heads/{branch}:refs/remotes/origin/{branch}")
     git("rebase", "-q", f"origin/{branch}", check=False)
 
-    res_dir = HERE / "results"
-    for old in res_dir.glob("*.enc.json") if res_dir.exists() else []:
+    stale = [*(HERE / "results").glob("*.enc.json"), *(HERE / "handshake").glob("*")]
+    for old in stale:
         git("rm", "-q", "--cached", str(old.relative_to(REPO)), check=False)
         old.unlink(missing_ok=True)
 
@@ -97,7 +97,7 @@ def main():
         {"id": rid, "task": a.task, "pubkey": pub,
          "requested_at": time.strftime("%Y-%m-%dT%H:%M:%S%z")},
         indent=2) + "\n", encoding="utf-8")
-    git("add", "-A", "relay/request.json")
+    git("add", "-A", "relay/request.json", *(str(p.relative_to(REPO)) for p in stale))
     git("commit", "-q", "-m", f"relay: request {a.task} {rid}")
     git("push", "-q", "origin", f"HEAD:{branch}")
     sha = git("rev-parse", "HEAD")
