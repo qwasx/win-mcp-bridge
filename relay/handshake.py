@@ -45,7 +45,7 @@ def main():
     hs.mkdir(parents=True, exist_ok=True)
     pub_path = hs / f"{rid}.runner.pub.pem"
     pub_path.write_text(pub)
-    git("add", str(pub_path))
+    git("add", "-f", str(pub_path))   # *.pem is gitignored; this one is PUBLIC
     git("commit", "-q", "-m", f"relay: runner public key {rid}")
     for i in range(5):
         if (git("pull", "-q", "--rebase", "origin", branch, check=False).returncode == 0
