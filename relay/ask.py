@@ -90,14 +90,14 @@ def main():
 
     stale = [*(HERE / "results").glob("*.enc.json"), *(HERE / "handshake").glob("*")]
     for old in stale:
-        git("rm", "-q", "--cached", str(old.relative_to(REPO)), check=False)
+        git("rm", "-q", "--ignore-unmatch", "-f", str(old.relative_to(REPO)), check=False)
         old.unlink(missing_ok=True)
 
     (HERE / "request.json").write_text(json.dumps(
         {"id": rid, "task": a.task, "pubkey": pub,
          "requested_at": time.strftime("%Y-%m-%dT%H:%M:%S%z")},
         indent=2) + "\n", encoding="utf-8")
-    git("add", "-A", "relay/request.json", *(str(p.relative_to(REPO)) for p in stale))
+    git("add", "relay/request.json")
     git("commit", "-q", "-m", f"relay: request {a.task} {rid}")
     git("push", "-q", "origin", f"HEAD:{branch}")
     sha = git("rev-parse", "HEAD")
