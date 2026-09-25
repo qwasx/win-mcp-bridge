@@ -394,6 +394,9 @@ examples/
   fleet.py            multi-machine client wrapper
 docs/
   TROUBLESHOOTING.md
+  AI_HANDOFF.md               handoff guide for AI agents (direct / GitHub Actions relay, Chinese)
+  GITHUB_ACTIONS_RELAY.md     relay design and security notes (Chinese)
+  SECURITY_RUNBOOK.md         hardening runbook: merge, scrub, rotate tokens, secrets (Chinese)
 ```
 
 ---
