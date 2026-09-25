@@ -365,9 +365,6 @@ examples/
   verify_no_console_flash.py  闪窗验证脚本
 docs/
   TROUBLESHOOTING.md          排障手册
-  AI_HANDOFF.md               给 AI 的接手指南（直连 / GitHub Actions 中转）
-  GITHUB_ACTIONS_RELAY.md     中转的设计与安全说明
-  SECURITY_RUNBOOK.md         安全加固手册（合并 PR、删文档令牌、换令牌、写 Secrets）
 ```
 
 ---
