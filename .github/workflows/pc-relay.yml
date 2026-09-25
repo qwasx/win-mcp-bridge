@@ -7,9 +7,10 @@
 #     (relay/request.json) and committed as relay/results/<id>.enc.json;
 #   * without a valid public key the job refuses to run.
 #
-# Required repository secrets (Settings -> Secrets and variables -> Actions):
-#   PC1_URL             https://<pc1 hostname>/desktop/mcp
-#   PC1_DESKTOP_TOKEN   desktop_token from pc1's C:\mcp-bridge\machine.json
+# Credentials, either:
+#   a) repository secrets PC1_URL + PC1_DESKTOP_TOKEN, or
+#   b) (no secrets) encrypted hand-off: the runner publishes a one-time public
+#      key, the requester commits {url, token} sealed to it (relay/handshake.py).
 # Optional (only if Cloudflare Access protects the hostname):
 #   CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET
 #
@@ -63,16 +64,34 @@ jobs:
           print(f"task={task} id={rid}")
           EOF
 
+      - name: Credentials (repo secrets, or encrypted hand-off)
+        env:
+          S_URL: ${{ secrets.PC1_URL }}
+          S_TOKEN: ${{ secrets.PC1_DESKTOP_TOKEN }}
+          RID: ${{ steps.req.outputs.id }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$S_URL" ] && [ -n "$S_TOKEN" ]; then
+            printf '%s' "$S_URL"   > "$RUNNER_TEMP/pc_url"
+            printf '%s' "$S_TOKEN" > "$RUNNER_TEMP/pc_token"
+            echo "using repository secrets"
+          else
+            echo "no repository secrets - using encrypted hand-off"
+            python relay/handshake.py "$RID" "$GITHUB_REF_NAME" --wait 300 || true
+          fi
+
       - name: Run task on pc1 (output is NOT printed)
         id: run
         env:
-          PC_URL: ${{ secrets.PC1_URL }}
-          PC_TOKEN: ${{ secrets.PC1_DESKTOP_TOKEN }}
           CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
           TASK: ${{ steps.req.outputs.task }}
         run: |
           set +e
+          export PC_URL="$(cat "$RUNNER_TEMP/pc_url" 2>/dev/null)"
+          export PC_TOKEN="$(cat "$RUNNER_TEMP/pc_token" 2>/dev/null)"
+          shred -u "$RUNNER_TEMP/pc_url" "$RUNNER_TEMP/pc_token" 2>/dev/null
           python relay/relay_client.py "$TASK" --quiet --out "$RUNNER_TEMP/result.md" \
             > /dev/null 2> "$RUNNER_TEMP/stderr.txt"
           rc=$?
@@ -94,8 +113,7 @@ jobs:
           python relay/crypto_box.py seal "$RUNNER_TEMP/pub.pem" "$RUNNER_TEMP/final.md" "relay/results/$RID.enc.json"
           shred -u "$RUNNER_TEMP/final.md" "$RUNNER_TEMP/result.md" "$RUNNER_TEMP/stderr.txt" 2>/dev/null || true
           echo "sealed $(wc -c < relay/results/$RID.enc.json) bytes"
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -q -r --ignore-unmatch relay/handshake > /dev/null
           git add "relay/results/$RID.enc.json"
           git commit -q -m "relay: sealed result $RID"
           for i in 1 2 3 4 5; do

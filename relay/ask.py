@@ -9,6 +9,10 @@ ask.py - requester side of the GitHub Actions relay (run in the agent sandbox).
 3. Polls the branch until the workflow commits relay/results/<id>.enc.json,
    then decrypts it locally and prints it.
 
+If ~/.cache/pc-relay/pc1.json exists and the repo has no PC1_* secrets, the
+runner publishes a one-time public key and this script answers with the
+credentials sealed to it (see relay/handshake.py).
+
 The private key never enters the repo. Old sealed results are removed from
 the working tree with each new request (they stay unreadable in history).
 """
@@ -31,6 +35,7 @@ import crypto_box  # noqa: E402
 KEY_DIR = Path(os.environ.get("PC_RELAY_KEY_DIR", Path.home() / ".cache" / "pc-relay"))
 PRIV = KEY_DIR / "session_key.pem"
 PUB = KEY_DIR / "session_key.pub.pem"
+CRED = KEY_DIR / "pc1.json"      # {"url": ..., "token": ...}, never committed
 TASKS = ("list_tools", "read_start_here", "verify")
 
 
@@ -99,10 +104,29 @@ def main():
     print(f"requested task={a.task} id={rid} commit={sha[:9]}", flush=True)
 
     target = f"relay/results/{rid}.enc.json"
+    runner_pub = f"relay/handshake/{rid}.runner.pub.pem"
+    sent_cred = False
     t0, last = time.time(), None
     while time.time() - t0 < a.wait:
-        time.sleep(10)
+        time.sleep(5)
         git("fetch", "-q", "origin", f"+refs/heads/{branch}:refs/remotes/origin/{branch}")
+        if not sent_cred and CRED.exists():
+            r = subprocess.run(["git", "show", f"origin/{branch}:{runner_pub}"],
+                               cwd=REPO, capture_output=True, text=True)
+            if r.returncode == 0:
+                author = git("log", "-1", "--format=%an", f"origin/{branch}", "--", runner_pub)
+                if author != "github-actions[bot]":
+                    sys.exit(f"refusing: runner key committed by {author!r}")
+                box = crypto_box.seal(r.stdout.encode(), CRED.read_bytes())
+                git("rebase", "-q", f"origin/{branch}")
+                out = REPO / f"relay/handshake/{rid}.cred.enc.json"
+                out.write_text(json.dumps(box), encoding="ascii")
+                git("add", str(out.relative_to(REPO)))
+                git("commit", "-q", "-m", f"relay: sealed credentials {rid}")
+                git("push", "-q", "origin", f"HEAD:{branch}")
+                sent_cred = True
+                print(f"  sent sealed credentials ({time.time() - t0:.0f}s)", flush=True)
+                continue
         if subprocess.run(["git", "cat-file", "-e", f"origin/{branch}:{target}"],
                           cwd=REPO, capture_output=True).returncode == 0:
             git("rebase", "-q", f"origin/{branch}")
