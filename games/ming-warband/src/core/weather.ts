@@ -55,3 +55,18 @@ export function weatherName(w: Weather) {
   if (w.storm) return '雷雨';
   return w.k > 0.7 ? '大雨' : w.k > 0.35 ? '中雨' : '小雨';
 }
+
+/** 季节积雪程度 0..1（腊月、正月最厚） */
+export function winterK(t: number) {
+  const SN = [1, 0.6, 0.08, 0, 0, 0, 0, 0, 0, 0, 0.3, 0.8];
+  const md = (dayOf(t) % 360) / 30;
+  const m0 = Math.floor(md) % 12, mf = md - Math.floor(md);
+  return SN[m0] + (SN[(m0 + 1) % 12] - SN[m0]) * mf;
+}
+/** 某地地面积雪 0..1 */
+export function snowCover(x: number, y: number, t: number) {
+  const lat = toLL(x, y)[1];
+  const base = Math.max(0, Math.min(1, (lat - 31.5) / 6)) * winterK(t);
+  const w = weatherAt(x, y, t);
+  return Math.min(1, base + (w.kind === 'snow' ? w.k * 0.6 : 0));
+}

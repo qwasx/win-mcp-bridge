@@ -17,10 +17,13 @@ import { buildBattleAtlas, buildWallTop, paintBattleGround, BRES, WALL_H } from 
 
 import { sfx, type SfxName } from '../audio/sfx';
 import { music } from '../audio/music';
+import type { Weather } from '../core/weather';
+import { weatherFx } from '../art/weatherFx';
+import { ensureLifeTextures } from './worldLife';
 
 const SWING = 0.32;
 interface Prop { spr: Phaser.GameObjects.Image; x: number; y: number; w: number; h: number; tree: boolean }
-interface Part { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; max: number; kind: 'blood' | 'dust' | 'smoke' | 'spark'; size: number }
+interface Part { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; max: number; kind: 'blood' | 'dust' | 'smoke' | 'spark' | 'clang' | 'ember'; size: number }
 
 export interface BattleSetup {
   ours: Stack[];
@@ -31,6 +34,9 @@ export interface BattleSetup {
   siege: boolean; // 玩家攻城
   night: boolean;
   heroFights: boolean;
+  weather?: Weather;
+  snow?: number;       // 地面积雪 0..1
+  season?: number;
   onEnd: (o: Outcome) => void;
 }
 
@@ -38,7 +44,7 @@ type Group = 'inf' | 'rng' | 'cav';
 type Order = 'hold' | 'follow' | 'charge';
 
 interface Unit {
-  uid: number; side: 0 | 1; troop: string | null; comp: string | null; name: string;
+  uid: number; side: 0 | 1; troop: string | null; comp: string | null; name: string; torch?: boolean;
   x: number; y: number; vx: number; vy: number; face: number;
   hp: number; maxHp: number; atk: number; def: number; skill: number; speed: number;
   mounted: boolean; cls: TroopClass; reach: number; antiCav: boolean;
@@ -90,6 +96,8 @@ export class BattleScene extends Phaser.Scene {
   colors: [number, number] = [0xe0b040, 0xc0392b];
   props: Prop[] = [];
   parts: Part[] = [];
+  torches: { u: Unit | null; x: number; y: number; glow: Phaser.GameObjects.Image; big: boolean; ph: number }[] = [];
+  lastCam = { x: 0, y: 0 };
   gTop!: Phaser.GameObjects.Graphics;
   gUnder!: Phaser.GameObjects.Graphics;
   stampSpr: Phaser.GameObjects.Sprite | null = null;
@@ -105,7 +113,7 @@ export class BattleScene extends Phaser.Scene {
     this.units = []; this.projs = []; this.reserves = [[], []]; this.down = [{}, {}]; this.compDown = [];
     this.heroDown = false; this.finished = false; this.elapsed = 0; this.enemyCharge = false; this.hero = null; this.smoke = [];
     this.orders = { inf: 'hold', rng: 'hold', cav: 'hold' }; this.selected = 'all'; this.heroMode = 'melee'; this.reinforceT = 0;
-    this.floaters = []; this.props = []; this.parts = []; this.stampSpr = null; this.stamps = 0;
+    this.floaters = []; this.props = []; this.parts = []; this.stampSpr = null; this.stamps = 0; this.torches = [];
   }
 
   create() {
@@ -120,7 +128,7 @@ export class BattleScene extends Phaser.Scene {
     this.gProj = this.add.graphics().setDepth(14);
     this.gTop = this.add.graphics().setDepth(31);
     this.makeProps();
-    if (st.night) this.add.rectangle(-200, -200, BW + 400, BH + 400, 0x0a1430, 0.38).setOrigin(0).setDepth(30);
+    if (st.night) this.add.rectangle(-200, -200, BW + 400, BH + 400, 0x0a1430, 0.5).setOrigin(0).setDepth(30);
     const bc0 = ensureBanner(this, this.colors[0], S.hero.name[0] ?? '义', true);
     const bc1 = ensureBanner(this, this.colors[1], FACTION_CHAR[st.enemyFaction] ?? '敌', true);
     this.bannerKeys = [bc0.key, bc1.key];
@@ -134,6 +142,12 @@ export class BattleScene extends Phaser.Scene {
     sfx('horn', { vol: 0.7 }); sfx('drumRoll', { vol: 0.7, delay: 0.5 }); sfx('crowd', { vol: 0.6, delay: 1.6 });
     this.audioT = 0;
     this.assignBanners();
+    // 天气与夜战火光
+    const wth = st.weather ?? { kind: 'clear' as const, k: 0, storm: false };
+    weatherFx.set(wth); weatherFx.setAmbient(st.season ?? 0, st.night);
+    music.weather(wth.kind === 'rain' ? wth.k : 0);
+    if (st.night) this.makeTorches();
+    this.intro();
     this.input.on('wheel', (_p: any, _o: any, _dx: number, dy: number) => cam.setZoom(Phaser.Math.Clamp(cam.zoom * (dy > 0 ? 0.9 : 1.1), 0.45, 2)));
     this.keys = this.input.keyboard!.addKeys('W,A,S,D,Q,Z,X,C,R,ONE,TWO,THREE,FOUR,UP,DOWN,LEFT,RIGHT,SPACE,TAB');
     this.input.keyboard!.addCapture('SPACE,TAB');
@@ -156,7 +170,7 @@ export class BattleScene extends Phaser.Scene {
   makeGround() {
     const key = 'bground';
     if (this.textures.exists(key)) this.textures.remove(key);
-    const cv = paintBattleGround({ W: BW, H: BH, terrain: this.setup.terrain, siege: this.setup.siege, wallX: WALL_X, gateY0: GATE_Y0, gateY1: GATE_Y1, seed: Math.floor(Math.random() * 1000), night: this.setup.night });
+    const cv = paintBattleGround({ W: BW, H: BH, terrain: this.setup.terrain, siege: this.setup.siege, wallX: WALL_X, gateY0: GATE_Y0, gateY1: GATE_Y1, seed: Math.floor(Math.random() * 1000), night: this.setup.night, snow: this.setup.snow ?? 0, wet: this.setup.weather?.kind === 'rain' ? this.setup.weather.k : 0 });
     this.textures.addCanvas(key, cv as HTMLCanvasElement);
     this.ground = this.add.renderTexture(0, 0, BW, BH).setOrigin(0).setDepth(0);
     const img2 = this.make.image({ x: 0, y: 0, key, add: false }).setOrigin(0);
@@ -449,6 +463,9 @@ export class BattleScene extends Phaser.Scene {
     this.reinforce(dt);
     this.checkEnd();
     this.updateCamera(dt);
+    const cam = this.cameras.main;
+    weatherFx.moveCam((cam.scrollX - this.lastCam.x) * cam.zoom, (cam.scrollY - this.lastCam.y) * cam.zoom);
+    this.lastCam.x = cam.scrollX; this.lastCam.y = cam.scrollY;
     this.render();
     battleHud.tick();
   }
@@ -727,10 +744,11 @@ export class BattleScene extends Phaser.Scene {
   damage(a: Unit, t: Unit, raw: number, hitChance: number, heroAttack = false, armorFactor = 0.45, src: 'melee' | 'arrow' | 'bullet' = 'melee') {
     const loud = a.hero || t.hero ? 1.4 : 0.75;
     if (Math.random() > Math.max(0.15, Math.min(0.95, hitChance))) {
-      if (src === 'melee') this.snd(t.def > 10 && Math.random() < 0.6 ? 'clash' : 'block', t.x, t.y, loud * 0.8);
+      if (src === 'melee') { this.snd(t.def > 10 && Math.random() < 0.6 ? 'clash' : 'block', t.x, t.y, loud * 0.8); this.sparks((a.x + t.x) / 2, (a.y + t.y) / 2 - 14, 4); }
       else if (src === 'arrow') this.snd('block', t.x, t.y, 0.4);
       return;
     }
+    if (src === 'melee' && t.def >= 14) this.sparks(t.x, t.y - 14 - this.liftOf(t), 3);
     if (src === 'melee') this.snd(t.def >= 14 ? (Math.random() < 0.5 ? 'clash' : 'armor') : (Math.random() < 0.3 ? 'clash' : 'hit'), t.x, t.y, loud);
     else if (src === 'arrow') this.snd(t.def >= 14 ? 'armor' : 'arrowHit', t.x, t.y, loud * 0.8);
     else this.snd('hit', t.x, t.y, loud);
@@ -916,6 +934,41 @@ export class BattleScene extends Phaser.Scene {
   }
 
   // ---------- 绘制 ----------
+  sparks(x: number, y: number, n: number) {
+    for (let i = 0; i < n && this.parts.length < 420; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 50 + Math.random() * 90;
+      this.parts.push({ x, y: y + 14, z: 14, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.5, vz: 20 + Math.random() * 70, life: 0, max: 0.25 + Math.random() * 0.2, kind: 'clang', size: 1 });
+    }
+  }
+
+  /** 夜战：部分士兵举火把，两军阵后燃起篝火，攻城时城头挂灯 */
+  makeTorches() {
+    ensureLifeTextures(this);
+    const add = (u: Unit | null, x: number, y: number, big: boolean) => {
+      const glow = this.add.image(x, y, 'life_glow').setBlendMode(big ? Phaser.BlendModes.ADD : Phaser.BlendModes.SCREEN).setDepth(30.5).setScale(big ? 3.2 : 1.6).setAlpha(0.6);
+      this.torches.push({ u, x, y, glow, big, ph: Math.random() * 10 });
+    };
+    const k = [0, 0], cnt = [0, 0];
+    for (const u of this.units) if (!u.mounted && !u.hero && (k[u.side]++ % 8 === 0) && cnt[u.side] < 10) { cnt[u.side]++; u.torch = true; add(u, u.x, u.y, false); }
+    const st = this.setup;
+    for (let i = 0; i < 3; i++) { add(null, 70, BH * (0.25 + i * 0.25), true); if (!st.siege) add(null, BW - 70, BH * (0.25 + i * 0.25), true); }
+    if (st.siege) for (let y = 80; y < BH - 40; y += 140) add(null, WALL_X + 4, y, false);
+  }
+
+  /** 开场：大字“战/攻” */
+  intro() {
+    if (typeof document === 'undefined') return;
+    const st = this.setup;
+    const el = document.createElement('div');
+    el.className = 'battle-intro';
+    const ch = st.siege ? '攻' : (st.night ? '夜' : '战');
+    const sub = st.siege ? `攻打${st.enemyName.replace('守军', '')}` : `迎战 ${st.enemyName}`;
+    el.innerHTML = `<div class="bi-ink"></div><div class="bi-char">${ch}</div><div class="bi-sub">${sub}</div>`;
+    document.body.appendChild(el);
+    setTimeout(() => el.classList.add('out'), 1900);
+    setTimeout(() => el.remove(), 2800);
+  }
+
   render() {
     const g = this.g, gp = this.gProj, gu = this.gUnder, gt = this.gTop;
     g.clear(); gp.clear(); gu.clear(); gt.clear();
@@ -954,6 +1007,23 @@ export class BattleScene extends Phaser.Scene {
         u.banner.setPosition(u.x - dir * 5, u.y - lift - 2).setFlipX(!flip).setDepth(10 + u.y / 1000 - 0.00001).setFrame(Math.floor(now / 130 + u.uid) % 4).setVisible(true);
       }
     }
+    // 火把与篝火
+    for (const tc of this.torches) {
+      let x = tc.x, y = tc.y, alive = true;
+      if (tc.u) {
+        const u = tc.u; alive = !u.dead && !u.fled;
+        if (alive) { const dir = Math.cos(u.face) < 0 ? -1 : 1; x = u.x + dir * 6; y = u.y - this.liftOf(u) - 22; }
+      }
+      if (!alive) { tc.glow.setVisible(false); continue; }
+      const fl = 0.8 + 0.2 * Math.sin(now / 70 + tc.ph) * Math.sin(now / 160 + tc.ph * 2);
+      tc.glow.setPosition(x, y + (tc.big ? -4 : 2)).setAlpha((tc.big ? 0.85 : 0.42) * fl).setVisible(true);
+      const fs = tc.big ? 5 : 2.2;
+      if (tc.big) { gu.fillStyle(0x2a1a10, 0.9); gu.fillEllipse(x, y + 2, 18, 6); gu.fillStyle(0x5a3a20, 1); gu.fillRect(x - 7, y, 14, 2); }
+      else { gp.lineStyle(1.2, 0x5a3a1a, 1); gp.lineBetween(x, y, x - 1, y + 9); }
+      gp.fillStyle(0xff7020, 0.9); gp.fillTriangle(x - fs, y, x + fs, y, x + Math.sin(now / 90 + tc.ph) * fs * 0.4, y - fs * 2.6 * fl);
+      gp.fillStyle(0xffe080, 1); gp.fillTriangle(x - fs * 0.5, y, x + fs * 0.5, y, x, y - fs * 1.4 * fl);
+      if (dt > 0 && Math.random() < (tc.big ? 0.4 : 0.05) && this.parts.length < 420) this.parts.push({ x, y, z: fs * 2, vx: (Math.random() - 0.5) * 10, vy: 0, vz: 18 + Math.random() * 20, life: 0, max: 1 + Math.random(), kind: 'ember', size: 1 });
+    }
     // 树木：遮挡主角时半透明
     const focus = this.hero && !this.hero.dead ? this.hero : null;
     for (const p of this.props) {
@@ -982,6 +1052,13 @@ export class BattleScene extends Phaser.Scene {
       } else if (q.kind === 'smoke') {
         q.vx *= 0.97; q.vy *= 0.97;
         gp.fillStyle(0xe8e4dc, 0.32 * (1 - t) * (1 - t)); gp.fillCircle(q.x + t * 6, q.y - q.z - t * 8, q.size * (0.8 + t * 1.8));
+      } else if (q.kind === 'clang') {
+        q.vz -= 300 * dt;
+        gp.lineStyle(1, t < 0.4 ? 0xffffd0 : 0xffa030, 1 - t);
+        gp.lineBetween(q.x, q.y - q.z, q.x - q.vx * 0.025, q.y - q.z - q.vy * 0.025 + q.vz * 0.025);
+      } else if (q.kind === 'ember') {
+        q.vx += (Math.random() - 0.5) * 40 * dt;
+        gp.fillStyle(t < 0.5 ? 0xffd060 : 0xff6020, 1 - t); gp.fillRect(q.x - 0.6, q.y - q.z - 0.6, 1.2, 1.2);
       } else {
         gp.fillStyle(0xfff0a0, 0.9 * (1 - t)); gp.fillCircle(q.x, q.y - q.z, q.size * (1 - t * 0.5));
         gp.fillStyle(0xff8a20, 0.5 * (1 - t)); gp.fillCircle(q.x, q.y - q.z, q.size * 1.8);

@@ -20,6 +20,9 @@ class WeatherFx {
   last = 0;
   camDX = 0; camDY = 0;
   running = false;
+  // 季节点缀：春花瓣、秋落叶、夏夜萤火
+  season = -1; night = false;
+  amb: { x: number; y: number; a: number; va: number; s: number; ph: number; c: string }[] = [];
   enabled = true;
 
   install() {
@@ -44,7 +47,18 @@ class WeatherFx {
   set(w: Weather) { this.w = w; if (!this.running) this.start(); }
   /** 相机平移（屏幕像素），让粒子有视差 */
   moveCam(dx: number, dy: number) { this.camDX += dx; this.camDY += dy; }
-  clear() { this.w = { kind: 'clear', k: 0, storm: false }; }
+  clear() { this.w = { kind: 'clear', k: 0, storm: false }; this.season = -1; this.amb = []; }
+  setAmbient(season: number, night: boolean) {
+    if (season === this.season && night === this.night) return;
+    this.season = season; this.night = night;
+    const W = this.cv?.width ?? window.innerWidth, H = this.cv?.height ?? window.innerHeight;
+    const kind = season === 0 && !night ? 'petal' : season === 2 && !night ? 'leaf' : season === 1 && night ? 'fly' : '';
+    const pal = kind === 'petal' ? ['#f6c8d4', '#fbe0e6', '#f0a8bc'] : kind === 'leaf' ? ['#d8862a', '#c0561e', '#e0b040', '#a4682a'] : ['#e8ff90'];
+    this.amb = [];
+    if (!kind) return;
+    const n = kind === 'fly' ? 26 : 18;
+    for (let i = 0; i < n; i++) this.amb.push({ x: Math.random() * W, y: Math.random() * H, a: Math.random() * 6, va: (Math.random() - 0.5) * 3, s: 0.7 + Math.random() * 0.6, ph: Math.random() * 10, c: pal[i % pal.length] });
+  }
   start() {
     this.install();
     if (!this.cv || this.running) return;
@@ -58,6 +72,29 @@ class WeatherFx {
     };
     requestAnimationFrame(loop);
   }
+  drawAmbient(ctx: CanvasRenderingContext2D, dt: number, W: number, H: number, cdx: number, cdy: number, k: number) {
+    if (!this.amb.length || k > 0.4) return;
+    const t = performance.now() / 1000;
+    const fly = this.season === 1;
+    for (const p of this.amb) {
+      if (fly) {
+        p.x += Math.sin(t * 0.7 + p.ph) * 14 * dt - cdx; p.y += Math.cos(t * 0.9 + p.ph * 1.3) * 10 * dt - cdy;
+        const b = Math.max(0, Math.sin(t * 2.2 + p.ph * 3));
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 6);
+        g.addColorStop(0, `rgba(230,255,140,${0.9 * b})`); g.addColorStop(1, 'rgba(200,255,100,0)');
+        ctx.fillStyle = g; ctx.fillRect(p.x - 6, p.y - 6, 12, 12);
+      } else {
+        p.x += (30 + Math.sin(t + p.ph) * 20) * p.s * dt - cdx; p.y += (22 + Math.cos(t * 1.3 + p.ph) * 10) * p.s * dt - cdy;
+        p.a += p.va * dt;
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.a); ctx.scale(1, Math.abs(Math.sin(t * 2 + p.ph)) * 0.8 + 0.2);
+        ctx.fillStyle = p.c; ctx.beginPath(); ctx.ellipse(0, 0, 4 * p.s, 2.2 * p.s, 0, 0, Math.PI * 2); ctx.fill();
+        if (this.season === 2) { ctx.strokeStyle = 'rgba(90,40,10,0.5)'; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(-4 * p.s, 0); ctx.lineTo(4 * p.s, 0); ctx.stroke(); }
+        ctx.restore();
+      }
+      if (p.x > W + 20) p.x = -20; else if (p.x < -20) p.x = W + 20;
+      if (p.y > H + 20) p.y = -20; else if (p.y < -20) p.y = H + 20;
+    }
+  }
   frame(dt: number) {
     const ctx = this.ctx, cv = this.cv; if (!ctx || !cv) return;
     const W = cv.width, H = cv.height;
@@ -68,6 +105,7 @@ class WeatherFx {
     const k = this.kind === 'clear' ? 0 : this.shown;
     ctx.clearRect(0, 0, W, H);
     const cdx = this.camDX, cdy = this.camDY; this.camDX = 0; this.camDY = 0;
+    this.drawAmbient(ctx, dt, W, H, cdx, cdy, k);
     if (k < 0.01 && this.flash <= 0) return;
     if (this.kind === 'rain') {
       // 阴天

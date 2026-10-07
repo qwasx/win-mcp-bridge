@@ -1,4 +1,5 @@
 // 遭遇、战斗启动与战报
+import { weatherAt, snowCover, seasonOf } from '../core/weather';
 import { sfx } from '../audio/sfx';
 import { h, openPanel, closeTop, closeAll, btn, toast } from './dom';
 import type { Party, Settlement, Stack } from '../core/state';
@@ -131,6 +132,7 @@ export function startBattle(enemy: Party | null, siege: Settlement | null, manua
   const setup: BattleSetup = {
     ours: pp.troops.map(s => ({ ...s })), theirs: enemyStacks.map(s => ({ ...s })), enemyName, enemyFaction,
     terrain: ter, siege: !!siege, night: isNight(), heroFights: S.hero.hp >= 0.25,
+    weather: weatherAt(pp.x, pp.y, S.time), snow: snowCover(pp.x, pp.y, S.time), season: seasonOf(S.time),
     onEnd: out => finishBattle(enemy, siege, out),
   };
   game.scene.sleep('World');

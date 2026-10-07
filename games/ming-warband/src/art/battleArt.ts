@@ -154,7 +154,7 @@ const GROUND: Record<number, { a: number[]; b: number[]; dirt: number[]; tuft: n
   [Ter.Plateau]: { a: [146, 142, 126], b: [170, 166, 148], dirt: [124, 116, 100], tuft: 0x6a6a4a, flowers: false },
 };
 
-export interface GroundOpts { W: number; H: number; terrain: Ter; siege: boolean; wallX: number; gateY0: number; gateY1: number; seed: number; night: boolean }
+export interface GroundOpts { W: number; H: number; terrain: Ter; siege: boolean; wallX: number; gateY0: number; gateY1: number; seed: number; night: boolean; snow?: number; wet?: number }
 
 export function paintBattleGround(o: GroundOpts) {
   const { W, H } = o;
@@ -166,6 +166,7 @@ export function paintBattleGround(o: GroundOpts) {
   const seed = o.seed;
   const roadY = (x: number) => H * 0.5 + Math.sin(x * 0.004 + seed) * 70 + Math.sin(x * 0.011) * 20;
   const hasRoad = o.terrain !== Ter.Forest || o.siege;
+  const snow = o.snow ?? 0, wet = o.wet ?? 0;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = (y * W + x) * 4;
     const n = fbm(x * 0.006, y * 0.006, seed, 4);
@@ -193,6 +194,24 @@ export function paintBattleGround(o: GroundOpts) {
       const base = 128 + tile * 8 + (n3 - 0.5) * 20;
       r = (base + 6) * edge; g = (base + 2) * edge; b = (base - 8) * edge;
     }
+    // 雨后：地面变深，低洼处积水
+    if (wet > 0.05) {
+      const dk = 1 - 0.18 * wet; r *= dk; g *= dk; b *= dk * 1.02;
+      const pd = fbm(x * 0.022, y * 0.022, seed + 77, 3);
+      const th = 0.76 - 0.04 * wet;
+      if (pd > th && (dm > 0.25 || pd > th + 0.1)) {
+        const pm = Math.min(1, (pd - th) * 14) * 0.6;
+        const sky = 128 + (n3 - 0.5) * 16;
+        r += (sky * 0.86 - r) * pm; g += (sky * 0.93 - g) * pm; b += (sky * 1.04 - b) * pm;
+      }
+    }
+    // 积雪：踩过的道路与裸土处少，草地多
+    if (snow > 0.05) {
+      let sm = snow * (0.75 + n2 * 0.6) - dm * 0.55 * (1.1 - snow) - (n3 - 0.5) * 0.25;
+      sm = Math.max(0, Math.min(1, sm * 1.3));
+      const wv = 232 + n3 * 14;
+      r += (wv - 4 - r) * sm; g += (wv - r * 0 - g) * sm; b += (wv + 10 - b) * sm;
+    }
     d[i] = r; d[i + 1] = g; d[i + 2] = b; d[i + 3] = 255;
   }
   ctx.putImageData(img, 0, 0);
@@ -200,7 +219,7 @@ export function paintBattleGround(o: GroundOpts) {
   const inCity = (x: number) => o.siege && x > o.wallX - 20;
   // 草丛
   if (o.terrain !== Ter.Desert) {
-    const n = o.terrain === Ter.Mountain || o.terrain === Ter.Plateau ? 900 : 3200;
+    const n = Math.round((o.terrain === Ter.Mountain || o.terrain === Ter.Plateau ? 900 : 3200) * (1 - snow * 0.6));
     for (let i = 0; i < n; i++) {
       const x = rnd() * W, y = rnd() * H;
       if (inCity(x)) continue;
@@ -221,7 +240,7 @@ export function paintBattleGround(o: GroundOpts) {
     }
   }
   // 野花
-  if (P.flowers) {
+  if (P.flowers && snow < 0.3) {
     const cols = ['#f4f0e0', '#f0d040', '#d84a3a', '#c070d0'];
     for (let i = 0; i < 500; i++) {
       const x = rnd() * W, y = rnd() * H;

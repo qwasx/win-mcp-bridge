@@ -19,7 +19,8 @@ import { ensureFigure, ensureBanner, ensureCart, settlementAtlas, ensureClouds, 
 import { TROOPS } from '../data/troops';
 import { worldAudioTick, music } from '../audio/hooks';
 import { WorldLife } from './worldLife';
-import { weatherAt } from '../core/weather';
+import { minimap } from '../ui/minimap';
+import { weatherAt, seasonOf } from '../core/weather';
 import { weatherFx } from '../art/weatherFx';
 
 const MAP_FIG = 0.74; // 大地图人物缩放
@@ -69,6 +70,12 @@ export class WorldScene extends Phaser.Scene {
     if (!this.textures.exists(key)) this.textures.addCanvas(key, vis.full);
     mapKey = key;
     this.add.image(0, 0, key).setOrigin(0).setScale(WORLD_W / vis.full.width).setDepth(0);
+    try {
+      minimap.mount(vis.full, (x, y) => { this.cameras.main.centerOn(x, y); this.follow = false; this.staticDirty = true; });
+      this.events.on('sleep', () => minimap.hide());
+      this.events.on('wake', () => minimap.show());
+      this.events.once('shutdown', () => minimap.hide());
+    } catch { /* 小地图失败不影响游戏 */ }
     this.gStatic = this.add.graphics().setDepth(2);
     this.buildSettlementIcons();
     this.gFx = this.add.graphics().setDepth(4);
@@ -448,10 +455,14 @@ export class WorldScene extends Phaser.Scene {
     const w = weatherAt(pp.x, pp.y, S.time);
     this.life.update(time, dt, nightK, w.k);
     for (const c of this.clouds) c.setTint(nightK > 0.3 ? 0x6070a0 : 0xffffff);
-    weatherFx.set(w);
+    weatherFx.set(w); weatherFx.setAmbient(seasonOf(S.time), isNight());
     weatherFx.moveCam((cam.scrollX - this.lastScroll.x) * cam.zoom, (cam.scrollY - this.lastScroll.y) * cam.zoom);
     this.lastScroll.x = cam.scrollX; this.lastScroll.y = cam.scrollY;
     music.weather(w.kind === 'rain' ? w.k : 0);
+    const v = cam.worldView;
+    const dots: { x: number; y: number; c: string }[] = [];
+    for (const p of S.parties) if (!p.inside && p.kind !== 'player' && (p.kind === 'lord' || this.visible(p))) dots.push({ x: p.x, y: p.y, c: hostile(pp, p) ? '#ff5040' : FACTION[p.faction]?.css ?? '#ccc' });
+    minimap.update(v, pp, dots, nightK);
     hud.update();
     worldAudioTick(isNight(), panelOpen());
   }

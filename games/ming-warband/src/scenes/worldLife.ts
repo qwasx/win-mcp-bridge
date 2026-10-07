@@ -3,13 +3,13 @@ import Phaser from 'phaser';
 import { S, player } from '../core/game';
 import { terAtXY, fineAt, toLL, Ter, WORLD_W, WORLD_H } from '../core/terrain';
 import { fbm } from '../core/rng';
-import { dayOf } from '../core/game';
+import { winterK } from '../core/weather';
 import { riverLines, riverWidthAt, type RiverLine } from '../art/worldDetail';
 import { makeCanvas } from '../art/canvas';
 
 const R = Math.random;
 
-function ensureLifeTextures(scene: Phaser.Scene) {
+export function ensureLifeTextures(scene: Phaser.Scene) {
   const T = scene.textures;
   const K = 3;
   if (!T.exists('life_junk')) {
@@ -171,10 +171,7 @@ export class WorldLife {
     const detail = z > 0.65;
 
     // 冬季积雪（腊月、正月最厚）
-    const md = (dayOf(S.time) % 360) / 30;
-    const SN = [1, 0.6, 0.08, 0, 0, 0, 0, 0, 0, 0, 0.3, 0.8];
-    const m0 = Math.floor(md) % 12, mf = md - Math.floor(md);
-    this.snow.setAlpha(SN[m0] + (SN[(m0 + 1) % 12] - SN[m0]) * mf);
+    this.snow.setAlpha(winterK(S.time));
     // 夜色
     this.night.setPosition(v.x - 4, v.y - 4).setSize(v.width + 8, v.height + 8).setFillStyle(0x0a1430, nightK * 0.46);
 

@@ -1,5 +1,8 @@
 // 据点菜单：城镇 / 城堡 / 村庄
 import { sfx } from '../audio/sfx';
+import { settlementVista, hashStr } from '../art/vista';
+import { weatherAt, seasonOf } from '../core/weather';
+import { toLL } from '../core/terrain';
 import { troopPortrait, companionPortrait } from '../art/portrait';
 import { h, openPanel, closeTop, closeAll, btn, toast, confirmDialog, replaceTop } from './dom';
 import type { Settlement, Stack } from '../core/state';
@@ -27,7 +30,17 @@ const KIND = { town: '城镇', castle: '城堡', village: '村庄' } as const;
 function header(st: Settlement) {
   const f = FACTION[st.faction];
   const gar = st.kind !== 'village' ? h('span', null, `守军 ${count(st.garrison)} 人`) : h('span', null, `可招募 ${st.recruits} 人 · 关系 ${st.relation}`);
-  return h('div', { class: 'st-head' },
+  let vista: HTMLElement | null = null;
+  try {
+    const pp = player();
+    vista = settlementVista({
+      kind: st.kind, seed: hashStr(st.id), hour: S.time % 24, season: seasonOf(S.time), weather: weatherAt(pp.x, pp.y, S.time),
+      color: f.color, looted: st.lootedUntil > S.time, siege: !!st.siege, capital: st.id === 'beijing' || st.id === 'shengjing' || f.capital === st.id,
+      south: toLL(st.x, st.y)[1] < 32.5,
+    });
+    vista.className = 'st-vista';
+  } catch { vista = null; }
+  return h('div', null, vista, h('div', { class: 'st-head' },
     h('div', { class: 'st-flag', style: { background: f.css } }, f.name[0]),
     h('div', null,
       h('div', { class: 'st-name' }, st.name, h('small', null, ` ${KIND[st.kind]}`)),
@@ -36,7 +49,7 @@ function header(st: Settlement) {
         st.siege ? h('span', { class: 'bad' }, ' · 正被围攻') : null,
         st.lootedUntil > S.time ? h('span', { class: 'bad' }, ' · 已遭洗劫') : null),
     ),
-  );
+  ));
 }
 
 function flavor(st: Settlement) {
