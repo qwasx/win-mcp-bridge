@@ -287,3 +287,36 @@ export function paintBattleGround(o: GroundOpts) {
 }
 
 export { mix, poly };
+
+/** 积雪版道具图集：在朝上的边缘盖一层不规则的雪 */
+export function buildSnowAtlas() {
+  const a = buildBattleAtlas();
+  const cv = a.canvas as HTMLCanvasElement;
+  const ctx = cv.getContext('2d')!;
+  const W = cv.width, H = cv.height;
+  const img = ctx.getImageData(0, 0, W, H);
+  const d = img.data;
+  const src = new Uint8ClampedArray(d);
+  const A = (x: number, y: number) => (y < 0 ? 0 : src[(y * W + x) * 4 + 3]);
+  for (let x = 0; x < W; x++) {
+    const T = 3 + ((x * 2654435761) >>> 28) % 5 + (Math.sin(x * 0.37) > 0.4 ? 2 : 0);
+    for (let y = 0; y < H; y++) {
+      const i = (y * W + x) * 4;
+      if (src[i + 3] < 40 || A(x, y - 1) < 40) continue; // 保留最上一圈描边
+      let edge = false;
+      for (let k = 2; k <= T; k++) if (A(x, y - k) < 40) { edge = true; break; }
+      if (!edge) continue;
+      const lum = (src[i] + src[i + 1] + src[i + 2]) / 3;
+      if (lum < 45) continue; // 黑描边不盖
+      d[i] = 236 + ((x + y) % 3) * 4; d[i + 1] = 242 + ((x + y) % 3) * 3; d[i + 2] = 250;
+    }
+  }
+  // 整体略微偏冷、降低饱和度（冬天的植物）
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < 10) continue;
+    const g = (d[i] + d[i + 1] + d[i + 2]) / 3;
+    d[i] = d[i] * 0.78 + g * 0.22; d[i + 1] = d[i + 1] * 0.78 + g * 0.22; d[i + 2] = Math.min(255, d[i + 2] * 0.8 + g * 0.2 + 8);
+  }
+  ctx.putImageData(img, 0, 0);
+  return a;
+}

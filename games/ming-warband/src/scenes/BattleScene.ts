@@ -13,7 +13,7 @@ import { battleHud } from '../ui/battleHud';
 import { troopSpec, companionSpec } from '../art/specs';
 import { RES, FR } from '../art/figures';
 import { ensureFigure, ensureBanner, ensureAtlas, currentHeroSpec, FACTION_CHAR } from '../art/phaserTex';
-import { buildBattleAtlas, buildWallTop, paintBattleGround, BRES, WALL_H } from '../art/battleArt';
+import { buildBattleAtlas, buildSnowAtlas, buildWallTop, paintBattleGround, BRES, WALL_H } from '../art/battleArt';
 
 import { sfx, type SfxName } from '../audio/sfx';
 import { music } from '../audio/music';
@@ -178,10 +178,12 @@ export class BattleScene extends Phaser.Scene {
   }
 
   addProp(frame: string, x: number, y: number, tree = false, depthY = y) {
-    const fm = ensureAtlas(this, 'batlas', buildBattleAtlas);
+    const snowy = (this.setup.snow ?? 0) > 0.4;
+    const akey = snowy ? 'batlas_snow' : 'batlas';
+    const fm = ensureAtlas(this, akey, snowy ? buildSnowAtlas : buildBattleAtlas);
     const f = fm.get(frame); if (!f) return;
     const sc = (tree ? 1.45 + Math.random() * 0.35 : frame.startsWith('bush') ? 1.2 : 1) / BRES;
-    const spr = this.add.image(x, y, 'batlas', frame).setOrigin(f.ax, f.ay).setScale(sc).setDepth(10 + depthY / 1000);
+    const spr = this.add.image(x, y, akey, frame).setOrigin(f.ax, f.ay).setScale(sc).setDepth(10 + depthY / 1000);
     if (tree && Math.random() < 0.5) spr.setFlipX(true);
     this.props.push({ spr, x, y, w: f.w * sc, h: f.h * sc, tree });
   }

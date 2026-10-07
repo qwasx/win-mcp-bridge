@@ -20,5 +20,6 @@ export default async function (c: any) {
   bs.order('charge');
   for (let i = 0; i < 4; i++) { await wait(2500); }
   await snap(`/tmp/t/shot_b_${mode}.png`);
+  if (process.env.ZOOM) { bs.cameras.main.setZoom(Number(process.env.ZOOM)); const tr = bs.props.find((p: any) => p.tree); if (tr) bs.cameras.main.centerOn(tr.x, tr.y - 30); await snap(`/tmp/t/shot_b_${mode}_z.png`); }
   console.log('units alive', bs.units.filter((u: any) => !u.dead).length, 'parts', bs.parts.length, 'torches', bs.torches.length);
 }
