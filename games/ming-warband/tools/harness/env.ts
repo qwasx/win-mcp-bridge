@@ -1,7 +1,7 @@
 // 无头截图环境：jsdom + @napi-rs/canvas，让 Phaser.CANVAS 能在 Node 中渲染。
 // 用法见 tools/harness/README.md
 import { JSDOM } from 'jsdom';
-import { createCanvas, Image as NImage } from '@napi-rs/canvas';
+import { createCanvas, Image as NImage, Path2D as NPath2D } from '@napi-rs/canvas';
 
 const W = Number(process.env.SHOT_W ?? 1280), H = Number(process.env.SHOT_H ?? 760);
 const dom = new JSDOM('<!doctype html><html><body><div id="game"></div><div id="night"></div><div id="ui"></div></body></html>', {
@@ -58,7 +58,7 @@ Object.defineProperty(G, 'navigator', { value: w.navigator, configurable: true, 
 G.screen = { width: W, height: H, availWidth: W, availHeight: H, orientation: { type: 'landscape-primary' } };
 w.screen = G.screen;
 w.innerWidth = W; w.innerHeight = H;
-G.Image = NImage; w.Image = NImage;
+G.Image = NImage; w.Image = NImage; G.Path2D = NPath2D; w.Path2D = NPath2D;
 G.localStorage = w.localStorage;
 G.requestAnimationFrame = w.requestAnimationFrame.bind(w);
 G.cancelAnimationFrame = w.cancelAnimationFrame.bind(w);

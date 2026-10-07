@@ -157,8 +157,12 @@ details summary { cursor: pointer; color: var(--red); margin: 10px 0 4px; font-f
 .recruit-row { display: flex; justify-content: center; align-items: flex-end; gap: 2px; margin: 4px 0 6px; padding: 6px; background: linear-gradient(transparent 70%, rgba(106,74,26,.12)); border-bottom: 1px solid rgba(106,74,26,.25); }
 
 /* ---------- HUD ---------- */
-.hud-top { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 12px; background: linear-gradient(rgba(30,14,6,.92), rgba(30,14,6,.75)); border-bottom: 2px solid #6d4a1a; color: #f3e6c4; pointer-events: auto; flex-wrap: wrap; }
-.hud-date { font-family: var(--kai); font-size: 18px; letter-spacing: 1px; min-width: 240px; }
+.hud-top { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 12px 7px; background: linear-gradient(rgba(36,16,6,.95), rgba(30,14,6,.8)); border-bottom: 2px solid #8a6424; box-shadow: 0 3px 0 -1px rgba(30,14,6,.6), 0 6px 14px rgba(0,0,0,.35); color: #f3e6c4; pointer-events: auto; flex-wrap: wrap; }
+.hud-date { font-family: var(--kai); font-size: 18px; letter-spacing: 1px; min-width: 240px; display: flex; align-items: center; gap: 8px; }
+.hud-date .dial { width: 44px; height: 44px; margin: -4px 0 -14px; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,.6), 0 0 0 3px rgba(30,14,6,.9); flex: 0 0 auto; }
+.season-seal { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; background: #a3241a; color: #fff0d0; font-size: 14px; border-radius: 3px; box-shadow: inset 0 0 0 1.5px #f0d77a88, 0 1px 3px rgba(0,0,0,.5); transform: rotate(-4deg); flex: 0 0 auto; }
+.hud-date-txt { display: flex; flex-direction: column; line-height: 1.15; }
+.hud-weather { font-size: 12px; color: #c8b890; letter-spacing: 2px; }
 .sun { color: var(--gold2); margin-right: 6px; }
 .hud-speed { display: flex; gap: 4px; align-items: center; }
 .spd { background: rgba(255,255,255,.08); color: #f3e6c4; border: 1px solid rgba(240,215,122,.35); border-radius: 3px; padding: 3px 9px; font-size: 13px; }
@@ -217,3 +221,18 @@ details summary { cursor: pointer; color: var(--red); margin: 10px 0 4px; font-f
 
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-thumb { background: rgba(106,74,26,.5); border-radius: 4px; }
+
+.hud-top::after { content: ''; position: absolute; left: 0; right: 0; bottom: -7px; height: 5px; pointer-events: none;
+  background: repeating-linear-gradient(90deg, #c9a24a 0 6px, transparent 6px 8px, #c9a24a 8px 10px, transparent 10px 16px); opacity: .55;
+  -webkit-mask: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent); mask: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent); }
+
+/* ---------- 声音 ---------- */
+.sound-btn.muted { filter: grayscale(.7); opacity: .8; }
+.menu-sound { position: absolute; left: 18px; bottom: 16px; z-index: 3; pointer-events: auto; }
+.menu-sound-btn { width: 42px; height: 42px; border-radius: 50%; border: 1px solid rgba(106,74,26,.6); background: rgba(250,240,215,.85); font-size: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.3); cursor: pointer; }
+.menu-sound-btn:hover { background: #fff6dc; }
+.sound-settings { min-width: 340px; padding: 6px 4px; }
+.vol-row { display: flex; align-items: center; gap: 12px; margin: 12px 0; }
+.vol-label { width: 64px; font-family: var(--kai); font-size: 16px; color: var(--ink); }
+.vol { flex: 1; accent-color: #a3241a; }
+.vol-val { width: 42px; text-align: right; font-variant-numeric: tabular-nums; color: #6a4a1a; }

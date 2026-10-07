@@ -266,6 +266,8 @@ class Ambience {
   windG: GainNode | null = null;
   roarG: GainNode | null = null;
   gallopG: GainNode | null = null;
+  rainG: GainNode | null = null;
+  rainK = 0;
   nextEvt = 0;
   start(c: AudioContext) {
     if (this.bus) return;
@@ -287,6 +289,21 @@ class Ambience {
     const gs = c.createBufferSource(); gs.buffer = gallopBuffer(c); gs.loop = true;
     this.gallopG = c.createGain(); this.gallopG.gain.value = 0;
     gs.connect(this.gallopG); this.gallopG.connect(this.bus); gs.start();
+    // 雨声：高通白噪 + 低频的“哗哗”
+    const rn = c.createBufferSource(); rn.buffer = engine.noise; rn.loop = true; rn.playbackRate.value = 0.93;
+    const rh = c.createBiquadFilter(); rh.type = 'highpass'; rh.frequency.value = 900;
+    const rl2 = c.createBiquadFilter(); rl2.type = 'lowpass'; rl2.frequency.value = 7000;
+    const rb = c.createBufferSource(); rb.buffer = engine.brown; rb.loop = true;
+    const rbf = c.createBiquadFilter(); rbf.type = 'lowpass'; rbf.frequency.value = 700;
+    const rbg = c.createGain(); rbg.gain.value = 0.8;
+    this.rainG = c.createGain(); this.rainG.gain.value = 0;
+    rn.connect(rh); rh.connect(rl2); rl2.connect(this.rainG); rb.connect(rbf); rbf.connect(rbg); rbg.connect(this.rainG);
+    this.rainG.connect(this.bus); rn.start(); rb.start();
+  }
+  weather(rain: number) {
+    this.rainK = rain;
+    const c = engine.ctx; if (!c || !this.rainG) return;
+    this.rainG.gain.setTargetAtTime(Math.min(0.32, rain * 0.32), c.currentTime, 1.2);
   }
   set(kind: Amb) {
     this.kind = kind;
@@ -304,7 +321,7 @@ class Ambience {
   tick(c: AudioContext) {
     if (!this.bus || c.currentTime < this.nextEvt) return;
     const t = c.currentTime + 0.05;
-    if (this.kind === 'day') {
+    if (this.kind === 'day' && this.rainK < 0.2) {
       // 鸟鸣
       const base = rr(2400, 4200), n = 2 + Math.floor(R() * 5), pan = rr(-0.8, 0.8);
       const p = c.createStereoPanner(); p.pan.value = pan; p.connect(this.bus);
@@ -315,7 +332,7 @@ class Ambience {
         o.connect(g); g.connect(p); o.start(tt); o.stop(tt + 0.12);
       }
       this.nextEvt = c.currentTime + rr(2.5, 7);
-    } else if (this.kind === 'night') {
+    } else if (this.kind === 'night' && this.rainK < 0.2) {
       // 虫鸣
       const f = rr(4200, 5200), pan = rr(-0.9, 0.9);
       const p = c.createStereoPanner(); p.pan.value = pan; p.connect(this.bus);
@@ -346,6 +363,7 @@ class MusicPlayer {
       const c = engine.ctx!;
       this.amb.start(c);
       this.amb.set(this.wantAmb);
+      this.amb.weather(this.wantRain);
       this.switchTo(this.want);
       if (this.timer === null) this.timer = window.setInterval(() => this.tick(), 90);
     });
@@ -357,6 +375,9 @@ class MusicPlayer {
   }
   ambience(kind: Amb) { this.wantAmb = kind; this.amb.set(kind); }
   battleIntensity(melee: number, cav: number) { this.amb.intensity(melee, cav); }
+  /** 雨声强度 0..1 */
+  weather(rain: number) { this.wantRain = rain; this.amb.weather(rain); }
+  wantRain = 0;
   private switchTo(mode: MusicMode) {
     const c = engine.ctx; if (!c) return;
     const t = c.currentTime;

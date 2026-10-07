@@ -17,7 +17,10 @@ import { troopSpec, SPEC_PEASANT } from '../art/specs';
 import type { FigureSpec } from '../art/figures';
 import { ensureFigure, ensureBanner, ensureCart, settlementAtlas, ensureClouds, currentHeroSpec, FACTION_CHAR, type SheetInfo } from '../art/phaserTex';
 import { TROOPS } from '../data/troops';
-import { worldAudioTick } from '../audio/hooks';
+import { worldAudioTick, music } from '../audio/hooks';
+import { WorldLife } from './worldLife';
+import { weatherAt } from '../core/weather';
+import { weatherFx } from '../art/weatherFx';
 
 const MAP_FIG = 0.74; // 大地图人物缩放
 const ELITE_CAV: Record<string, string> = { ming: 'ming_guanning', jin: 'jin_bayara', chuang: 'chuang_elite', xi: 'xi_lancer', mon: 'mon_heavy' };
@@ -51,6 +54,8 @@ export class WorldScene extends Phaser.Scene {
   sIcons = new Map<string, { img: Phaser.GameObjects.Image; flag: Phaser.GameObjects.Sprite | null; frame: string; fkey: string }>();
   pvis = new Map<number, PVis>();
   clouds: Phaser.GameObjects.Image[] = [];
+  life!: WorldLife;
+  lastScroll = { x: 0, y: 0 };
 
   constructor() { super('World'); }
 
@@ -69,6 +74,7 @@ export class WorldScene extends Phaser.Scene {
     this.gFx = this.add.graphics().setDepth(4);
     this.gParties = this.add.graphics().setDepth(4.5);
     this.buildClouds();
+    this.life = new WorldLife(this);
     const cam = this.cameras.main;
     cam.setBounds(0, 0, WORLD_W, WORLD_H);
     cam.setZoom(1.1);
@@ -435,7 +441,17 @@ export class WorldScene extends Phaser.Scene {
     const hr = S.time % 24;
     let a = 0;
     if (hr >= 19 && hr < 21) a = (hr - 19) / 2 * 0.38; else if (hr >= 21 || hr < 4) a = 0.38; else if (hr >= 4 && hr < 6) a = (6 - hr) / 2 * 0.38;
-    const nd = document.getElementById('night'); if (nd) nd.style.opacity = String(a);
+    const nd = document.getElementById('night'); if (nd) nd.style.opacity = '0';
+    const nightK = a / 0.38;
+    // 天气
+    const pp = player();
+    const w = weatherAt(pp.x, pp.y, S.time);
+    this.life.update(time, dt, nightK, w.k);
+    for (const c of this.clouds) c.setTint(nightK > 0.3 ? 0x6070a0 : 0xffffff);
+    weatherFx.set(w);
+    weatherFx.moveCam((cam.scrollX - this.lastScroll.x) * cam.zoom, (cam.scrollY - this.lastScroll.y) * cam.zoom);
+    this.lastScroll.x = cam.scrollX; this.lastScroll.y = cam.scrollY;
+    music.weather(w.kind === 'rain' ? w.k : 0);
     hud.update();
     worldAudioTick(isNight(), panelOpen());
   }

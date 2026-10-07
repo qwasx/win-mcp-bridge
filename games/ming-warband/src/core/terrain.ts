@@ -313,6 +313,8 @@ export interface MapExtras {
   roads?: P[][];             // 世界坐标折线
   villages?: [number, number][];
   towns?: [number, number][];
+  baseOnly?: boolean;   // 只画底图
+  noFields?: boolean; noRivers?: boolean; noRoads?: boolean; noWall?: boolean; noVignette?: boolean;
 }
 
 export function renderMapCanvas(scale = 0.5, extras: MapExtras = {}): HTMLCanvasElement {
@@ -357,6 +359,10 @@ export function renderMapCanvas(scale = 0.5, extras: MapExtras = {}): HTMLCanvas
     hbuf[i] = HEIGHT[t] + (n - 0.5) * 2 * RELIEF[t];
   }
   const hs = boxBlur(hbuf, W, H, 3, 2);
+  // 地形颜色做轻微模糊，消除交界处的锯齿
+  const cR = new Float32Array(W * H), cG = new Float32Array(W * H), cB = new Float32Array(W * H);
+  for (let i = 0; i < W * H; i++) { const c = COLORS[tbuf[i]]; cR[i] = c[0]; cG[i] = c[1]; cB[i] = c[2]; }
+  const bR = boxBlur(cR, W, H, 2, 2).slice(), bG = boxBlur(cG, W, H, 2, 2).slice(), bB = boxBlur(cB, W, H, 2, 2).slice();
   const img = ctx.createImageData(W, H);
   const D = img.data;
   const sand: [number, number, number] = [214, 198, 150];
@@ -381,12 +387,12 @@ export function renderMapCanvas(scale = 0.5, extras: MapExtras = {}): HTMLCanvas
       continue;
     }
     const t = tbuf[i];
-    const c = COLORS[t];
+    const c = [bR[i], bG[i], bB[i]];
     // 光照（西北光）
     const hx = hs[i + (px < W - 1 ? 1 : 0)] - hs[i - (px > 0 ? 1 : 0)];
     const hy = hs[i + (py < H - 1 ? W : 0)] - hs[i - (py > 0 ? W : 0)];
-    let light = 1 - (hx + hy) * 15;
-    light = Math.max(0.68, Math.min(1.18, light));
+    let light = 1 - (hx + hy) * 13;
+    light = Math.max(0.72, Math.min(1.1, light));
     const k = (0.88 + nfine * 0.24) * light;
     let r = c[0] * k, g = c[1] * k, b = c[2] * k;
     // 高山积雪
@@ -397,11 +403,25 @@ export function renderMapCanvas(scale = 0.5, extras: MapExtras = {}): HTMLCanvas
     D[o] = r; D[o + 1] = g; D[o + 2] = b; D[o + 3] = a;
   }
   ctx.putImageData(img, 0, 0);
+  if (!extras.baseOnly) drawMapOverlays(ctx, scale, extras, W, H);
+  return cv;
+}
+
+/** 在底图上绘制矢量叠加层（田地、海岸线、河流、驿道、长城、地名、暗角），可在任意缩放下调用 */
+export function drawMapOverlays(ctx: CanvasRenderingContext2D, scale: number, extras: MapExtras, W: number, H: number) {
+  // 叠加层按 0.5 倍底图设计；更高分辨率时整体缩放绘制，线条更清晰
+  const k = scale / 0.5;
+  ctx.save(); ctx.scale(k, k);
+  overlays0(ctx, 0.5, extras, W / k, H / k);
+  ctx.restore();
+}
+function overlays0(ctx: CanvasRenderingContext2D, scale: number, extras: MapExtras, W: number, H: number) {
+  const S = (p: P): [number, number] => { const [x, y] = ll(p[0], p[1]); return [x * scale, y * scale]; };
   // 田地（村庄周围的拼布农田）
   const fieldCols = ['rgba(200,180,90,0.55)', 'rgba(150,170,80,0.5)', 'rgba(176,150,90,0.5)', 'rgba(120,150,70,0.5)', 'rgba(210,196,120,0.5)'];
   let fs = 1;
   const fr = () => { fs = (fs * 16807) % 2147483647; return fs / 2147483647; };
-  for (const [vx, vy] of extras.villages ?? []) {
+  for (const [vx, vy] of extras.noFields ? [] : extras.villages ?? []) {
     const n = 7 + Math.floor(fr() * 5);
     for (let k = 0; k < n; k++) {
       const a = fr() * Math.PI * 2, d = 12 + fr() * 26;
@@ -460,9 +480,9 @@ export function renderMapCanvas(scale = 0.5, extras: MapExtras = {}): HTMLCanvas
       ctx.beginPath(); ctx.moveTo(pts[i][0], pts[i][1]); ctx.lineTo(pts[i + 1][0], pts[i + 1][1]); ctx.stroke();
     }
   };
-  river(YELLOW_RIVER, 3.4); river(YANGTZE, 3.8); river(PEARL, 2.6); river(HAN_RIVER, 2);
+  if (!extras.noRivers) { river(YELLOW_RIVER, 3.4); river(YANGTZE, 3.8); river(PEARL, 2.6); river(HAN_RIVER, 2); }
   // 驿道
-  for (const road of extras.roads ?? []) {
+  for (const road of extras.noRoads ? [] : extras.roads ?? []) {
     if (road.length < 2) continue;
     const pts: [number, number][] = [];
     for (let i = 0; i < road.length - 1; i++) {
@@ -503,7 +523,7 @@ export function renderMapCanvas(scale = 0.5, extras: MapExtras = {}): HTMLCanvas
       }
     }
   };
-  wall(GREAT_WALL); wall(LIAO_WALL);
+  if (!extras.noWall) { wall(GREAT_WALL); wall(LIAO_WALL); }
   // 地名注记
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   const label = (txt: string, lon: number, lat: number, size: number, spacing = 0, col = 'rgba(70,46,24,0.5)') => {
@@ -530,11 +550,12 @@ export function renderMapCanvas(scale = 0.5, extras: MapExtras = {}): HTMLCanvas
   label('渤海', 120.0, 38.8, 16, 0, 'rgba(220,235,240,0.45)');
   label('黄  海', 123.5, 35.5, 24, 28, 'rgba(220,235,240,0.45)');
   // 暗角
+  if (extras.noVignette) return;
   const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
   vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(30,18,6,0.35)');
   ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
-  return cv;
 }
+
 
 // ---------- 装饰物布置 ----------
 export interface Deco { f: string; x: number; y: number }

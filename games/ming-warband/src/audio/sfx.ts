@@ -4,7 +4,7 @@ import { engine } from './engine';
 export type SfxName =
   | 'clash' | 'armor' | 'hit' | 'block' | 'swing' | 'bow' | 'xbow' | 'arrowHit' | 'arrowGround' | 'gun' | 'cannon'
   | 'death' | 'shout' | 'crowd' | 'horn' | 'drum' | 'drumRoll' | 'smallDrum' | 'gong' | 'gongLow' | 'click' | 'page'
-  | 'coin' | 'bell' | 'levelup' | 'quest' | 'victory' | 'defeat' | 'neigh' | 'gallop' | 'fall' | 'woodblock' | 'error';
+  | 'coin' | 'bell' | 'levelup' | 'quest' | 'victory' | 'defeat' | 'neigh' | 'gallop' | 'fall' | 'woodblock' | 'error' | 'thunder';
 
 export interface SfxOpts { vol?: number; pan?: number; muffle?: number; rate?: number; delay?: number; verb?: number }
 
@@ -219,6 +219,14 @@ const RECIPES: Record<SfxName, [Recipe, number]> = {
     noise(o, t, 0.01, 1, 1.6, { type: 'lowpass', f: 500, f1: 90 }, true);
     osc(o, 'sine', 55, 25, t, 0.002, 1, 0.9);
   }, 0.7],
+  thunder: [(o) => {
+    const t = o.t;
+    // 先一声炸裂，再是长长的滚雷
+    noise(o, t, 0.002, 0.6, 0.25, { type: 'lowpass', f: 2400, f1: 600 });
+    noise(o, t + 0.05, 0.25, 1, 3.2, { type: 'lowpass', f: 380, f1: 70 }, true);
+    for (let k = 0; k < 4; k++) noise(o, t + 0.3 + k * rr(0.35, 0.7), 0.1, rr(0.4, 0.8), rr(0.8, 1.4), { type: 'lowpass', f: rr(200, 420), f1: 60 }, true);
+    osc(o, 'sine', 48, 30, t + 0.05, 0.2, 0.5, 2.5);
+  }, 0.6],
   death: [(o) => {
     const f = rr(110, 190);
     voice(o, o.t, f, [[0.08, f * 1.08], [0.55, f * 0.62]], VOWELS[Math.floor(R() * 4)], 0.22, rr(0.45, 0.7));

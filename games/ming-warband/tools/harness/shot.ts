@@ -28,6 +28,8 @@ const ws: any = game.scene.getScene('World');
 export async function snap(file: string) {
   await wait(120);
   const c = (globalThis as any).__napiOf(game.canvas);
+  const wcv = document.getElementById('weather') as HTMLCanvasElement | null;
+  if (wcv) { const wc = (globalThis as any).__napiOf(wcv); if (wc) c.getContext('2d').drawImage(wc, 0, 0); }
   writeFileSync(file, c.toBuffer('image/png'));
   console.log('snap', file);
 }

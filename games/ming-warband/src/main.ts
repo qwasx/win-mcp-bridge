@@ -11,6 +11,7 @@ import { closeAll } from './ui/dom';
 import { buildGrid } from './core/terrain';
 import { nav } from './core/sim';
 import { installAudio, music, resetWorldAudioWatch } from './audio/hooks';
+import { weatherFx } from './art/weatherFx';
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -38,7 +39,7 @@ function quitToMenu() {
   if (game.scene.isActive('Battle')) game.scene.stop('Battle');
   game.scene.stop('World');
   hud.unmount();
-  music.ambience('none');
+  music.ambience('none'); music.weather(0); weatherFx.clear();
   const nd = document.getElementById('night'); if (nd) nd.style.opacity = '0';
   showMainMenu();
 }

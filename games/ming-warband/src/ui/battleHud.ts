@@ -1,5 +1,6 @@
 // 战斗界面
 import { h } from './dom';
+import { soundButton } from '../audio/hooks';
 import type { BattleScene } from '../scenes/BattleScene';
 
 class BattleHud {
@@ -31,6 +32,7 @@ class BattleHud {
         h('div', { class: 'b-actions' },
           h('button', { class: 'btn', onclick: () => scene.autoFinish(), title: '用自动结算完成剩下的战斗' }, '自动结算'),
           h('button', { class: 'btn danger', onclick: () => scene.retreat(), title: '撤出战场（会损失部分部下）' }, '撤退'),
+          soundButton('btn'),
         ),
       ),
     );

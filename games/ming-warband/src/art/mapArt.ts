@@ -264,8 +264,16 @@ function drawTown(ctx: Ctx, capital: boolean) {
   const x0 = -W / 2, x1 = W / 2, y0 = -18, y1 = 6, th = 2.6, face = 4.5;
   ell(ctx, 1.5, y1 + face + 0.5, W * 0.6, 4, 'rgba(30,20,10,0.25)');
   // 护城河
-  ctx.strokeStyle = 'rgba(70,120,140,0.75)'; ctx.lineWidth = 1.4;
-  ctx.strokeRect(x0 - 2.2, y0 - 2, W + 4.4, y1 - y0 + face + 4);
+  {
+    const rr = (x: number, y: number, w: number, h: number, r: number) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); };
+    const mx = x0 - 3, my = y0 - 2.6, mw = W + 6, mh = y1 - y0 + face + 5.4;
+    rr(mx - 1.4, my - 1.2, mw + 2.8, mh + 2.6, 5); ctx.fillStyle = 'rgba(150,140,96,0.55)'; ctx.fill();   // 河岸
+    rr(mx, my, mw, mh, 4); ctx.strokeStyle = 'rgba(46,88,104,0.95)'; ctx.lineWidth = 2; ctx.stroke();      // 水
+    rr(mx, my - 0.4, mw, mh, 4); ctx.strokeStyle = 'rgba(140,190,200,0.55)'; ctx.lineWidth = 0.6; ctx.stroke(); // 波光
+    // 吊桥
+    ctx.fillStyle = '#7a5a36'; ctx.fillRect(-2.6, my + mh - 2, 5.2, 4);
+    ctx.fillStyle = 'rgba(30,18,8,0.6)'; for (let k = 0; k < 3; k++) ctx.fillRect(-2.6, my + mh - 1.4 + k * 1.2, 5.2, 0.35);
+  }
   wallRing(ctx, x0, y0, x1, y1, th, face);
   // 城内建筑
   const r = srand(capital ? 7 : 3);

@@ -1,6 +1,7 @@
 // 大地图静态内容的生成：驿道、田地、装饰物
 import type { Settlement } from '../core/state';
-import { findPath, renderMapCanvas, computeDecorations, WORLD_W, WORLD_H, type Deco } from '../core/terrain';
+import { findPath, renderMapCanvas, computeDecorations, drawMapOverlays, WORLD_W, WORLD_H, type Deco } from '../core/terrain';
+import { drawGround, drawFields, drawRivers, drawRoads, drawGreatWall } from './worldDetail';
 import { buildDecoAtlas, MRES } from './mapArt';
 import { makeCanvas, srand } from './canvas';
 
@@ -37,20 +38,18 @@ let cache: { key: string; canvas: HTMLCanvasElement; decos: Deco[]; full: HTMLCa
 export function worldVisuals(settlements: Settlement[], key: string) {
   if (cache && cache.key === key) return cache;
   const roads = computeRoads(settlements);
-  const canvas = renderMapCanvas(0.5, {
-    roads,
-    villages: settlements.filter(s => s.kind === 'village').map(s => [s.x, s.y] as P),
-    towns: settlements.filter(s => s.kind === 'town').map(s => [s.x, s.y] as P),
-  });
+  const canvas = renderMapCanvas(0.5, { baseOnly: true });
   const avoid = settlements.map(s => ({ x: s.x, y: s.y + (s.kind === 'town' ? -4 : 0), r: s.kind === 'town' ? 40 : s.kind === 'castle' ? 26 : 22 }));
   const decos = computeDecorations(avoid);
-  const full = bakeWorld(canvas, decos);
+  const pts = (k: string) => settlements.filter(s => s.kind === k).map(s => [s.x, s.y] as P);
+  const full = bakeWorld(canvas, decos, { roads, villages: pts('village'), towns: pts('town'), castles: pts('castle') });
   cache = { key, canvas, decos, full };
   return cache;
 }
 
 /** 把底图（放大）+ 纸张纹理 + 装饰物烘焙成 1:1 的整张地图 */
-export function bakeWorld(base: HTMLCanvasElement, decos: Deco[], scale = 1): HTMLCanvasElement {
+export function bakeWorld(base: HTMLCanvasElement, decos: Deco[], ex: { roads: P[][]; villages: P[]; towns: P[]; castles: P[] }): HTMLCanvasElement {
+  const scale = 1;
   const W = Math.round(WORLD_W * scale), H = Math.round(WORLD_H * scale);
   const cv = makeCanvas(W, H) as HTMLCanvasElement;
   const ctx = cv.getContext('2d')!;
@@ -66,6 +65,13 @@ export function bakeWorld(base: HTMLCanvasElement, decos: Deco[], scale = 1): HT
   tctx.putImageData(img, 0, 0);
   const pat = ctx.createPattern(tile, 'repeat');
   if (pat) { ctx.globalAlpha = 0.07; ctx.fillStyle = pat; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; }
+  // 全分辨率细节层
+  drawGround(ctx);
+  drawMapOverlays(ctx, 1, { towns: ex.towns, noFields: true, noRivers: true, noRoads: true, noWall: true }, W, H);
+  drawFields(ctx, ex.villages, ex.towns, ex.castles);
+  drawRivers(ctx);
+  drawRoads(ctx, ex.roads);
+  drawGreatWall(ctx);
   // 装饰物
   const atlas = buildDecoAtlas();
   const fm = new Map(atlas.frames.map(f => [f.name, f]));
