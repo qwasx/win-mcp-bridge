@@ -4,6 +4,7 @@ import { S, player, dateStr, isNight, on, dayOf } from '../core/game';
 import { nav } from '../core/sim';
 import { count, foodCount, dailyFood, wounded, partySize } from '../core/party';
 import { partyLimit } from '../core/character';
+import { soundButton } from '../audio/hooks';
 
 let tip: HTMLElement | null = null;
 export function showTooltip(ev: MouseEvent | undefined, html: string) {
@@ -50,6 +51,7 @@ class Hud {
         ...([['character', '角色', 'C'], ['party', '部队', 'P'], ['inventory', '行囊', 'I'], ['factions', '天下', 'F'], ['quests', '任务', 'Q'], ['log', '日志', 'L'], ['menu', '菜单', 'Esc']] as [string, string, string][])
           .map(([k, label, key]) => h('button', { class: 'hbtn', onclick: () => actions[k]?.(), title: `${label} (${key})` }, h('span', null, label), h('kbd', null, key))),
         h('button', { class: 'hbtn', onclick: () => actions.center(), title: '回到我的位置 (Home)' }, h('span', null, '定位'), h('kbd', null, 'H')),
+        soundButton('hbtn'),
       ),
     );
     uiRoot().appendChild(this.root);

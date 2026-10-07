@@ -1,4 +1,5 @@
 // 遭遇、战斗启动与战报
+import { sfx } from '../audio/sfx';
 import { h, openPanel, closeTop, closeAll, btn, toast } from './dom';
 import type { Party, Settlement, Stack } from '../core/state';
 import { S, player, hostile, lordName, changePlayerRel, removeParty, log, isNight, emit, playerSide, atWar } from '../core/game';
@@ -23,6 +24,7 @@ export function openEncounter(p: Party, forced: boolean) {
   closeAll();
   const pp = player();
   const isHostile = hostile(pp, p);
+  if (isHostile) { sfx('drumRoll', { vol: 0.55 }); if (forced) sfx('horn', { vol: 0.4, delay: 0.6 }); }
   const f = FACTION[p.faction];
   const n = count(p.troops);
   const ratio = partyStrength(S, p) / Math.max(1, partyStrength(S, pp));

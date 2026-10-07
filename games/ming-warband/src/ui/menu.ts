@@ -3,6 +3,7 @@ import { h, uiRoot, openPanel, closeTop, closeAll, btn, toast, confirmDialog } f
 import { BACKGROUNDS, newGame, S, on } from '../core/game';
 import { SLOTS, readMeta, saveGame, loadGame, hasAnySave } from '../core/save';
 import menuBg from '../assets/menu_bg.jpg';
+import { music, soundButton, soundSettings } from '../audio/hooks';
 import { helpContent } from './panels';
 import { ATTRS } from '../core/character';
 
@@ -13,11 +14,13 @@ export function setMenuHooks(start: () => void, quit: () => void) { onStart = st
 
 export function showMainMenu() {
   closeAll();
+  music.play('menu'); music.ambience('none');
   menuRoot?.remove();
   const bg = h('div', { class: 'menu-bg' });
   const img = h('img', { src: menuBg, class: 'menu-map', alt: '' });
   bg.append(img, h('div', { class: 'menu-vignette' }), h('div', { class: 'menu-mist' }));
   menuRoot = h('div', { id: 'mainmenu' }, bg,
+    h('div', { class: 'menu-sound' }, soundButton('menu-sound-btn')),
     h('div', { class: 'menu-box' },
       h('div', { class: 'title-wrap' },
         h('div', { class: 'title' }, '铁血大明'),
@@ -27,6 +30,7 @@ export function showMainMenu() {
         btn('新的征程', () => charCreate(), 'big primary'),
         btn('读取存档', () => openLoad(), 'big', !hasAnySave()),
         btn('游戏说明', () => openPanel('游戏说明', helpContent(), { wide: true }), 'big'),
+        btn('声音设置', () => openPanel('声音设置', soundSettings()), 'big'),
       ),
       h('div', { class: 'menu-foot' }, '一款明末背景的 2D 策略角色扮演游戏 · 致敬《骑马与砍杀》'),
     ),
@@ -91,6 +95,7 @@ export function openGameMenu() {
     btn('保存游戏', () => openSave(), 'menu-item'),
     btn('读取存档', () => openLoad(), 'menu-item'),
     btn('游戏说明', () => openPanel('游戏说明', helpContent(), { wide: true }), 'menu-item'),
+    btn('声音设置', () => openPanel('声音设置', soundSettings()), 'menu-item'),
     btn('返回主菜单', () => confirmDialog('返回主菜单', '未保存的进度将会丢失（自动存档除外）。确定吗？', () => { onQuit?.(); }), 'menu-item danger'),
   ));
 }

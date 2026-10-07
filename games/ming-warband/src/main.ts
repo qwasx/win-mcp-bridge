@@ -10,6 +10,7 @@ import { actions, installKeys } from './ui/index';
 import { closeAll } from './ui/dom';
 import { buildGrid } from './core/terrain';
 import { nav } from './core/sim';
+import { installAudio, music, resetWorldAudioWatch } from './audio/hooks';
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,
@@ -27,6 +28,7 @@ function startGame() {
   closeAll();
   nav.target = null; nav.path = []; nav.waiting = false; nav.graceUntil = 0;
   hud.mount(actions);
+  resetWorldAudioWatch();
   if (game.scene.isActive('Battle')) game.scene.stop('Battle');
   if (game.scene.getScene('World') && (game.scene.isActive('World') || game.scene.isSleeping('World'))) game.scene.stop('World');
   game.scene.start('World');
@@ -36,11 +38,13 @@ function quitToMenu() {
   if (game.scene.isActive('Battle')) game.scene.stop('Battle');
   game.scene.stop('World');
   hud.unmount();
+  music.ambience('none');
   const nd = document.getElementById('night'); if (nd) nd.style.opacity = '0';
   showMainMenu();
 }
 setMenuHooks(startGame, quitToMenu);
 installKeys();
+installAudio();
 
 // 生成地图（耗时操作），完成后显示主菜单
 const loading = document.getElementById('loading')!;

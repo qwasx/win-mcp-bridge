@@ -1,4 +1,5 @@
 // 据点菜单：城镇 / 城堡 / 村庄
+import { sfx } from '../audio/sfx';
 import { troopPortrait, companionPortrait } from '../art/portrait';
 import { h, openPanel, closeTop, closeAll, btn, toast, confirmDialog, replaceTop } from './dom';
 import type { Settlement, Stack } from '../core/state';
@@ -52,6 +53,7 @@ export function openSettlement(st: Settlement) {
   nav.target = null; nav.path = []; nav.waiting = false;
   const pp = player();
   pp.x = st.x + 6; pp.y = st.y + 6;
+  sfx(st.kind === 'village' ? 'woodblock' : 'bell', { vol: st.kind === 'village' ? 0.5 : 0.45 });
   onEnterSettlement(st);
   const hostileSt = playerHostileToSettlement(st);
   const items: HTMLElement[] = [];

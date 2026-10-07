@@ -15,6 +15,9 @@ import { RES, FR } from '../art/figures';
 import { ensureFigure, ensureBanner, ensureAtlas, currentHeroSpec, FACTION_CHAR } from '../art/phaserTex';
 import { buildBattleAtlas, buildWallTop, paintBattleGround, BRES, WALL_H } from '../art/battleArt';
 
+import { sfx, type SfxName } from '../audio/sfx';
+import { music } from '../audio/music';
+
 const SWING = 0.32;
 interface Prop { spr: Phaser.GameObjects.Image; x: number; y: number; w: number; h: number; tree: boolean }
 interface Part { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; max: number; kind: 'blood' | 'dust' | 'smoke' | 'spark'; size: number }
@@ -93,6 +96,7 @@ export class BattleScene extends Phaser.Scene {
   lastDt = 0.016;
   bannerKeys: [string, string] = ['', ''];
   stamps = 0;
+  audioT = 0;
 
   constructor() { super('Battle'); }
 
@@ -126,6 +130,9 @@ export class BattleScene extends Phaser.Scene {
 
     this.deploy();
     for (const u of this.units) this.spawnSprite(u);
+    music.play(st.siege ? 'siege' : 'battle'); music.ambience('battle');
+    sfx('horn', { vol: 0.7 }); sfx('drumRoll', { vol: 0.7, delay: 0.5 }); sfx('crowd', { vol: 0.6, delay: 1.6 });
+    this.audioT = 0;
     this.assignBanners();
     this.input.on('wheel', (_p: any, _o: any, _dx: number, dy: number) => cam.setZoom(Phaser.Math.Clamp(cam.zoom * (dy > 0 ? 0.9 : 1.1), 0.45, 2)));
     this.keys = this.input.keyboard!.addKeys('W,A,S,D,Q,Z,X,C,R,ONE,TWO,THREE,FOUR,UP,DOWN,LEFT,RIGHT,SPACE,TAB');
@@ -213,6 +220,15 @@ export class BattleScene extends Phaser.Scene {
   }
 
   // ---------- 精灵 ----------
+  /** 按与镜头的距离与左右位置播放音效 */
+  snd(name: SfxName, x: number, y: number, vol = 1) {
+    const v = this.cameras.main.worldView;
+    const dx = x - v.centerX, dy = y - v.centerY;
+    const span = Math.max(v.width, 480);
+    const k = 1 - Math.hypot(dx, dy * 1.3) / (span * 1.5);
+    if (k <= 0.02) return;
+    sfx(name, { vol: vol * (0.12 + 0.88 * k * k), pan: dx / (span * 0.75), muffle: (1 - k) * 0.75 });
+  }
   liftOf(u: Unit) { return u.onWall && this.setup.siege && Math.abs(u.x - WALL_X) < 24 ? WALL_H : 0; }
   specOf(u: Unit) {
     if (u.hero) return currentHeroSpec(u.mounted, this.heroMode);
@@ -401,6 +417,9 @@ export class BattleScene extends Phaser.Scene {
     }
     const gname = this.selected === 'all' ? '全军' : { inf: '步兵', rng: '远程', cav: '骑兵' }[this.selected];
     this.msg(`${gname}：${{ hold: '原地坚守！', follow: '跟随我！', charge: '冲锋！' }[o]}`);
+    if (o === 'charge') { sfx('horn', { vol: 0.55 }); sfx('crowd', { vol: 0.7, delay: 0.25 }); }
+    else if (o === 'hold') { sfx('drum', { vol: 0.6 }); sfx('drum', { vol: 0.5, delay: 0.35 }); }
+    else { sfx('smallDrum', { vol: 0.6 }); sfx('smallDrum', { vol: 0.6, delay: 0.16 }); sfx('smallDrum', { vol: 0.6, delay: 0.32 }); }
     battleHud.refresh();
   }
   toggleWeapon() {
@@ -417,6 +436,8 @@ export class BattleScene extends Phaser.Scene {
     if (this.finished) { this.render(); return; }
     const dt = Math.min(delta, 50) / 1000;
     this.lastDt = dt;
+    this.audioT -= dt;
+    if (this.audioT <= 0 && !this.finished) { this.audioT = 0.4; this.updateAudio(); }
     this.elapsed += dt;
     if (!this.enemyCharge && this.elapsed > (this.setup.siege ? 9999 : 16)) this.enemyCharge = true;
     this.updateHero(dt);
@@ -481,6 +502,7 @@ export class BattleScene extends Phaser.Scene {
         }
       } else if (h.cd <= 0) {
         h.cd = (h as any).meleeSpeed ?? 0.8; h.swing = SWING;
+        sfx('swing', { vol: 0.7 });
         // 扇形攻击
         const speedNow = Math.hypot(h.vx, h.vy);
         let hits = 0;
@@ -659,6 +681,7 @@ export class BattleScene extends Phaser.Scene {
   fire(u: Unit, a: number, dist = 200) {
     const sp = u.kind === 'gun' ? 900 : u.kind === 'xbow' ? 620 : 520;
     const z0 = 14 + (u.mounted ? 10 : 0) + this.liftOf(u);
+    this.snd(u.kind === 'gun' ? 'gun' : u.kind === 'xbow' ? 'xbow' : 'bow', u.x, u.y, u.hero ? 1.2 : u.kind === 'gun' ? 0.8 : 0.6);
     this.projs.push({ x: u.x + Math.cos(a) * 10, y: u.y + Math.sin(a) * 10, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, dmg: u.rng, side: u.side, life: (u.range * 1.25) / sp, kind: u.kind ?? 'bow', from: u, sx: u.x, sy: u.y, dist: Math.max(40, Math.min(dist, u.range * 1.1)), z0 });
     if (u.kind === 'gun') {
       const mx = u.x + Math.cos(a) * 16, my = u.y + Math.sin(a) * 16;
@@ -680,7 +703,7 @@ export class BattleScene extends Phaser.Scene {
             if (u.onWall && Math.random() < 0.5) { hit = true; return; } // 垛口掩护
             hit = true;
             const ap = p.kind === 'gun' ? 0.2 : p.kind === 'xbow' ? 0.35 : 0.5;
-            this.damage(p.from, u, p.dmg * (0.85 + Math.random() * 0.3), 1, false, ap);
+            this.damage(p.from, u, p.dmg * (0.85 + Math.random() * 0.3), 1, false, ap, p.kind === 'gun' ? 'bullet' : 'arrow');
           }
         });
       }
@@ -693,6 +716,7 @@ export class BattleScene extends Phaser.Scene {
           s.fillStyle(0xe8e0d0, 0.9); s.fillRect(-Math.cos(a) * 6 - 1, -Math.sin(a) * 6 - 4, 2, 1.5);
           try { this.ground?.draw(s, p.x, p.y); } catch { /* */ } this.stamps++;
         }
+        if (Math.random() < 0.3) this.snd('arrowGround', p.x, p.y, 0.5);
         this.projs.splice(i, 1); continue;
       }
       if (hit || p.life <= 0 || p.x < 0 || p.x > BW || p.y < 0 || p.y > BH) this.projs.splice(i, 1);
@@ -700,8 +724,16 @@ export class BattleScene extends Phaser.Scene {
     for (let i = this.smoke.length - 1; i >= 0; i--) { this.smoke[i].t += dt; if (this.smoke[i].t > 1.4) this.smoke.splice(i, 1); }
   }
 
-  damage(a: Unit, t: Unit, raw: number, hitChance: number, heroAttack = false, armorFactor = 0.45) {
-    if (Math.random() > Math.max(0.15, Math.min(0.95, hitChance))) return;
+  damage(a: Unit, t: Unit, raw: number, hitChance: number, heroAttack = false, armorFactor = 0.45, src: 'melee' | 'arrow' | 'bullet' = 'melee') {
+    const loud = a.hero || t.hero ? 1.4 : 0.75;
+    if (Math.random() > Math.max(0.15, Math.min(0.95, hitChance))) {
+      if (src === 'melee') this.snd(t.def > 10 && Math.random() < 0.6 ? 'clash' : 'block', t.x, t.y, loud * 0.8);
+      else if (src === 'arrow') this.snd('block', t.x, t.y, 0.4);
+      return;
+    }
+    if (src === 'melee') this.snd(t.def >= 14 ? (Math.random() < 0.5 ? 'clash' : 'armor') : (Math.random() < 0.3 ? 'clash' : 'hit'), t.x, t.y, loud);
+    else if (src === 'arrow') this.snd(t.def >= 14 ? 'armor' : 'arrowHit', t.x, t.y, loud * 0.8);
+    else this.snd('hit', t.x, t.y, loud);
     const dmg = Math.max(2, raw * (0.8 + Math.random() * 0.4) - t.def * armorFactor);
     t.hp -= dmg; t.hitFlash = 0.12;
     this.blood(t.x, t.y - this.liftOf(t), dmg > 15 ? 4 : 2);
@@ -721,6 +753,9 @@ export class BattleScene extends Phaser.Scene {
 
   kill(u: Unit, by: Unit) {
     u.dead = true; u.hp = 0;
+    if (Math.random() < 0.5 || u.hero || u.comp) this.snd('death', u.x, u.y, u.hero || u.comp ? 1.3 : 0.8);
+    this.snd('fall', u.x, u.y, 0.6);
+    if (u.mounted && Math.random() < 0.35) this.snd('neigh', u.x, u.y, 0.6);
     const sd = this.down[u.side];
     if (u.troop) sd[u.troop] = (sd[u.troop] || 0) + 1;
     if (u.comp) { this.compDown.push(u.comp); this.msg(`${u.name}负伤倒地！`); }
@@ -816,6 +851,8 @@ export class BattleScene extends Phaser.Scene {
       for (const u of this.units) if (u.side === 0 && !u.dead && !u.fled && u.troop && Math.random() < 0.15) out.ourDown[u.troop] = (out.ourDown[u.troop] || 0) + 1;
     }
     if (this.hero && !this.hero.dead) S.hero.hp = Math.max(0.05, this.hero.hp / this.hero.maxHp);
+    music.play('off'); music.ambience('none');
+    sfx(win ? 'victory' : 'defeat', { vol: 0.9 });
     battleHud.showEnd(win, retreat, () => this.exit(out));
   }
 
@@ -858,6 +895,23 @@ export class BattleScene extends Phaser.Scene {
       if (k.S.isDown || k.DOWN.isDown) cam.scrollY += sp;
       if (k.A.isDown || k.LEFT.isDown) cam.scrollX -= sp;
       if (k.D.isDown || k.RIGHT.isDown) cam.scrollX += sp;
+    }
+  }
+
+  updateAudio() {
+    const v = this.cameras.main.worldView;
+    const m = 120;
+    let melee = 0, cav = 0;
+    for (const u of this.units) {
+      if (u.dead || u.fled) continue;
+      if (u.x < v.x - m || u.x > v.right + m || u.y < v.y - m || u.y > v.bottom + m) continue;
+      if (u.swing > 0 || u.cd > 0.2 && Math.hypot(u.vx, u.vy) < 20) melee++;
+      if (u.mounted && Math.hypot(u.vx, u.vy) > 70) cav++;
+    }
+    music.battleIntensity(melee, cav);
+    if (melee > 6 && Math.random() < 0.5) {
+      const x = v.x + Math.random() * v.width, y = v.y + Math.random() * v.height;
+      this.snd('shout', x, y, 0.6);
     }
   }
 

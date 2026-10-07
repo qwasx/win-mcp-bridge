@@ -17,6 +17,7 @@ import { troopSpec, SPEC_PEASANT } from '../art/specs';
 import type { FigureSpec } from '../art/figures';
 import { ensureFigure, ensureBanner, ensureCart, settlementAtlas, ensureClouds, currentHeroSpec, FACTION_CHAR, type SheetInfo } from '../art/phaserTex';
 import { TROOPS } from '../data/troops';
+import { worldAudioTick } from '../audio/hooks';
 
 const MAP_FIG = 0.74; // 大地图人物缩放
 const ELITE_CAV: Record<string, string> = { ming: 'ming_guanning', jin: 'jin_bayara', chuang: 'chuang_elite', xi: 'xi_lancer', mon: 'mon_heavy' };
@@ -436,6 +437,7 @@ export class WorldScene extends Phaser.Scene {
     if (hr >= 19 && hr < 21) a = (hr - 19) / 2 * 0.38; else if (hr >= 21 || hr < 4) a = 0.38; else if (hr >= 4 && hr < 6) a = (6 - hr) / 2 * 0.38;
     const nd = document.getElementById('night'); if (nd) nd.style.opacity = String(a);
     hud.update();
+    worldAudioTick(isNight(), panelOpen());
   }
 }
 

@@ -1,4 +1,5 @@
 // 轻量 DOM 工具
+import { sfx } from '../audio/sfx';
 type Child = Node | string | number | null | undefined | false | Child[];
 type Attrs = Record<string, any> | null;
 
@@ -30,6 +31,7 @@ let panelStack: HTMLElement[] = [];
 export interface PanelOpts { wide?: boolean; noClose?: boolean; onClose?: () => void; cls?: string }
 
 export function openPanel(title: string, body: Child, opts: PanelOpts = {}): HTMLElement {
+  sfx('page', { vol: 0.7 });
   const close = () => { closeTop(); opts.onClose?.(); };
   const tip = document.getElementById('tooltip'); if (tip) tip.style.display = 'none';
   const win = h('div', { class: `panel ${opts.wide ? 'wide' : ''} ${opts.cls ?? ''}` },
