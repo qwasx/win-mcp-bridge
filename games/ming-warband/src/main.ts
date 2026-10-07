@@ -1,7 +1,7 @@
 // 入口
 import Phaser from 'phaser';
 import './style.css';
-import { WorldScene, getMapCanvas } from './scenes/WorldScene';
+import { WorldScene } from './scenes/WorldScene';
 import { BattleScene } from './scenes/BattleScene';
 import { ref } from './gameRef';
 import { showMainMenu, setMenuHooks } from './ui/menu';
@@ -46,7 +46,6 @@ installKeys();
 const loading = document.getElementById('loading')!;
 setTimeout(() => {
   buildGrid();
-  getMapCanvas();
   loading.remove();
   showMainMenu();
 }, 50);

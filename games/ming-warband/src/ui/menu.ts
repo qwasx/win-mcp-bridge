@@ -2,7 +2,7 @@
 import { h, uiRoot, openPanel, closeTop, closeAll, btn, toast, confirmDialog } from './dom';
 import { BACKGROUNDS, newGame, S, on } from '../core/game';
 import { SLOTS, readMeta, saveGame, loadGame, hasAnySave } from '../core/save';
-import { getMapCanvas } from '../scenes/WorldScene';
+import menuBg from '../assets/menu_bg.jpg';
 import { helpContent } from './panels';
 import { ATTRS } from '../core/character';
 
@@ -15,13 +15,14 @@ export function showMainMenu() {
   closeAll();
   menuRoot?.remove();
   const bg = h('div', { class: 'menu-bg' });
-  const cv = getMapCanvas();
-  const img = h('img', { src: cv.toDataURL('image/jpeg', 0.8), class: 'menu-map' });
-  bg.appendChild(img);
+  const img = h('img', { src: menuBg, class: 'menu-map', alt: '' });
+  bg.append(img, h('div', { class: 'menu-vignette' }), h('div', { class: 'menu-mist' }));
   menuRoot = h('div', { id: 'mainmenu' }, bg,
     h('div', { class: 'menu-box' },
-      h('div', { class: 'title' }, '铁血大明'),
-      h('div', { class: 'subtitle' }, '崇祯八年 · 天下大乱 · 群雄逐鹿'),
+      h('div', { class: 'title-wrap' },
+        h('div', { class: 'title' }, '铁血大明'),
+        h('div', { class: 'seal' }, '崇祯', h('br'), '八年')),
+      h('div', { class: 'subtitle' }, '天下大乱 · 群雄逐鹿'),
       h('div', { class: 'menu-btns' },
         btn('新的征程', () => charCreate(), 'big primary'),
         btn('读取存档', () => openLoad(), 'big', !hasAnySave()),

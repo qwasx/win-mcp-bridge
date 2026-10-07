@@ -1,4 +1,5 @@
 // 角色、部队、行囊、势力、任务、日志面板
+import { troopPortrait, companionPortrait, heroPortrait } from '../art/portrait';
 import { h, openPanel, closeTop, btn, toast, bar, replaceTop } from './dom';
 import { S, player, log, lordName, dateStr, fiefsOf, factionSettlements, atWar, playerHostileTo, playerSide } from '../core/game';
 import { ATTRS, SKILLS, skillCap, xpForLevel, heroMaxHp, heroArmor, partyLimit, prisonerLimit, partySkill, horseRidingReq } from '../core/character';
@@ -18,7 +19,7 @@ export function openCharacter() {
     body.innerHTML = '';
     const need = xpForLevel(hero.level);
     body.append(
-      h('div', { class: 'row between' }, h('div', null, h('div', { class: 'st-name' }, hero.name), h('div', { class: 'st-sub' }, `${hero.level} 级 · 声望 ${S.renown} · 荣誉 ${S.honor}`)),
+      h('div', { class: 'row between' }, h('div', { class: 'row' }, heroPortrait(72), h('div', null, h('div', { class: 'st-name' }, hero.name), h('div', { class: 'st-sub' }, `${hero.level} 级 · 声望 ${S.renown} · 荣誉 ${S.honor}`))),
         h('div', { style: { width: '220px' } }, bar(hero.xp / need, '#c9a24a', `经验 ${hero.xp}/${need}`))),
       h('div', { class: 'cols' },
         h('div', null,
@@ -71,7 +72,7 @@ export function openParty() {
       body.append(h('h4', null, '同伴'));
       for (const c of S.companions) {
         const d = COMPANIONS.find(x => x.id === c.id)!;
-        body.append(h('div', { class: 'trow' }, h('span', null, h('b', null, d.name), h('small', null, ` ${d.title}`), c.wounded > 0 ? h('span', { class: 'bad' }, ` 负伤（${Math.ceil(c.wounded)}小时）`) : null),
+        body.append(h('div', { class: 'trow' }, h('span', { class: 'row' }, companionPortrait(d.id, 38), h('b', null, d.name), h('small', null, ` ${d.title}`), c.wounded > 0 ? h('span', { class: 'bad' }, ` 负伤（${Math.ceil(c.wounded)}小时）`) : null),
           h('span', { class: 'dim small' }, Object.entries(d.skills).map(([k, v]) => `${skillCn(k)}${v}`).join(' ')),
           btn('遣散', () => { if (confirm(`确定让${d.name}离队吗？`)) { S.companions = S.companions.filter(x => x !== c); log(`${d.name}离开了队伍。`, 'dim'); render(); } }, 'sm')));
       }
@@ -100,6 +101,7 @@ export function openParty() {
       });
       body.append(h('div', { class: 'troop' },
         h('div', { class: 'troop-main' },
+          troopPortrait(st.id, 40),
           h('span', { class: `cls cls-${t.cls}` }, classLabel(t.cls)),
           h('b', { title: t.desc }, t.name), h('small', { class: 'tier' }, '★'.repeat(t.tier)),
           h('span', null, ` ×${st.n}`), st.w ? h('span', { class: 'bad' }, `（${st.w}伤）`) : null,

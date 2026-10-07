@@ -1,4 +1,5 @@
 // 据点菜单：城镇 / 城堡 / 村庄
+import { troopPortrait, companionPortrait } from '../art/portrait';
 import { h, openPanel, closeTop, closeAll, btn, toast, confirmDialog, replaceTop } from './dom';
 import type { Settlement, Stack } from '../core/state';
 import {
@@ -187,14 +188,14 @@ function openTavern(st: Settlement) {
     if (m && m.n > 0) {
       const t = TROOPS[m.id]; const c = recruitCost(t);
       const n = Math.min(m.n, space, Math.floor(pp.gold / c));
-      body.append(h('div', { class: 'card' }, h('b', null, `一伙${t.name}（${m.n}人）`), h('p', { class: 'dim' }, `${t.desc} ${classLabel(t.cls)} · ${t.tier}等 · 每人 ${c} 两，周饷 ${t.wage}`),
+      body.append(h('div', { class: 'card with-portrait' }, troopPortrait(m.id, 52), h('b', null, `一伙${t.name}（${m.n}人）`), h('p', { class: 'dim' }, `${t.desc} ${classLabel(t.cls)} · ${t.tier}等 · 每人 ${c} 两，周饷 ${t.wage}`),
         btn(`雇佣 ${n} 人（${n * c}两）`, () => { pp.gold -= n * c; addTroops(pp.troops, m.id, n); m.n -= n; log(`在${st.name}雇佣了 ${n} 名${t.name}。`, 'good'); render(); }, 'sm', n <= 0)));
     } else body.append(h('p', { class: 'dim' }, '酒馆里没有待雇的佣兵。'));
     // 同伴
     if (st.tavern.companion) {
       const d = COMPANIONS.find(c => c.id === st.tavern.companion)!;
       const sk = Object.entries(d.skills).map(([k, v]) => `${skillCn(k)}${v}`).join(' ');
-      body.append(h('div', { class: 'card comp' }, h('b', null, `${d.name}`, h('small', null, ` · ${d.title}`)), h('p', null, `“${d.story}”`), h('p', { class: 'dim' }, `擅长：${sk}`),
+      body.append(h('div', { class: 'card comp with-portrait' }, companionPortrait(d.id, 60), h('b', null, `${d.name}`, h('small', null, ` · ${d.title}`)), h('p', null, `“${d.story}”`), h('p', { class: 'dim' }, `擅长：${sk}`),
         btn(`招揽（${d.cost}两）`, () => {
           if (pp.gold < d.cost) return toast('银两不足');
           if (space <= 0) return toast('部队已满');
@@ -275,7 +276,7 @@ function openRecruit(st: Settlement) {
     const space = partyLimit(S) - partySize(S, pp);
     const can = Math.min(st.recruits, space, Math.floor(pp.gold / cost));
     if (st.relation < -10) { body.append(h('p', null, '村民们对你心存戒备，没人愿意跟你走。（关系过低）')); return; }
-    body.append(h('p', null, `村里有 ${st.recruits} 名青壮愿意从军（${t.name}，每人 ${cost} 两安家银）。`),
+    body.append(h('div', { class: 'recruit-row' }, troopPortrait(tid, 56), troopPortrait(tid, 50), troopPortrait(tid, 56)), h('p', null, `村里有 ${st.recruits} 名青壮愿意从军（${t.name}，每人 ${cost} 两安家银）。`),
       h('p', { class: 'dim' }, `部队空位：${space}`),
       h('div', { class: 'row' }, btn('招募 1 人', () => hire(1), 'sm', can < 1), btn(`全部招募（${can}人）`, () => hire(can), 'sm primary', can < 1)));
     function hire(n: number) { pp.gold -= n * cost; st.recruits -= n; addTroops(pp.troops, tid, n); st.relation = Math.min(100, st.relation + (n > 3 ? 1 : 0)); render(); }

@@ -10,6 +10,14 @@ import { autoResolve, type Outcome, type Casualties } from '../core/combat';
 import { Ter } from '../core/terrain';
 import { fbm } from '../core/rng';
 import { battleHud } from '../ui/battleHud';
+import { troopSpec, companionSpec } from '../art/specs';
+import { RES, FR } from '../art/figures';
+import { ensureFigure, ensureBanner, ensureAtlas, currentHeroSpec, FACTION_CHAR } from '../art/phaserTex';
+import { buildBattleAtlas, buildWallTop, paintBattleGround, BRES, WALL_H } from '../art/battleArt';
+
+const SWING = 0.32;
+interface Prop { spr: Phaser.GameObjects.Image; x: number; y: number; w: number; h: number; tree: boolean }
+interface Part { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; max: number; kind: 'blood' | 'dust' | 'smoke' | 'spark'; size: number }
 
 export interface BattleSetup {
   ours: Stack[];
@@ -35,9 +43,11 @@ interface Unit {
   cd: number; rcd: number; target: Unit | null; retarget: number;
   group: Group; dead: boolean; routed: boolean; fled: boolean; hero: boolean;
   chargeT: number; disengage: number; r: number; onWall: boolean; swing: number; hitFlash: number;
+  spr?: Phaser.GameObjects.Sprite | null; sheet?: string; walkT?: number; aiming?: boolean; firedT?: number; dustT?: number;
+  banner?: Phaser.GameObjects.Sprite | null;
 }
 
-interface Proj { x: number; y: number; vx: number; vy: number; dmg: number; side: 0 | 1; life: number; kind: 'bow' | 'xbow' | 'gun'; from: Unit }
+interface Proj { x: number; y: number; vx: number; vy: number; dmg: number; side: 0 | 1; life: number; kind: 'bow' | 'xbow' | 'gun'; from: Unit; sx: number; sy: number; dist: number; z0: number }
 
 const BW = 1600, BH = 1000;
 const WALL_X = 1130, GATE_Y0 = 430, GATE_Y1 = 570;
@@ -75,6 +85,14 @@ export class BattleScene extends Phaser.Scene {
   floaters: Phaser.GameObjects.Text[] = [];
   reinforceT = 0;
   colors: [number, number] = [0xe0b040, 0xc0392b];
+  props: Prop[] = [];
+  parts: Part[] = [];
+  gTop!: Phaser.GameObjects.Graphics;
+  gUnder!: Phaser.GameObjects.Graphics;
+  stampSpr: Phaser.GameObjects.Sprite | null = null;
+  lastDt = 0.016;
+  bannerKeys: [string, string] = ['', ''];
+  stamps = 0;
 
   constructor() { super('Battle'); }
 
@@ -83,7 +101,7 @@ export class BattleScene extends Phaser.Scene {
     this.units = []; this.projs = []; this.reserves = [[], []]; this.down = [{}, {}]; this.compDown = [];
     this.heroDown = false; this.finished = false; this.elapsed = 0; this.enemyCharge = false; this.hero = null; this.smoke = [];
     this.orders = { inf: 'hold', rng: 'hold', cav: 'hold' }; this.selected = 'all'; this.heroMode = 'melee'; this.reinforceT = 0;
-    this.floaters = [];
+    this.floaters = []; this.props = []; this.parts = []; this.stampSpr = null; this.stamps = 0;
   }
 
   create() {
@@ -93,13 +111,22 @@ export class BattleScene extends Phaser.Scene {
     if (this.colors[1] === 0xd88a1c) this.colors[0] = 0x3a8ad8; // 避免与闯军颜色混淆
     this.makeGround();
     this.stamp = this.make.graphics({}, false);
-    this.gProj = this.add.graphics().setDepth(6);
-    this.g = this.add.graphics().setDepth(5);
+    this.gUnder = this.add.graphics().setDepth(2);
+    this.g = this.add.graphics().setDepth(2.5);
+    this.gProj = this.add.graphics().setDepth(14);
+    this.gTop = this.add.graphics().setDepth(31);
+    this.makeProps();
+    if (st.night) this.add.rectangle(-200, -200, BW + 400, BH + 400, 0x0a1430, 0.38).setOrigin(0).setDepth(30);
+    const bc0 = ensureBanner(this, this.colors[0], S.hero.name[0] ?? '义', true);
+    const bc1 = ensureBanner(this, this.colors[1], FACTION_CHAR[st.enemyFaction] ?? '敌', true);
+    this.bannerKeys = [bc0.key, bc1.key];
     const cam = this.cameras.main;
     cam.setBounds(0, 0, BW, BH);
     cam.setZoom(Math.max(0.6, Math.min(1.2, this.scale.width / 1300)));
 
     this.deploy();
+    for (const u of this.units) this.spawnSprite(u);
+    this.assignBanners();
     this.input.on('wheel', (_p: any, _o: any, _dx: number, dy: number) => cam.setZoom(Phaser.Math.Clamp(cam.zoom * (dy > 0 ? 0.9 : 1.1), 0.45, 2)));
     this.keys = this.input.keyboard!.addKeys('W,A,S,D,Q,Z,X,C,R,ONE,TWO,THREE,FOUR,UP,DOWN,LEFT,RIGHT,SPACE,TAB');
     this.input.keyboard!.addCapture('SPACE,TAB');
@@ -122,54 +149,119 @@ export class BattleScene extends Phaser.Scene {
   makeGround() {
     const key = 'bground';
     if (this.textures.exists(key)) this.textures.remove(key);
-    const cv = document.createElement('canvas');
-    cv.width = BW / 2; cv.height = BH / 2;
-    const ctx = cv.getContext('2d')!;
-    const img = ctx.createImageData(cv.width, cv.height);
-    const base = TER_GROUND[this.setup.terrain] ?? TER_GROUND[Ter.Plain];
-    const seed = Math.floor(Math.random() * 1000);
-    for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) {
-      const n = fbm(x * 0.02, y * 0.02, seed, 4), n2 = fbm(x * 0.12, y * 0.12, seed + 5, 2);
-      const k = 0.8 + n * 0.35 + n2 * 0.08;
-      const i = (y * cv.width + x) * 4;
-      img.data[i] = base[0] * k; img.data[i + 1] = base[1] * k; img.data[i + 2] = base[2] * k; img.data[i + 3] = 255;
+    const cv = paintBattleGround({ W: BW, H: BH, terrain: this.setup.terrain, siege: this.setup.siege, wallX: WALL_X, gateY0: GATE_Y0, gateY1: GATE_Y1, seed: Math.floor(Math.random() * 1000), night: this.setup.night });
+    this.textures.addCanvas(key, cv as HTMLCanvasElement);
+    this.ground = this.add.renderTexture(0, 0, BW, BH).setOrigin(0).setDepth(0);
+    const img2 = this.make.image({ x: 0, y: 0, key, add: false }).setOrigin(0);
+    this.ground.draw(img2, 0, 0);
+  }
+
+  addProp(frame: string, x: number, y: number, tree = false, depthY = y) {
+    const fm = ensureAtlas(this, 'batlas', buildBattleAtlas);
+    const f = fm.get(frame); if (!f) return;
+    const sc = (tree ? 1.45 + Math.random() * 0.35 : frame.startsWith('bush') ? 1.2 : 1) / BRES;
+    const spr = this.add.image(x, y, 'batlas', frame).setOrigin(f.ax, f.ay).setScale(sc).setDepth(10 + depthY / 1000);
+    if (tree && Math.random() < 0.5) spr.setFlipX(true);
+    this.props.push({ spr, x, y, w: f.w * sc, h: f.h * sc, tree });
+  }
+
+  makeProps() {
+    const st = this.setup;
+    const t = st.terrain;
+    const R = Math.random;
+    const clearZone = (x: number, y: number) => (x > 200 && x < BW - 200 && y > 260 && y < BH - 260);
+    const nTrees = t === Ter.Forest ? 85 : t === Ter.Plain ? 16 : t === Ter.Hills ? 22 : t === Ter.Mountain ? 14 : t === Ter.Steppe ? 3 : t === Ter.Plateau ? 5 : 0;
+    const pineP = t === Ter.Mountain || t === Ter.Plateau ? 0.85 : t === Ter.Forest ? 0.4 : 0.15;
+    for (let i = 0; i < nTrees; i++) {
+      const x = 20 + R() * (BW - 40), y = 30 + R() * (BH - 40);
+      if (st.siege && x > WALL_X - 60) continue;
+      if (clearZone(x, y) && R() < 0.75) continue;
+      if (R() < pineP) this.addProp(`pine${Math.floor(R() * 3)}`, x, y, true);
+      else this.addProp(`tree${Math.floor(R() * 4)}`, x, y, true);
     }
-    ctx.putImageData(img, 0, 0);
-    // 装饰
-    const t = this.setup.terrain;
-    const trees = t === Ter.Forest ? 140 : t === Ter.Plain || t === Ter.Hills ? 25 : 6;
-    for (let i = 0; i < trees; i++) {
-      const x = Math.random() * cv.width, y = Math.random() * cv.height;
-      if (this.setup.siege && x > WALL_X / 2 - 40) continue;
-      if (x > 120 && x < 680 && y > 150 && y < 350 && Math.random() < 0.7) continue;
-      ctx.fillStyle = 'rgba(30,50,25,0.35)'; ctx.beginPath(); ctx.ellipse(x + 3, y + 4, 9, 5, 0, 0, 7); ctx.fill();
-      ctx.fillStyle = `rgba(${40 + Math.random() * 20},${70 + Math.random() * 30},${35},0.95)`; ctx.beginPath(); ctx.arc(x, y, 6 + Math.random() * 5, 0, 7); ctx.fill();
+    const nBush = t === Ter.Desert ? 6 : t === Ter.Forest ? 30 : 18;
+    for (let i = 0; i < nBush; i++) {
+      const x = R() * BW, y = R() * BH;
+      if (st.siege && x > WALL_X - 40) continue;
+      this.addProp(`bush${Math.floor(R() * 3)}`, x, y);
     }
-    for (let i = 0; i < 60; i++) {
-      const x = Math.random() * cv.width, y = Math.random() * cv.height;
-      ctx.fillStyle = 'rgba(90,80,60,0.4)'; ctx.fillRect(x, y, 2 + Math.random() * 3, 2);
+    const nRock = t === Ter.Mountain || t === Ter.Plateau ? 30 : t === Ter.Hills || t === Ter.Desert ? 16 : 6;
+    for (let i = 0; i < nRock; i++) {
+      const x = R() * BW, y = R() * BH;
+      if (st.siege && x > WALL_X - 40) continue;
+      this.addProp(`rock${Math.floor(R() * 3)}`, x, y);
     }
-    if (this.setup.siege) {
-      // 城墙
-      const wx = WALL_X / 2;
-      ctx.fillStyle = '#6d6556'; ctx.fillRect(wx - 10, 0, 20, GATE_Y0 / 2); ctx.fillRect(wx - 10, GATE_Y1 / 2, 20, cv.height - GATE_Y1 / 2);
-      ctx.fillStyle = '#8c8372';
-      for (let y = 0; y < cv.height; y += 8) { if (y > GATE_Y0 / 2 - 4 && y < GATE_Y1 / 2) continue; ctx.fillRect(wx - 12, y, 5, 5); }
-      ctx.fillStyle = '#4a3a2a'; ctx.fillRect(wx - 12, GATE_Y0 / 2 - 14, 24, 14); ctx.fillRect(wx - 12, GATE_Y1 / 2, 24, 14);
-      // 破碎的城门
-      ctx.fillStyle = 'rgba(70,50,30,0.8)'; ctx.fillRect(wx - 4, GATE_Y0 / 2 + 6, 6, 8); ctx.fillRect(wx + 2, GATE_Y1 / 2 - 14, 5, 8);
+    if (st.siege) {
+      // 城墙顶面（北段与南段）
+      const topN = GATE_Y0 - 40, topS0 = GATE_Y1 + 40;
+      const mk = (len: number) => { const k = 'walltop' + len; if (!this.textures.exists(k)) this.textures.addCanvas(k, buildWallTop(len) as HTMLCanvasElement); return k; };
+      this.add.image(WALL_X - 15 - 4, -WALL_H, mk(topN + 10)).setOrigin(0).setScale(1 / BRES).setDepth(10 + topN / 1000 - 0.0005);
+      this.add.image(WALL_X - 15 - 4, topS0 - WALL_H, mk(BH - topS0 + WALL_H)).setOrigin(0).setScale(1 / BRES).setDepth(10 + topS0 / 1000 - 0.0005);
+      this.addProp('gatetower', WALL_X, GATE_Y0);
+      this.addProp('gatetower', WALL_X, GATE_Y1 + 40);
       // 城内房屋
-      for (let i = 0; i < 26; i++) {
-        const x = wx + 40 + Math.random() * (cv.width - wx - 50), y = Math.random() * cv.height;
-        if (y > GATE_Y0 / 2 - 30 && y < GATE_Y1 / 2 + 30 && x < wx + 140) continue;
-        ctx.fillStyle = '#7a5a3a'; ctx.fillRect(x, y, 22, 14);
-        ctx.fillStyle = '#4b3524'; ctx.fillRect(x - 2, y - 4, 26, 6);
+      for (let i = 0; i < 40; i++) {
+        const x = WALL_X + 80 + R() * (BW - WALL_X - 100), y = 40 + R() * (BH - 40);
+        if (y > GATE_Y0 - 70 && y < GATE_Y1 + 90 && x < WALL_X + 330) continue;
+        if (this.props.some(p => !p.tree && Math.abs(p.x - x) < 64 && Math.abs(p.y - y) < 56)) continue;
+        this.addProp(`house${Math.floor(R() * 4)}`, x, y);
+      }
+      for (let i = 0; i < 5; i++) this.addProp('stakes', WALL_X + 60 + R() * 50, GATE_Y0 - 30 - R() * 60);
+      for (let i = 0; i < 5; i++) this.addProp('stakes', WALL_X + 60 + R() * 50, GATE_Y1 + 30 + R() * 60);
+      for (let i = 0; i < 8; i++) { const x = WALL_X + 120 + R() * 380; this.addProp(`tree${Math.floor(R() * 4)}`, x, R() < 0.5 ? 40 + R() * 200 : BH - 40 - R() * 200, true); }
+    }
+  }
+
+  // ---------- 精灵 ----------
+  liftOf(u: Unit) { return u.onWall && this.setup.siege && Math.abs(u.x - WALL_X) < 24 ? WALL_H : 0; }
+  specOf(u: Unit) {
+    if (u.hero) return currentHeroSpec(u.mounted, this.heroMode);
+    if (u.comp) return companionSpec(u.comp, this.colors[0], u.mounted);
+    return troopSpec(u.troop!, this.colors[u.side]);
+  }
+  spawnSprite(u: Unit) {
+    const info = ensureFigure(this, this.specOf(u));
+    u.spr = this.add.sprite(u.x, u.y, info.key, 0).setOrigin(info.ax, info.ay).setScale(1 / RES).setDepth(10 + u.y / 1000);
+    u.sheet = info.key; u.walkT = Math.random() * 30; u.firedT = 0; u.dustT = 0;
+  }
+  refreshHeroSprite() {
+    const h = this.hero; if (!h || !h.spr) return;
+    const info = ensureFigure(this, this.specOf(h));
+    if (info.key !== h.sheet) { h.spr.setTexture(info.key, 0).setOrigin(info.ax, info.ay); h.sheet = info.key; }
+  }
+  assignBanners() {
+    for (const side of [0, 1] as const) {
+      const cands = this.units.filter(u => u.side === side && !u.hero && !u.comp && u.group === 'inf' && !u.dead);
+      const n = Math.min(3, Math.ceil(cands.length / 25));
+      for (let i = 0; i < n; i++) {
+        const u = cands[Math.floor((i + 0.5) * cands.length / n)];
+        if (!u || u.banner) continue;
+        u.banner = this.add.sprite(u.x, u.y, this.bannerKeys[side], 0).setOrigin(2 / 22, 1).setScale(1.1 / 3);
       }
     }
-    this.textures.addCanvas(key, cv);
-    this.ground = this.add.renderTexture(0, 0, BW, BH).setOrigin(0).setDepth(0);
-    const img2 = this.make.image({ x: 0, y: 0, key, add: false }).setOrigin(0).setScale(2);
-    this.ground.draw(img2, 0, 0);
+    if (this.hero && !this.hero.banner && this.setup.heroFights) {
+      // 主角身后的亲兵掌旗
+      const comp = this.units.find(u => u.side === 0 && !u.hero && u.troop && u.group !== 'rng');
+      if (comp && !comp.banner) comp.banner = this.add.sprite(comp.x, comp.y, this.bannerKeys[0], 0).setOrigin(2 / 22, 1).setScale(1.25 / 3);
+    }
+  }
+
+  stampCorpse(u: Unit) {
+    if (!u.spr || !this.ground) return;
+    try {
+      if (!this.stampSpr) this.stampSpr = this.make.sprite({ x: 0, y: 0, key: u.sheet!, frame: FR.dead, add: false });
+      const s = this.stampSpr;
+      s.setTexture(u.sheet!, FR.dead).setOrigin(u.spr.originX, u.spr.originY).setScale(1 / RES).setFlipX(u.spr.flipX).setAlpha(0.95);
+      s.setPosition(u.x, u.y - this.liftOf(u));
+      this.ground.draw(s);
+    } catch { /* 无渲染器时忽略 */ }
+  }
+
+  blood(x: number, y: number, n: number) {
+    for (let i = 0; i < n && this.parts.length < 400; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 8 + Math.random() * 26;
+      this.parts.push({ x, y, z: 10 + Math.random() * 6, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.6, vz: 10 + Math.random() * 40, life: 0, max: 2, kind: 'blood', size: 0.8 + Math.random() * 1.1 });
+    }
   }
 
   // ---------- 部署 ----------
@@ -314,6 +406,7 @@ export class BattleScene extends Phaser.Scene {
   toggleWeapon() {
     if (!this.hero || !this.hero.rng) { this.msg('你没有远程武器。'); return; }
     this.heroMode = this.heroMode === 'melee' ? 'ranged' : 'melee';
+    this.refreshHeroSprite();
     battleHud.refresh();
   }
 
@@ -323,6 +416,7 @@ export class BattleScene extends Phaser.Scene {
   update(_time: number, delta: number) {
     if (this.finished) { this.render(); return; }
     const dt = Math.min(delta, 50) / 1000;
+    this.lastDt = dt;
     this.elapsed += dt;
     if (!this.enemyCharge && this.elapsed > (this.setup.siege ? 9999 : 16)) this.enemyCharge = true;
     this.updateHero(dt);
@@ -380,12 +474,13 @@ export class BattleScene extends Phaser.Scene {
       if (this.heroMode === 'ranged' && h.rng && h.ammo > 0) {
         if (h.rcd <= 0) {
           const spread = 0.09 - S.hero.skills.archery * 0.007 + (h.mounted ? 0.03 : 0) + Math.hypot(h.vx, h.vy) / 3000;
-          this.fire(h, aim + (Math.random() - 0.5) * spread * 2);
+          this.fire(h, aim + (Math.random() - 0.5) * spread * 2, Math.hypot(wp.x - h.x, wp.y - h.y));
           h.rcd = h.reload; h.ammo--;
-          if (h.ammo === 0) { this.msg('箭矢/弹药用尽，切换为近战。'); this.heroMode = 'melee'; battleHud.refresh(); }
+          h.firedT = 0.25;
+          if (h.ammo === 0) { this.msg('箭矢/弹药用尽，切换为近战。'); this.heroMode = 'melee'; this.refreshHeroSprite(); battleHud.refresh(); }
         }
       } else if (h.cd <= 0) {
-        h.cd = (h as any).meleeSpeed ?? 0.8; h.swing = 0.18;
+        h.cd = (h as any).meleeSpeed ?? 0.8; h.swing = SWING;
         // 扇形攻击
         const speedNow = Math.hypot(h.vx, h.vy);
         let hits = 0;
@@ -465,13 +560,15 @@ export class BattleScene extends Phaser.Scene {
     const ranged = u.rng > 0 && u.ammo > 0;
 
     // 远程射击
+    u.aiming = false;
     if (ranged && d < u.range && d > 45) {
+      u.aiming = u.cls !== 'hca' || Math.hypot(u.vx, u.vy) < 30;
       if (u.rcd <= 0) {
         const lead = d / (u.kind === 'gun' ? 900 : 520);
         const ax = t.x + t.vx * lead, ay = t.y + t.vy * lead;
         const spread = Math.max(0.025, 0.13 - u.skill * 0.008) + (this.setup.night ? 0.04 : 0);
-        this.fire(u, Math.atan2(ay - u.y, ax - u.x) + (Math.random() - 0.5) * spread * 2);
-        u.rcd = u.reload * (0.85 + Math.random() * 0.3); u.ammo--;
+        this.fire(u, Math.atan2(ay - u.y, ax - u.x) + (Math.random() - 0.5) * spread * 2, d);
+        u.rcd = u.reload * (0.85 + Math.random() * 0.3); u.ammo--; u.firedT = 0.25;
       }
       u.face = Math.atan2(t.y - u.y, t.x - u.x);
       if (u.cls === 'hca' && d < 150) {
@@ -497,7 +594,7 @@ export class BattleScene extends Phaser.Scene {
         if (u.mounted && t.antiCav) { u.hp -= 2; }
         this.damage(u, t, dmg, 0.55 + (u.skill - t.skill) * 0.025);
         u.cd = (u.mounted ? 1.1 : 1.15) + Math.random() * 0.35;
-        u.swing = 0.15;
+        u.swing = SWING;
         if (u.mounted && u.cls === 'cav') u.disengage = 1.2 + Math.random() * 0.6;
       }
       if (!u.mounted) { u.vx *= 0.5; u.vy *= 0.5; return; }
@@ -559,10 +656,15 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
-  fire(u: Unit, a: number) {
+  fire(u: Unit, a: number, dist = 200) {
     const sp = u.kind === 'gun' ? 900 : u.kind === 'xbow' ? 620 : 520;
-    this.projs.push({ x: u.x + Math.cos(a) * 10, y: u.y + Math.sin(a) * 10, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, dmg: u.rng, side: u.side, life: (u.range * 1.25) / sp, kind: u.kind ?? 'bow', from: u });
-    if (u.kind === 'gun') this.smoke.push({ x: u.x + Math.cos(a) * 14, y: u.y + Math.sin(a) * 14, t: 0 });
+    const z0 = 14 + (u.mounted ? 10 : 0) + this.liftOf(u);
+    this.projs.push({ x: u.x + Math.cos(a) * 10, y: u.y + Math.sin(a) * 10, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, dmg: u.rng, side: u.side, life: (u.range * 1.25) / sp, kind: u.kind ?? 'bow', from: u, sx: u.x, sy: u.y, dist: Math.max(40, Math.min(dist, u.range * 1.1)), z0 });
+    if (u.kind === 'gun') {
+      const mx = u.x + Math.cos(a) * 16, my = u.y + Math.sin(a) * 16;
+      for (let i = 0; i < 4; i++) this.parts.push({ x: mx + Math.cos(a) * i * 4, y: my + Math.sin(a) * i * 4, z: z0, vx: Math.cos(a) * (20 + i * 10) + (Math.random() - 0.5) * 10, vy: Math.sin(a) * (20 + i * 10), vz: 6 + Math.random() * 6, life: 0, max: 1.6 + Math.random() * 0.8, kind: 'smoke', size: 4 + i * 1.5 });
+      this.parts.push({ x: mx, y: my, z: z0, vx: 0, vy: 0, vz: 0, life: 0, max: 0.08, kind: 'spark', size: 7 });
+    }
   }
 
   updateProjs(dt: number, grid: Map<number, Unit[]>) {
@@ -583,6 +685,16 @@ export class BattleScene extends Phaser.Scene {
         });
       }
       p.life -= dt;
+      if (!hit && p.kind !== 'gun' && Math.hypot(p.x - p.sx, p.y - p.sy) > p.dist * 1.08) {
+        // 落地的箭
+        if (this.stamps < 2500) {
+          const a = Math.atan2(p.vy, p.vx); const s = this.stamp; s.clear();
+          s.lineStyle(1, 0x3a2414, 0.9); s.lineBetween(0, 0, -Math.cos(a) * 6, -Math.sin(a) * 6 - 3);
+          s.fillStyle(0xe8e0d0, 0.9); s.fillRect(-Math.cos(a) * 6 - 1, -Math.sin(a) * 6 - 4, 2, 1.5);
+          try { this.ground?.draw(s, p.x, p.y); } catch { /* */ } this.stamps++;
+        }
+        this.projs.splice(i, 1); continue;
+      }
       if (hit || p.life <= 0 || p.x < 0 || p.x > BW || p.y < 0 || p.y > BH) this.projs.splice(i, 1);
     }
     for (let i = this.smoke.length - 1; i >= 0; i--) { this.smoke[i].t += dt; if (this.smoke[i].t > 1.4) this.smoke.splice(i, 1); }
@@ -592,6 +704,8 @@ export class BattleScene extends Phaser.Scene {
     if (Math.random() > Math.max(0.15, Math.min(0.95, hitChance))) return;
     const dmg = Math.max(2, raw * (0.8 + Math.random() * 0.4) - t.def * armorFactor);
     t.hp -= dmg; t.hitFlash = 0.12;
+    this.blood(t.x, t.y - this.liftOf(t), dmg > 15 ? 4 : 2);
+    if (t.hero) this.cameras.main.shake(90, 0.003);
     if (t.mounted && !t.hero) { t.vx *= 0.6; t.vy *= 0.6; }
     if (heroAttack || a.hero) this.floater(t.x, t.y - 12, String(Math.round(dmg)), '#ffe9a0');
     if (t.hero) this.floater(t.x, t.y - 14, `-${Math.round(dmg)}`, '#ff6050');
@@ -612,12 +726,19 @@ export class BattleScene extends Phaser.Scene {
     if (u.comp) { this.compDown.push(u.comp); this.msg(`${u.name}负伤倒地！`); }
     if (u.hero) { this.heroDown = true; this.msg('你被击倒了！部下们继续作战……'); battleHud.refresh(); }
     if (by.hero && u.troop) this.msg(`你击倒了${u.name}。`);
-    // 地面痕迹
+    // 地面痕迹：血迹 + 尸体
     const s = this.stamp;
     s.clear();
-    s.fillStyle(0x5a1a10, 0.5); s.fillEllipse(0, 0, u.mounted ? 18 : 11, u.mounted ? 10 : 7);
-    s.fillStyle(u.side === 0 ? this.colors[0] : this.colors[1], 0.45); s.fillCircle(Math.random() * 4 - 2, Math.random() * 4 - 2, 3);
-    this.ground.draw(s, u.x, u.y);
+    s.fillStyle(0x5a1208, 0.55); s.fillEllipse(0, 0, u.mounted ? 20 : 13, u.mounted ? 9 : 6);
+    s.fillStyle(0x7a1a0e, 0.4); s.fillEllipse(-4, 2, 7, 3.5);
+    try { this.ground?.draw(s, u.x - 6, u.y - this.liftOf(u)); } catch { /* */ }
+    this.stampCorpse(u);
+    u.spr?.destroy(); u.spr = null;
+    if (u.banner) { u.banner.destroy(); u.banner = null; }
+    if (u.mounted && !u.hero) {
+      // 无主战马跑开
+      this.parts.push({ x: u.x, y: u.y, z: 0, vx: 0, vy: 0, vz: 0, life: 0, max: 0.6, kind: 'dust', size: 8 });
+    }
   }
 
   sideMorale(side: 0 | 1) {
@@ -660,6 +781,7 @@ export class BattleScene extends Phaser.Scene {
         u.y = BH / 2 + (Math.random() - 0.5) * 400;
         if (this.setup.siege && side === 1) u.x = BW - 60;
         this.units.push(u);
+        this.spawnSprite(u);
         st.n--; if (st.n <= 0) res.shift();
         spawned++;
       }
@@ -741,67 +863,112 @@ export class BattleScene extends Phaser.Scene {
 
   // ---------- 绘制 ----------
   render() {
-    const g = this.g, gp = this.gProj;
-    g.clear(); gp.clear();
+    const g = this.g, gp = this.gProj, gu = this.gUnder, gt = this.gTop;
+    g.clear(); gp.clear(); gu.clear(); gt.clear();
+    const dt = this.finished ? 0 : this.lastDt;
+    const now = this.time.now;
     for (const u of this.units) {
-      if (u.dead || u.fled) continue;
-      const col = u.hitFlash > 0 ? 0xffffff : this.colors[u.side];
-      const cf = Math.cos(u.face), sf = Math.sin(u.face);
-      if (u.mounted) {
-        g.fillStyle(0x000000, 0.25); g.fillEllipse(u.x + 2, u.y + 3, 22, 12);
-        g.fillStyle(0x6b4a2a, 1);
-        // 马身
-        const hx = u.x + cf * 8, hy = u.y + sf * 8;
-        g.fillCircle(u.x - cf * 4, u.y - sf * 4, 5.5); g.fillCircle(u.x + cf * 2, u.y + sf * 2, 5.5); g.fillCircle(hx, hy, 3.5);
-      } else { g.fillStyle(0x000000, 0.25); g.fillCircle(u.x + 1.5, u.y + 2, u.r); }
-      // 武器
-      const wl = u.cls === 'spear' || (u.hero && u.antiCav) ? 20 : u.mounted ? 16 : 11;
-      const swingA = u.swing > 0 ? (u.swing / 0.18) * 1.2 - 0.6 : 0;
-      const wa = u.face + swingA;
-      g.lineStyle(u.cls === 'spear' ? 1.6 : 2, 0xd8d8d8, 1);
-      if (u.rng > 0 && u.ammo > 0 && !u.hero && u.cls !== 'gun') {
-        g.lineStyle(1.5, 0x6b4a2a, 1); g.beginPath(); g.arc(u.x + cf * 4, u.y + sf * 4, 7, u.face - 1.1, u.face + 1.1); g.strokePath();
-      } else if (u.cls === 'gun' || (u.hero && this.heroMode === 'ranged' && u.kind === 'gun')) {
-        g.lineStyle(2.2, 0x3a3a3a, 1); g.lineBetween(u.x, u.y, u.x + cf * 15, u.y + sf * 15);
-      } else g.lineBetween(u.x + Math.cos(wa) * 4, u.y + Math.sin(wa) * 4, u.x + Math.cos(wa) * (4 + wl), u.y + Math.sin(wa) * (4 + wl));
-      // 身体
-      const br = u.mounted ? 5 : u.r - 0.5;
-      g.fillStyle(0x1a1008, 1); g.fillCircle(u.x, u.y, br + 1.3);
-      g.fillStyle(col, 1); g.fillCircle(u.x, u.y, br);
-      if (u.routed) { g.fillStyle(0xffffff, 0.8); g.fillCircle(u.x, u.y, 1.8); }
-      else if (u.troop) {
-        const tier = TROOPS[u.troop].tier;
-        if (tier >= 4) { g.fillStyle(0xffffff, 0.9); g.fillCircle(u.x, u.y, 1.8); }
-        else if (tier === 3) { g.fillStyle(0x000000, 0.5); g.fillCircle(u.x, u.y, 1.6); }
-      }
+      const spr = u.spr;
+      if (!spr) continue;
+      if (u.dead || u.fled) { spr.setVisible(false); u.banner?.setVisible(false); continue; }
+      const lift = this.liftOf(u);
+      const sp = Math.hypot(u.vx, u.vy);
+      let f: number = FR.idle;
+      u.firedT = Math.max(0, (u.firedT ?? 0) - dt);
+      if (u.swing > 0) { const prog = 1 - u.swing / SWING; f = FR.atk0 + Math.min(2, Math.floor(prog * 3)); }
+      else if ((u.firedT ?? 0) > 0) f = FR.release;
+      else if (u.hero ? (this.heroMode === 'ranged' && u.rng > 0 && sp < 10) : u.aiming) f = FR.aim;
+      else if (sp > 6) { u.walkT = (u.walkT ?? 0) + sp * dt; f = FR.walk0 + Math.floor(u.walkT / (u.mounted ? 11 : 7)) % 4; }
+      const flip = Math.cos(u.face) < 0;
+      spr.setPosition(u.x, u.y - lift).setFrame(f).setFlipX(flip).setDepth(lift ? 11.2 + u.y / 1e5 : 10 + u.y / 1000);
+      if (u.hitFlash > 0) spr.setTintFill(0xffffff); else if (u.routed) spr.setTint(0xb0b0b0); else spr.clearTint();
+      // 脚下阵营标记
+      gu.fillStyle(this.colors[u.side], u.hero ? 0 : 0.28); gu.fillEllipse(u.x, u.y - lift + 0.5, u.mounted ? 22 : 12, u.mounted ? 7 : 4.5);
       if (u.hero || u.comp) {
-        g.lineStyle(2, u.hero ? 0xffffff : 0x9fe0ff, 1); g.strokeCircle(u.x, u.y, br + 3.5);
-        const w = 22; g.fillStyle(0x000000, 0.6); g.fillRect(u.x - w / 2, u.y - br - 10, w, 3.5);
-        g.fillStyle(u.hero ? 0x40e060 : 0x60c0ff, 1); g.fillRect(u.x - w / 2, u.y - br - 10, w * Math.max(0, u.hp / u.maxHp), 3.5);
+        gu.lineStyle(1.6, u.hero ? 0xffe070 : 0x8fd8ff, 0.95); gu.strokeEllipse(u.x, u.y - lift + 0.5, u.mounted ? 30 : 18, u.mounted ? 10 : 7);
+        const w = 22, top = u.y - lift - (u.mounted ? 46 : 34);
+        gt.fillStyle(0x000000, 0.6); gt.fillRect(u.x - w / 2 - 1, top - 1, w + 2, 5);
+        gt.fillStyle(u.hero ? 0x40e060 : 0x60c0ff, 1); gt.fillRect(u.x - w / 2, top, w * Math.max(0, u.hp / u.maxHp), 3);
+      }
+      // 骑兵扬尘
+      if (u.mounted && sp > 80 && dt > 0) {
+        u.dustT = (u.dustT ?? 0) - dt;
+        if (u.dustT <= 0 && this.parts.length < 400) { u.dustT = 0.12; this.parts.push({ x: u.x - Math.cos(u.face) * 10, y: u.y + 1, z: 1, vx: -u.vx * 0.1, vy: -u.vy * 0.1, vz: 8, life: 0, max: 0.9, kind: 'dust', size: 3 + Math.random() * 2 }); }
+      }
+      if (u.banner) {
+        const dir = flip ? -1 : 1;
+        u.banner.setPosition(u.x - dir * 5, u.y - lift - 2).setFlipX(!flip).setDepth(10 + u.y / 1000 - 0.00001).setFrame(Math.floor(now / 130 + u.uid) % 4).setVisible(true);
       }
     }
-    // 投射物
-    for (const p of this.projs) {
-      const a = Math.atan2(p.vy, p.vx);
-      if (p.kind === 'gun') { gp.lineStyle(1.8, 0xfff2b0, 0.95); gp.lineBetween(p.x, p.y, p.x - Math.cos(a) * 10, p.y - Math.sin(a) * 10); }
-      else { gp.lineStyle(1.2, 0x2a1a0e, 0.95); gp.lineBetween(p.x, p.y, p.x - Math.cos(a) * 9, p.y - Math.sin(a) * 9); }
+    // 树木：遮挡主角时半透明
+    const focus = this.hero && !this.hero.dead ? this.hero : null;
+    for (const p of this.props) {
+      if (!p.tree) continue;
+      let a = 1;
+      if (focus && Math.abs(focus.x - p.x) < p.w * 0.45 && focus.y < p.y - 2 && focus.y > p.y - p.h * 0.95) a = 0.4;
+      if (p.spr.alpha !== a) p.spr.setAlpha(a);
     }
-    for (const s of this.smoke) { gp.fillStyle(0xdddddd, 0.5 * (1 - s.t / 1.4)); gp.fillCircle(s.x + s.t * 8, s.y - s.t * 10, 5 + s.t * 10); }
+    // 粒子
+    for (let i = this.parts.length - 1; i >= 0; i--) {
+      const q = this.parts[i];
+      q.life += dt;
+      if (q.life >= q.max) { this.parts.splice(i, 1); continue; }
+      q.x += q.vx * dt; q.y += q.vy * dt; q.z += q.vz * dt;
+      const t = q.life / q.max;
+      if (q.kind === 'blood') {
+        q.vz -= 320 * dt;
+        if (q.z <= 0) {
+          if (this.stamps < 2500 && Math.random() < 0.5) { const s = this.stamp; s.clear(); s.fillStyle(0x6a140a, 0.7); s.fillCircle(0, 0, q.size * 0.9); try { this.ground?.draw(s, q.x, q.y); } catch { /* */ } this.stamps++; }
+          this.parts.splice(i, 1); continue;
+        }
+        gp.fillStyle(0xa01810, 0.95); gp.fillRect(q.x - q.size / 2, q.y - q.z - q.size / 2, q.size, q.size);
+      } else if (q.kind === 'dust') {
+        q.vx *= 0.96; q.vy *= 0.96;
+        g.fillStyle(0xc8b48a, 0.35 * (1 - t)); g.fillCircle(q.x, q.y - q.z, q.size * (1 + t * 2.2));
+      } else if (q.kind === 'smoke') {
+        q.vx *= 0.97; q.vy *= 0.97;
+        gp.fillStyle(0xe8e4dc, 0.32 * (1 - t) * (1 - t)); gp.fillCircle(q.x + t * 6, q.y - q.z - t * 8, q.size * (0.8 + t * 1.8));
+      } else {
+        gp.fillStyle(0xfff0a0, 0.9 * (1 - t)); gp.fillCircle(q.x, q.y - q.z, q.size * (1 - t * 0.5));
+        gp.fillStyle(0xff8a20, 0.5 * (1 - t)); gp.fillCircle(q.x, q.y - q.z, q.size * 1.8);
+      }
+    }
+    // 投射物（带抛物线高度与地面投影）
+    for (const p of this.projs) {
+      const trav = Math.hypot(p.x - p.sx, p.y - p.sy);
+      const t = trav / p.dist;
+      const arc = p.kind === 'gun' ? 0 : p.kind === 'xbow' ? p.dist * 0.05 : p.dist * 0.16;
+      const zAt = (tt: number) => Math.max(0, p.z0 + (12 - p.z0) * Math.min(tt, 1) + arc * 4 * tt * (1 - tt) - (tt > 1 ? (tt - 1) * 60 : 0));
+      const z = zAt(t), z2 = zAt(t + 0.02);
+      const a = Math.atan2(p.vy, p.vx);
+      const L = p.kind === 'gun' ? 10 : 9;
+      const step = 0.02 * p.dist;
+      const ang = Math.atan2(Math.sin(a) * step - (z2 - z), Math.cos(a) * step);
+      if (p.kind === 'gun') {
+        gp.lineStyle(2, 0xfff2b0, 0.95); gp.lineBetween(p.x, p.y - z, p.x - Math.cos(a) * L, p.y - z - Math.sin(a) * L);
+      } else {
+        gp.lineStyle(1, 0x000000, 0.25); gp.lineBetween(p.x, p.y, p.x - Math.cos(a) * 7, p.y - Math.sin(a) * 7);
+        const x0 = p.x, y0 = p.y - z, x1 = x0 - Math.cos(ang) * L, y1 = y0 - Math.sin(ang) * L;
+        gp.lineStyle(1.3, 0x3a2414, 1); gp.lineBetween(x0, y0, x1, y1);
+        gp.fillStyle(0xf0ece0, 1); gp.fillRect(x1 - 1, y1 - 1, 2, 2);
+        gp.fillStyle(0xd0d4d8, 1); gp.fillRect(x0 - 0.8, y0 - 0.8, 1.6, 1.6);
+      }
+    }
     // 主角瞄准
     if (this.hero && !this.hero.dead && !this.finished) {
       const h = this.hero;
       if (this.heroMode === 'ranged') {
         gp.lineStyle(1, 0xffffff, 0.25); gp.lineBetween(h.x, h.y, h.x + Math.cos(h.face) * Math.min(h.range, 250), h.y + Math.sin(h.face) * Math.min(h.range, 250));
-        if (h.rcd > 0) { gp.lineStyle(2, 0xffe9a0, 0.8); gp.beginPath(); gp.arc(h.x, h.y, 14, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - h.rcd / h.reload)); gp.strokePath(); }
+        if (h.rcd > 0) { gt.lineStyle(2, 0xffe9a0, 0.8); gt.beginPath(); gt.arc(h.x, h.y - 22, 9, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - h.rcd / h.reload)); gt.strokePath(); }
       } else {
-        gp.lineStyle(1, 0xffffff, 0.18); gp.beginPath(); gp.arc(h.x, h.y, h.reach + 6, h.face - 0.9, h.face + 0.9); gp.strokePath();
+        gu.lineStyle(1, 0xffffff, 0.22); gu.beginPath(); gu.arc(h.x, h.y, h.reach + 6, h.face - 0.9, h.face + 0.9); gu.strokePath();
       }
     }
     // 坚守位置标记
     for (const gname of ['inf', 'rng', 'cav'] as Group[]) {
       if (this.orders[gname] !== 'hold') continue;
       const hp = this.holdPos[gname];
-      gp.lineStyle(1, this.colors[0], 0.4); gp.strokeCircle(hp.x, hp.y, 10);
+      gu.lineStyle(1.5, this.colors[0], 0.5); gu.strokeEllipse(hp.x, hp.y, 26, 10);
     }
   }
 }
