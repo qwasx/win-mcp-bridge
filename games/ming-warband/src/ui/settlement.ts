@@ -19,6 +19,8 @@ import { partyLimit, partySkill } from '../core/character';
 import { restInside, simulate, nav } from '../core/sim';
 import { questOffer, acceptQuest, onEnterSettlement, canDeliverGrain, deliverGrain, eligibleTroops, deliverTroops } from '../core/quests';
 import { startBattle } from './encounter';
+import { myFollowers, lordsInside, partyLabel } from '../core/war';
+import type { SiegeKit } from '../scenes/battle/siege';
 import { playerAutoBattle, applyPlayerBattle, setOwner } from '../core/combat';
 import { showReport } from './encounter';
 import { saveGame } from '../core/save';
@@ -91,6 +93,7 @@ export function openSettlement(st: Settlement) {
     add('⚒ 铁匠铺（兵器甲胄）', () => openShop(st));
     add('🍶 酒馆（雇佣兵、同伴、牙人）', () => openTavern(st));
     add('📜 衙门（差事）', () => openOffice(st));
+    if (st.prosperity >= 35) add('🧨 军器局（火炮）', () => openArsenal(st));
     add(`🏯 拜见${lordName(st.owner)}`, () => openHall(st));
   } else if (st.kind === 'castle') {
     add(`🏯 拜见${lordName(st.owner)}`, () => openHall(st), '', st.owner === 'player');
@@ -464,6 +467,16 @@ function raidVillage(st: Settlement) {
 
 // ---------- 攻城 ----------
 const SIEGE_PREP = 10;
+const RAM_AT = 18, MINE_DUR = 30;
+export function siegeKitOf(st: Settlement): SiegeKit {
+  const el = S.time - (st.siege?.since ?? S.time);
+  return {
+    ladders: el < SIEGE_PREP ? 0 : Math.min(6, 3 + Math.floor((el - SIEGE_PREP) / 8)),
+    ram: el >= RAM_AT,
+    cannons: Math.min(4, S.cannons ?? 0),
+    mine: !!st.siege?.mineAt && S.time - st.siege.mineAt >= MINE_DUR,
+  };
+}
 function beginSiege(st: Settlement) {
   const pp = player();
   if (st.siege && st.siege.by !== pp.id) { const p = partyById(st.siege.by); if (p) return toast(`${p.name}正在围攻此地`); }
@@ -474,7 +487,7 @@ function beginSiege(st: Settlement) {
     }
   }
   st.siege = { by: pp.id, since: S.time };
-  log(`你开始围攻${st.name}，部下们开始打造云梯。`, 'war');
+  log(`你开始围攻${st.name}，部下们开始伐木打造云梯。`, 'war');
   openSiege(st);
 }
 
@@ -483,19 +496,55 @@ function openSiege(st: Settlement) {
   const pp = player();
   const elapsed = S.time - (st.siege?.since ?? S.time);
   const ready = elapsed >= SIEGE_PREP;
+  const kit = siegeKitOf(st);
+  const fol = myFollowers();
+  const inside = lordsInside(st);
+  const mineLeft = st.siege?.mineAt ? Math.max(0, Math.ceil(MINE_DUR - (S.time - st.siege.mineAt))) : -1;
+  const wait = (hrs: number) => () => { closeAll(); const interrupted = simulate(Math.max(0.5, hrs)); if (!interrupted && st.siege) openSiege(st); };
+  const line = (ok: boolean, txt: string) => h('div', { class: ok ? 'good' : 'dim' }, (ok ? '✔ ' : '… ') + txt);
+  const our = healthy(pp.troops) + fol.reduce((a, p) => a + healthy(p.troops), 0);
+  const their = healthy(st.garrison) + inside.reduce((a, p) => a + healthy(p.troops), 0);
   const body = h('div', null, header(st),
-    h('p', { class: 'flavor' }, ready ? '云梯已经备好，将士们摩拳擦掌，只待一声令下。' : `部下正在打造云梯与冲车，还需约 ${Math.ceil(SIEGE_PREP - elapsed)} 小时。`),
-    h('p', { class: 'dim' }, `守军约 ${count(st.garrison)} 人，我军 ${healthy(pp.troops)} 人可战。守城一方占据地利。`),
+    h('p', { class: 'flavor' }, ready ? '营中斧锯声不绝。将士们摩拳擦掌，只待一声令下。' : `部下正在伐木打造云梯，还需约 ${Math.ceil(SIEGE_PREP - elapsed)} 小时。`),
+    h('div', { class: 'card' },
+      h('b', null, '攻城器械'),
+      line(kit.ladders > 0, kit.ladders ? `云梯 ${kit.ladders} 架${kit.ladders < 6 ? '（每 8 小时再造一架，至多 6 架）' : ''}` : '云梯：尚未造好'),
+      line(kit.ram, kit.ram ? '冲车一辆，可撞城门' : `冲车：还需 ${Math.ceil(RAM_AT - elapsed)} 小时`),
+      line(kit.cannons > 0, kit.cannons ? `随军火炮 ${kit.cannons} 门，可轰城门与城墙` : '火炮：无（可在城镇军器局购置）'),
+      line(kit.mine, kit.mine ? '地道已挖到城下，开战后点燃火药炸开城墙' : mineLeft >= 0 ? `地道：还需 ${mineLeft} 小时` : '地道：未开挖'),
+    ),
+    h('p', { class: 'dim' }, `守军约 ${their} 人${inside.length ? `（含${inside.map(p => partyLabel(p)).join('、')}）` : ''}；我军 ${our} 人可战${fol.length ? `（含军团 ${fol.length} 路）` : ''}。${st.kind === 'town' ? '城高池深，' : ''}守城一方占据地利。`),
     h('div', { class: 'menu' },
-      ready ? btn('⚔ 亲自率军攻城', () => { closeAll(); startBattle(null, st, true); }, 'menu-item danger', S.hero.hp < 0.25, S.hero.hp < 0.25 ? '你伤势过重' : '') : btn(`等待准备（${Math.ceil(SIEGE_PREP - elapsed)}小时）`, () => {
-        closeAll();
-        const interrupted = simulate(Math.max(0.5, SIEGE_PREP - elapsed));
-        if (!interrupted && st.siege) openSiege(st);
-      }, 'menu-item'),
-      ready ? btn('🎲 下令攻城（自动结算）', () => { closeAll(); startBattle(null, st, false); }, 'menu-item') : null,
+      ready ? btn('⚔ 亲自率军攻城', () => { closeAll(); startBattle(null, st, true, { kit: siegeKitOf(st) }); }, 'menu-item danger', S.hero.hp < 0.25, S.hero.hp < 0.25 ? '你伤势过重' : '') : btn(`等待准备（${Math.ceil(SIEGE_PREP - elapsed)}小时）`, wait(SIEGE_PREP - elapsed), 'menu-item'),
+      ready ? btn('🎲 下令攻城（自动结算）', () => { closeAll(); startBattle(null, st, false, { kit: siegeKitOf(st) }); }, 'menu-item') : null,
+      ready && (kit.ladders < 6 || !kit.ram) ? btn('🪓 继续打造器械（8 小时）', wait(8), 'menu-item') : null,
+      !st.siege?.mineAt ? btn('⛏ 挖掘地道（约 30 小时，需 40 人）', () => { st.siege!.mineAt = S.time; log(`你命工兵在${st.name}城外挖掘地道。`, 'war'); openSiege(st); }, 'menu-item', healthy(pp.troops) < 40, healthy(pp.troops) < 40 ? '至少需要 40 名健康的部下' : '')
+        : !kit.mine ? btn(`⛏ 等待地道挖通（${mineLeft} 小时）`, wait(mineLeft), 'menu-item') : null,
       btn('解除包围', () => { st.siege = null; closeAll(); log(`你解除了对${st.name}的包围。`, 'dim'); }, 'menu-item'),
       btn('暂时离开（保持包围）', () => closeAll(), 'menu-item'),
     ));
   openPanel(`围攻${st.name}`, body);
   void replaceTop; void ll;
+}
+
+// ---------- 军器局：火炮 ----------
+export const CANNON_PRICE = 850;
+function openArsenal(st: Settlement) {
+  const pp = player();
+  const body = h('div');
+  const render = () => {
+    body.innerHTML = '';
+    const n = S.cannons ?? 0;
+    const price = Math.round(CANNON_PRICE * (st.faction === 'ming' || st.faction === 'jin' ? 1 : 1.25));
+    body.append(
+      h('p', { class: 'flavor' }, `军器局的工匠正在浇铸炮身，红夷大炮、佛郎机一字排开。“将军要几门？一门炮连炮手、火药、骡车，${price} 两。”`),
+      h('p', null, `你现有火炮 ${n} 门（至多 4 门）。每门火炮会让行军略慢一些，攻城时可轰击城门与城墙。`),
+      h('div', { class: 'row' },
+        btn(`购置一门（${price} 两）`, () => { if (pp.gold < price) return toast('银子不够'); pp.gold -= price; S.cannons = n + 1; sfx('coin'); render(); }, 'primary', n >= 4 || pp.gold < price),
+        btn(`变卖一门（${Math.round(price * 0.45)} 两）`, () => { S.cannons = n - 1; pp.gold += Math.round(price * 0.45); sfx('coin'); render(); }, '', n <= 0),
+        btn('返回', () => closeTop()),
+      ));
+  };
+  render();
+  openPanel('军器局', body);
 }

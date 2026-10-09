@@ -76,11 +76,11 @@ export function playerExtraPower() {
   return e;
 }
 
-export function playerAutoBattle(enemy: Stack[], enemyMult = 1, enemyExtra = 0): Outcome {
+export function playerAutoBattle(enemy: Stack[], enemyMult = 1, enemyExtra = 0, ours?: Stack[], ourMult = 1, ourExtra = 0): Outcome {
   const pp = player();
   const tactics = partySkill(S, 'tactics');
   const moraleMod = 0.85 + S.morale / 333;
-  const r = autoResolve(pp.troops, enemy, (1 + tactics * 0.06) * moraleMod, enemyMult, playerExtraPower(), enemyExtra);
+  const r = autoResolve(ours ?? pp.troops, enemy, (1 + tactics * 0.06) * moraleMod * ourMult, enemyMult, playerExtraPower() + ourExtra, enemyExtra);
   const heroDown = !r.aWin ? true : chance(0.08);
   const compDown = S.companions.filter(c => c.wounded <= 0 && (!r.aWin ? chance(0.7) : chance(0.1))).map(c => c.id);
   return { win: r.aWin, ourDown: r.aDown, enemyDown: r.bDown, heroDown, compDown };
@@ -90,7 +90,8 @@ function sumCas(c: Casualties) { let n = 0; for (const k in c) n += c[k]; return
 function casPower(c: Casualties) { let p = 0; for (const k in c) p += troopPower(TROOPS[k]) * c[k]; return p; }
 
 /** 处理玩家战斗结果。enemy 为敌方部队（攻城时为 null，使用 siegeOf 的守军） */
-export function applyPlayerBattle(enemy: Party | null, siegeOf: Settlement | null, out: Outcome): BattleReport {
+export interface WarCtx { extraEnemies?: Party[]; allies?: Party[]; defendOf?: Settlement | null }
+export function applyPlayerBattle(enemy: Party | null, siegeOf: Settlement | null, out: Outcome, ctx: WarCtx = {}): BattleReport {
   const pp = player();
   const lines: string[] = [];
   const loot: string[] = [];
@@ -120,11 +121,24 @@ export function applyPlayerBattle(enemy: Party | null, siegeOf: Settlement | nul
   const pLimit = prisonerLimit(S) - count(pp.prisoners);
   let pTaken = 0;
   const downN = sumCas(out.enemyDown);
-  for (const id in out.enemyDown) {
-    const n = out.enemyDown[id];
-    removeTroops(enemyStacks, id, n);
+  const mainPid = enemy ? String(enemy.id) : 'g';
+  const extras = ctx.extraEnemies ?? [];
+  const byPid: Record<string, Casualties> = out.downBy ?? { [mainPid]: out.enemyDown };
+  const eParts: [Stack[], Casualties][] = [[enemyStacks, byPid[mainPid] ?? (extras.length ? {} : out.enemyDown)], ...extras.map(e => [e.troops, byPid[String(e.id)] ?? {}] as [Stack[], Casualties])];
+  for (const [stacks, down] of eParts) for (const id in down) {
+    const n = down[id];
+    removeTroops(stacks, id, n);
     if (out.win) for (let i = 0; i < n; i++) if (chance(0.38) && pTaken < pLimit) { addTroops(prisoners, id, 1); pTaken++; }
   }
+  // 友军伤亡
+  for (const a of ctx.allies ?? []) {
+    const d = byPid[String(a.id)]; if (!d) continue;
+    let n = 0; for (const id in d) { n += d[id]; const dead = Math.round(d[id] * 0.7); removeTroops(a.troops, id, dead); const st = a.troops.find(x => x.id === id); if (st) st.w = Math.min(st.n, st.w + d[id] - dead); }
+    cleanStacks(a.troops);
+    if (n) lines.push(`${a.lordId ? S.lords[a.lordId].name : a.name}部折损 ${n} 人。`);
+    if (a.lordId && out.win) S.lords[a.lordId].relation += 2;
+  }
+  if (ctx.defendOf && byPid.g) { let n = 0; for (const id in byPid.g) { n += byPid.g[id]; removeTroops(ctx.defendOf.garrison, id, byPid.g[id]); } cleanStacks(ctx.defendOf.garrison); if (n) lines.push(`守军折损 ${n} 人。`); }
   S.stats.kills += downN;
   if (downN) lines.push(`敌军倒下 ${downN} 人。`);
   const enemyPow = casPower(out.enemyDown);
@@ -142,6 +156,7 @@ export function applyPlayerBattle(enemy: Party | null, siegeOf: Settlement | nul
     // 战利品
     let gold = Math.round(enemyPow * randRange(2.5, 4));
     if (enemy) gold += Math.round(enemy.gold * 0.6);
+    for (const e of extras) gold += Math.round(e.gold * 0.5);
     gold = Math.round(gold * (1 + partySkill(S, 'trade') * 0.03));
     pp.gold += gold;
     loot.push(`${gold} 两银子`);
@@ -174,6 +189,14 @@ export function applyPlayerBattle(enemy: Party | null, siegeOf: Settlement | nul
       } else log(`你击败了${enemy.name}。`, 'good');
       if (enemy.questId) completeBanditQuest(enemy.questId);
       removeParty(enemy);
+      for (const e of extras) { if (e.lordId) { lines.push(`${S.lords[e.lordId].name}也溃败而去。`); S.lords[e.lordId].relation -= 2; } removeParty(e); }
+      if (ctx.defendOf) {
+        ctx.defendOf.siege = null;
+        const r2 = ctx.defendOf.kind === 'town' ? 25 : 15; S.renown += r2;
+        lines.push(`${ctx.defendOf.name}之围已解！声望另加 ${r2}。`);
+        if (ctx.defendOf.owner !== 'player') changePlayerRel(ctx.defendOf.faction, 4);
+        log(`${S.hero.name}力守${ctx.defendOf.name}，击退了来犯之敌！`, 'gold');
+      }
     } else if (siegeOf) {
       captured = siegeOf;
       captureSettlementByPlayer(siegeOf);
@@ -181,6 +204,15 @@ export function applyPlayerBattle(enemy: Party | null, siegeOf: Settlement | nul
     }
   } else {
     S.stats.lost++;
+    if (ctx.defendOf && enemy && !out.retreat) {
+      const st = ctx.defendOf, old = st.faction, oldOwner = st.owner;
+      for (const sx of [...enemy.troops]) { const k = Math.floor((sx.n - sx.w) * 0.35); removeTroops(enemy.troops, sx.id, k); addTroops(st.garrison, sx.id, k); }
+      setOwner(st, enemy.faction, enemy.lordId ?? null);
+      lines.push(`${st.name}失守了！`);
+      log(`${FACTION[enemy.faction].name}攻陷了${st.name}！`, 'war');
+      if (oldOwner === 'player') log(`你的封地${st.name}失守了！`, 'bad');
+      checkFactionAlive(old);
+    }
     S.morale = Math.max(0, S.morale - 15);
     if (!out.retreat) {
       // 战败：部队溃散，被俘后逃脱
@@ -204,6 +236,7 @@ export function applyPlayerBattle(enemy: Party | null, siegeOf: Settlement | nul
     if (enemy && enemy.questId === undefined && healthy(enemy.troops) <= 0) removeParty(enemy);
   }
   if (enemy && healthy(enemy.troops) <= 0 && S.parties.includes(enemy)) removeParty(enemy);
+  for (const e of extras) { cleanStacks(e.troops); if (healthy(e.troops) <= 0 && S.parties.includes(e)) removeParty(e); }
   // 战斗关系影响
   if (enemy && (enemy.kind === 'caravan' || enemy.kind === 'villager')) { S.honor -= 3; changePlayerRel(enemyFaction, -5); }
   cleanStacks(enemyStacks);

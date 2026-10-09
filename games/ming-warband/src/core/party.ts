@@ -67,6 +67,7 @@ export function mapSpeed(s: GameState, p: Party, night: boolean): number {
     const over = cargoCount(p) - cargoLimit(s, p);
     if (over > 0) base *= Math.max(0.5, 1 - over / 100);
     if (s.morale < 20) base *= 0.85;
+    if (s.cannons) base *= 1 - Math.min(0.2, s.cannons * 0.05);
   }
   if (p.kind === 'caravan' || p.kind === 'villager') base *= 0.85;
   if (p.kind === 'bandit') base *= 1.05;

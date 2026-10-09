@@ -58,6 +58,7 @@ function goTo(p: Party, x: number, y: number) {
   p.ai.path = findPath(p.x, p.y, x, y) ?? [];
 }
 
+import { thinkFollower, aiArmyBattle, rallyArmy, rallyPotential, armySiegeAssault } from './war';
 const STEP = 0.25;
 let pathBudget = 0;
 
@@ -120,13 +121,14 @@ function step(h: number): boolean {
         const t = partyById(p.ai.target as number);
         if (t && p.ai.mode === 'chase' && dist(p.x, p.y, t.x, t.y) < 90) p.ai.path = [[t.x, t.y]];
       }
-      moveAlong(p, p.ai.path, mapSpeed(S, p, night) * h);
+      moveAlong(p, p.ai.path, mapSpeed(S, p, night) * h * (p.ai.mode === 'follow' ? 1.25 : 1));
     }
     arrive(p);
   }
 
   // 接触检测
   if (contacts()) return true;
+  if (S.pendingDefense) return true;
 
   // 每小时
   if (Math.floor(S.time) !== prevHour) hourly();
@@ -157,7 +159,16 @@ function contacts(): boolean {
         continue;
       }
       const aggressive = (a.ai.mode === 'chase' && a.ai.target === b.id) || (b.ai.mode === 'chase' && b.ai.target === a.id) || (a.kind === 'lord' && b.kind === 'lord');
-      if (aggressive) { aiBattle(a, b); return false; }
+      if (aggressive) {
+        // 玩家近在咫尺、且与一方友好：可以助战
+        const fa = !hostile(pp, a) && hostile(pp, b), fb = !hostile(pp, b) && hostile(pp, a);
+        if ((fa || fb) && !pp.inside && Math.hypot(pp.x - a.x, pp.y - a.y) < 55 && S.time >= nav.graceUntil && (a.kind === 'lord' || b.kind === 'lord')) {
+          nav.target = null; nav.path = []; nav.waiting = false;
+          emit('joinBattle', fa ? a : b, fa ? b : a);
+          return true;
+        }
+        aiArmyBattle(a, b); return false;
+      }
     }
   }
   return false;
@@ -173,7 +184,17 @@ function arrive(p: Party) {
     if (!st.siege) {
       st.siege = { by: p.id, since: S.time };
       if (st.owner === 'player' || st.faction === playerSide()) log(`${lordName(p.lordId ?? null)}率军围攻${st.name}！`, 'bad');
-    } else if (st.siege.by === p.id && S.time - st.siege.since > 20) aiSiegeAssault(p, st);
+    } else if (st.siege.by === p.id && S.time - st.siege.since > 20) {
+      const pp = player();
+      const friendly = st.owner === 'player' || (!!playerSide() && st.faction === playerSide());
+      const here = pp.inside === st.id || Math.hypot(pp.x - st.x, pp.y - st.y) < 28;
+      if (friendly && here && (healthy(pp.troops) > 0 || S.hero.hp >= 0.25) && !S.pendingDefense) {
+        S.pendingDefense = { st: st.id, by: p.id };
+        emit('defendPrompt', st, p);
+        return;
+      }
+      if (!S.pendingDefense || S.pendingDefense.st !== st.id) armySiegeAssault(p, st);
+    }
   } else if (ai.mode === 'raid' && typeof ai.target === 'string') {
     const v = S.settlements[ai.target];
     if (!v || dist(p.x, p.y, v.x, v.y) > 20) return;
@@ -281,6 +302,7 @@ function lordDesired(p: Party) {
 }
 
 function thinkLord(p: Party) {
+  if (p.ai.mode === 'follow') { if (thinkFollower(p, (q, x, y) => { goTo(q, x, y); pathBudget--; })) return; }
   const me = partyStrength(S, p);
   const n = count(p.troops);
   const ai = p.ai;
@@ -330,10 +352,12 @@ function thinkLord(p: Party) {
     {
       // 攻城
       const targets = settlementList().filter(s => s.kind !== 'village' && factionHostileToSettlement(p.faction, s) && dist(p.x, p.y, s.x, s.y) < 750);
-      const viable = targets.filter(s => partyStrengthOfGarrison(s) * (s.kind === 'town' ? 1.6 : 1.8) < me * aggression * 0.95 && (!s.siege || !partyById(s.siege.by)));
+      const pot = me + rallyPotential(p, o => partyStrength(S, o));
+      const viable = targets.filter(s => partyStrengthOfGarrison(s) * (s.kind === 'town' ? 1.6 : 1.8) < pot * aggression * 0.95 && (!s.siege || !partyById(s.siege.by)));
       if (viable.length && chance(0.7)) {
         viable.sort((a, b) => dist(p.x, p.y, a.x, a.y) - dist(p.x, p.y, b.x, b.y));
         const st = viable[0];
+        if (partyStrengthOfGarrison(st) * (st.kind === 'town' ? 1.6 : 1.8) > me * aggression * 0.8 || chance(0.35)) rallyArmy(p, st.kind === 'town' ? 4 : 2);
         ai.mode = 'siege'; ai.target = st.id; goTo(p, st.x, st.y); pathBudget--; return;
       }
       // 劫掠村庄
@@ -517,11 +541,12 @@ export function restInside(st: Settlement, hours: number) {
     for (const p of [...S.parties]) {
       if (p.kind === 'player' || !S.parties.includes(p)) continue;
       if (S.time >= p.ai.nextThink) { pathBudget = 3; think(p); }
-      if (!p.inside && p.ai.path?.length) moveAlong(p, p.ai.path, mapSpeed(S, p, isNight()) * STEP);
+      if (!p.inside && p.ai.path?.length) moveAlong(p, p.ai.path, mapSpeed(S, p, isNight()) * STEP * (p.ai.mode === 'follow' ? 1.25 : 1));
       arrive(p);
     }
     contacts();
     if (Math.floor(S.time) !== prevHour) hourly();
+    if (S.pendingDefense) break;
     if (dayOf(S.time) !== prevDay) daily();
   }
   nav.target = prev;

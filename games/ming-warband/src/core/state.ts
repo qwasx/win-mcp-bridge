@@ -23,7 +23,7 @@ export interface Hero {
 }
 
 export type PartyKind = 'player' | 'lord' | 'bandit' | 'caravan' | 'villager';
-export type AIMode = 'idle' | 'travel' | 'chase' | 'flee' | 'siege' | 'raid' | 'patrol' | 'recruit' | 'wander';
+export type AIMode = 'idle' | 'travel' | 'chase' | 'flee' | 'siege' | 'raid' | 'patrol' | 'recruit' | 'wander' | 'follow';
 
 export interface AIState {
   mode: AIMode;
@@ -73,7 +73,8 @@ export interface Settlement {
   recruits: number;
   relation: number;
   lootedUntil: number;
-  siege: { by: number; since: number } | null;
+  siege: { by: number; since: number; mineAt?: number } | null;
+  isPass?: boolean;            // 长城关隘
   tavern: TavernState;
   culture: string;
 }
@@ -127,6 +128,8 @@ export interface GameState {
   lastDay: number;
   speed: number;
   won?: boolean;
+  cannons?: number;           // 随军火炮
+  pendingDefense?: { st: string; by: number } | null; // 玩家所在城池遭攻城
 }
 
 export function warKey(a: string, b: string) { return a < b ? `${a}|${b}` : `${b}|${a}`; }

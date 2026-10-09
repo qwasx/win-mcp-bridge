@@ -2,7 +2,7 @@
 import { escTop, panelOpen, closeAll } from './dom';
 import { hud, showTooltip, hideTooltip } from './hud';
 import { openSettlement } from './settlement';
-import { openEncounter } from './encounter';
+import { openEncounter, openJoinBattle, openDefendPrompt } from './encounter';
 import { openCharacter, openParty, openInventory, openFactions, openQuests, openLog } from './panels';
 import { openGameMenu } from './menu';
 import { nav } from '../core/sim';
@@ -65,6 +65,8 @@ export function installKeys() {
 
 on('arrive', (st: any) => openSettlement(st));
 on('encounter', (p: any, forced: boolean) => openEncounter(p, forced));
+on('joinBattle', (a: any, b: any) => openJoinBattle(a, b));
+on('defendPrompt', (st: any, p: any) => openDefendPrompt(st, p));
 on('playerDefeated', () => {
   const pp = player();
   pp.inside = undefined;
