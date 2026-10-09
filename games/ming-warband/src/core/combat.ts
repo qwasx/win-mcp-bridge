@@ -65,6 +65,7 @@ export interface Outcome {
   compDown: string[];
   retreat?: boolean;
   manual?: boolean;
+  downBy?: Record<string, Casualties>; // 按部队（p = 玩家本部，其余为友军/敌军部队 id）
 }
 
 export interface BattleReport { title: string; win: boolean; lines: string[]; loot: string[]; prisoners: Stack[]; captured?: Settlement | null }

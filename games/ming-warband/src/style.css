@@ -259,3 +259,19 @@ details summary { cursor: pointer; color: var(--red); margin: 10px 0 4px; font-f
 #minimap .mm-toggle { position: absolute; left: -1px; top: -1px; width: 20px; height: 20px; padding: 0; font-size: 11px; line-height: 18px; background: #6d140d; color: #f3e6c4; border: 1px solid #c9a24a; border-radius: 3px 0 4px 0; cursor: pointer; }
 #minimap.collapsed { padding: 0; width: 20px; height: 20px; }
 @media (max-width: 760px) { #minimap { display: none; } }
+
+/* ---- v1.3 战斗：小地图、布阵、攻城状态 ---- */
+.b-map { position: absolute; top: 8px; right: 8px; pointer-events: auto; background: rgba(20,10,4,.75); border: 1px solid #6d4a1a; border-radius: 4px; padding: 4px; }
+.b-map-cv { display: block; width: 200px; cursor: crosshair; image-rendering: auto; }
+.b-map-tip { font-size: 10px; color: #b8a47a; margin-top: 2px; text-align: center; }
+.b-siege { position: absolute; top: 52px; left: 50%; transform: translateX(-50%); background: rgba(40,14,6,.82); color: #ffd890; border: 1px solid #8a3a1a; padding: 3px 12px; border-radius: 3px; font-size: 13px; white-space: nowrap; }
+.b-deploy { position: absolute; left: 50%; top: 96px; transform: translateX(-50%); pointer-events: auto; background: rgba(20,10,4,.88); border: 2px solid var(--gold); border-radius: 6px; padding: 10px 16px; color: #f3e6c4; min-width: 420px; max-width: 560px; }
+.bd-title { font-family: var(--kai); font-size: 26px; letter-spacing: 12px; text-align: center; color: var(--gold2); }
+.bd-tip { font-size: 12px; color: #c8b48a; margin: 4px 0 8px; line-height: 1.5; }
+.bd-row { display: flex; align-items: center; gap: 6px; padding: 3px 4px; border-radius: 3px; }
+.bd-row.sel { background: rgba(212,175,55,.18); }
+.bd-row b { width: 76px; cursor: pointer; }
+.bbtn.sm { padding: 2px 7px; font-size: 12px; }
+.bbtn.on { background: rgba(212,175,55,.45); border-color: var(--gold); color: #fff; }
+.bd-go { display: block; margin: 10px auto 0; font-size: 16px; padding: 6px 28px; }
+@media (max-width: 900px) { .b-map { display: none; } .b-deploy { min-width: 0; width: 92vw; } }
