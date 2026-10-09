@@ -33,7 +33,7 @@ export class SiegeCtl {
   constructor(B: BattleScene, att: 0 | 1) {
     this.B = B; this.att = att; this.def = (1 - att) as 0 | 1;
     const sg = B.F.siege!;
-    this.gate.max = this.gate.hp = sg.town ? 1300 : 950;
+    this.gate.max = this.gate.hp = sg.town ? 1600 : 1150;
   }
   get sg() { return this.B.F.siege!; }
 
@@ -327,8 +327,8 @@ export class SiegeCtl {
     const B = this.B, sg = this.sg;
     B.snd('fall', b.x1, b.y1, 1.2);
     B.explosion(b.x1, b.y1 - b.z1, 1);
-    if (b.aim === 'gate' && Math.abs(b.y1 - sg.gateMid) < 60) { this.damageGate(150); B.debris(sg.wallX - 10, b.y1, 8, 0x5a3a1e); }
-    else if (b.aim === 'sec' && b.sec) { this.damageSection(b.sec, 140); B.debris(sg.wallX - 10, b.y1 - WALL_H * 0.5, 8, 0x8a7e66); }
+    if (b.aim === 'gate' && Math.abs(b.y1 - sg.gateMid) < 60) { this.damageGate(75); B.debris(sg.wallX - 10, b.y1, 8, 0x5a3a1e); }
+    else if (b.aim === 'sec' && b.sec) { this.damageSection(b.sec, 95); B.debris(sg.wallX - 10, b.y1 - WALL_H * 0.5, 8, 0x8a7e66); }
     else if (b.aim === 'gun' && b.gun && Math.hypot(b.gun.x - b.x1, b.gun.y - b.y1) < 40) { b.gun.hp -= 120; if (b.gun.hp <= 0) B.msg('一门火炮被城头炮火击毁！'); }
     // 溅射
     const onWallHit = b.aim === 'sec' || b.aim === 'gate';
@@ -385,8 +385,8 @@ export class SiegeCtl {
       }
       return this.toLadder(u, dt);
     }
-    // 守方
-    if (order === 'hold' && !u.sq.ai) return false;
+    // 守方（玩家守城时"坚守"即各守岗位；"跟随"则听凭玩家调度）
+    if (order === 'follow' && !u.sq.ai) return false;
     if (u.mounted) {
       const e = B.nearestEnemy(u, 400, o => !o.onWall && o.x > sg.wallX - 200);
       if (e) return false;

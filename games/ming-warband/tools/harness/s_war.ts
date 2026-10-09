@@ -35,14 +35,14 @@ export default async function (c: any) {
     bs.kill = (u: any, by: any) => { T(`KILL ${by ? by.side + (by.onWall ? 'W' : 'G') + (by.trans?'T':'') : '-'}>${u.side}${u.onWall ? 'W' : u.trans ? 'T' : 'G'}`, 1); return ok(u, by); };
   }
   bs.startFight();
-  bs.order('charge');
+  if (mode !== 'defend') bs.order('charge');
   const secs = Number(process.env.T ?? 30);
   for (let i = 0; i < secs; i += 5) {
     await wait(5000);
     const a = bs.units.filter((u: any) => u.side === 0 && !u.dead && !u.fled).length, b = bs.units.filter((u: any) => u.side === 1 && !u.dead && !u.fled).length;
     const ctl = bs.siegeCtl;
     console.log(`t=${i + 5}s ours=${a} theirs=${b}`, ctl ? `gate=${Math.round(ctl.gate.hp)} ladders=${ctl.ladders.map((l: any) => l.state).join(',')} ram=${ctl.ram ? Math.round(ctl.ram.hp) : '-'} onWallAtt=${bs.units.filter((u: any) => u.side === bs.att && u.onWall && !u.dead).length} breaches=${bs.F.siege.sections.filter((s: any) => s.broken).length} mine=${ctl.mine ? Math.round(ctl.mine.t) : '-'}` : '', 'fps-ish', Math.round(game.loop.actualFps));
-    if (process.env.DBG) for (const u of bs.units.filter((u: any) => u.side === bs.att && u.rng > 0 && !u.dead).slice(0, 4)) console.log('  arc', Math.round(u.x), Math.round(u.y), 'ammo', u.ammo, 'rcd', u.rcd?.toFixed(1), 'task', u.task?.kind, 'tgt', u.target ? [Math.round(u.target.x), Math.round(u.target.y), u.target.onWall, Math.round(Math.hypot(u.target.x - u.x, u.target.y - u.y))] : null, 'range', u.range, 'order', bs.orderOf(u), 'wallX', bs.F.siege.wallX, 'tr', !!u.trans, 'onWall', u.onWall);
+    if (process.env.DBG) for (const u of bs.units.filter((u: any) => u.side === (process.env.DSIDE ? Number(process.env.DSIDE) : bs.att) && u.rng > 0 && !u.dead).slice(0, 4)) console.log('  arc', Math.round(u.x), Math.round(u.y), 'ammo', u.ammo, 'rcd', u.rcd?.toFixed(1), 'task', u.task?.kind, 'tgt', u.target ? [Math.round(u.target.x), Math.round(u.target.y), u.target.onWall, Math.round(Math.hypot(u.target.x - u.x, u.target.y - u.y))] : null, 'range', u.range, 'order', bs.orderOf(u), 'wallX', bs.F.siege.wallX, 'tr', !!u.trans, 'onWall', u.onWall, 'hgt', u.hgt, 'tgtH', u.target?.hgt, 'aim', u.aiming);
     if (ended) break;
   }
   if (process.env.DBG) {

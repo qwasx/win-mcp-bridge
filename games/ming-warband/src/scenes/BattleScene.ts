@@ -1054,7 +1054,11 @@ export class BattleScene extends Phaser.Scene {
     const ranged = u.rng > 0 && u.ammo > 0;
     const sealed = !!this.F.siege && this.passN === 0;
     const wx = this.F.siege?.wallX ?? 0;
-    if (ranged) return this.nearestEnemy(u, 3000, o => !(o.trans && o.trans.kind === 'stair'), (o, d) => d * (o.hero ? 0.9 : 1));
+    if (ranged) {
+      const sg = this.F.siege;
+      // 攻城时，墙另一侧地面上的敌人看不见：只在别无目标时才盲射
+      return this.nearestEnemy(u, 3000, o => !(o.trans && o.trans.kind === 'stair'), (o, d) => d * (o.hero ? 0.9 : 1) * (sg && !u.onWall && !o.onWall && (o.x < sg.wallX) !== (u.x < sg.wallX) ? 4 : 1));
+    }
     const pref = u.sq?.prefRanged;
     return this.nearestEnemy(u, 4000, o => this.canMelee(u, o) && (!sealed || u.onWall || (o.x < wx) === (u.x < wx)), (o, d) => d * (o.hero ? 0.9 : 1) * (pref && o.rng > 0 ? 0.5 : 1));
   }
@@ -1088,13 +1092,14 @@ export class BattleScene extends Phaser.Scene {
       return;
     }
     const d = Math.hypot(t.x - u.x, t.y - u.y);
+    if (u.onWall) u.hgt = WALL_H + 20;
 
     // 远程射击
     u.aiming = false;
     if (ranged) {
       const hb = Math.max(-0.1, Math.min(0.3, ((u.hgt ?? 0) - (t.hgt ?? 0)) / 80));
       const range = u.range * (1 + hb) * (u.onWall ? 1.15 : 1);
-      if (d < range && d > 40) {
+      if (d < range && d > (u.onWall ? 12 : 40)) {
         u.aiming = u.cls !== 'hca' || Math.hypot(u.vx, u.vy) < 30;
         if (u.rcd <= 0) {
           const lead = d / (u.kind === 'gun' ? 900 : 520);
@@ -1204,8 +1209,14 @@ export class BattleScene extends Phaser.Scene {
       const p = this.projs[i];
       const steps = p.kind === 'gun' ? 3 : 2;
       let hit = false;
+      const sgW = this.F.siege;
       for (let s = 0; s < steps && !hit; s++) {
+        const px0 = p.x;
         p.x += (p.vx * dt) / steps; p.y += (p.vy * dt) / steps;
+        // 铳弹打在城墙上（除非穿过城门/缺口）
+        if (sgW && p.kind === 'gun' && !p.from.onWall && (px0 < sgW.wallX) !== (p.x < sgW.wallX) && !this.F.passages().some(q => Math.abs(q.y - p.y) < 34)) {
+          this.sparks(sgW.wallX, p.y - 20, 2); p.life = 0; hit = true; break;
+        }
         // 箭矢只在落点附近命中（抛射），铳弹沿途命中
         const trav = Math.hypot(p.x - p.sx, p.y - p.sy);
         if (p.kind === 'bow' && trav < p.dist * 0.7) continue;
@@ -1213,7 +1224,8 @@ export class BattleScene extends Phaser.Scene {
           if (hit || u.side === p.side || u.dead || u.fled) return;
           if (Math.hypot(u.x - p.x, u.y - p.y) < u.r + 2) {
             hit = true;
-            if (u.onWall && !p.from.onWall && Math.random() < 0.35) return; // 垛口掩护
+            if (sgW && !u.onWall && !p.from.onWall && (p.sx < sgW.wallX) !== (u.x < sgW.wallX) && Math.random() < 0.75) return; // 隔墙盲射
+            if (u.onWall && !p.from.onWall && Math.random() < (p.kind === 'gun' ? 0.45 : 0.5)) return; // 垛口掩护
             if (this.F.inWood(u.x, u.y) && Math.random() < 0.3) return;   // 树木遮挡
             if (u.sq?.form === 'loose' && u.inForm && Math.random() < 0.3) return;
             const ap = p.kind === 'gun' ? 0.2 : p.kind === 'xbow' ? 0.35 : 0.5;
