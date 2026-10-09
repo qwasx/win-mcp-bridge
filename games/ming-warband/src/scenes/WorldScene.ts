@@ -1,5 +1,6 @@
 // 大地图场景
 import Phaser from 'phaser';
+import { SEGS, PASSES } from '../core/wall';
 import { renderMapCanvas, WORLD_W, WORLD_H, terAtXY, TER_NAME } from '../core/terrain';
 import { S, player, isNight, hostile, on, playerHostileToSettlement, lordName, partyById } from '../core/game';
 import { nav, setPlayerTarget, simulate } from '../core/sim';
@@ -124,6 +125,7 @@ export class WorldScene extends Phaser.Scene {
     this.centerOnPlayer();
   }
 
+  lookAt(x: number, y: number) { this.cameras.main.pan(x, y, 700, 'Sine.easeInOut'); this.follow = false; this.staticDirty = true; }
   centerOnPlayer() { const pp = player(); this.cameras.main.centerOn(pp.x, pp.y); this.follow = true; }
 
   buildLabels() {
@@ -191,11 +193,12 @@ export class WorldScene extends Phaser.Scene {
     } else {
       const s = found.s;
       const f = FACTION[s.faction];
-      const kind = s.kind === 'town' ? '城镇' : s.kind === 'castle' ? '城堡' : '村庄';
+      const kind = s.isPass ? '长城关隘' : s.kind === 'town' ? '城镇' : s.kind === 'castle' ? '城堡' : '村庄';
+      const passInfo = s.isPass ? `<i style="color:#d8c8a0">${PASSES.find(x => x.id === s.id)?.desc ?? ''}</i><br>${playerHostileToSettlement(s) ? '<span class="bad">关门紧闭，不许通行</span>' : '<span class="good">可以通关</span>'}<br>` : '';
       const parent = s.parent ? `隶属：${S.settlements[s.parent].name}<br>` : '';
       const gar = s.kind !== 'village' ? `守军：约 ${Math.round(count(s.garrison) / 10) * 10} 人<br>` : '';
       const extra = s.siege ? '<span class="bad">被围攻中</span><br>' : s.lootedUntil > S.time ? '<span class="bad">已被洗劫</span><br>' : '';
-      showTooltip(p.event as MouseEvent, `<b style="color:${f.css}">${s.name}</b> <small>${kind}</small><br>${f.name} · ${lordName(s.owner)}<br>${parent}${gar}繁荣：${Math.round(s.prosperity)}<br>${extra}${playerHostileToSettlement(s) ? '<span class="bad">敌对</span>' : ''}`);
+      showTooltip(p.event as MouseEvent, `<b style="color:${f.css}">${s.name}</b> <small>${kind}</small><br>${f.name} · ${lordName(s.owner)}<br>${passInfo}${parent}${gar}繁荣：${Math.round(s.prosperity)}<br>${extra}${playerHostileToSettlement(s) ? '<span class="bad">敌对</span>' : ''}`);
     }
   }
 
@@ -368,6 +371,30 @@ export class WorldScene extends Phaser.Scene {
         const ph = (timeMs / 1400) % 1;
         fx.fillStyle(0x333333, 0.35 * (1 - ph)); fx.fillCircle(s.x + 2 + ph * 4, s.y - 8 - ph * 18, 3 + ph * 5);
       }
+    }
+    // 长城缺口与烽火
+    if (S.wallHp) for (let k = 0; k < S.wallHp.length; k++) {
+      if (S.wallHp[k] > 0 && S.wallHp[k] >= 100) continue;
+      const sg = SEGS[k]; if (!sg) continue;
+      const broken = S.wallHp[k] <= 0;
+      const tx = sg.ny, ty = -sg.nx; // 沿墙方向
+      if (broken) {
+        fx.fillStyle(0x4a3c2c, 0.85); fx.fillEllipse(sg.x, sg.y, 22, 12);
+        fx.fillStyle(0x8a7a62, 1);
+        for (let i = -3; i <= 3; i++) fx.fillRect(sg.x + tx * i * 3 + ((i * 7) % 3) - 1, sg.y + ty * i * 3 + ((i * 5) % 4) - 2, 3, 2.4);
+        fx.lineStyle(1.5, 0xff5030, 0.5 + 0.3 * Math.sin(timeMs / 300)); fx.strokeEllipse(sg.x, sg.y, 30, 16);
+      } else {
+        fx.fillStyle(0x6a5a44, 0.8); for (let i = -2; i <= 2; i++) fx.fillRect(sg.x + tx * i * 4, sg.y + ty * i * 4 - 1, 2.5, 2);
+      }
+    }
+    for (const b of S.beacons ?? []) {
+      if (b.until <= S.time) continue;
+      for (let k = 0; k < 5; k++) {
+        const ph = (timeMs / 1600 + k * 0.2) % 1;
+        fx.fillStyle(0x2a2622, 0.45 * (1 - ph)); fx.fillCircle(b.x + Math.sin(ph * 3 + k) * 3 + ph * 10, b.y - 6 - ph * 46, 3 + ph * 8);
+      }
+      fx.fillStyle(0xff8a20, 0.8 + 0.2 * Math.sin(timeMs / 90)); fx.fillCircle(b.x, b.y - 4, 2.6);
+      fx.fillStyle(0xffe080, 0.9); fx.fillCircle(b.x, b.y - 4.5, 1.2);
     }
     // 路径
     if (nav.path.length) {

@@ -275,3 +275,17 @@ details summary { cursor: pointer; color: var(--red); margin: 10px 0 4px; font-f
 .bbtn.on { background: rgba(212,175,55,.45); border-color: var(--gold); color: #fff; }
 .bd-go { display: block; margin: 10px auto 0; font-size: 16px; padding: 6px 28px; }
 @media (max-width: 900px) { .b-map { display: none; } .b-deploy { min-width: 0; width: 92vw; } }
+
+/* ---------- 大事记卷轴 ---------- */
+.panel.chron { width: min(620px, 94vw); background: #efe2c2; background-image: radial-gradient(ellipse at 50% 0%, rgba(255,255,255,.55), transparent 65%), radial-gradient(ellipse at 80% 100%, rgba(120,80,30,.18), transparent 60%), repeating-linear-gradient(90deg, rgba(110,80,40,.04) 0 1px, transparent 1px 7px); border: none; outline: none; border-left: 18px solid #5a2e12; border-right: 18px solid #5a2e12; border-image: linear-gradient(#3e1d08, #8a5426 30%, #6a3a16 70%, #3e1d08) 1; box-shadow: 0 0 0 2px #2a1408, 0 18px 60px rgba(0,0,0,.75); animation: unroll .55s cubic-bezier(.2,.8,.2,1); }
+.panel.chron .panel-title { display: none; }
+.panel.chron.big .chron-title { font-size: 34px; }
+@keyframes unroll { from { clip-path: inset(0 50% 0 50%); opacity: .3; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+.chron-body { position: relative; padding: 18px 30px 10px; font-family: var(--kai); color: #2a1a0c; }
+.chron-date { font-size: 14px; color: #8a2a1a; letter-spacing: 4px; }
+.chron-title { margin: 4px 0 10px; font-size: 28px; letter-spacing: 6px; color: #1d0f05; text-shadow: 0 1px 0 rgba(255,255,255,.5); border-bottom: 1px solid rgba(90,46,18,.35); padding-bottom: 8px; }
+.chron-text p { font-size: 17px; line-height: 1.9; text-indent: 2em; margin: 6px 0; }
+.chron-text p:first-child::first-letter { font-size: 30px; color: #8a1a0a; }
+.chron-seal { position: absolute; right: 26px; top: 16px; width: 46px; height: 46px; display: grid; place-items: center; background: #b0261a; color: #ffe9c8; font-size: 26px; border-radius: 6px; box-shadow: inset 0 0 0 3px #b0261a, inset 0 0 0 5px #ffe1b8; transform: rotate(-8deg); opacity: .88; }
+.chron-btns { justify-content: flex-end; margin-top: 10px; gap: 8px; }
+.chron-list { max-height: 180px; overflow: auto; font-family: var(--kai); line-height: 1.8; padding: 4px 8px; background: rgba(120,80,30,.07); border-radius: 3px; }

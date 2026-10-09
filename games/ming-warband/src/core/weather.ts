@@ -8,10 +8,10 @@ export interface Weather { kind: WeatherKind; k: number; storm: boolean }
 export const SEASON_NAME = ['春', '夏', '秋', '冬'];
 /** 0 春 1 夏 2 秋 3 冬（按农历月份） */
 export function seasonOf(t: number) {
-  const m = Math.floor((dayOf(t) % 360) / 30); // 0 = 正月
+  const m = Math.floor((dayOf(t) % 36) / 3); // 0 = 正月
   if (m <= 2) return 0; if (m <= 5) return 1; if (m <= 8) return 2; return 3;
 }
-function monthOf(t: number) { return Math.floor((dayOf(t) % 360) / 30); }
+function monthOf(t: number) { return Math.floor((dayOf(t) % 36) / 3); }
 
 function hash(a: number, b: number, c: number) {
   let h = (a * 374761393 + b * 668265263 + c * 2147483647) | 0;
@@ -59,7 +59,7 @@ export function weatherName(w: Weather) {
 /** 季节积雪程度 0..1（腊月、正月最厚） */
 export function winterK(t: number) {
   const SN = [1, 0.6, 0.08, 0, 0, 0, 0, 0, 0, 0, 0.3, 0.8];
-  const md = (dayOf(t) % 360) / 30;
+  const md = ((dayOf(t) % 36) + (t % 24) / 24) / 3;
   const m0 = Math.floor(md) % 12, mf = md - Math.floor(md);
   return SN[m0] + (SN[(m0 + 1) % 12] - SN[m0]) * mf;
 }

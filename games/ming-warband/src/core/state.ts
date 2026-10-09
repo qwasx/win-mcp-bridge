@@ -23,7 +23,7 @@ export interface Hero {
 }
 
 export type PartyKind = 'player' | 'lord' | 'bandit' | 'caravan' | 'villager';
-export type AIMode = 'idle' | 'travel' | 'chase' | 'flee' | 'siege' | 'raid' | 'patrol' | 'recruit' | 'wander' | 'follow';
+export type AIMode = 'idle' | 'travel' | 'chase' | 'flee' | 'siege' | 'raid' | 'patrol' | 'recruit' | 'wander' | 'follow' | 'breach';
 
 export interface AIState {
   mode: AIMode;
@@ -50,6 +50,7 @@ export interface Party {
   home?: string;
   ai: AIState;
   inside?: string; // 停留在据点中
+  reg?: number;    // 上次所在：1 关内 / 2 关外
   questId?: number;
   zone?: number;
   hidden?: boolean;
@@ -129,6 +130,11 @@ export interface GameState {
   speed: number;
   won?: boolean;
   cannons?: number;           // 随军火炮
+  wallHp?: number[];          // 长城各段完好度（<=0 为缺口）
+  beacons?: { x: number; y: number; until: number }[]; // 烽火
+  calendarDone?: string[];    // 已发生的历史事件
+  flags?: Record<string, number | boolean | string>;
+  arenaBest?: number;
   pendingDefense?: { st: string; by: number } | null; // 玩家所在城池遭攻城
 }
 

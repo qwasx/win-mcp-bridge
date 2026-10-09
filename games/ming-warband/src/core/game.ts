@@ -34,15 +34,32 @@ export function cnNum(n: number): string {
   const t = Math.floor(n / 10), o = n % 10;
   return CHINESE_NUM[t] + '十' + (o ? CHINESE_NUM[o] : '');
 }
-export function dateStr(t = S.time) {
+/** 城防上限：都城与关隘远比寻常城堡坚固 */
+export function garrisonCap(s: Settlement) {
+  if (s.kind === 'village') return 0;
+  if (s.id === 'shanhai') return 230;
+  if (s.id === 'beijing') return 300;
+  if (s.id === 'nanjing' || Object.values(FACTION).some(f => f.capital === s.id)) return 220;
+  if (s.isPass) return 125;
+  return s.kind === 'town' ? 130 : 85;
+}
+/** 历法：一日即一旬（上中下三旬为一月，三十六日为一年），使明末十年风云可在一局中展开 */
+export const YEAR_DAYS = 36, MONTH_DAYS = 3;
+export function calYear(t = S.time) { return 1635 + Math.floor(dayOf(t) / YEAR_DAYS); }
+export function calMonth(t = S.time) { return Math.floor((dayOf(t) % YEAR_DAYS) / MONTH_DAYS); }
+/** 某年某月某旬对应的游戏日（month 1..12，xun 0..2） */
+export function dayFor(year: number, month: number, xun = 0) { return (year - 1635) * YEAR_DAYS + (month - 1) * MONTH_DAYS + xun; }
+export function eraYear(t = S.time) { return calYear(t) - 1627; }
+export function dateStr(t = S.time, withHour = true) {
   const d = dayOf(t);
-  const year = Math.floor(d / 360) + 8;
-  const month = Math.floor((d % 360) / 30);
-  const day = (d % 30) + 1;
+  const year = eraYear(t);
+  const month = calMonth(t);
+  const xun = ['上旬', '中旬', '下旬'][d % MONTH_DAYS];
   const hour = Math.floor(t % 24);
   const sc = SHICHEN[Math.floor(((hour + 1) % 24) / 2)];
-  const dayStr = day <= 10 ? '初' + CHINESE_NUM[day] : cnNum(day);
-  return `崇祯${year === 1 ? '元' : cnNum(year)}年 ${MONTHS[month]}${dayStr} ${sc}时`;
+  const n = (k: number) => k === 1 ? '元' : cnNum(k);
+  const era = year <= 17 ? `崇祯${n(year)}年` : S?.flags?.mingFell ? `顺治${n(year - 17)}年` : `崇祯${cnNum(year)}年`;
+  return `${era} ${MONTHS[month]}${xun}${withHour ? ` ${sc}时` : ''}`;
 }
 export function isNight(t = S.time) { const h = t % 24; return h < 5 || h >= 20; }
 
@@ -306,6 +323,7 @@ export function newGame(heroName: string, bgId: string): GameState {
   for (let i = 0; i < 26; i++) spawnBandit();
   for (let i = 0; i < 10; i++) spawnCaravan();
 
+  ensureWorld(s);
   BACKGROUNDS.find(b => b.id === bgId)?.apply(s);
   s.hero.background = bgId;
   log(`崇祯八年正月，天下大乱。${heroName}来到开封城外，决心在这乱世中闯出一番天地。`, 'gold');
@@ -377,3 +395,51 @@ export function spawnVillager(v: Settlement): Party | null {
 
 export function totalPlayerTroops() { return count(player().troops); }
 export { FACTIONS };
+
+// ---------- 世界补全（新版本内容 / 旧存档迁移） ----------
+import { PASSES, ensureWall, wallPointAtLon } from './wall';
+import { calendarInit } from './calendar';
+import { wallSeg, cellIndex } from './terrain';
+export function ensureWorld(s: GameState) {
+  ensureWall(s);
+  // 长城关隘
+  for (const ps of PASSES) {
+    let st = s.settlements[ps.id];
+    const [wx, wy] = wallPointAtLon(ps.lon);
+    if (!st) {
+      // 归属：离得最近的非村庄据点所属势力
+      let near: Settlement | null = null, bd = Infinity;
+      for (const o of Object.values(s.settlements)) if (o.kind !== 'village') { const d = Math.hypot(o.x - wx, o.y - wy); if (d < bd) { bd = d; near = o; } }
+      const f = (near?.faction ?? 'ming') as FactionId;
+      const fc = f === 'player' ? 'ming' : f;
+      st = {
+        id: ps.id, name: ps.name, kind: 'castle', faction: f, owner: null, x: wx, y: wy, villages: [], garrison: genTroops(FACTION[fc]?.culture ?? 'ming', randInt(60, 85), 0.6),
+        prosperity: randInt(30, 55), stock: {}, produce: [], demand: [], shop: [], recruits: 0, relation: 0,
+        lootedUntil: 0, siege: null, tavern: { companion: null, mercs: null, refresh: 0 }, culture: FACTION[fc]?.culture ?? 'ming',
+      };
+      const lords = Object.values(s.lords).filter(l => l.faction === f && !l.dead);
+      if (f === 'player') st.owner = 'player';
+      else if (lords.length) {
+        const fiefN = (id: string) => Object.values(s.settlements).filter(o => o.owner === id).length;
+        st.owner = lords.sort((a, b) => fiefN(a.id) - fiefN(b.id))[0].id;
+      } else st.owner = `ruler_${f}`;
+      st.stock = stockFor(st);
+      s.settlements[ps.id] = st;
+    } else if (ps.existing) { st.x = wx; st.y = wy; }
+    st.isPass = true;
+  }
+  // 其他据点不得压在城墙上
+  for (const st of Object.values(s.settlements)) {
+    if (st.isPass) continue;
+    for (let r = 0; r < 60 && wallSeg[cellIndex(st.x, st.y)] >= 0; r += 4) { st.x += 0; st.y += 4; }
+  }
+  s.calendarDone ||= [];
+  if (!s.flags?.fortV13) {
+    for (const st of Object.values(s.settlements)) {
+      const cap = garrisonCap(st);
+      if (cap > 130 || st.isPass) { const need = Math.round(cap * 0.8) - count(st.garrison); if (need > 0) for (const t of genTroops(FACTION[st.faction]?.culture ?? 'ming', need, 0.6)) addTroops(st.garrison, t.id, t.n); }
+    }
+    (s.flags ||= {}).fortV13 = true;
+  }
+  calendarInit();
+}

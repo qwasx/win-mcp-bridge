@@ -1,8 +1,9 @@
 // 大地图 HUD、悬浮提示、消息栏
-import { h, uiRoot, panelOpen } from './dom';
+import { myFollowers, dismissFollowers } from '../core/war';
+import { h, uiRoot, panelOpen, confirmDialog } from './dom';
 import { S, player, dateStr, isNight, on, dayOf } from '../core/game';
 import { nav } from '../core/sim';
-import { count, foodCount, dailyFood, wounded, partySize } from '../core/party';
+import { count, foodCount, dailyFood, wounded, partySize, healthy } from '../core/party';
 import { partyLimit } from '../core/character';
 import { soundButton } from '../audio/hooks';
 import { weatherAt, weatherName, seasonOf, SEASON_NAME, type Weather } from '../core/weather';
@@ -85,6 +86,10 @@ class Hud {
           h('span', { title: '粮食可维持天数' }, '🌾', E.food = h('b', null, '')),
           h('span', { title: '士气' }, '🔥', E.morale = h('b', null, '')),
           h('span', { title: '声望' }, '★', E.renown = h('b', null, '')),
+          E.army = h('span', { class: 'hud-army', title: '随你出征的军团（点击遣散）', style: { display: 'none', cursor: 'pointer' }, onclick: () => {
+            const fol = myFollowers(); if (!fol.length) return;
+            confirmDialog('遣散军团', `让随行的${fol.length}路兵马各自归营？`, () => { dismissFollowers(); this.update(true); }, '遣散', '取消');
+          } }, '🚩', E.armyN = h('b', null, '')),
         ),
       ),
       E.log = h('div', { class: 'hud-log' }),
@@ -131,6 +136,9 @@ class Hud {
     E.morale.textContent = String(Math.round(S.morale));
     E.morale.className = S.morale < 25 ? 'bad' : S.morale > 70 ? 'good' : '';
     E.renown.textContent = String(S.renown);
+    const fol = myFollowers();
+    E.army.style.display = fol.length ? '' : 'none';
+    if (fol.length) E.armyN.textContent = `${fol.length}路 ${fol.reduce((a, p) => a + healthy(p.troops), 0)}人`;
     const moving = !!nav.target, waiting = nav.waiting;
     E.wait.classList.toggle('on', waiting);
     E.wait.textContent = waiting ? '起营' : '扎营';

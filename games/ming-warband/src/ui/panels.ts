@@ -1,4 +1,5 @@
 // 角色、部队、行囊、势力、任务、日志面板
+import { chronicleList } from '../core/calendar';
 import { troopPortrait, companionPortrait, heroPortrait } from '../art/portrait';
 import { h, openPanel, closeTop, btn, toast, bar, replaceTop } from './dom';
 import { S, player, log, lordName, dateStr, fiefsOf, factionSettlements, atWar, playerHostileTo, playerSide } from '../core/game';
@@ -211,6 +212,12 @@ export function openFactions() {
   body.append(h('details', null, h('summary', null, '领主名录'), h('table', { class: 'tbl' }, h('thead', null, h('tr', null, ...['势力', '领主', '封地', '兵力', '对你'].map(x => h('th', null, x)))), h('tbody', null, lordRows))));
   const mine = fiefsOf('player');
   body.append(h('h4', null, '你的封地'), mine.length ? h('div', null, ...mine.map(s => h('span', { class: 'chip' }, `${s.name}（${s.kind === 'town' ? '城' : s.kind === 'castle' ? '堡' : '村'}）`))) : h('p', { class: 'dim' }, '暂无封地。成为封臣或攻占城池即可获得封地。'));
+  const cl = chronicleList();
+  body.append(h('h4', null, '📜 大事记'), h('div', { class: 'chron-list' },
+    ...cl.past.map(e => h('div', null, h('span', { class: 'dim' }, e.when + ' '), e.name)),
+    cl.past.length ? null : h('p', { class: 'dim' }, '天下尚无大事。'),
+    ...cl.next.map(e => h('div', { class: 'dim' }, h('i', null, `坊间传闻：${e.when}前后恐有变故……`))),
+  ));
   openPanel('天下大势', body, { wide: true });
   void FACTIONS; void lordName;
 }

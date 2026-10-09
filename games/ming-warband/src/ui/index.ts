@@ -5,6 +5,7 @@ import { openSettlement } from './settlement';
 import { openEncounter, openJoinBattle, openDefendPrompt } from './encounter';
 import { openCharacter, openParty, openInventory, openFactions, openQuests, openLog } from './panels';
 import { openGameMenu } from './menu';
+import './chronicle';
 import { nav } from '../core/sim';
 import { S, on, player, log } from '../core/game';
 import { ref } from '../gameRef';

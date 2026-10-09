@@ -1,4 +1,5 @@
 // 据点菜单：城镇 / 城堡 / 村庄
+import { openArena } from './arena';
 import { sfx } from '../audio/sfx';
 import { settlementVista, hashStr } from '../art/vista';
 import { weatherAt, seasonOf } from '../core/weather';
@@ -20,6 +21,7 @@ import { restInside, simulate, nav } from '../core/sim';
 import { questOffer, acceptQuest, onEnterSettlement, canDeliverGrain, deliverGrain, eligibleTroops, deliverTroops } from '../core/quests';
 import { startBattle } from './encounter';
 import { myFollowers, lordsInside, partyLabel } from '../core/war';
+import { PASSES, SEGS, breaches, wallOwnerAt, repairSegment } from '../core/wall';
 import type { SiegeKit } from '../scenes/battle/siege';
 import { playerAutoBattle, applyPlayerBattle, setOwner } from '../core/combat';
 import { showReport } from './encounter';
@@ -45,11 +47,12 @@ function header(st: Settlement) {
   return h('div', null, vista, h('div', { class: 'st-head' },
     h('div', { class: 'st-flag', style: { background: f.css } }, f.name[0]),
     h('div', null,
-      h('div', { class: 'st-name' }, st.name, h('small', null, ` ${KIND[st.kind]}`)),
+      h('div', { class: 'st-name' }, st.name, h('small', null, ` ${st.isPass ? '长城关隘' : KIND[st.kind]}`)),
       h('div', { class: 'st-sub' }, `${f.name} · 领主：${lordName(st.owner)}`, st.parent ? ` · 隶属${S.settlements[st.parent].name}` : ''),
       h('div', { class: 'st-sub' }, `繁荣 ${Math.round(st.prosperity)}　`, gar,
         st.siege ? h('span', { class: 'bad' }, ' · 正被围攻') : null,
         st.lootedUntil > S.time ? h('span', { class: 'bad' }, ' · 已遭洗劫') : null),
+      st.isPass ? h('div', { class: 'st-sub' }, PASSES.find(x => x.id === st.id)?.desc ?? '') : null,
     ),
   ));
 }
@@ -94,6 +97,7 @@ export function openSettlement(st: Settlement) {
     add('🍶 酒馆（雇佣兵、同伴、牙人）', () => openTavern(st));
     add('📜 衙门（差事）', () => openOffice(st));
     if (st.prosperity >= 35) add('🧨 军器局（火炮）', () => openArsenal(st));
+    add('🏹 武举校场（比武押注）', () => openArena(st));
     add(`🏯 拜见${lordName(st.owner)}`, () => openHall(st));
   } else if (st.kind === 'castle') {
     add(`🏯 拜见${lordName(st.owner)}`, () => openHall(st), '', st.owner === 'player');
@@ -103,6 +107,16 @@ export function openSettlement(st: Settlement) {
     add('👴 拜访村长', () => openElder(st));
   }
   if (st.owner === 'player' && st.kind !== 'village') add('🛡 管理守军', () => openGarrison(st), 'gold');
+  if (st.isPass) {
+    const near = breaches().filter(k => wallOwnerAt(SEGS[k].x, SEGS[k].y) === st.faction && Math.hypot(SEGS[k].x - st.x, SEGS[k].y - st.y) < 600);
+    if (near.length) add(`🧱 出资修缮边墙（${near.length} 处缺口，${near.length * 400} 两）`, () => {
+      const cost = near.length * 400;
+      if (pp.gold < cost) return toast('银子不够');
+      pp.gold -= cost; for (const k of near) repairSegment(k);
+      S.renown += 3 * near.length; changePlayerRel(st.faction, 2 * near.length); S.honor += 1;
+      log(`你出资修缮了${st.name}一带的边墙。`, 'good'); sfx('coin'); openSettlement(st);
+    }, '', pp.gold < near.length * 400);
+  }
   add('⛺ 休息', () => openRest(st));
   if (st.kind === 'village' && st.owner !== 'player') add('🔥 洗劫村庄', () => confirmDialog('洗劫村庄', `洗劫${st.name}会严重损害你与${FACTION[st.faction].name}的关系，确定吗？`, () => raidVillage(st)), 'danger', st.lootedUntil > S.time || healthy(pp.troops) < 5);
   add('离开', () => closeTop());

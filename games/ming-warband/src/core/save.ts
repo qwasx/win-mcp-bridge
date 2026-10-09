@@ -1,6 +1,6 @@
 // 存档
 import type { GameState } from './state';
-import { S, setState, dateStr } from './game';
+import { S, setState, dateStr, ensureWorld } from './game';
 
 const KEY = 'ming_warband_save_';
 export const SLOTS = ['auto', '1', '2', '3'];
@@ -24,6 +24,7 @@ export function loadGame(slot: string): boolean {
     if (!raw) return false;
     const st = JSON.parse(raw).state as GameState;
     setState(st);
+    ensureWorld(st);
     return true;
   } catch { return false; }
 }

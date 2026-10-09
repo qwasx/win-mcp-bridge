@@ -37,8 +37,8 @@ export const YANGTZE: P[] = [[97.5, 33.5], [99.0, 31.5], [99.8, 29.0], [100.2, 2
   [114.3, 30.55], [115.2, 29.9], [116.0, 29.75], [117.0, 30.5], [118.0, 31.2], [118.8, 32.1], [119.6, 32.25], [120.6, 31.95], [121.7, 31.5]];
 export const PEARL: P[] = [[104.5, 24.6], [106.5, 24.0], [108.3, 23.4], [110.3, 23.45], [111.8, 23.2], [112.9, 23.0], [113.5, 22.5]];
 export const HAN_RIVER: P[] = [[106.5, 33.0], [108.0, 32.9], [109.5, 32.7], [111.0, 32.5], [112.14, 32.05], [112.6, 31.0], [113.6, 30.6], [114.3, 30.55]];
-export const GREAT_WALL: P[] = [[98.2, 39.8], [100.5, 38.9], [102.6, 37.9], [104.0, 37.4], [106.0, 37.6], [107.6, 37.95], [109.7, 38.3], [111.0, 39.5],
-  [112.4, 39.95], [113.3, 40.3], [114.6, 40.75], [115.6, 40.55], [116.5, 40.45], [117.8, 40.3], [119.0, 40.15], [119.75, 40.0]];
+export const GREAT_WALL: P[] = [[96.0, 40.25], [97.0, 40.05], [98.2, 39.8], [100.5, 38.9], [102.6, 37.9], [104.0, 37.4], [106.0, 37.6], [107.6, 37.95], [109.7, 38.3], [111.0, 39.5],
+  [112.4, 39.95], [113.3, 40.3], [114.6, 40.85], [115.6, 40.7], [116.5, 40.45], [117.8, 40.3], [119.0, 40.15], [119.75, 40.0], [119.87, 39.86]];
 export const LIAO_WALL: P[] = [[119.75, 40.0], [120.8, 40.7], [121.8, 41.6], [123.0, 42.1], [123.9, 41.4], [124.3, 40.2]];
 
 function inPoly(lon: number, lat: number, poly: P[]) {
@@ -161,6 +161,34 @@ export function terAtXY(x: number, y: number): Ter {
   return grid[gy * GW + gx] as Ter;
 }
 export function passable(x: number, y: number) { return TER_SPEED[terAtXY(x, y)] > 0; }
+
+// ---------- 长城格（由 wall.ts 填充） ----------
+export const wallSeg = new Int16Array(GW * GH).fill(-1);   // 城墙段编号，-1 表示非城墙
+export const gateCell = new Int8Array(GW * GH).fill(-1);   // 关隘编号
+export const regionGrid = new Uint8Array(GW * GH);         // 1 = 关内，2 = 关外，0 = 城墙/海
+/** 通行规则：0 不可通行，1 可通行，2 仅可夜间潜越 */
+type WallRule = (ci: number, who: unknown) => number;
+let wallRule: WallRule | null = null;
+export function setWallRule(fn: WallRule) { wallRule = fn; }
+export function cellIndex(x: number, y: number) { const gx = Math.floor(x / CELL), gy = Math.floor(y / CELL); return gx < 0 || gy < 0 || gx >= GW || gy >= GH ? -1 : gy * GW + gx; }
+export function wallRuleAt(x: number, y: number, who: unknown) {
+  const ci = cellIndex(x, y);
+  if (ci < 0 || wallSeg[ci] < 0 || !wallRule || who === undefined) return 1;
+  return wallRule(ci, who);
+}
+/** 两点之间是否有挡路的城墙（2 = 需夜间潜越） */
+export function wallBetween(x0: number, y0: number, x1: number, y1: number, who: unknown): number {
+  if (who === undefined || !wallRule) return 0;
+  const d = Math.hypot(x1 - x0, y1 - y0), steps = Math.max(1, Math.ceil(d / (CELL / 4)));
+  let worst = 0;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const r = wallRuleAt(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, who);
+    if (r === 0) return 1;
+    if (r === 2) worst = 2;
+  }
+  return worst;
+}
 export function nearestPassable(x: number, y: number): [number, number] {
   if (passable(x, y)) return [x, y];
   for (let r = CELL; r < 600; r += CELL / 2) {
@@ -209,7 +237,8 @@ class Heap {
   get size() { return this.a.length; }
 }
 
-function losClear(x0: number, y0: number, x1: number, y1: number) {
+function losClear(x0: number, y0: number, x1: number, y1: number, who?: unknown) {
+  if (who !== undefined && wallBetween(x0, y0, x1, y1, who)) return false;
   const d = Math.hypot(x1 - x0, y1 - y0);
   const steps = Math.ceil(d / (CELL / 2));
   let startSpeed = TER_SPEED[terAtXY(x0, y0)];
@@ -223,9 +252,27 @@ function losClear(x0: number, y0: number, x1: number, y1: number) {
   return true;
 }
 
-export function findPath(sx: number, sy: number, tx: number, ty: number): P[] | null {
+export function findPath(sx: number, sy: number, tx: number, ty: number, who?: unknown): P[] | null {
   [tx, ty] = nearestPassable(tx, ty);
-  if (losClear(sx, sy, tx, ty) && Math.hypot(tx - sx, ty - sy) < 140) return [[tx, ty]];
+  if (who !== undefined && wallRule) {
+    // 目标在不对我开放的城墙/关门上：改为走到本侧墙下
+    const gi = cellIndex(tx, ty);
+    if (gi >= 0 && wallSeg[gi] >= 0 && wallRule(gi, who) !== 1) {
+      const si = cellIndex(sx, sy), sr = si >= 0 ? regionGrid[si] : 0;
+      let ok = false;
+      for (const r of [18, 26, 34, 44, 56]) {
+        for (let a = 0; a < 16 && !ok; a++) {
+          const px = tx + Math.cos((a / 16) * Math.PI * 2) * r, py = ty + Math.sin((a / 16) * Math.PI * 2) * r;
+          const ci = cellIndex(px, py);
+          if (ci < 0 || wallSeg[ci] >= 0 || TER_SPEED[grid[ci]] <= 0 || (sr && regionGrid[ci] !== sr)) continue;
+          tx = px; ty = py; ok = true;
+        }
+        if (ok) break;
+      }
+    }
+  }
+  if (losClear(sx, sy, tx, ty, who) && Math.hypot(tx - sx, ty - sy) < 140) return [[tx, ty]];
+  const walls = who !== undefined && !!wallRule;
   const sgx = Math.floor(sx / CELL), sgy = Math.floor(sy / CELL);
   const tgx = Math.floor(tx / CELL), tgy = Math.floor(ty / CELL);
   if (tgx < 0 || tgy < 0 || tgx >= GW || tgy >= GH) return null;
@@ -249,7 +296,9 @@ export function findPath(sx: number, sy: number, tx: number, ty: number): P[] | 
       const sp = TER_SPEED[grid[ni]];
       if (sp <= 0) continue;
       if (dx && dy && (TER_SPEED[grid[cy * GW + nx]] <= 0 || TER_SPEED[grid[ny * GW + cx]] <= 0)) continue;
-      const cost = (dx && dy ? 1.4142 : 1) / sp;
+      let mul = 1;
+      if (walls && wallSeg[ni] >= 0) { const r = wallRule!(ni, who); if (r === 0) continue; if (r === 2) mul = 6; }
+      const cost = (dx && dy ? 1.4142 : 1) / sp * mul;
       const ng = gScore[cur] + cost;
       if (stamp[ni] !== curStamp) { stamp[ni] = curStamp; closed[ni] = 0; gScore[ni] = Infinity; }
       if (ng < gScore[ni]) {
@@ -269,7 +318,7 @@ export function findPath(sx: number, sy: number, tx: number, ty: number): P[] | 
   let ax = sx, ay = sy, i = 0;
   while (i < cells.length) {
     let j = Math.min(cells.length - 1, i + 24);
-    while (j > i && !losClear(ax, ay, cells[j][0], cells[j][1])) j--;
+    while (j > i && !losClear(ax, ay, cells[j][0], cells[j][1], who)) j--;
     out.push(cells[j]);
     [ax, ay] = cells[j];
     i = j + 1;

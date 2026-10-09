@@ -166,7 +166,7 @@ export class BattleScene extends Phaser.Scene {
     const capT = Math.min(n1, cap - capO);
     const size = st.arena ? 0 : sizeFor(capO + capT, st.siege);
     [this.W, this.H] = FIELD_DIMS[size];
-    if (st.arena) { this.W = 1200; this.H = 800; }
+    if (st.arena) { this.W = 1400; this.H = 900; }
     this.F = new BattleField(this.W, this.H, st.terrain, Math.floor(Math.random() * 100000), st.siege ? { town: !!st.town } : null);
     if (st.arena) { this.F.hills = []; this.F.groves = []; this.F.boxes = []; this.F.river = null; this.F.version++; this.F.block.fill(0); this.F.wood.fill(0); this.F.slowC.fill(100); }
     this.makeGround();
