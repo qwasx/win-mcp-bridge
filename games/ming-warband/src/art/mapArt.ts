@@ -259,7 +259,7 @@ export function gateTower(ctx: Ctx, cx: number, y: number, w: number, face: numb
   }
 }
 
-function drawTown(ctx: Ctx, capital: boolean) {
+function drawTown(ctx: Ctx, capital: boolean, variant = 0) {
   const W = capital ? 54 : 46;
   const x0 = -W / 2, x1 = W / 2, y0 = -18, y1 = 6, th = 2.6, face = 4.5;
   ell(ctx, 1.5, y1 + face + 0.5, W * 0.6, 4, 'rgba(30,20,10,0.25)');
@@ -276,7 +276,7 @@ function drawTown(ctx: Ctx, capital: boolean) {
   }
   wallRing(ctx, x0, y0, x1, y1, th, face);
   // 城内建筑
-  const r = srand(capital ? 7 : 3);
+  const r = srand(capital ? 7 : 3 + variant * 11);
   const spots: [number, number][] = [];
   for (let yy = y0 + 7; yy < y1 - 1; yy += 5.2) for (let xx = x0 + 6; xx < x1 - 4; xx += 6.4) spots.push([xx + (r() - 0.5) * 2, yy + (r() - 0.5) * 1.2]);
   for (const [x, y] of spots) {
@@ -291,6 +291,26 @@ function drawTown(ctx: Ctx, capital: boolean) {
     ctx.fillStyle = css(PILLAR); ctx.fillRect(-6.5, y0 + 6, 13, 3.4);
     roof(ctx, 0, y0 + 6.4, 16, 5, 0xd8a62a);
     roof(ctx, 0, y0 + 1.4, 11, 3.6, 0xd8a62a);
+  } else if (variant === 1) {
+    // 宝塔
+    const tx = -9, ty = y0 + 14;
+    for (let k = 0; k < 5; k++) {
+      const ww = 4.6 - k * 0.6, yy = ty - k * 2.6;
+      ctx.fillStyle = k % 2 ? '#d8c8a8' : '#e8dcc0'; ctx.fillRect(tx - ww / 2, yy - 2.2, ww, 2.2);
+      ctx.strokeStyle = OUTLINE; ctx.lineWidth = 0.3; ctx.strokeRect(tx - ww / 2, yy - 2.2, ww, 2.2);
+      ctx.fillStyle = '#20140c'; ctx.fillRect(tx - 0.3, yy - 1.7, 0.6, 1);
+      roof(ctx, tx, yy - 1.9, ww + 2.2, 1.3);
+    }
+    ctx.strokeStyle = '#c8a040'; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(tx, ty - 13.4); ctx.lineTo(tx, ty - 16); ctx.stroke();
+    house(ctx, 6, y0 + 11, 7, 4.6, 0x5a5048);
+  } else if (variant === 2) {
+    // 文庙（红墙黄瓦）
+    ctx.fillStyle = '#9a3a2c'; ctx.fillRect(-8, y0 + 6, 16, 6.5);
+    ctx.strokeStyle = OUTLINE; ctx.lineWidth = 0.35; ctx.strokeRect(-8, y0 + 6, 16, 6.5);
+    ctx.fillStyle = css(PILLAR); ctx.fillRect(-5, y0 + 7.4, 10, 3);
+    ctx.fillStyle = 'rgba(30,15,8,0.5)'; for (let k = 0; k < 5; k++) ctx.fillRect(-4.4 + k * 2, y0 + 7.8, 0.8, 2.4);
+    roof(ctx, 0, y0 + 7.6, 13, 4, 0x6a7a3a);
+    ctx.fillStyle = '#5a6a3a'; ctx.beginPath(); ctx.arc(-11, y0 + 12, 2.4, 0, Math.PI * 2); ctx.arc(10.5, y0 + 11.5, 2.2, 0, Math.PI * 2); ctx.fill();
   } else {
     // 鼓楼 / 塔
     const tx = 0, ty = y0 + 13;
@@ -308,7 +328,7 @@ function drawTown(ctx: Ctx, capital: boolean) {
   gateTower(ctx, 0, y1, capital ? 14 : 11, face, capital ? 3 : 2);
 }
 
-function drawCastle(ctx: Ctx) {
+function drawCastle(ctx: Ctx, variant = 0) {
   // 土台
   ctx.beginPath(); ctx.ellipse(0, 4, 17, 7.5, 0, 0, Math.PI * 2);
   const g = ctx.createRadialGradient(-5, 0, 2, 0, 4, 17);
@@ -317,6 +337,14 @@ function drawCastle(ctx: Ctx) {
   ell(ctx, 2, 10.5, 16, 2.5, 'rgba(30,20,10,0.25)');
   const x0 = -11, x1 = 11, y0 = -8, y1 = 5, th = 2.2, face = 3.6;
   wallRing(ctx, x0, y0, x1, y1, th, face);
+  if (variant === 1) {
+    // 营房 + 校场旗杆
+    house(ctx, -4, y0 + 8, 6, 4, 0x5a5048);
+    house(ctx, 4.5, y0 + 9, 5.5, 3.8);
+    ctx.fillStyle = '#b8a47c'; ctx.fillRect(-2, y0 + 10, 6, 2.5);
+    ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = 0.4; ctx.beginPath(); ctx.moveTo(0, y0 + 11); ctx.lineTo(0, y0 - 2); ctx.stroke();
+    ctx.fillStyle = '#c03020'; ctx.beginPath(); ctx.moveTo(0, y0 - 2); ctx.lineTo(3.4, y0 - 1); ctx.lineTo(0, y0 + 0.4); ctx.closePath(); ctx.fill();
+  } else {
   // 箭楼
   ctx.fillStyle = css(WALL); ctx.fillRect(-4.5, y0 + 3, 9, 6);
   ctx.fillStyle = css(WALL_TOP); ctx.fillRect(-4.5, y0 + 1.5, 9, 1.5);
@@ -324,6 +352,7 @@ function drawCastle(ctx: Ctx) {
   ctx.fillStyle = '#20140c'; for (let k = 0; k < 3; k++) ctx.fillRect(-3 + k * 2.6, y0 + 4.5, 0.9, 1.4);
   ctx.fillStyle = css(PILLAR); ctx.fillRect(-3.4, y0 - 1.4, 6.8, 2.8);
   roof(ctx, 0, y0 - 1.2, 9.6, 3.6);
+  }
   frontWall(ctx, x0, x1, y1, th, face);
   cornerTower(ctx, x0 + 1, y0 + 1, 3.4, 2);
   cornerTower(ctx, x1 - 1, y0 + 1, 3.4, 2);
@@ -361,11 +390,46 @@ function drawVillage(ctx: Ctx, looted: boolean) {
   }
 }
 
+/** 关城：骑墙而建的城台与多层关楼，左右接长城，南侧瓮城 */
+function drawPass(ctx: Ctx, major: boolean) {
+  const W = major ? 58 : 46;
+  const face = 4.2, th = 3.4;
+  ell(ctx, 2, 9, W * 0.5, 4, 'rgba(30,20,10,0.25)');
+  // 左右接墙
+  for (const sgn of [-1, 1]) {
+    const xa = sgn < 0 ? -W / 2 : 8, xb = sgn < 0 ? -8 : W / 2;
+    ctx.fillStyle = css(WALL_TOP); ctx.fillRect(xa, -th, xb - xa, th);
+    const g = ctx.createLinearGradient(0, 0, 0, face); g.addColorStop(0, css(WALL)); g.addColorStop(1, css(WALL_DARK));
+    ctx.fillStyle = g; ctx.fillRect(xa, 0, xb - xa, face - 1);
+    battlements(ctx, xa, xb, -th + 0.2, WALL_DARK);
+    ctx.strokeStyle = OUTLINE; ctx.lineWidth = 0.4; ctx.strokeRect(xa, -th, xb - xa, th + face - 1);
+    // 端头敌楼
+    const ex = sgn < 0 ? xa + 3 : xb - 3;
+    ctx.fillStyle = css(WALL_TOP); ctx.fillRect(ex - 3, -th - 2, 6, 2);
+    ctx.fillStyle = css(WALL); ctx.fillRect(ex - 3, -th, 6, th + face);
+    ctx.strokeStyle = OUTLINE; ctx.strokeRect(ex - 3, -th - 2, 6, th + face + 2);
+    ctx.fillStyle = '#20140c'; ctx.fillRect(ex - 0.4, -1.2, 0.8, 1.4);
+    if (major) roof(ctx, ex, -th - 2.2, 7.5, 3);
+  }
+  // 瓮城（南侧半圆）
+  ctx.beginPath(); ctx.moveTo(-9, face - 1); ctx.lineTo(-9, face + 4); ctx.quadraticCurveTo(0, face + 10, 9, face + 4); ctx.lineTo(9, face - 1);
+  ctx.strokeStyle = css(WALL_DARK); ctx.lineWidth = 2.6; ctx.stroke();
+  ctx.strokeStyle = css(WALL_TOP); ctx.lineWidth = 1.6; ctx.stroke();
+  ctx.fillStyle = '#20140c'; ctx.fillRect(3, face + 5.4, 2.4, 1.6);
+  // 中央城台与关楼
+  gateTower(ctx, 0, 0, major ? 20 : 16, face + 1.5, major ? 3 : 2);
+}
+
 export function buildSettlementAtlas(): Atlas {
   return pack([
     { name: 'town', w: 54, h: 50, ax: 27, ay: 36, draw: c => drawTown(c, false) },
     { name: 'capital', w: 62, h: 52, ax: 31, ay: 38, draw: c => drawTown(c, true) },
+    { name: 'town1', w: 54, h: 50, ax: 27, ay: 36, draw: c => drawTown(c, false, 1) },
+    { name: 'town2', w: 54, h: 50, ax: 27, ay: 36, draw: c => drawTown(c, false, 2) },
     { name: 'castle', w: 38, h: 34, ax: 19, ay: 22, draw: c => drawCastle(c) },
+    { name: 'castle1', w: 38, h: 34, ax: 19, ay: 22, draw: c => drawCastle(c, 1) },
+    { name: 'pass', w: 50, h: 44, ax: 25, ay: 30, draw: c => drawPass(c, false) },
+    { name: 'pass_major', w: 62, h: 50, ax: 31, ay: 35, draw: c => drawPass(c, true) },
     { name: 'village', w: 32, h: 20, ax: 16, ay: 13, draw: c => drawVillage(c, false) },
     { name: 'village_looted', w: 32, h: 20, ax: 16, ay: 13, draw: c => drawVillage(c, true) },
   ], MRES, 1024);

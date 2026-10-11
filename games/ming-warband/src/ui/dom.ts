@@ -1,3 +1,4 @@
+import { iconize } from './icons';
 // 轻量 DOM 工具
 import { sfx } from '../audio/sfx';
 type Child = Node | string | number | null | undefined | false | Child[];
@@ -21,7 +22,8 @@ function append(el: HTMLElement, children: Child[]) {
   for (const c of children) {
     if (c === null || c === undefined || c === false) continue;
     if (Array.isArray(c)) append(el, c);
-    else el.appendChild(c instanceof Node ? c : document.createTextNode(String(c)));
+    else if (c instanceof Node) el.appendChild(c);
+    else { const t = String(c); const ic = iconize(t); if (ic) for (const n of ic) el.appendChild(n); else el.appendChild(document.createTextNode(t)); }
   }
 }
 

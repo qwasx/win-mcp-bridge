@@ -290,3 +290,24 @@ details summary { cursor: pointer; color: var(--red); margin: 10px 0 4px; font-f
 .chron-btns { justify-content: flex-end; margin-top: 10px; gap: 8px; }
 .chron-list { max-height: 180px; overflow: auto; font-family: var(--kai); line-height: 1.8; padding: 4px 8px; background: rgba(120,80,30,.07); border-radius: 3px; }
 .err-report { width: 100%; height: 240px; font: 12px/1.4 monospace; background: #f6efdc; border: 1px solid #8a6a3a; padding: 6px; }
+
+/* ---------- v1.4 线描图标与水墨笔意 ---------- */
+.ico { display: inline-block; width: 1.12em; height: 1.12em; vertical-align: -0.2em; margin-right: .32em; flex: none; }
+.ico svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; overflow: visible; }
+.ico svg .f { fill: currentColor; stroke: none; }
+.btn.danger .ico svg, .btn .ico-fire svg { stroke: #9a2416; }
+.btn.primary .ico svg { stroke: #fff3d0; }
+.hud .ico, #hud .ico { margin-right: .18em; }
+/* 面板底部淡墨远山 */
+.panel::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 90px; pointer-events: none; opacity: .13; border-radius: 0 0 3px 3px;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 90' preserveAspectRatio='none'><path d='M0 90 L0 62 C40 50 60 30 95 34 C120 37 130 58 160 52 C190 46 205 18 240 22 C270 26 280 55 320 50 C350 46 365 30 395 36 C430 43 440 64 480 58 C520 52 540 40 570 46 L600 50 L600 90 Z' fill='%232a1a0e'/><path d='M0 90 L0 76 C60 66 90 72 140 70 C200 68 230 60 290 66 C350 72 380 64 440 70 C500 76 550 66 600 70 L600 90 Z' fill='%232a1a0e' opacity='.6'/></svg>") bottom / 100% 100% no-repeat; }
+.panel.chron::after { opacity: .18; }
+/* 标题下一道飞白笔触 */
+.panel-title::after { content: ''; position: absolute; left: 10px; right: 30%; top: 100%; height: 5px; margin-top: 2px; pointer-events: none; opacity: .35;
+  background: linear-gradient(90deg, rgba(42,26,14,0), rgba(42,26,14,.9) 8%, rgba(42,26,14,.55) 60%, rgba(42,26,14,0)); border-radius: 50%; filter: blur(.4px); }
+.panel-title { position: relative; }
+/* 菜单项悬停：淡墨扫过 */
+.menu-item { position: relative; overflow: hidden; }
+.menu-item:hover:not([disabled])::before { content: ''; position: absolute; left: -10%; top: 15%; bottom: 15%; width: 60%; pointer-events: none;
+  background: linear-gradient(90deg, rgba(42,26,14,.0), rgba(42,26,14,.10) 30%, rgba(42,26,14,.04) 80%, transparent); border-radius: 40%; }
+.panel-body { position: relative; z-index: 1; }

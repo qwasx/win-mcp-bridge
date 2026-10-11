@@ -7,7 +7,7 @@ export default async function (c: any) {
   const pick = (pre: string, n: number) => ids.filter(i => i.startsWith(pre)).slice(0, 4).map(id => ({ id, n, w: 0, xp: 0 }));
   const mode = process.env.MODE ?? 'day';
   const setup: any = {
-    ours: pick('ming_', 14), theirs: pick('jin_', 14), enemyName: '镶黄旗前锋', enemyFaction: 'jin',
+    ours: pick("ming_", +(process.env.N || 14)), theirs: pick("jin_", +(process.env.N || 14)), enemyName: '镶黄旗前锋', enemyFaction: 'jin',
     terrain: Ter.Plain, siege: mode === 'siege', night: mode === 'night' || mode === 'siege', heroFights: true,
     weather: mode === 'rain' ? { kind: 'rain', k: 0.9, storm: true } : mode === 'snow' ? { kind: 'snow', k: 0.8, storm: false } : { kind: 'clear', k: 0, storm: false },
     snow: mode === 'snow' ? 0.9 : 0, season: mode === 'snow' ? 3 : mode === 'day' ? 2 : 1,

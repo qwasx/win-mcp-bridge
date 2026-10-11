@@ -3,7 +3,7 @@ import type { GameState, Party, Settlement } from './state';
 import {
   GREAT_WALL, CELL, GW, GH, ll, buildGrid, wallSeg, gateCell, regionGrid, setWallRule, grid, TER_SPEED, cellIndex, nearestPassable,
 } from './terrain';
-import { S, log, factionHostileToSettlement, playerHostileToSettlement, player, isNight, lordName, playerSide } from './game';
+import { S, log, factionHostileToSettlement, playerHostileToSettlement, player, isNight, lordName, playerSide, settlementList } from './game';
 import { FACTION } from '../data/world';
 import { count, healthy } from './party';
 
@@ -195,7 +195,11 @@ export function wallHourly() {
       const pp = player();
       const near = Math.hypot(pp.x - p.x, pp.y - p.y) < 900;
       const side = playerSide();
-      if (near || side === owner || owner === 'player') log(`烽火台狼烟四起——${FACTION[p.faction]?.name ?? ''}${lordName(p.lordId ?? null)}部自${nearestPassName(p.x, p.y)}一带入塞了！`, 'bad');
+      if (near || side === owner || owner === 'player') {
+        const gate = settlementList().find(s => s.isPass && Math.hypot(s.x - p.x, s.y - p.y) < 45);
+        const how = gate ? `经由${gate.name}` : `从${nearestPassName(p.x, p.y)}附近的边墙破口`;
+        log(`烽火台狼烟四起——${FACTION[p.faction]?.name ?? ''}${lordName(p.lordId ?? null)}部${count(p.troops)}人${how}入塞了！`, 'bad');
+      }
     }
   }
 }

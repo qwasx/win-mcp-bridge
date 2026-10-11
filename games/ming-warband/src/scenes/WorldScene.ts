@@ -1,6 +1,9 @@
 // 大地图场景
 import Phaser from 'phaser';
 import { SEGS, PASSES, BREACH_OPEN } from '../core/wall';
+import { buildWallChunks, wallJitter, WALL_RES, type WallChunk } from '../art/wallArt';
+let wallChunks: WallChunk[] | null = null;
+const MAJOR_PASS = new Set(['shanhai', 'jiayu', 'juyong']);
 import { renderMapCanvas, WORLD_W, WORLD_H, terAtXY, TER_NAME } from '../core/terrain';
 import { S, player, isNight, hostile, on, playerHostileToSettlement, lordName, partyById } from '../core/game';
 import { nav, setPlayerTarget, simulate } from '../core/sim';
@@ -77,6 +80,7 @@ export class WorldScene extends Phaser.Scene {
       this.events.on('wake', () => minimap.show());
       this.events.once('shutdown', () => minimap.hide());
     } catch { /* 小地图失败不影响游戏 */ }
+    this.buildWall();
     this.gStatic = this.add.graphics().setDepth(2);
     this.buildSettlementIcons();
     this.gFx = this.add.graphics().setDepth(4);
@@ -202,6 +206,16 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  buildWall() {
+    try {
+      const passPts = Object.values(S.settlements).filter(s => s.isPass).map(s => [s.x, s.y] as [number, number]);
+      for (const c of wallChunks ??= buildWallChunks(passPts)) {
+        if (!this.textures.exists(c.key)) this.textures.addCanvas(c.key, c.canvas);
+        this.add.image(c.x, c.y, c.key).setOrigin(0).setScale(1 / WALL_RES).setDepth(1.5);
+      }
+    } catch (e) { console.error('[wall art]', e); }
+  }
+
   buildSettlementIcons() {
     const frames = settlementAtlas(this);
     for (const s of Object.values(S.settlements)) {
@@ -213,8 +227,11 @@ export class WorldScene extends Phaser.Scene {
   }
   settFrame(s: Settlement) {
     if (s.kind === 'village') return s.lootedUntil > S.time ? 'village_looted' : 'village';
-    if (s.kind === 'castle') return 'castle';
-    return (s.id === 'beijing' || s.id === 'shengjing' || s.id === FACTION[s.faction]?.capital) ? 'capital' : 'town';
+    const h = [...s.id].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) >>> 0;
+    if (s.isPass) return MAJOR_PASS.has(s.id) ? 'pass_major' : 'pass';
+    if (s.kind === 'castle') return h % 3 === 0 ? 'castle1' : 'castle';
+    if (s.id === 'beijing' || s.id === 'shengjing' || s.id === 'nanjing' || s.id === FACTION[s.faction]?.capital) return 'capital';
+    return h % 3 === 0 ? 'town' : h % 3 === 1 ? 'town1' : 'town2';
   }
 
   buildClouds() {
@@ -244,8 +261,8 @@ export class WorldScene extends Phaser.Scene {
           const bi = ensureBanner(this, fac.color, ch, false);
           if (ic.fkey !== bi.key) {
             ic.flag?.destroy();
-            const fx = s.kind === 'town' ? s.x + (this.settFrame(s) === 'capital' ? 25 : 21) : s.x + 9;
-            const fy = s.kind === 'town' ? s.y + 4 : s.y - 2;
+            const fx = s.isPass ? s.x + 4 : s.kind === 'town' ? s.x + (this.settFrame(s) === 'capital' ? 25 : 21) : s.x + 9;
+            const fy = s.isPass ? s.y - 14 : s.kind === 'town' ? s.y + 4 : s.y - 2;
             ic.flag = this.add.sprite(fx, fy, bi.key, 0).setOrigin(bi.ax, bi.ay).setScale(0.55 / 3).setDepth(3.5 + s.y / 1e5);
             ic.fkey = bi.key;
           }
@@ -378,13 +395,21 @@ export class WorldScene extends Phaser.Scene {
       const sg = SEGS[k]; if (!sg) continue;
       const broken = S.wallHp[k] < BREACH_OPEN;
       const tx = sg.ny, ty = -sg.nx; // 沿墙方向
+      const wx = sg.x, wy = sg.y + wallJitter(sg.x, sg.y);
       if (broken) {
-        fx.fillStyle(0x4a3c2c, 0.85); fx.fillEllipse(sg.x, sg.y, 22, 12);
-        fx.fillStyle(0x8a7a62, 1);
-        for (let i = -3; i <= 3; i++) fx.fillRect(sg.x + tx * i * 3 + ((i * 7) % 3) - 1, sg.y + ty * i * 3 + ((i * 5) % 4) - 2, 3, 2.4);
-        fx.lineStyle(1.5, 0xff5030, 0.5 + 0.3 * Math.sin(timeMs / 300)); fx.strokeEllipse(sg.x, sg.y, 30, 16);
+        // 坍塌缺口：土色豁口 + 散落砖石 + 尘土
+        fx.fillStyle(0x7a6a4c, 1); fx.fillEllipse(wx, wy + 1.5, 16, 9);
+        fx.fillStyle(0x5a4a34, 0.9); fx.fillEllipse(wx, wy + 2, 11, 5);
+        for (let i = -4; i <= 4; i++) {
+          const ox = tx * i * 2.6 + ((i * 7) % 3) - 1, oy = ty * i * 2.6 + ((i * 5) % 4) - 1;
+          fx.fillStyle(i % 2 ? 0x9a8c74 : 0x7e705a, 1); fx.fillRect(wx + ox, wy + oy + 2, 2.4, 1.8);
+          fx.fillStyle(0xc4b698, 1); fx.fillRect(wx + ox, wy + oy + 2, 2.4, 0.6);
+        }
+        fx.lineStyle(1.5, 0xff5030, 0.5 + 0.3 * Math.sin(timeMs / 300)); fx.strokeEllipse(wx, wy + 1, 30, 16);
       } else {
-        fx.fillStyle(0x6a5a44, 0.8); for (let i = -2; i <= 2; i++) fx.fillRect(sg.x + tx * i * 4, sg.y + ty * i * 4 - 1, 2.5, 2);
+        // 受损：墙头裂痕与掉落砖块
+        fx.fillStyle(0x5a4a38, 0.85); for (let i = -2; i <= 2; i++) fx.fillRect(wx + tx * i * 3.4, wy + ty * i * 3.4 - 1.2, 1.8, 1.6);
+        fx.fillStyle(0x8a7a62, 0.9); fx.fillRect(wx + 3, wy + 4.6, 2, 1.4); fx.fillRect(wx - 4, wy + 5, 1.6, 1.2);
       }
     }
     for (const b of S.beacons ?? []) {

@@ -2,6 +2,7 @@
 import { fineAt, toLL, ll, Ter, YELLOW_RIVER, YANGTZE, PEARL, HAN_RIVER, GREAT_WALL, LIAO_WALL, WORLD_W, WORLD_H } from '../core/terrain';
 import { fbm } from '../core/rng';
 import { srand } from './canvas';
+import { wallFine } from './wallArt';
 
 type P = [number, number];
 type Ctx = CanvasRenderingContext2D;
@@ -260,42 +261,12 @@ function bridge(ctx: Ctx, x: number, y: number, a: number, len: number) {
   ctx.restore();
 }
 
-// ---------- 长城 ----------
+// ---------- 长城（底图只画淡淡的墙基，供小地图使用；大地图上由 wallArt 的高清分块覆盖） ----------
 export function drawGreatWall(ctx: Ctx) {
-  const lines = [GREAT_WALL, LIAO_WALL].map(l => l.map(([lo, la]) => ll(lo, la)));
+  const fine = wallFine();
   ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-  // 细分并加一点起伏
-  const fine = lines.map(pts => {
-    const out: P[] = [];
-    for (let i = 0; i < pts.length - 1; i++) {
-      const [x0, y0] = pts[i], [x1, y1] = pts[i + 1];
-      const segs = Math.max(2, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 6));
-      for (let k = 0; k < segs; k++) { const t = k / segs; const x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t; const o = (fbm(x * 0.04, y * 0.04, 13, 2) - 0.5) * 10; out.push([x, y + o]); }
-    }
-    out.push(pts[pts.length - 1]);
-    return out;
-  });
-  const path = (dy: number, dx = 0) => { ctx.beginPath(); for (const pts of fine) pts.forEach(([x, y], i) => i ? ctx.lineTo(x + dx, y + dy) : ctx.moveTo(x + dx, y + dy)); };
-  ctx.strokeStyle = 'rgba(30,20,10,0.35)'; ctx.lineWidth = 7; path(2.5, 1.5); ctx.stroke();
-  ctx.strokeStyle = '#6e604e'; ctx.lineWidth = 6; path(1); ctx.stroke();
-  ctx.strokeStyle = '#a89878'; ctx.lineWidth = 4.4; path(0); ctx.stroke();
-  ctx.strokeStyle = '#d8ccb0'; ctx.lineWidth = 2.2; path(-0.8); ctx.stroke();
-  ctx.strokeStyle = '#7a6a54'; ctx.lineWidth = 1.6; ctx.setLineDash([1.2, 1.6]); path(-2.2); ctx.stroke(); ctx.setLineDash([]);
-  // 敌楼/烽火台
-  for (const pts of fine) {
-    let acc = 0;
-    for (let i = 1; i < pts.length; i++) {
-      acc += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
-      if (acc < 34) continue;
-      acc = 0;
-      const [x, y] = pts[i];
-      ctx.fillStyle = 'rgba(30,20,10,0.4)'; ctx.fillRect(x - 3.5 + 1.5, y - 2 + 2, 8, 4);
-      ctx.fillStyle = '#7a6a54'; ctx.fillRect(x - 4, y - 6, 8, 6.5);
-      ctx.fillStyle = '#c8bca0'; ctx.fillRect(x - 4, y - 6, 8, 2.4);
-      ctx.fillStyle = '#e4dac2'; ctx.fillRect(x - 3.4, y - 6.6, 6.8, 1.2);
-      ctx.fillStyle = '#3a2a1a'; ctx.fillRect(x - 1, y - 3, 2, 2.4);
-      ctx.fillStyle = '#7a6a54'; for (let k = -3.4; k < 3.5; k += 2.2) ctx.fillRect(x + k, y - 7.6, 1.2, 1.2);
-    }
-  }
+  const path = (dy: number) => { ctx.beginPath(); for (const pts of fine) pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y + dy) : ctx.moveTo(x, y + dy)); };
+  ctx.strokeStyle = '#6e604e'; ctx.lineWidth = 5; path(1.5); ctx.stroke();
+  ctx.strokeStyle = '#c8bca0'; ctx.lineWidth = 3; path(0); ctx.stroke();
   ctx.restore();
 }
