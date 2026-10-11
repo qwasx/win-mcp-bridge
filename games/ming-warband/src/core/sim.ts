@@ -1,4 +1,5 @@
 // 大地图模拟：时间推进、移动、AI、日常结算
+import { NETH } from '../net/hooks';
 import type { Party, Settlement } from './state';
 import {
   S, log, player, partyById, removeParty, hostile, isNight, dayOf, spawnBandit, spawnCaravan, spawnVillager, spawnLordParty,
@@ -30,6 +31,7 @@ export const nav = {
 
 export function setPlayerTarget(t: NavTarget | null) {
   nav.target = t; nav.waiting = false; nav.path = [];
+  if (NETH.on) { if (!t) NETH.send({ t: 'stop' }); else NETH.send({ t: 'nav', kind: t.kind, x: (t as any).x, y: (t as any).y, id: (t as any).id }); }
   if (!t) return;
   const pp = player();
   pp.inside = undefined;
@@ -58,7 +60,12 @@ function wallStop(p: Party, nx: number, ny: number) {
   if (r === 2 && !isNight()) return 2;
   return 0;
 }
-function moveAlong(p: Party, path: [number, number][], d: number) {
+/** 联机服务器钩子：玩家部队（hero）不走 AI，由服务器驱动 */
+export const SIM_HOOKS: {
+  heroMove?: (p: Party, h: number, night: boolean) => void;
+  heroContact?: (hero: Party, other: Party) => void;
+} = {};
+export function moveAlong(p: Party, path: [number, number][], d: number) {
   while (d > 0 && path.length) {
     // 路点必须在陆地上（寻路网格与真实海岸线不完全一致时校正）
     if (!passable(path[0][0], path[0][1])) path[0] = nearestPassable(path[0][0], path[0][1]);
@@ -133,6 +140,7 @@ const PATH_BUDGET = 14;
 
 /** 推进 hours 小时。若触发事件则提前返回 */
 export function simulate(hours: number) {
+  if (NETH.on) return false; // 联机：世界由服务器推进
   let left = hours;
   while (left > 1e-6) {
     const h = Math.min(STEP, left);
@@ -182,6 +190,8 @@ function step(h: number): boolean {
   // AI
   for (const p of [...S.parties]) {
     if (p.kind === 'player' || !S.parties.includes(p)) continue;
+    if (p.busy) continue;
+    if (p.kind === 'hero') { if (!p.inside) SIM_HOOKS.heroMove?.(p, h, night); continue; }
     if (S.time >= p.ai.nextThink) { try { think(p); } catch (e) { p.ai.mode = 'idle'; p.ai.path = []; p.ai.nextThink = S.time + 2; guard('think:' + p.kind, () => { throw e; }); } }
     if (p.inside) continue;
     if (p.ai.path && p.ai.path.length) {
@@ -237,14 +247,20 @@ function contacts(): boolean {
   const ps = S.parties;
   for (let i = 0; i < ps.length; i++) {
     const a = ps[i];
-    if (a.inside) continue;
+    if (a.inside || a.busy) continue;
     for (let j = i + 1; j < ps.length; j++) {
       const b = ps[j];
-      if (b.inside) continue;
+      if (b.inside || b.busy) continue;
       const dx = a.x - b.x, dy = a.y - b.y;
       if (dx * dx + dy * dy > 100) continue;
       if (!hostile(a, b)) continue;
       if (regionOfParty(a) !== regionOfParty(b) && wallBetween(a.x, a.y, b.x, b.y, whoOf(a)) === 1) continue;
+      if (a.kind === 'hero' || b.kind === 'hero') {
+        if ((a.grace ?? 0) > S.time || (b.grace ?? 0) > S.time) continue;
+        if (a.kind === 'hero') SIM_HOOKS.heroContact?.(a, b); else SIM_HOOKS.heroContact?.(b, a);
+        if (a.busy) break;
+        continue;
+      }
       if (a === pp || b === pp) {
         const o = a === pp ? b : a;
         if (o.ai.mode === 'chase' && o.ai.target === pp.id && S.time >= nav.graceUntil && !pp.inside) {
@@ -323,7 +339,7 @@ function arrive(p: Party) {
 function visibleHostiles(p: Party, range: number) {
   const out: { o: Party; d: number; s: number }[] = [];
   for (const o of S.parties) {
-    if (o === p || o.inside) continue;
+    if (o === p || o.inside || o.busy || (o.grace ?? 0) > S.time) continue;
     const d = dist(p.x, p.y, o.x, o.y);
     if (d > range) continue;
     if (!hostile(p, o)) continue;
@@ -604,11 +620,16 @@ export function partyStrengthOfGarrison(s: Settlement) {
 }
 
 // ---------- 每小时 ----------
-function hourly() {
+/** 玩家个人的每小时结算（单机由世界调用；联机由客户端按服务器时间调用） */
+export function playerHourly() {
   const pp = player();
   const inside = !!pp.inside;
   S.hero.hp = Math.min(1, S.hero.hp + (inside ? 0.03 : 0.012) * (1 + partySkill(S, 'surgery') * 0.1));
   for (const c of S.companions) if (c.wounded > 0) c.wounded = Math.max(0, c.wounded - (inside ? 2 : 1));
+}
+export const WORLD_OPT = { personal: true }; // 服务器上为 false：不结算（虚拟）玩家个人项目
+function hourly() {
+  if (WORLD_OPT.personal) playerHourly();
   guard('wallHourly', wallHourly);
   guard('unstick', () => { for (const p of S.parties) if (p.kind !== 'player') unstick(p); });
   const hr = Math.floor(S.time);
@@ -633,8 +654,14 @@ function daily() {
   guard('calendar', calendarDaily);
   if (day % 3 === 0) guard('randomEvents', randomEvents);
   if (day % 7 === 3) guard('revive', reviveFactions);
-  const pp = player();
   dailyEconomy();
+  if (WORLD_OPT.personal) playerDaily();
+  worldDaily(day);
+}
+
+/** 玩家个人的每日结算：任务期限、粮食、士气、超编、伤兵、训练 */
+export function playerDaily() {
+  const pp = player();
   dailyQuests();
 
   // 粮食
@@ -670,7 +697,9 @@ function daily() {
   // 训练
   const tr = partySkill(S, 'training');
   if (tr > 0) for (const st of pp.troops) if ((TROOPS[st.id]?.tier ?? 9) < S.hero.level) st.xp += tr * 3 * (st.n - st.w);
+}
 
+function worldDaily(day: number) {
   // AI 领主与守军
   for (const p of S.parties) {
     if (p.kind !== 'lord') continue;
@@ -701,6 +730,15 @@ function daily() {
 }
 
 function weekly() {
+  if (WORLD_OPT.personal) playerWeekly();
+  // 村庄刷新
+  dailyRecruits();
+  for (const s of settlementList()) if (s.kind !== 'village') refreshShop(s);
+  diplomacy();
+}
+
+/** 玩家个人的每周结算：军饷、封地收入、守军军饷、雇佣金 */
+export function playerWeekly() {
   const pp = player();
   // 军饷
   const wages = weeklyWages(S, pp);
@@ -725,10 +763,6 @@ function weekly() {
     if (S.time > S.mercUntil) { log(`与${FACTION[S.mercOf].name}的雇佣契约到期了。`, 'quest'); S.mercOf = null; }
     else { const pay = 50 + healthy(pp.troops) * 5; pp.gold += pay; log(`${FACTION[S.mercOf].name}支付雇佣金 ${pay} 两。`, 'good'); }
   }
-  // 村庄刷新
-  dailyRecruits();
-  for (const s of settlementList()) if (s.kind !== 'village') refreshShop(s);
-  diplomacy();
 }
 
 function diplomacy() {
@@ -756,6 +790,7 @@ function diplomacy() {
 /** 在据点内休息若干小时 */
 export function restInside(st: Settlement, hours: number) {
   const pp = player();
+  if (NETH.on) { NETH.send({ t: 'enter', st: st.id }); return; } // 联机：时间不能快进，留在城中即可（每小时自然恢复）
   pp.inside = st.id;
   pp.x = st.x; pp.y = st.y;
   const prev = nav.target; nav.target = null;
@@ -763,7 +798,7 @@ export function restInside(st: Settlement, hours: number) {
     S.time += STEP;
     const prevDay = dayOf(S.time - STEP), prevHour = Math.floor(S.time - STEP);
     for (const p of [...S.parties]) {
-      if (p.kind === 'player' || !S.parties.includes(p)) continue;
+      if (p.kind === 'player' || p.kind === 'hero' || p.busy || !S.parties.includes(p)) continue;
       if (S.time >= p.ai.nextThink) { pathBudget = 3; guard('think', () => think(p)); }
       if (!p.inside && p.ai.path?.length) moveAlong(p, p.ai.path, mapSpeed(S, p, isNight()) * STEP * (p.ai.mode === 'follow' ? 1.25 : 1));
       arrive(p);

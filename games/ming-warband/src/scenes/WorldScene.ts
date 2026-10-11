@@ -1,11 +1,13 @@
 // 大地图场景
+import { NETH } from '../net/hooks';
+import { netFrame } from '../net/client';
 import Phaser from 'phaser';
 import { SEGS, PASSES, BREACH_OPEN } from '../core/wall';
 import { buildWallChunks, wallJitter, WALL_RES, type WallChunk } from '../art/wallArt';
 let wallChunks: WallChunk[] | null = null;
 const MAJOR_PASS = new Set(['shanhai', 'jiayu', 'juyong']);
 import { renderMapCanvas, WORLD_W, WORLD_H, terAtXY, TER_NAME } from '../core/terrain';
-import { S, player, isNight, hostile, on, playerHostileToSettlement, lordName, partyById } from '../core/game';
+import { S, player, isNight, hostile, on, playerHostileToSettlement, lordName, partyById, allied } from '../core/game';
 import { nav, setPlayerTarget, simulate } from '../core/sim';
 import { FACTION } from '../data/world';
 import { count, describeSize, partyStrength } from '../core/party';
@@ -168,6 +170,7 @@ export class WorldScene extends Phaser.Scene {
 
   visible(p: Party) {
     if (p.kind === 'player') return true;
+    if (NETH.on && (p.kind === 'hero' || p.kind === 'lord') && S.playerFaction && (p.faction === S.playerFaction ? p.kind === 'hero' : allied(S.playerFaction, p.faction))) return true; // 本国玩家与盟军：共享视野
     const pp = player();
     return dist(pp.x, pp.y, p.x, p.y) < sightRange(S, isNight());
   }
@@ -290,6 +293,15 @@ export class WorldScene extends Phaser.Scene {
       const col = S.playerFaction ? (FACTION[S.playerFaction]?.color ?? 0xd4af37) : 0xd4af37;
       return { key: JSON.stringify(['P', spec, extras.length, col, S.hero.name[0]]), main: spec, extras, banner: n >= 1 ? { color: col, ch: S.hero.name[0] ?? '义' } : null };
     }
+    if (p.kind === 'hero') { // 联机：其他玩家
+      const top = [...p.troops].sort((a, b) => b.n - a.n)[0];
+      const cul = f.culture in ELITE_CAV ? f.culture : 'ming';
+      const spec: FigureSpec = { ...troopSpec(ELITE_CAV[cul], f.color), cape: 0xd4af37, backFlag: null };
+      const extras: FigureSpec[] = [];
+      if (top && n >= 5 && TROOPS[top.id]) extras.push(troopSpec(top.id, f.color));
+      if (top && n >= 60 && TROOPS[top.id]) extras.push(troopSpec(top.id, f.color));
+      return { key: JSON.stringify(['H', p.faction, extras.length, p.name[0], top?.id]), main: spec, extras, banner: { color: f.color, ch: p.name[0] ?? '侠' } };
+    }
     if (p.kind === 'lord') {
       const cul = f.culture in ELITE_CAV ? f.culture : 'ming';
       const spec: FigureSpec = { ...troopSpec(ELITE_CAV[cul], f.color), cape: shadeHex(f.color, -0.35), backFlag: null };
@@ -361,6 +373,7 @@ export class WorldScene extends Phaser.Scene {
     const n = count(p.troops);
     if (p.kind === 'player') return `P${S.hero.equip.horse ? 1 : 0}${S.hero.equip.melee}${S.hero.equip.armor}${n >= 5 ? 1 : 0}${n >= 40 ? 1 : 0}${S.playerFaction}${[...p.troops].sort((a, b) => b.n - a.n)[0]?.id}`;
     if (p.kind === 'lord') return `L${p.faction}${n > 30 ? 1 : 0}${n > 90 ? 1 : 0}`;
+    if (p.kind === 'hero') return `H${p.faction}${n >= 5 ? 1 : 0}${n >= 60 ? 1 : 0}${[...p.troops].sort((a, b) => b.n - a.n)[0]?.id}`;
     if (p.kind === 'bandit') return `B${[...p.troops].sort((a, b) => b.n - a.n)[0]?.id}${n > 6 ? 1 : 0}${n > 25 ? 1 : 0}`;
     return p.kind + p.faction;
   }
@@ -446,11 +459,11 @@ export class WorldScene extends Phaser.Scene {
       } else if (hostile(pp, p)) {
         g.lineStyle(1.3, 0xff4030, 0.85); g.strokeEllipse(p.x, p.y, 20, 9);
       }
-      if (li < this.partyLabels.length && (p.kind === 'lord' || p.kind === 'player') && showNames) {
+      if (li < this.partyLabels.length && (p.kind === 'lord' || p.kind === 'player' || p.kind === 'hero') && (showNames || p.kind === 'hero')) {
         const t = this.partyLabels[li++];
-        t.setText(p.kind === 'player' ? S.hero.name : `${S.lords[p.lordId!]?.name ?? p.name}`);
+        t.setText(p.kind === 'player' ? S.hero.name : p.kind === 'hero' ? `${p.name}${p.busy ? ' ⚔' : ''}` : `${S.lords[p.lordId!]?.name ?? p.name}`);
         t.setPosition(p.x, p.y - 27).setVisible(true);
-        t.setColor(p.kind === 'player' ? '#ffe28a' : '#ffffff');
+        t.setColor(p.kind === 'player' ? '#ffe28a' : p.kind === 'hero' ? (hostile(pp, p) ? '#ff9a8a' : '#9fe0ff') : '#ffffff');
         t.setFontSize(Math.round(12 / Math.max(0.8, Math.min(z, 1.6)) * 1.0));
       }
     }
@@ -473,12 +486,13 @@ export class WorldScene extends Phaser.Scene {
 
   update(time: number, delta: number) {
     const dt = Math.min(delta, 100) / 1000;
-    if (!panelOpen() && (nav.target || nav.waiting)) {
+    if (NETH.on) netFrame(dt);
+    else if (!panelOpen() && (nav.target || nav.waiting)) {
       const hoursPerSec = 2.2 * S.speed;
       simulate(dt * hoursPerSec);
     }
     const cam = this.cameras.main;
-    if (this.follow && (nav.target || nav.waiting)) {
+    if (this.follow && (nav.target || nav.waiting || (NETH.on && player().busy === undefined && nav.path.length))) {
       const pp = player();
       cam.scrollX += (pp.x - cam.width / 2 - cam.scrollX) * 0.08;
       cam.scrollY += (pp.y - cam.height / 2 - cam.scrollY) * 0.08;

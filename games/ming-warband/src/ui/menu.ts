@@ -1,4 +1,6 @@
 // 主菜单、角色创建、游戏菜单、存读档
+import { NETH } from '../net/hooks';
+import { openMpLogin, leaveMp } from './mp';
 import { simErrors } from '../core/sim';
 import { settings, saveSettings, FIELD_CAPS } from '../core/settings';
 import { h, uiRoot, openPanel, closeTop, closeAll, btn, toast, confirmDialog } from './dom';
@@ -30,6 +32,7 @@ export function showMainMenu() {
       h('div', { class: 'subtitle' }, '天下大乱 · 群雄逐鹿'),
       h('div', { class: 'menu-btns' },
         btn('新的征程', () => charCreate(), 'big primary'),
+        btn('⚔ 联机天下', () => openMpLogin(), 'big primary mp-btn'),
         btn('读取存档', () => openLoad(), 'big', !hasAnySave()),
         btn('游戏说明', () => openPanel('游戏说明', helpContent(), { wide: true }), 'big'),
         btn('声音设置', () => openPanel('声音设置', soundSettings()), 'big'),
@@ -117,6 +120,17 @@ function openErrorReport() {
 }
 
 export function openGameMenu() {
+  if (NETH.on) {
+    openPanel('菜单', h('div', { class: 'menu' },
+      btn('继续游戏', () => closeTop(), 'menu-item primary'),
+      h('p', { class: 'dim' }, '联机世界由服务器自动保存，无需存档。'),
+      btn('游戏说明', () => openPanel('游戏说明', helpContent(), { wide: true }), 'menu-item'),
+      btn('声音设置', () => openPanel('声音设置', soundSettings()), 'menu-item'),
+      btn('战场设置', () => openBattleSettings(), 'menu-item'),
+      btn('离开天下（下线）', () => confirmDialog('下线', '你的部队会在 20 秒后离开大地图，下次登录时回到原处。确定下线吗？', () => leaveMp()), 'menu-item danger'),
+    ));
+    return;
+  }
   openPanel('菜单', h('div', { class: 'menu' },
     btn('继续游戏', () => closeTop(), 'menu-item primary'),
     btn('保存游戏', () => openSave(), 'menu-item'),

@@ -22,7 +22,7 @@ export interface Hero {
   inventory: string[]; // 背包中的装备
 }
 
-export type PartyKind = 'player' | 'lord' | 'bandit' | 'caravan' | 'villager';
+export type PartyKind = 'player' | 'lord' | 'bandit' | 'caravan' | 'villager' | 'hero'; // hero = 联机中的其他玩家
 export type AIMode = 'idle' | 'travel' | 'chase' | 'flee' | 'siege' | 'raid' | 'patrol' | 'recruit' | 'wander' | 'follow' | 'breach';
 
 export interface AIState {
@@ -60,6 +60,11 @@ export interface Party {
   questId?: number;
   zone?: number;
   hidden?: boolean;
+  acct?: string;   // 联机：玩家账号
+  busy?: number;   // 联机：正在交战（遭遇 id），冻结移动与 AI
+  grace?: number;  // 联机：免战到此时刻（刚结束战斗）
+  hp?: number;     // 联机：玩家英雄生命比例（供他人查看）
+  lvl?: number;    // 联机：玩家等级
 }
 
 export interface TavernState { companion: string | null; mercs: { id: string; n: number } | null; refresh: number }
@@ -148,6 +153,11 @@ export interface GameState {
   flags?: Record<string, number | boolean | string>;
   arenaBest?: number;
   pendingDefense?: { st: string; by: number; at?: number } | null; // 玩家所在城池遭攻城
+  treaties?: Treaty[];        // 联机：国与国条约
+  customFactions?: Record<string, import('../data/world').FactionDef>; // 联机：玩家自立的国家
 }
+
+/** 国与国条约：结盟 / 停战 / 藩属（b 为 a 的藩属） */
+export interface Treaty { a: FactionId; b: FactionId; type: 'alliance' | 'truce' | 'vassal'; since: number; until: number }
 
 export function warKey(a: string, b: string) { return a < b ? `${a}|${b}` : `${b}|${a}`; }

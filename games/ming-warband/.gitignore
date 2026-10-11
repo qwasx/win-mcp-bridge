@@ -3,3 +3,5 @@ dist/
 dist-single/
 dist-single-tmp/
 *.zip
+dist-server/
+data/

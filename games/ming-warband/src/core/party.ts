@@ -67,7 +67,7 @@ export const SPEED = {
 
 export function mapSpeed(s: GameState, p: Party, night: boolean): number {
   const isP = p.kind === 'player';
-  const c = isP ? SPEED.player : SPEED.ai;
+  const c = isP || p.kind === 'hero' ? SPEED.player : SPEED.ai;
   const total = Math.max(1, count(p.troops));
   let mounted = 0;
   for (const st of p.troops) if (TROOPS[st.id]?.mounted) mounted += st.n - st.w;

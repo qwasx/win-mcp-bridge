@@ -97,7 +97,7 @@ export function buildWall() {
 // ---------- 通行规则 ----------
 export interface Who { f: string; player: boolean; sneak: boolean; army?: boolean }
 export function whoOf(p: Party): Who {
-  return { f: p.kind === 'player' ? (playerSide() ?? 'player') : p.faction, player: p.kind === 'player', sneak: (p.kind === 'player' || p.kind === 'bandit') && count(p.troops) <= 30, army: p.kind === 'lord' };
+  return { f: p.kind === 'player' ? (playerSide() ?? 'player') : p.faction, player: p.kind === 'player', sneak: (p.kind === 'player' || p.kind === 'hero' || p.kind === 'bandit') && count(p.troops) <= 30, army: p.kind === 'lord' };
 }
 export function passSettlement(k: number): Settlement | undefined { return S.settlements[PASSES[k]?.id]; }
 export function gateOpenFor(k: number, who: Who) {

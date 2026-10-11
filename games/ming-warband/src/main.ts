@@ -4,7 +4,8 @@ import './style.css';
 import { WorldScene } from './scenes/WorldScene';
 import { BattleScene } from './scenes/BattleScene';
 import { ref } from './gameRef';
-import { showMainMenu, setMenuHooks } from './ui/menu';
+import { showMainMenu, setMenuHooks, hideMainMenu } from './ui/menu';
+import { setMpHooks } from './ui/mp';
 import { hud } from './ui/hud';
 import { actions, installKeys } from './ui/index';
 import { closeAll } from './ui/dom';
@@ -44,6 +45,7 @@ function quitToMenu() {
   showMainMenu();
 }
 setMenuHooks(startGame, quitToMenu);
+setMpHooks(() => { hideMainMenu(); startGame(); }, quitToMenu);
 installKeys();
 installAudio();
 

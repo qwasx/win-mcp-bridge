@@ -280,7 +280,7 @@ export function checkFactionAlive(f: string) {
   if (factionSettlements(f).filter(s => s.kind !== 'village').length === 0) {
     S.alive[f] = false;
     log(`${FACTION[f].name}已经覆灭！`, 'gold');
-    for (const p of [...S.parties]) if (p.faction === f && p.kind !== 'player') removeParty(p);
+    for (const p of [...S.parties]) if (p.faction === f && p.kind !== 'player' && p.kind !== 'hero') removeParty(p);
     for (const l of Object.values(S.lords)) if (l.faction === f) { l.dead = true; l.partyId = null; }
     S.wars = S.wars.filter(k => !k.split('|').includes(f));
     if (S.playerFaction === f) { S.playerFaction = null; log('你效忠的势力已灭亡，你重获自由。', 'bad'); }

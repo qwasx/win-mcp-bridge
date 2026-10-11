@@ -99,6 +99,10 @@ export function playerHostileTo(f: string): boolean {
   if (!side && atWar('player', f)) return true;
   return (S.playerRel[f] ?? 0) <= -10;
 }
+/** 联机：两国是否结盟或宗藩（共享视野、联军） */
+export function allied(a: string, b: string) {
+  return (S.treaties ?? []).some(t => t.type !== 'truce' && ((t.a === a && t.b === b) || (t.a === b && t.b === a)));
+}
 export function hostile(a: Party, b: Party) {
   if (a.kind === 'player') return playerHostileTo(b.faction);
   if (b.kind === 'player') return playerHostileTo(a.faction);
@@ -124,6 +128,7 @@ export function factionSettlements(f: string) { return settlementList().filter(s
 export function lordName(id: string | null) {
   if (!id) return '无';
   if (id === 'player') return S.hero.name;
+  if (id.startsWith('P:')) return id.slice(2);
   if (id.startsWith('ruler_')) { const f = FACTION[id.slice(6)]; return `${f.rulerTitle}${f.ruler}`; }
   const l = S.lords[id]; return l ? l.name : '无';
 }

@@ -1,4 +1,5 @@
 // 据点菜单：城镇 / 城堡 / 村庄
+import { NETH } from '../net/hooks';
 import { openArena } from './arena';
 import { sfx } from '../audio/sfx';
 import { settlementVista, hashStr } from '../art/vista';
@@ -140,20 +141,29 @@ function openTrade(st: Settlement) {
       const sp = canTrade ? goodPrice(st, g.id, false) : Math.round(g.base * 0.6);
       const tag = st.produce.includes(g.id) ? h('span', { class: 'tag good' }, '特产') : st.demand.includes(g.id) ? h('span', { class: 'tag bad' }, '紧缺') : null;
       const buy = (n: number) => {
+        let k = 0, spent = 0;
         for (let i = 0; i < n; i++) {
           const p = goodPrice(st, g.id, true);
           if (pp.gold < p || (st.stock[g.id] ?? 0) < 1) break;
-          pp.gold -= p; st.stock[g.id] -= 1; pp.goods[g.id] = (pp.goods[g.id] || 0) + 1;
+          pp.gold -= p; st.stock[g.id] -= 1; pp.goods[g.id] = (pp.goods[g.id] || 0) + 1; k++; spent += p;
         }
         render();
+        if (NETH.on && k) void NETH.req('trade', { st: st.id, g: g.id, n: k }).then(r => {
+          if (r.ok) return;
+          pp.gold += spent; pp.goods[g.id] = Math.max(0, (pp.goods[g.id] || 0) - k); if (!pp.goods[g.id]) delete pp.goods[g.id];
+          if (r.data?.stock !== undefined) st.stock[g.id] = r.data.stock;
+          toast(r.err ?? '交易失败'); render();
+        });
       };
       const sell = (n: number) => {
+        let k = 0;
         for (let i = 0; i < n && (pp.goods[g.id] || 0) > 0; i++) {
           const p = canTrade ? goodPrice(st, g.id, false) : Math.round(g.base * 0.6);
-          pp.gold += p; pp.goods[g.id]--; st.stock[g.id] = (st.stock[g.id] ?? 0) + 1;
+          pp.gold += p; pp.goods[g.id]--; st.stock[g.id] = (st.stock[g.id] ?? 0) + 1; k++;
         }
         if (!pp.goods[g.id]) delete pp.goods[g.id];
         render();
+        if (NETH.on && k) void NETH.req('trade', { st: st.id, g: g.id, n: -k });
       };
       return h('tr', null,
         h('td', null, g.name, g.food ? h('span', { class: 'tag' }, '粮') : null, tag),
@@ -209,14 +219,19 @@ function openShop(st: Settlement) {
     const forSale = list.map(({ id, idx }) => {
       const it = ITEMS[id]; const price = itemBuyPrice(id);
       return h('div', { class: 'item' }, h('div', null, h('b', { class: QCLS[it.quality ?? 1] }, it.name), h('small', null, ` [${slotName(it.slot)}·${'★'.repeat(it.tier)}] ${statLine(id)} `), cmp(id), h('div', { class: 'dim' }, it.desc)),
-        btn(`购买 ${price}两`, () => { if (pp.gold < price) return toast('银两不足'); pp.gold -= price; S.hero.inventory.push(id); st.shop.splice(idx, 1); toast(`购得${it.name}，可在行囊中装备`); render(); }, 'sm', pp.gold < price));
+        btn(`购买 ${price}两`, async () => {
+          if (pp.gold < price) return toast('银两不足');
+          if (NETH.on) { const r = await NETH.req('buyItem', { st: st.id, id }); if (!r.ok) { const j = st.shop.indexOf(id); if (j >= 0) st.shop.splice(j, 1); toast(r.err ?? '买不到'); return render(); } }
+          const j = st.shop.indexOf(id); if (j >= 0) st.shop.splice(j, 1); else if (!NETH.on) st.shop.splice(idx, 1);
+          pp.gold -= price; S.hero.inventory.push(id); toast(`购得${it.name}，可在行囊中装备`); render();
+        }, 'sm', pp.gold < price));
     });
     const mine = S.hero.inventory.map((id, idx) => {
       const it = ITEMS[id]; const price = itemSellPrice(id);
       return h('div', { class: 'item' }, h('div', null, h('b', { class: QCLS[it.quality ?? 1] }, it.name), h('small', null, ` [${slotName(it.slot)}] ${statLine(id)}`)),
-        btn(`出售 ${price}两`, () => { pp.gold += price; S.hero.inventory.splice(idx, 1); st.shop.push(id); render(); }, 'sm'));
+        btn(`出售 ${price}两`, () => { pp.gold += price; S.hero.inventory.splice(idx, 1); st.shop.push(id); if (NETH.on) void NETH.req('sellItem', { st: st.id, id }); render(); }, 'sm'));
     });
-    body.append(h('div', { class: 'row between' }, h('span', null, `银两：${pp.gold}`), h('span', { class: 'dim' }, `货架 ${st.shop.length} 件 · 每日进新货`)),
+    body.append(h('div', { class: 'row between' }, h('span', null, `银两：${pp.gold}`), h('span', { class: 'dim' }, `货架 ${st.shop.length} 件 · 每周进新货`)),
       h('div', { class: 'row wrap' }, ...tabs), h('div', { class: 'row wrap' }, h('span', { class: 'dim' }, '排序：'), ...sorts),
       h('div', { class: 'cols' },
         h('div', { class: 'shop-list' }, h('h4', null, '待售'), forSale.length ? forSale : h('p', { class: 'dim' }, '这一类暂时没货。')),
@@ -242,16 +257,20 @@ function openTavern(st: Settlement) {
       const t = TROOPS[m.id]; const c = recruitCost(t);
       const n = Math.min(m.n, space, Math.floor(pp.gold / c));
       body.append(h('div', { class: 'card with-portrait' }, troopPortrait(m.id, 52), h('b', null, `一伙${t.name}（${m.n}人）`), h('p', { class: 'dim' }, `${t.desc} ${classLabel(t.cls)} · ${t.tier}等 · 每人 ${c} 两，周饷 ${t.wage}`),
-        btn(`雇佣 ${n} 人（${n * c}两）`, () => { pp.gold -= n * c; addTroops(pp.troops, m.id, n); m.n -= n; log(`在${st.name}雇佣了 ${n} 名${t.name}。`, 'good'); render(); }, 'sm', n <= 0)));
+        btn(`雇佣 ${n} 人（${n * c}两）`, async () => {
+          if (NETH.on) { const r = await NETH.req('mercs', { st: st.id }); if (!r.ok) { st.tavern.mercs = null; toast(r.err ?? '雇不到'); return render(); } }
+          pp.gold -= n * c; addTroops(pp.troops, m.id, n); m.n -= n; if (NETH.on) st.tavern.mercs = null; log(`在${st.name}雇佣了 ${n} 名${t.name}。`, 'good'); render();
+        }, 'sm', n <= 0)));
     } else body.append(h('p', { class: 'dim' }, '酒馆里没有待雇的佣兵。'));
     // 同伴
     if (st.tavern.companion) {
       const d = COMPANIONS.find(c => c.id === st.tavern.companion)!;
       const sk = Object.entries(d.skills).map(([k, v]) => `${skillCn(k)}${v}`).join(' ');
       body.append(h('div', { class: 'card comp with-portrait' }, companionPortrait(d.id, 60), h('b', null, `${d.name}`, h('small', null, ` · ${d.title}`)), h('p', null, `“${d.story}”`), h('p', { class: 'dim' }, `擅长：${sk}`),
-        btn(`招揽（${d.cost}两）`, () => {
+        btn(`招揽（${d.cost}两）`, async () => {
           if (pp.gold < d.cost) return toast('银两不足');
           if (space <= 0) return toast('部队已满');
+          if (NETH.on) { const r = await NETH.req('companion', { st: st.id }); if (!r.ok) { st.tavern.companion = null; toast(r.err ?? '那人已经走了'); return render(); } }
           pp.gold -= d.cost; S.companions.push({ id: d.id, wounded: 0, joined: S.time }); st.tavern.companion = null;
           log(`${d.name}加入了你的队伍！`, 'gold'); render();
         }, 'sm primary', pp.gold < d.cost || space <= 0)));
@@ -333,7 +352,15 @@ function openRecruit(st: Settlement) {
     body.append(h('div', { class: 'recruit-row' }, troopPortrait(tid, 56), troopPortrait(tid, 50), troopPortrait(tid, 56)), h('p', null, st.camp ? `帐中有 ${st.recruits} 名骑手愿随你出征（${t.name}，每人 ${cost} 两）。${st.relation < 15 ? '与部落交情再深些（关系 15），能招到更好的骑手。' : ''}` : `村里有 ${st.recruits} 名青壮愿意从军（${t.name}，每人 ${cost} 两安家银）。`),
       h('p', { class: 'dim' }, `部队空位：${space}`),
       h('div', { class: 'row' }, btn('招募 1 人', () => hire(1), 'sm', can < 1), btn(`全部招募（${can}人）`, () => hire(can), 'sm primary', can < 1)));
-    function hire(n: number) { pp.gold -= n * cost; st.recruits -= n; addTroops(pp.troops, tid, n); st.relation = Math.min(100, st.relation + (n > 3 ? 1 : 0)); render(); }
+    async function hire(n: number) {
+      let id = tid;
+      if (NETH.on) { // 联机：兵源全服共享，先到先得
+        const r = await NETH.req('recruit', { st: st.id, n });
+        if (!r.ok) { toast(r.err ?? '招不到人'); st.recruits = 0; return render(); }
+        n = r.data.n; st.recruits = r.data.left + n; if (r.data.troop && TROOPS[r.data.troop] && st.owner !== 'player') id = r.data.troop;
+      }
+      pp.gold -= n * cost; st.recruits -= n; addTroops(pp.troops, id, n); st.relation = Math.min(100, st.relation + (n > 3 ? 1 : 0)); render();
+    }
   };
   render();
   openPanel(`${st.name} · 招募`, body);
@@ -397,7 +424,8 @@ function openHall(st: Settlement) {
 
   if (S.playerFaction === st.faction) {
     add('“末将听候调遣。”（查看战况）', () => { closeTop(); openPanel('战况', h('div', null, h('p', null, `${f.name}当前的敌人：${S.wars.filter(k => k.includes(st.faction)).map(k => k.split('|').find(x => x !== st.faction)!).map(x => FACTION[x].name).join('、') || '无'}`), btn('好', () => closeTop()))); });
-    if (isRuler) add('“臣请辞去封臣之位。”', () => confirmDialog('辞去封臣', `辞去后你的封地将独立，并与${f.name}开战。确定吗？`, () => {
+    if (isRuler && NETH.on) add('“臣欲自立门户。”（自立为王）', () => { closeAll(); void import('./mp').then(m => m.openIndependence()); });
+    else if (isRuler) add('“臣请辞去封臣之位。”', () => confirmDialog('辞去封臣', `辞去后你的封地将独立，并与${f.name}开战。确定吗？`, () => {
       S.playerFaction = null;
       for (const s of fiefsOf('player')) { setOwner(s, 'player', 'player'); }
       if (fiefsOf('player').length) setWar('player', st.faction, true);
@@ -405,7 +433,7 @@ function openHall(st: Settlement) {
       log(`你辞去了${f.name}封臣之位。`, 'bad'); emit('ownerChanged'); closeAll();
     }));
   } else {
-    if (S.mercOf !== st.faction && !S.playerFaction) {
+    if (S.mercOf !== st.faction && !S.playerFaction && !NETH.on) {
       add(`“愿受雇于${f.name}，为您征战。”（雇佣兵契约 30 天）`, () => {
         S.mercOf = st.faction; S.mercUntil = S.time + 24 * 30;
         log(`你与${f.name}签订了雇佣兵契约，为期 30 天。每周可领取雇佣金。`, 'quest'); closeAll();
@@ -464,6 +492,7 @@ function openGarrison(st: Settlement) {
       const st0 = from.find(x => x.id === id)!;
       const w = Math.min(st0.w, Math.round(st0.w * n / st0.n));
       removeTroops(from, id, n); addTroops(to, id, n, w);
+      if (NETH.on) void NETH.req('garrison', { st: st.id, garrison: st.garrison });
       render();
     };
     body.append(h('div', { class: 'cols' },
@@ -476,8 +505,9 @@ function openGarrison(st: Settlement) {
 }
 
 // ---------- 洗劫 ----------
-function raidVillage(st: Settlement) {
+async function raidVillage(st: Settlement) {
   closeAll();
+  if (NETH.on) { const r = await NETH.req('raid', { st: st.id }); if (!r.ok) return toast(r.err ?? '无法洗劫'); }
   const pp = player();
   const militia: Stack[] = [{ id: 'civ_peasant', n: 8 + Math.round(st.prosperity / 6), w: 0, xp: 0 }];
   const wasHostile = playerHostileTo(st.faction);
@@ -521,6 +551,9 @@ function beginSiege(st: Settlement) {
     if (!(S.playerFaction && atWar(S.playerFaction, st.faction)) && !(S.mercOf && atWar(S.mercOf, st.faction))) {
       changePlayerRel(st.faction, -10);
     }
+  }
+  if (NETH.on) {
+    void NETH.req('siege', { st: st.id }).then(r => { if (!r.ok) { st.siege = null; closeAll(); toast(r.err ?? '无法围城'); } });
   }
   st.siege = { by: pp.id, since: S.time };
   log(`你开始围攻${st.name}，部下们开始伐木打造云梯。`, 'war');

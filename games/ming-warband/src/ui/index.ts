@@ -1,4 +1,6 @@
 // UI 入口：快捷键与各面板的汇总
+import { NETH } from '../net/hooks';
+import { setPlayerTarget } from '../core/sim';
 import { escTop, panelOpen, closeAll } from './dom';
 import { hud, showTooltip, hideTooltip } from './hud';
 import { openSettlement } from './settlement';
@@ -13,6 +15,7 @@ import { ref } from '../gameRef';
 export { hud, showTooltip, hideTooltip, openSettlement, openEncounter };
 
 export function toggleWait() {
+  if (NETH.on) { setPlayerTarget(null); return; }
   if (nav.target) { nav.target = null; nav.path = []; nav.waiting = false; return; }
   nav.waiting = !nav.waiting;
 }

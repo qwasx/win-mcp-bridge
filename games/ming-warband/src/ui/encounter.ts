@@ -1,4 +1,7 @@
 // 遭遇、战斗启动与战报
+import { NETH } from '../net/hooks';
+/** 联机：遭遇结束但没有开战（离开 / 突围 / 交钱） */
+function netEncEnd(flee: boolean) { if (NETH.on && NETH.eid) { void NETH.req('enc', { eid: NETH.eid, flee }); NETH.eid = 0; } }
 import { weatherAt, snowCover, seasonOf } from '../core/weather';
 import { sfx } from '../audio/sfx';
 import { h, openPanel, closeTop, closeAll, btn, toast } from './dom';
@@ -63,6 +66,7 @@ export function openEncounter(p: Party, forced: boolean) {
         let left = loss;
         for (const s of [...pp.troops].sort((a, b) => TROOPS[a.id].tier - TROOPS[b.id].tier)) { if (left <= 0) break; left -= removeTroops(pp.troops, s.id, left); }
         p.ai.mode = 'idle'; p.ai.path = []; p.ai.nextThink = S.time + 3;
+        netEncEnd(true);
         S.morale = Math.max(0, S.morale - 5);
         nav.graceUntil = S.time + 3;
         log(`你留下 ${loss} 人断后，侥幸突围。`, 'bad');
@@ -73,11 +77,11 @@ export function openEncounter(p: Party, forced: boolean) {
         add(`💰 交出买路钱（${Math.min(pay, pp.gold)} 两）`, () => {
           pp.gold = Math.max(0, pp.gold - pay); p.gold += pay;
           p.ai.mode = 'idle'; p.ai.path = []; p.ai.nextThink = S.time + 4;
-          nav.graceUntil = S.time + 4;
+          nav.graceUntil = S.time + 4; netEncEnd(true);
           log('你交出了买路钱，山贼们哄笑着让开了路。', 'dim'); S.honor -= 1; closeAll();
         });
       }
-    } else add('离开', () => closeAll());
+    } else add('离开', () => { netEncEnd(false); closeAll(); });
   } else {
     if (p.kind === 'lord') add('💬 交谈', () => talkLord(p));
     if (p.kind === 'caravan' || p.kind === 'villager') add('💬 询问消息', () => {
@@ -138,6 +142,7 @@ export function battleSides(enemy: Party | null, siege: Settlement | null, opt: 
 
 export function startBattle(enemy: Party | null, siege: Settlement | null, manual: boolean, opt: BattleOpts = {}) {
   const pp = player();
+  if (NETH.on && NETH.eid) void NETH.req('enc', { eid: NETH.eid, fight: true });
   const defendOf = opt.defendOf ?? null;
   const { allies, extras } = battleSides(enemy, siege, opt);
   const enemyStacks = enemy ? enemy.troops : siege!.garrison;
@@ -195,6 +200,17 @@ function aiKit(enemy: Party | null, st: Settlement): SiegeKit {
 
 function finishBattle(enemy: Party | null, siege: Settlement | null, out: Outcome, ctx: WarCtx = {}) {
   const rep = applyPlayerBattle(enemy, siege, out, ctx);
+  if (NETH.on) {
+    // 联机：把战果报给服务器（敌军剩余兵力、攻城结果）
+    const left: Record<string, Stack[]> = {};
+    if (enemy) left[String(enemy.id)] = enemy.troops;
+    for (const e of ctx.extraEnemies ?? []) left[String(e.id)] = e.troops;
+    void NETH.req('battle', {
+      eid: NETH.eid || undefined, enemy: enemy?.id, extras: (ctx.extraEnemies ?? []).map(e => e.id), siege: siege?.id, win: out.win, retreat: !!out.retreat, left,
+      garrisonLeft: siege && !out.win ? siege.garrison : undefined, captureGarrison: rep.captured ? rep.captured.garrison : undefined,
+    }).then(r => { if (r.ok && typeof r.data?.x === 'number') { const pp = player(); pp.x = r.data.x; pp.y = r.data.y; } });
+    NETH.eid = 0;
+  }
   nav.graceUntil = S.time + 3;
   if (enemy && S.parties.includes(enemy)) { enemy.ai.mode = 'idle'; enemy.ai.path = []; enemy.ai.nextThink = S.time + 3; }
   for (const e of ctx.extraEnemies ?? []) if (S.parties.includes(e)) { e.ai.mode = 'idle'; e.ai.path = []; e.ai.nextThink = S.time + 3; }

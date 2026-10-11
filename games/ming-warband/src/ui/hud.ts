@@ -1,4 +1,5 @@
 // 大地图 HUD、悬浮提示、消息栏
+import { NETH } from '../net/hooks';
 import { myFollowers, dismissFollowers } from '../core/war';
 import { h, uiRoot, panelOpen, confirmDialog } from './dom';
 import { S, player, dateStr, isNight, on, dayOf } from '../core/game';
@@ -142,7 +143,7 @@ class Hud {
     const moving = !!nav.target, waiting = nav.waiting;
     E.wait.classList.toggle('on', waiting);
     E.wait.textContent = waiting ? '起营' : '扎营';
-    E.state.textContent = panelOpen() ? '' : moving ? '行军中' : waiting ? '扎营等待中…' : '已暂停';
+    E.state.textContent = NETH.on ? (player().busy ? '交战中' : nav.path.length ? '行军中' : '驻扎') : panelOpen() ? '' : moving ? '行军中' : waiting ? '扎营等待中…' : '已暂停';
     this.root.querySelectorAll<HTMLElement>('[data-s]').forEach(b => b.classList.toggle('sel', Number(b.dataset.s) === S.speed));
     void count; void dayOf;
   }
