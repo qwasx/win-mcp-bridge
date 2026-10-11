@@ -182,6 +182,10 @@ export function gm(s: Sess, cmd: string, a: string[]) {
       saveT(t);
       return reply(`${t.name}：${cmd} 完成`);
     }
+    case 'kick': case 'ban': case 'unban': case 'pass': case 'setgm':
+      if (a[0] === '我' || a[0] === 'me') a[0] = s.acct!;
+  }
+  switch (cmd) {
     case 'kick': case 'ban': {
       if (!NETX.db.user(a[0] ?? '')) return reply('找不到这个玩家');
       if (a[0] === s.acct) return reply('不能对自己这么做');

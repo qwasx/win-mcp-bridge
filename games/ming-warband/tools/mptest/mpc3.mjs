@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import WebSocket from '../../node_modules/ws/wrapper.mjs';
 const URL = 'ws://127.0.0.1:8091/ws';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -22,6 +23,8 @@ function client(name, nation) {
 }
 const a = await client('艾能奇', 'xi');
 const b = await client('卢象升', 'ming');
+// GM：用服务器 DATA_DIR/GM_KEY.txt 里的天命令牌认领（不再是第一个注册的人）
+await sleep(900); a.ws.send(JSON.stringify({ t: 'chat', ch: 'all', text: '/天命 ' + /([A-Z2-9]{4}(-[A-Z2-9]{4}){3})/.exec(readFileSync((process.env.DATA_DIR ?? '/tmp/gt1') + '/GM_KEY.txt', 'utf8'))[1] })); await sleep(700);
 // 新手保护：先验证 B 截击 A 被拦下
 a.gm('troops 艾能奇 xi_blade 80'); b.gm('troops 卢象升 ming_recruit 20');
 globalThis.__protectTest = true;
