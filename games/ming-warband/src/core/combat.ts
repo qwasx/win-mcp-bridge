@@ -3,7 +3,7 @@ import { TROOPS, troopPower } from '../data/troops';
 import { ITEM_LIST, GOOD } from '../data/items';
 import { FACTION, COMPANIONS } from '../data/world';
 import type { Party, Settlement, Stack } from './state';
-import { S, log, player, removeParty, changePlayerRel, lordName, emit, setWar, nearestSettlement, playerHostileToSettlement, factionSettlements, fiefsOf } from './game';
+import { S, log, player, removeParty, changePlayerRel, lordName, emit, setWar, nearestSettlement, playerHostileToSettlement, factionSettlements, fiefsOf, fortMult } from './game';
 import { addTroops, cleanStacks, count, giveTroopXp, healthy, strength, removeTroops } from './party';
 import { partySkill, addHeroXp, prisonerLimit, heroMaxHp } from './character';
 import { chance, randInt, pick, weighted, randRange } from './rng';
@@ -324,7 +324,7 @@ function woundSome(stacks: Stack[], id: string, n: number) {
 
 /** AI 领主攻城 */
 export function aiSiegeAssault(p: Party, st: Settlement) {
-  const defMult = st.kind === 'town' ? 1.6 : 1.8;
+  const defMult = fortMult(st);
   const r = autoResolve(p.troops, st.garrison, 1, defMult, 8, 10);
   for (const id in r.aDown) removeTroops(p.troops, id, r.aDown[id]);
   for (const id in r.bDown) removeTroops(st.garrison, id, r.bDown[id]);

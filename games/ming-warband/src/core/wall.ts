@@ -95,23 +95,28 @@ export function buildWall() {
 }
 
 // ---------- 通行规则 ----------
-export interface Who { f: string; player: boolean; sneak: boolean }
+export interface Who { f: string; player: boolean; sneak: boolean; army?: boolean }
 export function whoOf(p: Party): Who {
-  return { f: p.kind === 'player' ? (playerSide() ?? 'player') : p.faction, player: p.kind === 'player', sneak: (p.kind === 'player' || p.kind === 'bandit') && count(p.troops) <= 30 };
+  return { f: p.kind === 'player' ? (playerSide() ?? 'player') : p.faction, player: p.kind === 'player', sneak: (p.kind === 'player' || p.kind === 'bandit') && count(p.troops) <= 30, army: p.kind === 'lord' };
 }
 export function passSettlement(k: number): Settlement | undefined { return S.settlements[PASSES[k]?.id]; }
 export function gateOpenFor(k: number, who: Who) {
   const st = passSettlement(k);
   if (!st) return true;
-  return who.player ? !playerHostileToSettlement(st) : !factionHostileToSettlement(who.f, st);
+  if (who.player) return !playerHostileToSettlement(st);
+  if (who.army) return st.faction === who.f; // 关门只为自家兵马而开：外邦大军即便未曾交战也不得入关
+  return !factionHostileToSettlement(who.f, st);
 }
+/** 缺口修到三成以上才算堵上（约三日） */
+export const BREACH_OPEN = 30;
+export function isBreached(k: number) { const h = S.wallHp?.[k]; return h !== undefined && h < BREACH_OPEN; }
 function rule(ci: number, w: unknown): number {
   const who = w as Who;
   const sg = wallSeg[ci];
   if (sg < 0) return 1;
   const k = gateCell[ci];
   if (k >= 0) return gateOpenFor(k, who) ? 1 : 0;
-  if (S.wallHp && S.wallHp[sg] !== undefined && S.wallHp[sg] <= 0) return 1;
+  if (isBreached(sg)) return 1;
   return who.sneak ? 2 : 0;
 }
 
@@ -120,7 +125,7 @@ export function regionAt(x: number, y: number) { const ci = cellIndex(x, y); ret
 export function reachableFor(who: Who, ax: number, ay: number, bx: number, by: number) {
   const ra = regionAt(ax, ay), rb = regionAt(bx, by);
   if (!ra || !rb || ra === rb) return true;
-  if (S.wallHp?.some(h => h <= 0)) return true;
+  if (S.wallHp?.some(h => h < BREACH_OPEN)) return true;
   return PASSES.some((_, k) => gateOpenFor(k, who));
 }
 
@@ -130,7 +135,7 @@ export function ensureWall(s: GameState) {
   if (!s.wallHp || s.wallHp.length !== SEGS.length) s.wallHp = SEGS.map(() => 100);
   s.beacons ||= [];
 }
-export function breaches() { return (S.wallHp ?? []).map((h, i) => (h <= 0 ? i : -1)).filter(i => i >= 0); }
+export function breaches() { return (S.wallHp ?? []).map((h, i) => (h < BREACH_OPEN ? i : -1)).filter(i => i >= 0); }
 export function nearestPassName(x: number, y: number) {
   let best = PASSES[0].name, bd = Infinity;
   for (const ps of PASSES) { const [px, py] = wallPointAtLon(ps.lon); const d = Math.hypot(px - x, py - y); if (d < bd) { bd = d; best = ps.name; } }
@@ -143,7 +148,7 @@ export function wallOwnerAt(x: number, y: number): string {
   return best?.faction ?? 'ming';
 }
 export function breachWall(seg: number, by?: Party) {
-  if (!S.wallHp || S.wallHp[seg] === undefined || S.wallHp[seg] <= 0 || SEGS[seg].gate >= 0) return;
+  if (!S.wallHp || S.wallHp[seg] === undefined || isBreached(seg) || SEGS[seg].gate >= 0) return;
   S.wallHp[seg] = 0;
   const sg = SEGS[seg];
   lightBeacon(sg.x, sg.y, 72);
@@ -160,7 +165,7 @@ export function pickBreachSeg(p: Party): { seg: number; x: number; y: number } |
   const myReg = regionAt(p.x, p.y);
   let best = -1, bd = Infinity;
   SEGS.forEach((sg, k) => {
-    if (sg.gate >= 0 || (S.wallHp?.[k] ?? 100) <= 0) return;
+    if (sg.gate >= 0 || isBreached(k)) return;
     const d = Math.hypot(sg.x - p.x, sg.y - p.y);
     if (d < bd) { bd = d; best = k; }
   });

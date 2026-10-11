@@ -1,6 +1,6 @@
 // 合军：多支部队并肩作战、伤亡分摊、AI 军团
 import type { Party, Settlement, Stack } from './state';
-import { S, player, hostile, partyById, lordName, log, playerSide, atWar, removeParty } from './game';
+import { S, player, hostile, partyById, lordName, log, playerSide, atWar, removeParty, fortMult } from './game';
 import { FACTION } from '../data/world';
 import { TROOPS } from '../data/troops';
 import { healthy, removeTroops, cleanStacks } from './party';
@@ -223,7 +223,7 @@ export function armySiegeAssault(p: Party, st: Settlement) {
   const D = lordsInside(st);
   const pa: Part[] = A.map(x => ({ pid: String(x.id), stacks: x.troops }));
   const pd: Part[] = [{ pid: 'g', stacks: st.garrison }, ...D.map(x => ({ pid: String(x.id), stacks: x.troops }))];
-  const defMult = (st.kind === 'town' ? 1.6 : 1.8) * 1;
+  const defMult = fortMult(st);
   const r = autoResolve(mergeStacks(pa), mergeStacks(pd), 1, defMult, 8 * A.length, 10 + 8 * D.length);
   const da = splitDown(r.aDown, pa), dd = splitDown(r.bDown, pd);
   for (const x of A) { for (const id in da[String(x.id)]) removeTroops(x.troops, id, da[String(x.id)][id]); cleanStacks(x.troops); }

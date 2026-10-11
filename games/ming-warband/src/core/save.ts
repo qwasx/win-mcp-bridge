@@ -23,6 +23,7 @@ export function loadGame(slot: string): boolean {
     const raw = localStorage.getItem(KEY + slot);
     if (!raw) return false;
     const st = JSON.parse(raw).state as GameState;
+    st.pendingDefense = null;
     setState(st);
     ensureWorld(st);
     return true;

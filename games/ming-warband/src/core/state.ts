@@ -86,6 +86,8 @@ export interface Lord {
   partyId: number | null;
   respawnAt: number;
   dead?: boolean;
+  theater?: string;   // 明军所属战区
+  loyalty?: number;   // 忠诚 0..100
 }
 
 export type QuestType = 'bandit' | 'letter' | 'grain' | 'troops';
@@ -133,9 +135,10 @@ export interface GameState {
   wallHp?: number[];          // 长城各段完好度（<=0 为缺口）
   beacons?: { x: number; y: number; until: number }[]; // 烽火
   calendarDone?: string[];    // 已发生的历史事件
+  chronLog?: { n: string; at: number }[];
   flags?: Record<string, number | boolean | string>;
   arenaBest?: number;
-  pendingDefense?: { st: string; by: number } | null; // 玩家所在城池遭攻城
+  pendingDefense?: { st: string; by: number; at?: number } | null; // 玩家所在城池遭攻城
 }
 
 export function warKey(a: string, b: string) { return a < b ? `${a}|${b}` : `${b}|${a}`; }

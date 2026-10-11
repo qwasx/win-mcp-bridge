@@ -1,16 +1,17 @@
-// 明末大事记：按历法触发的历史事件（会依据当前局势改写），以及随机事件
+// 明末大事记：由各方动作与局势触发的历史事件，以及随机事件
 import type { Party, Settlement } from './state';
 import {
-  S, log, emit, dayOf, dayFor, player, spawnBandit, setWar, atWar, genTroops, spawnLordParty, lordName, playerSide, changePlayerRel, settlementList,
+  S, log, emit, dayOf, dateStr, calYear, cnNum, player, spawnBandit, setWar, atWar, genTroops, spawnLordParty, lordName, playerSide, changePlayerRel, settlementList,
 } from './game';
-import { FACTION, type FactionId } from '../data/world';
+import { FACTION, TOWN_DEFS, MAJOR_FACTIONS, type FactionId } from '../data/world';
 import { addTroops, healthy, count, removeTroops } from './party';
 import { setOwner, checkFactionAlive } from './combat';
 import { nearestPassable } from './terrain';
-import { regionAt, breachWall, SEGS, wallPointAtLon, lightBeacon } from './wall';
+import { regionAt, SEGS, isBreached, nearestPassName } from './wall';
+import { strategyDaily, strengthOf, summon, inTheater, THEATERS, mingNorthStrength, type RaidPlan } from './strategy';
 import { chance, pick, randInt } from './rng';
 
-export interface Chronicle { title: string; text: string; x?: number; y?: number; big?: boolean }
+export interface Chronicle { title: string; text: string; x?: number; y?: number; big?: boolean; choices?: { label: string; run: () => void }[] }
 const show = (c: Chronicle) => emit('chronicle', c);
 
 // ---------- 势力更名等持久标记 ----------
@@ -79,173 +80,175 @@ function defect(lid: string, to: string) {
   const p = lordParty(lid); if (p) { p.faction = to as FactionId; p.ai.mode = 'idle'; p.ai.target = undefined; }
   const keepers = Object.values(S.lords).filter(o => o.faction === from && !o.dead && o.id !== lid);
   for (const s of settlementList()) if (s.owner === lid) {
-    const frontier = regionAt(s.x, s.y) === 2 || (s.isPass && Math.hypot(s.x - (S.settlements.shanhai?.x ?? 0), s.y - (S.settlements.shanhai?.y ?? 0)) < 260);
+    const frontier = regionAt(s.x, s.y) === 2 && !s.isPass; // 只有关外的封地随之而去，关隘与关内城池仍归朝廷
     if (frontier) setOwner(s, to, lid);
     else { const k = keepers.sort((a, b) => settlementList().filter(x => x.owner === a.id).length - settlementList().filter(x => x.owner === b.id).length)[0]; s.owner = k ? k.id : null; }
   }
   checkFactionAlive(from);
   return true;
 }
-function breachNear(lon: number) {
-  const [x, y] = wallPointAtLon(lon);
-  let best = -1, bd = Infinity;
-  SEGS.forEach((sg, k) => { if (sg.gate >= 0) return; const d = Math.hypot(sg.x - x, sg.y - y); if (d < bd) { bd = d; best = k; } });
-  if (best >= 0) breachWall(best);
-  return best >= 0 ? SEGS[best] : null;
-}
-function qingRaid(lon: number, where: string, year: string) {
-  if (!alive('jin') || !atWar('jin', 'ming')) return false;
-  const sg = breachNear(lon); if (!sg) return false;
-  const [ox, oy] = [sg.x - sg.nx * 60, sg.y - sg.ny * 60];
-  const outside = regionAt(ox, oy) === 2 ? [ox, oy] : [sg.x + sg.nx * 60, sg.y + sg.ny * 60];
-  const army = muster('jin', 3, outside[0], outside[1], 70, 2, ['jin_lord0', 'jin_lord1', 'jin_lord2']);
-  if (!army.length) return false;
-  orderRaid(army[0], sg.x, sg.y);
-  for (const p of army.slice(1)) p.ai.until = S.time + 24 * 3;
-  lightBeacon(sg.x, sg.y, 72);
-  flag('raidUntil', S.time + 24 * 14); if (S.flags) delete S.flags.raidHomeMsg;
-  flag('raiders', army.map(p => p.lordId).join(','));
-  show({ title: `${year} · 清军入塞`, text: `${FACTION.jin.name}${lordName(army[0].lordId!)}率八旗劲旅${army.length}路，避开山海关坚城，自${where}一带拆毁边墙，破口入塞！烽火自长城一路传至京师，畿辅震动。\n\n八旗所过之处，掳掠人口牲畜无数。各镇勤王兵马须速速截击。`, x: sg.x, y: sg.y, big: true });
-  return true;
-}
-
-// ---------- 历史事件表 ----------
-interface Ev { id: string; y: number; m: number; x?: number; window?: number; cond?: () => boolean; run: () => boolean | void }
+// ---------- 大事（由各方动作与局势触发，而非按日历） ----------
+const T = () => dateStr(undefined, false);
+interface Ev { id: string; name: string; when: () => boolean; run: () => boolean | void }
+const zhongStr = () => strengthOf('ming', p => inTheater(THEATERS[3], p.x, p.y, 380));
 const EVENTS: Ev[] = [
-  { id: 'fengyang', y: 1635, m: 1, x: 1, cond: () => alive('chuang') || alive('xi'), run: () => {
+  { id: 'fengyang', name: '凤阳之变', when: () => alive('chuang') || alive('xi'), run: () => {
     const f = alive('chuang') ? 'chuang' : 'xi';
     const xz = st('xuzhou');
     if (xz) { const a = muster(f, 2, xz.x - 60, xz.y + 40, 30, 1); orderRaid(a[0], xz.x, xz.y); }
-    show({ title: '崇祯八年正月 · 凤阳之变', text: '荥阳大会之后，十三家七十二营流寇分兵东进，一把火烧了凤阳皇陵，享殿松柏尽成焦土。\n\n消息传到京师，崇祯帝素服避殿，哭告太庙。中原各路义军声势大振。', x: xz?.x, y: xz?.y, big: true });
+    show({ title: `${T()} · 凤阳之变`, text: '荥阳大会之后，十三家七十二营流寇分兵东进，一把火烧了凤阳皇陵，享殿松柏尽成焦土。\n\n消息传到京师，崇祯帝素服避殿，哭告太庙。中原各路义军声势大振。', x: xz?.x, y: xz?.y, big: true });
   } },
-  { id: 'qing', y: 1636, m: 4, cond: () => alive('jin'), run: () => {
+  { id: 'qing', name: '大清建号', when: () => alive('jin') && dayOf(S.time) >= 30 && (dayOf(S.time) >= 45 || settlementList().filter(s => s.faction === 'jin' && s.kind !== 'village').length >= 9), run: () => {
     flag('qing');
-    show({ title: '崇祯九年四月 · 大清建号', text: '盛京城中，皇太极受满、蒙、汉诸臣劝进，即皇帝位，改国号为“大清”，改元崇德。\n\n后金自此称大清，与大明分庭抗礼。', x: st('shengjing')?.x, y: st('shengjing')?.y, big: true });
+    show({ title: `${T()} · 大清建号`, text: '盛京城中，皇太极受满、蒙、汉诸臣劝进，即皇帝位，改国号为“大清”，改元崇德。\n\n后金自此称大清，与大明分庭抗礼。', x: st('shengjing')?.x, y: st('shengjing')?.y, big: true });
   } },
-  { id: 'raid1636', y: 1636, m: 7, window: 6, run: () => qingRaid(116.0, '独石口、居庸关', '崇祯九年七月') },
-  { id: 'gaoyingxiang', y: 1636, m: 7, x: 2, cond: () => alive('chuang'), run: () => {
+  { id: 'gaoyingxiang', name: '闯王被擒', when: () => alive('chuang') && dayOf(S.time) >= 30 && strengthOf('chuang') < zhongStr() * 0.6 && chance(0.12), run: () => {
     for (const p of S.parties) if (p.faction === 'chuang' && p.kind === 'lord') for (const s of [...p.troops]) removeTroops(p.troops, s.id, Math.floor(s.n * 0.3));
-    show({ title: '崇祯九年七月 · 闯王被擒', text: '盩厔黑水峪，孙传庭设伏大破义军，闯王高迎祥被擒，解京凌迟。\n\n部众推举李自成继为“闯王”。闯军元气大伤，暂时退入山中。' });
+    show({ title: `${T()} · 闯王被擒`, text: '官军设伏大破义军，闯王高迎祥被擒，解京凌迟。\n\n部众推举李自成继为“闯王”。闯军元气大伤，暂时退入山中。' });
   } },
-  { id: 'raid1638', y: 1638, m: 9, window: 6, run: () => qingRaid(117.6, '墙子岭、青山口', '崇祯十一年九月') },
-  { id: 'gucheng', y: 1638, m: 1, cond: () => alive('xi') && atWar('xi', 'ming'), run: () => {
-    setWar('xi', 'ming', false); S.truceUntil['ming|xi'] = S.time + 24 * 16;
-    show({ title: '崇祯十一年正月 · 谷城受抚', text: '张献忠兵败南阳，于谷城诈降，受熊文灿招抚。西营屯兵谷城，表面归顺，暗中积草屯粮。' });
+  { id: 'gucheng', name: '谷城受抚', when: () => alive('xi') && atWar('xi', 'ming') && dayOf(S.time) >= 40 && settlementList().filter(s => s.faction === 'xi' && s.kind !== 'village').length <= 2, run: () => {
+    setWar('xi', 'ming', false); S.truceUntil['ming|xi'] = S.time + 24 * 16; flag('guchengAt', S.time);
+    show({ title: `${T()} · 谷城受抚`, text: '张献忠屡战不利，于谷城诈降，受朝廷招抚。西营屯兵谷城，表面归顺，暗中积草屯粮。' });
   } },
-  { id: 'xifan', y: 1639, m: 5, cond: () => alive('xi') && !atWar('xi', 'ming'), run: () => {
+  { id: 'xifan', name: '谷城复叛', when: () => !!S.flags?.guchengAt && S.time > Number(S.flags.guchengAt) + 24 * 16 && alive('xi'), run: () => {
     setWar('xi', 'ming', true);
     const g = st('xiangyang') ?? st('wuchang');
-    if (g) { const a = muster('xi', 3, g.x - 50, g.y - 30, 40, 1); orderSiege(a[0], g.faction !== 'xi' ? g : undefined); }
-    show({ title: '崇祯十二年五月 · 谷城复叛', text: '张献忠杀谷城知县，焚其城垣，复举义旗。罗汝才等九营响应，楚地大乱。', x: g?.x, y: g?.y });
+    const lead = S.parties.filter(p => p.kind === 'lord' && p.faction === 'xi').sort((a, b) => count(b.troops) - count(a.troops))[0];
+    if (lead && g && g.faction !== 'xi') { orderSiege(lead, g); summon(lead, 3); }
+    show({ title: `${T()} · 谷城复叛`, text: '张献忠杀谷城知县，焚其城垣，复举义旗。罗汝才等九营响应，楚地大乱。', x: g?.x, y: g?.y });
   } },
-  { id: 'chuangwang', y: 1640, m: 11, run: () => {
-    // 李自成东山再起：若闯军已灭，则自商洛山中复起
+  { id: 'chuangwang', name: '迎闯王', when: () => dayOf(S.time) >= 100 && (famine() > 0.5 || zhongStr() < 700) && chance(0.08), run: () => {
     let base = st('shangluo') ?? st('nanyang');
     if (!alive('chuang') && base) {
       S.alive.chuang = true;
-      for (const l of Object.values(S.lords)) if (l.faction === 'chuang') { l.dead = false; l.respawnAt = 0; }
+      for (const l of Object.values(S.lords)) if (l.faction === 'chuang') { l.dead = false; l.respawnAt = 0; l.partyId = null; }
       if (base.faction !== 'player' && base.owner !== 'player') { setOwner(base, 'chuang', null); base.garrison = genTroops('chuang', 60, 0.5); }
       for (const f of ['ming', 'mon']) if (S.alive[f]) setWar('chuang', f, true);
+      for (const l of Object.values(S.lords)) if (l.faction === 'chuang') spawnLordParty(l);
     }
     if (!alive('chuang')) return false;
+    for (const p of S.parties) if (p.kind === 'lord' && p.faction === 'chuang') for (const t of genTroops('chuang', 70, 0.4)) addTroops(p.troops, t.id, t.n);
     base = settlementList().find(s => s.faction === 'chuang' && s.kind !== 'village') ?? base;
-    if (base) { const a = muster('chuang', 4, base.x, base.y, 90, 1, ['chuang_lord0']); const lyt = st('luoyang'); if (lyt && lyt.faction !== 'chuang') orderSiege(a[0], lyt); }
     flag('chuangRise');
-    show({ title: '崇祯十三年冬 · 迎闯王，不纳粮', text: '李自成率十八骑出商洛山，入河南。时值中原大旱，赤地千里，饥民从之如流。\n\n李岩编歌谣传唱四方：“迎闯王，不纳粮！”旬日之间，闯军复聚至数十万。', x: base?.x, y: base?.y, big: true });
+    show({ title: `${T()} · 迎闯王，不纳粮`, text: `${zhongStr() < 700 ? '官军精锐尽被抽调北上，中原空虚。' : ''}中原连年大旱，赤地千里。李自成率十八骑出商洛山，饥民从之如流。\n\n李岩编歌谣传唱四方：“迎闯王，不纳粮！”旬日之间，闯军复聚至数十万。`, x: base?.x, y: base?.y, big: true });
   } },
-  { id: 'luoyang', y: 1641, m: 1, x: 2, cond: () => alive('chuang') && owns('ming', 'luoyang'), run: () => {
-    const l = st('luoyang')!;
-    const near = S.parties.some(p => p.faction === 'chuang' && p.kind === 'lord' && Math.hypot(p.x - l.x, p.y - l.y) < 400);
-    if (!near && count(l.garrison) > 70) return false;
-    setOwner(l, 'chuang', null); l.garrison = genTroops('chuang', 70, 0.5); l.prosperity = Math.max(10, l.prosperity - 30);
-    checkFactionAlive('ming');
-    show({ title: '崇祯十四年正月 · 洛阳陷落', text: '闯军攻破洛阳，福王朱常洵被杀。李自成开福王府仓廪赈济饥民，四方震动。', x: l.x, y: l.y, big: true });
+  { id: 'luoyang', name: '洛阳陷落', when: () => owns('chuang', 'luoyang') && !!S.flags?.lyMing, run: () => {
+    const l = st('luoyang')!; l.prosperity = Math.max(10, l.prosperity - 20);
+    show({ title: `${T()} · 洛阳陷落`, text: '闯军攻破洛阳，福王朱常洵被杀。李自成开福王府仓廪赈济饥民，四方震动。', x: l.x, y: l.y, big: true });
   } },
-  { id: 'songjin1', y: 1641, m: 4, cond: () => alive('jin') && owns('ming', 'jinzhou') && atWar('jin', 'ming'), run: () => {
+  { id: 'songjin1', name: '松锦大战', when: () => alive('jin') && atWar('jin', 'ming') && owns('ming', 'jinzhou') && dayOf(S.time) >= 60 && !S.flags?.raidPlan && !S.flags?.raiders
+      && strengthOf('jin', p => regionAt(p.x, p.y) === 2) > strengthOf('ming', p => inTheater(THEATERS[0], p.x, p.y)) * 1.1 && chance(0.1), run: () => {
     const j = st('jinzhou')!;
-    const a = muster('jin', 4, j.x + 60, j.y - 40, 80, 2, ['jin_lord0', 'jin_lord1']);
-    orderSiege(a[0], j);
-    show({ title: '崇祯十四年三月 · 松锦大战', text: `${FACTION.jin.name}大军合围锦州，祖大寿困守孤城。崇祯帝命洪承畴率八总兵、十三万大军出山海关驰援。\n\n大明与${FACTION.jin.name}的国运之战，就此拉开序幕。`, x: j.x, y: j.y, big: true });
+    const lead = S.parties.filter(p => p.kind === 'lord' && p.faction === 'jin' && regionAt(p.x, p.y) === 2).sort((a, b) => count(b.troops) - count(a.troops))[0];
+    if (!lead) return false;
+    orderSiege(lead, j); summon(lead, 4, 1500);
+    flag('songjinAt', S.time);
+    show({ title: `${T()} · 松锦大战`, text: `${FACTION.jin.name}${lordName(lead.lordId!)}尽起八旗，合围锦州，祖大寿困守孤城。兵部急调蓟辽各镇出关驰援。\n\n大明与${FACTION.jin.name}的国运之战，就此拉开序幕。`, x: j.x, y: j.y, big: true });
   } },
-  { id: 'songjin2', y: 1642, m: 2, cond: () => alive('jin'), run: () => {
-    const lost = !owns('ming', 'jinzhou');
-    if (lost) {
-      const a = defect('ming_lord2', 'jin'); const b = defect('ming_lord6', 'jin');
-      show({ title: '崇祯十五年二月 · 洪承畴降清', text: `松山城破，${a ? '洪承畴被俘，绝食数日后终降' : '洪承畴力战殉国'}；${b ? '祖大寿以锦州降' : '祖大寿下落不明'}。\n\n关外大明城池尽失，山海关成为京师最后的屏障。`, big: true });
+  { id: 'songjin2', name: '松锦终局', when: () => !!S.flags?.songjinAt && (owns('jin', 'jinzhou') || S.time - Number(S.flags.songjinAt) > 24 * 20), run: () => {
+    if (owns('jin', 'jinzhou')) {
+      const a = chance(0.7) && defect('ming_lord2', 'jin'); const b = defect('ming_lord6', 'jin');
+      show({ title: `${T()} · 锦州陷落`, text: `锦州城破，${b ? '祖大寿开城投降' : '守军死战殆尽'}；${a ? '洪承畴兵败被俘，绝食数日后终降' : '洪承畴收拾残兵退守宁远'}。\n\n关外大明城池岌岌可危，山海关成为京师最后的屏障。`, big: true });
     } else {
-      show({ title: '崇祯十五年二月 · 锦州解围', text: '锦州城下，明军坚守不退，八旗久攻无功。此番松锦之战，大明竟挡住了清兵——史书由此改写。', big: true });
-      changePlayerRel('ming', playerSide() === 'ming' ? 3 : 0);
+      show({ title: `${T()} · 锦州解围`, text: '锦州城下，明军坚守不退，八旗久攻无功，只得退兵。此番松锦之战，大明挡住了清兵——史书由此改写。', big: true });
+      if (playerSide() === 'ming') changePlayerRel('ming', 3);
     }
   } },
-  { id: 'raid1642', y: 1642, m: 10, window: 6, run: () => qingRaid(118.0, '界岭口、黄崖口', '崇祯十五年十月') },
-  { id: 'huangtaiji', y: 1643, m: 8, cond: () => alive('jin'), run: () => {
+  { id: 'huangtaiji', name: '皇太极猝死', when: () => alive('jin') && dayOf(S.time) >= 250 && chance(1 / 30), run: () => {
     flag('qingRegent');
     if (atWar('jin', 'ming')) { setWar('jin', 'ming', false); S.truceUntil['jin|ming'] = S.time + 24 * 6; }
-    show({ title: '崇祯十六年八月 · 皇太极猝死', text: '皇太极于盛京清宁宫无疾而终。诸王争立，最终议定由六岁的福临继位，睿亲王多尔衮与郑亲王济尔哈朗辅政。\n\n大清暂息兵戈，与明边境稍安。' });
+    show({ title: `${T()} · 皇太极猝死`, text: '皇太极于盛京清宁宫无疾而终。诸王争立，最终议定由六岁的福临继位，睿亲王多尔衮与郑亲王济尔哈朗辅政。\n\n大清暂息兵戈。' });
   } },
-  { id: 'dashun', y: 1644, m: 1, cond: () => alive('chuang'), run: () => {
+  { id: 'dashun', name: '大顺建国', when: () => alive('chuang') && dayOf(S.time) >= 180 && (owns('chuang', 'xian') || settlementList().filter(s => s.faction === 'chuang' && s.kind !== 'village').length >= 8), run: () => {
     flag('dashun');
-    show({ title: '崇祯十七年正月 · 大顺建国', text: '李自成于西安称王，国号“大顺”，改元永昌。随即亲率大军东征，渡河入晋，直指北京。', big: true });
+    show({ title: `${T()} · 大顺建国`, text: '李自成称王，国号“大顺”，改元永昌。闯军将士欢声雷动，誓言东征，直指北京。', big: true });
   } },
-  { id: 'jinjing', y: 1644, m: 3, cond: () => alive('chuang') && owns('ming', 'beijing'), run: () => {
+  { id: 'jinjing', name: '兵临北京', when: () => !!S.flags?.jinjing && owns('ming', 'beijing') && (() => { const b = st('beijing')!; return !!b.siege || S.parties.some(p => p.faction === 'chuang' && p.kind === 'lord' && Math.hypot(p.x - b.x, p.y - b.y) < 260); })(), run: () => {
     const b = st('beijing')!;
-    const a = muster('chuang', 5, b.x - 40, b.y + 70, 110, 1, ['chuang_lord0']);
-    if (!a.length) return false;
-    orderSiege(a[0], b);
-    flag('jinjingAt', S.time);
-    show({ title: '崇祯十七年三月 · 兵临北京', text: `${FACTION.chuang.name}大军${a.length}路兵临北京城下，彰义门外营帐连绵。京营兵饷久欠，守城者多老弱。\n\n若有忠勇之士入城助守，或可挽狂澜于既倒……`, x: b.x, y: b.y, big: true });
+    const n = S.parties.filter(p => p.faction === 'chuang' && p.kind === 'lord' && Math.hypot(p.x - b.x, p.y - b.y) < 400).length;
+    show({ title: `${T()} · 兵临北京`, text: `${FACTION.chuang.name}大军${n}路兵临北京城下，彰义门外营帐连绵。京营兵饷久欠，守城者多老弱。\n\n若有忠勇之士入城助守，或可挽狂澜于既倒……`, x: b.x, y: b.y, big: true });
   } },
-  { id: 'shanhai', y: 1644, m: 4, x: 1, window: 9, cond: () => alive('jin'), run: () => {
-    const fell = !owns('ming', 'beijing') && S.settlements.beijing?.faction !== 'player';
-    const sh = st('shanhai');
-    if (!sh) return true;
-    if (fell && sh.faction === 'ming') {
-      flag('mingFell');
-      const wu = S.lords['ming_lord7'];
-      const switched = wu && !wu.dead ? defect('ming_lord7', 'jin') : false;
-      if (!switched || sh.faction === 'ming') setOwner(sh, 'jin', switched ? 'ming_lord7' : null);
-      if (!atWar('jin', 'chuang') && alive('chuang')) setWar('jin', 'chuang', true);
-      setWar('jin', 'ming', true);
-      const a = muster('jin', 5, sh.x - 50, sh.y + 20, 120, 1, ['jin_lord0']);
-      const bj = st('beijing'); if (bj && bj.faction !== 'jin') orderSiege(a[0], bj);
-      show({ title: '崇祯十七年四月 · 山海关之战', text: '京师已陷，崇祯帝自缢于煤山。山海关总兵吴三桂闻变，“冲冠一怒为红颜”，开关迎清兵入关。\n\n一片石一战，大顺军大败。多尔衮率八旗铁骑长驱入关，直取北京。天下大势，至此一变。\n\n明室遗臣于南京拥立福王，是为南明。', x: sh.x, y: sh.y, big: true });
-    } else if (!fell) {
-      show({ title: '崇祯十七年四月 · 京师无恙', text: '北京城头依旧飘扬着大明的旗帜。吴三桂仍据守山海关，八旗无隙可乘。\n\n这一年，历史走向了另一条岔路。', big: true });
-    } else if (fell && sh.faction === 'jin' && !owns('jin', 'beijing')) {
-      flag('mingFell');
-      if (alive('chuang') && !atWar('jin', 'chuang')) setWar('jin', 'chuang', true);
-      const a = muster('jin', 5, sh.x - 50, sh.y + 20, 120, 1, ['jin_lord0']);
-      const bj = st('beijing'); if (bj) orderSiege(a[0], bj);
-      show({ title: '崇祯十七年四月 · 清军入关', text: `京师已陷，崇祯帝自缢于煤山。山海关早已在${FACTION.jin.name}手中，摄政王多尔衮闻讯，即刻尽起八旗，自山海关长驱入关，以“为明复仇”为名直扑北京。\n\n明室遗臣于南京拥立福王，是为南明。`, x: sh.x, y: sh.y, big: true });
-    }
-  } },
-  { id: 'daxi', y: 1644, m: 8, run: () => {
-    const cd = st('chengdu');
-    if (!cd) return true;
-    if (!alive('xi')) {
-      S.alive.xi = true;
-      for (const l of Object.values(S.lords)) if (l.faction === 'xi') { l.dead = false; l.respawnAt = 0; }
-      for (const f of ['ming', 'jin']) if (S.alive[f]) setWar('xi', f, true);
-    }
-    const base = settlementList().find(x => x.faction === 'xi' && x.kind !== 'village') ?? st('kuizhou');
-    if (cd.faction !== 'xi' && cd.faction !== 'player' && cd.owner !== 'player') { setOwner(cd, 'xi', null); cd.garrison = genTroops('xi', 90, 0.5); }
-    if (base && base.faction !== 'xi' && base.owner !== 'player' && base.faction !== 'player') { setOwner(base, 'xi', null); base.garrison = genTroops('xi', 50, 0.5); }
-    const a = muster('xi', 4, cd.x, cd.y + 30, 80, 1);
-    const cq = st('chongqing'); if (cq && cq.faction !== 'xi') orderSiege(a[0], cq);
+  { id: 'shanhai', name: '山海关之变', when: () => alive('jin') && !!st('beijing') && !['ming', 'player'].includes(st('beijing')!.faction), run: () => shanhaiEvent() },
+  { id: 'daxi', name: '大西建国', when: () => alive('xi') && (owns('xi', 'chengdu') || owns('xi', 'chongqing')) && dayOf(S.time) >= 150, run: () => {
     flag('daxi');
-    show({ title: '崇祯十七年八月 · 张献忠入川', text: '张献忠率西营数十万众溯江入川，破重庆，陷成都。旋即于成都称帝，国号“大西”，改元大顺。\n\n巴蜀天府，自此兵连祸结。', x: cd.x, y: cd.y, big: true });
+    const cd = st('chengdu');
+    show({ title: `${T()} · 大西建国`, text: '张献忠据有巴蜀，于成都称帝，国号“大西”，改元大顺。\n\n巴蜀天府，自此兵连祸结。', x: cd?.x, y: cd?.y, big: true });
   } },
 ];
+/** 小冰期：崇祯十一年后旱蝗连年 */
+export function famine() { const y = calYear(); return y >= 1638 && y <= 1643 ? 0.8 : y >= 1636 ? 0.4 : 0.2; }
 
-/** 旧存档迁移：已经过去的事件不再触发 */
+/** 山海关之变：吴三桂何去何从（玩家可以干预） */
+function shanhaiEvent() {
+  flag('mingFell');
+  const sh = st('shanhai');
+  if (!sh) return true;
+  const wu = S.lords['ming_lord7'];
+  const marchIn = () => {
+    if (alive('chuang') && !atWar('jin', 'chuang')) setWar('jin', 'chuang', true);
+    const lead = S.parties.filter(p => p.kind === 'lord' && p.faction === 'jin').sort((a, b) => count(b.troops) - count(a.troops))[0];
+    const bj = st('beijing'); if (lead && bj && bj.faction !== 'jin') { orderSiege(lead, bj); summon(lead, 5, 2000); }
+    flag('ruguan');
+  };
+  if (sh.owner === 'player' || sh.faction === 'player') {
+    show({ title: `${T()} · 京师陷落`, text: `京师已陷，崇祯帝自缢于煤山。天下的目光都落在了你镇守的山海关上——关外八旗虎视眈眈，关内${FACTION[st('beijing')!.faction]?.name ?? '敌军'}气焰正盛。\n\n明室遗臣于南京拥立福王，是为南明。`, x: sh.x, y: sh.y, big: true });
+    return;
+  }
+  if (sh.faction === 'jin') {
+    marchIn();
+    show({ title: `${T()} · 清军入关`, text: `京师已陷，崇祯帝自缢于煤山。山海关早已在${FACTION.jin.name}手中，摄政王多尔衮闻讯，尽起八旗长驱入关，以“为明复仇”为名直扑北京。\n\n明室遗臣于南京拥立福王，是为南明。`, x: sh.x, y: sh.y, big: true });
+    return;
+  }
+  if (sh.faction !== 'ming' || !wu || wu.dead || wu.faction !== 'ming') {
+    show({ title: `${T()} · 甲申之变`, text: '京师已陷，崇祯帝自缢于煤山。明室遗臣于南京拥立福王，是为南明。', big: true });
+    return;
+  }
+  const doDefect = () => {
+    defect('ming_lord7', 'jin');
+    if (sh.faction !== 'jin') setOwner(sh, 'jin', 'ming_lord7');
+    setWar('jin', 'ming', true);
+    marchIn();
+    show({ title: `${T()} · 山海关之战`, text: '吴三桂“冲冠一怒为红颜”，开关迎清兵入关。一片石一战，闯军大败。多尔衮率八旗铁骑长驱入关，直取北京。\n\n天下大势，至此一变。', x: sh.x, y: sh.y, big: true });
+  };
+  const stay = () => show({ title: `${T()} · 吴三桂拒清`, text: '吴三桂读罢来信，掷书于地：“我吴家世受国恩，岂能开门揖盗！”山海关依旧紧闭，八旗无隙可乘。\n\n这一年，历史走向了另一条岔路。', x: sh.x, y: sh.y, big: true });
+  if (playerSide() === 'ming' || (!playerSide() && (S.playerRel.ming ?? 0) >= 0)) {
+    const odds = Math.min(0.9, 0.3 + S.renown / 1500 + Math.max(0, wu.relation) / 40);
+    show({ title: `${T()} · 甲申之变`, text: `京师已陷，崇祯帝自缢于煤山。明室遗臣于南京拥立福王，是为南明。\n\n山海关总兵吴三桂手握关宁铁骑，进退两难：关外多尔衮许以王爵，关内闯军拘其父、夺其爱妾陈圆圆。有消息说，他已与清人暗通书信……\n\n你若此时修书一封，或许能左右他的抉择（成功率约 ${Math.round(odds * 100)}%）。`, x: sh.x, y: sh.y, big: true,
+      choices: [
+        { label: '✍ 修书劝说吴三桂', run: () => { if (chance(odds)) { stay(); wu.relation += 5; } else doDefect(); } },
+        { label: '听天由命', run: () => { if (chance(0.25)) stay(); else doDefect(); } },
+      ] });
+    return;
+  }
+  if (chance(0.75)) doDefect(); else stay();
+}
+
+/** 入塞：清军破墙之后的跟进（由 strategy.ts 发起） */
+function raidFollow() {
+  const f = S.flags; if (!f?.raidPlan) return;
+  let plan: RaidPlan; try { plan = JSON.parse(String(f.raidPlan)); } catch { delete f.raidPlan; return; }
+  const lead = lordParty(plan.lead);
+  if (!lead || lead.faction !== 'jin' || S.time - plan.at > 24 * 14) { delete f.raidPlan; f.lastRaid = S.time; return; }
+  if (!isBreached(plan.seg) && regionAt(lead.x, lead.y) !== 1) return;
+  const sg = SEGS[plan.seg];
+  const army = [lead, ...S.parties.filter(p => p.ai.mode === 'follow' && p.ai.target === lead.id)];
+  for (const p of army) p.ai.until = S.time + 24 * 4;
+  orderRaid(lead, sg.x, sg.y);
+  delete f.raidPlan; f.lastRaid = S.time;
+  f.raidN = Number(f.raidN ?? 0) + 1;
+  f.raidUntil = S.time + 24 * 14; delete f.raidHomeMsg;
+  f.raiders = army.map(p => p.lordId).filter(Boolean).join(',');
+  const where = nearestPassName(sg.x, sg.y);
+  const n = Number(f.raidN);
+  show({ title: `${T()} · ${n > 1 ? `清军第${cnNum(n)}次入塞` : '清军入塞'}`, text: `${FACTION.jin.name}${lordName(lead.lordId!)}率八旗劲旅${army.length}路，避开坚城，在${where}附近拆毁边墙，破口入塞！烽火自长城一路传至京师，畿辅震动。\n\n八旗所过之处，掳掠人口牲畜无数。各镇勤王兵马须速速截击。`, x: sg.x, y: sg.y, big: true });
+  chronAdd(n > 1 ? `清军第${cnNum(n)}次入塞` : '清军入塞');
+}
+
+function chronAdd(name: string) { (S.chronLog ||= []).push({ n: name, at: S.time }); log(`【大事】${name}`, 'gold'); }
+
 export function calendarInit() {
   S.calendarDone ||= [];
   S.flags ||= {};
-  if (!S.flags.calInit) {
-    const d = dayOf(S.time);
-    for (const e of EVENTS) if (dayFor(e.y, e.m, e.x ?? 0) + (e.window ?? 3) < d) S.calendarDone.push(e.id);
-    S.flags.calInit = true;
-  }
   applyFlags();
 }
 
@@ -273,34 +276,34 @@ function manageRaid() {
 }
 
 export function calendarDaily() {
-  const d = dayOf(S.time);
-  manageRaid();
+  if (owns('ming', 'luoyang')) (S.flags ||= {}).lyMing = true;
+  guardCal(manageRaid);
+  guardCal(raidFollow);
+  guardCal(strategyDaily);
   const done = S.calendarDone ||= [];
   for (const e of EVENTS) {
     if (done.includes(e.id)) continue;
-    const at = dayFor(e.y, e.m, e.x ?? 0);
-    if (d < at) continue;
-    const late = d > at + (e.window ?? 3);
-    if (late) { done.push(e.id); continue; }
-    if (e.cond && !e.cond()) continue;
+    if (!e.when()) continue;
     const r = e.run();
-    if (r !== false) { done.push(e.id); log(`【大事】${eventName(e.id)}`, 'gold'); }
+    if (r !== false) { done.push(e.id); chronAdd(e.name); }
   }
-  // 甲申之后：北京为他人所有即视为明亡
-  if (!S.flags?.mingFell && S.settlements.beijing && S.settlements.beijing.faction !== 'ming' && S.settlements.beijing.faction !== 'player' && d > dayFor(1640, 1)) {
+  // 北京为他人所有即视为明亡
+  if (!S.flags?.mingFell && S.settlements.beijing && S.settlements.beijing.faction !== 'ming' && S.settlements.beijing.faction !== 'player') {
     flag('mingFell');
-    show({ title: '甲申之变', text: `北京易手，${FACTION[S.settlements.beijing.faction]?.name ?? '敌军'}入主紫禁城。明室南渡，于南京另立新君，是为南明。`, big: true });
+    if (!alive('jin')) show({ title: `${T()} · 甲申之变`, text: `北京易手，${FACTION[S.settlements.beijing.faction]?.name ?? '敌军'}入主紫禁城。明室南渡，于南京另立新君，是为南明。`, big: true });
   }
 }
-const NAMES: Record<string, string> = { fengyang: '凤阳之变', qing: '大清建号', raid1636: '清军入塞', gaoyingxiang: '闯王被擒', raid1638: '清军入塞', gucheng: '谷城受抚', xifan: '谷城复叛', chuangwang: '闯王复起', luoyang: '洛阳陷落', songjin1: '松锦大战', songjin2: '松锦之役终局', raid1642: '清军入塞', huangtaiji: '皇太极猝死', dashun: '大顺建国', jinjing: '兵临北京', shanhai: '山海关之战', daxi: '张献忠入川' };
-function eventName(id: string) { return NAMES[id] ?? id; }
+function guardCal(fn: () => void) { try { fn(); } catch (e) { console.error('[calendar]', e); } }
 
 /** 大事记（已发生 + 坊间传闻） */
 export function chronicleList() {
-  const d = dayOf(S.time);
-  const done = S.calendarDone ?? [];
-  const past = EVENTS.filter(e => done.includes(e.id) && dayFor(e.y, e.m, e.x ?? 0) <= d).map(e => ({ when: `${e.y}年${e.m}月`, name: eventName(e.id) }));
-  const next = EVENTS.filter(e => !done.includes(e.id) && dayFor(e.y, e.m, e.x ?? 0) > d).slice(0, 2).map(e => ({ when: `${e.y}年${e.m}月`, name: eventName(e.id) }));
+  const past = (S.chronLog ?? []).map(e => ({ when: dateStr(e.at, false), name: e.n }));
+  const next: { when: string; name: string }[] = [];
+  const f = S.flags ?? {};
+  if (f.raidPlan) next.push({ when: '近日', name: '关外八旗正在集结，恐将入塞' });
+  if (f.jinjing && owns('ming', 'beijing')) next.push({ when: '近日', name: '闯军大举东进，直指京师' });
+  if (famine() > 0.5) next.push({ when: '今岁', name: '中原大旱，饥民遍野' });
+  if (alive('jin') && !f.raidPlan && atWar('jin', 'ming') && mingNorthStrength() < strengthOf('jin', p => regionAt(p.x, p.y) === 2) * 0.8) next.push({ when: '坊间', name: '九边空虚，恐为清人所乘' });
   return { past, next };
 }
 
@@ -334,5 +337,40 @@ export function randomEvents() {
   } else if (roll < 0.3 && S.flags?.chuangRise && alive('chuang')) {
     for (const p of S.parties) if (p.faction === 'chuang' && p.kind === 'lord' && chance(0.5)) for (const t of genTroops('chuang', randInt(8, 18), 0.35)) addTroops(p.troops, t.id, t.n);
     log('饥民成群结队投奔闯营，闯军声势日盛。', 'war');
+  }
+}
+
+// ---------- 灭亡势力的余部复起（防止后期天下只剩寥寥数家） ----------
+const REVIVE_TEXT: Record<string, [string, string]> = {
+  ming: ['明室宗亲起兵', '大明宗室于{t}登高一呼，旧部云集，复举日月旗号。'],
+  jin: ['八旗余部复起', '八旗残部于{t}重整旗鼓，誓要卷土重来。'],
+  chuang: ['闯营余部复起', '闯营旧将收拾残兵，于{t}复竖“闯”字大旗，饥民从之。'],
+  xi: ['西营余部复起', '西营旧部于{t}啸聚山林，重整旗鼓。'],
+  mon: ['察哈尔部复起', '察哈尔诸台吉于{t}会盟，重振黄金家族的旗帜。'],
+};
+export function reviveFactions() {
+  S.flags ||= {};
+  for (const f of MAJOR_FACTIONS) {
+    if (S.alive[f] || f === 'player') continue;
+    const k = 'deadSince_' + f;
+    if (S.flags[k] === undefined) { S.flags[k] = S.time; continue; }
+    if (S.time - Number(S.flags[k]) < 24 * 40 || !chance(0.3)) continue;
+    // 在其故地挑一座守备薄弱、不属于玩家的城堡
+    const home = TOWN_DEFS.filter(d => d.faction === f && d.kind !== 'village').map(d => S.settlements[d.id]).filter(s => s && s.owner !== 'player' && s.faction !== 'player' && !s.siege);
+    if (!home.length) continue;
+    home.sort((a, b) => count(a.garrison) - count(b.garrison));
+    const t = home[0];
+    const old = t.faction;
+    S.alive[f] = true;
+    delete S.flags[k];
+    for (const l of Object.values(S.lords)) if (l.faction === f) { l.dead = false; l.respawnAt = 0; l.partyId = null; }
+    setOwner(t, f, null);
+    t.garrison = genTroops(FACTION[f].culture, 120, 0.5);
+    for (const l of Object.values(S.lords)) if (l.faction === f) { spawnLordParty(l); const pp = lordParty(l.id); if (pp) for (const tt of genTroops(FACTION[f].culture, 40, 0.5)) addTroops(pp.troops, tt.id, tt.n); }
+    if (old && old !== f && S.alive[old]) setWar(f, old, true);
+    const [title, text] = REVIVE_TEXT[f] ?? ['余部复起', '{t}有人起兵。'];
+    show({ title: `${title}`, text: text.replace('{t}', t.name) + `\n\n${FACTION[f].name}重新回到了天下的棋局之中。`, x: t.x, y: t.y });
+    checkFactionAlive(old);
+    return; // 每次至多复起一家
   }
 }

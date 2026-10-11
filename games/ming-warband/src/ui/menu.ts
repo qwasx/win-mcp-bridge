@@ -1,7 +1,8 @@
 // 主菜单、角色创建、游戏菜单、存读档
+import { simErrors } from '../core/sim';
 import { settings, saveSettings, FIELD_CAPS } from '../core/settings';
 import { h, uiRoot, openPanel, closeTop, closeAll, btn, toast, confirmDialog } from './dom';
-import { BACKGROUNDS, newGame, S, on } from '../core/game';
+import { BACKGROUNDS, newGame, S, on, dateStr } from '../core/game';
 import { SLOTS, readMeta, saveGame, loadGame, hasAnySave } from '../core/save';
 import menuBg from '../assets/menu_bg.jpg';
 import { music, soundButton, soundSettings } from '../audio/hooks';
@@ -105,6 +106,16 @@ export function openBattleSettings() {
   openPanel('战场设置', body);
 }
 
+function openErrorReport() {
+  const text = simErrors.map(e => `[${dateStr(e.at)}] ${e.where}: ${e.msg}`).join('\n\n');
+  const ta = h('textarea', { class: 'err-report', readonly: true }, text) as HTMLTextAreaElement;
+  openPanel('错误报告', h('div', null,
+    h('p', null, '游戏后台出现了以下错误（已自动跳过，不影响继续游玩）。把这段文字复制发给开发者，可以帮助修复问题。'),
+    ta,
+    h('div', { class: 'row' }, btn('复制全部', () => { ta.select(); try { navigator.clipboard?.writeText(text); } catch { document.execCommand('copy'); } toast('已复制'); }, 'primary')),
+  ), { wide: true });
+}
+
 export function openGameMenu() {
   openPanel('菜单', h('div', { class: 'menu' },
     btn('继续游戏', () => closeTop(), 'menu-item primary'),
@@ -113,6 +124,7 @@ export function openGameMenu() {
     btn('游戏说明', () => openPanel('游戏说明', helpContent(), { wide: true }), 'menu-item'),
     btn('声音设置', () => openPanel('声音设置', soundSettings()), 'menu-item'),
     btn('战场设置', () => openBattleSettings(), 'menu-item'),
+    simErrors.length ? btn(`⚠ 错误报告（${simErrors.length}）`, () => openErrorReport(), 'menu-item') : null,
     btn('返回主菜单', () => confirmDialog('返回主菜单', '未保存的进度将会丢失（自动存档除外）。确定吗？', () => { onQuit?.(); }), 'menu-item danger'),
   ));
 }

@@ -108,11 +108,14 @@ const L = (faction: FactionId, list: [string, string, LordDef['trait']][]) =>
 
 export const LORD_DEFS: LordDef[] = [
   ...L('ming', [['卢象升', '宣大总督', 'brave'], ['孙传庭', '陕西巡抚', 'honorable'], ['洪承畴', '三边总督', 'cautious'], ['曹文诏', '总兵', 'brave'],
-    ['左良玉', '总兵', 'greedy'], ['秦良玉', '石砫宣抚使', 'honorable'], ['祖大寿', '锦州总兵', 'cautious'], ['吴三桂', '宁远游击', 'greedy'], ['周遇吉', '总兵', 'brave']]),
+    ['左良玉', '总兵', 'greedy'], ['秦良玉', '石砫宣抚使', 'honorable'], ['祖大寿', '锦州总兵', 'cautious'], ['吴三桂', '宁远游击', 'greedy'], ['周遇吉', '总兵', 'brave'],
+    ['杨嗣昌', '督师', 'cautious'], ['黄得功', '总兵', 'brave'], ['贺人龙', '总兵', 'brave'], ['高杰', '总兵', 'greedy'], ['史可法', '巡抚', 'honorable'],
+    ['唐通', '总兵', 'greedy'], ['马科', '总兵', 'cautious'], ['刘泽清', '总兵', 'greedy'], ['王朴', '总兵', 'cautious'], ['姜瓖', '大同总兵', 'greedy'], ['白广恩', '总兵', 'brave']]),
   ...L('jin', [['多尔衮', '贝勒', 'cautious'], ['多铎', '贝勒', 'brave'], ['阿济格', '贝勒', 'brave'], ['代善', '大贝勒', 'honorable'],
-    ['岳托', '贝勒', 'brave'], ['豪格', '贝勒', 'greedy'], ['济尔哈朗', '贝勒', 'cautious'], ['孔有德', '都元帅', 'greedy']]),
+    ['岳托', '贝勒', 'brave'], ['豪格', '贝勒', 'greedy'], ['济尔哈朗', '贝勒', 'cautious'], ['孔有德', '都元帅', 'greedy'],
+    ['阿巴泰', '贝勒', 'brave'], ['尚可喜', '总兵', 'greedy'], ['耿仲明', '总兵', 'cautious'], ['杜度', '贝勒', 'brave']]),
   ...L('chuang', [['刘宗敏', '权将军', 'brave'], ['李过', '制将军', 'brave'], ['高一功', '果毅将军', 'honorable'], ['田见秀', '制将军', 'cautious'],
-    ['袁宗第', '将军', 'brave'], ['郝摇旗', '将军', 'greedy'], ['李岩', '制将军', 'honorable']]),
+    ['袁宗第', '将军', 'brave'], ['郝摇旗', '将军', 'greedy'], ['李岩', '制将军', 'honorable'], ['刘芳亮', '将军', 'brave'], ['贺锦', '将军', 'brave']]),
   ...L('xi', [['孙可望', '平东将军', 'cautious'], ['李定国', '安西将军', 'honorable'], ['刘文秀', '抚南将军', 'brave'], ['艾能奇', '定北将军', 'brave'], ['王尚礼', '将军', 'greedy']]),
   ...L('mon', [['额哲', '台吉', 'cautious'], ['衮楚克', '台吉', 'brave'], ['布延图', '诺颜', 'greedy'], ['多尔济', '台吉', 'brave'], ['巴雅尔', '诺颜', 'honorable']]),
 ];

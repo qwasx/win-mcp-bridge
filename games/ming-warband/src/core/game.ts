@@ -34,6 +34,13 @@ export function cnNum(n: number): string {
   const t = Math.floor(n / 10), o = n % 10;
   return CHINESE_NUM[t] + '十' + (o ? CHINESE_NUM[o] : '');
 }
+/** 城防系数：攻方须有守方数倍之力 */
+export function fortMult(s: Settlement) {
+  if (s.id === 'shanhai') return 3.0;
+  if (s.isPass) return 2.4;
+  if (s.id === 'beijing') return 2.2;
+  return s.kind === 'town' ? 1.6 : 1.8;
+}
 /** 城防上限：都城与关隘远比寻常城堡坚固 */
 export function garrisonCap(s: Settlement) {
   if (s.kind === 'village') return 0;
@@ -410,7 +417,7 @@ export function ensureWorld(s: GameState) {
       // 归属：离得最近的非村庄据点所属势力
       let near: Settlement | null = null, bd = Infinity;
       for (const o of Object.values(s.settlements)) if (o.kind !== 'village') { const d = Math.hypot(o.x - wx, o.y - wy); if (d < bd) { bd = d; near = o; } }
-      const f = (near?.faction ?? 'ming') as FactionId;
+      const f = (s.time < 24 * 2 ? 'ming' : near?.faction ?? 'ming') as FactionId; // 新开局：十关皆属大明
       const fc = f === 'player' ? 'ming' : f;
       st = {
         id: ps.id, name: ps.name, kind: 'castle', faction: f, owner: null, x: wx, y: wy, villages: [], garrison: genTroops(FACTION[fc]?.culture ?? 'ming', randInt(60, 85), 0.6),
@@ -433,6 +440,8 @@ export function ensureWorld(s: GameState) {
     if (st.isPass) continue;
     for (let r = 0; r < 60 && wallSeg[cellIndex(st.x, st.y)] >= 0; r += 4) { st.x += 0; st.y += 4; }
   }
+  // 新增领主（旧存档补齐）
+  for (const ld of LORD_DEFS) if (!s.lords[ld.id] && s.alive[ld.faction]) s.lords[ld.id] = { id: ld.id, name: ld.name, faction: ld.faction, title: ld.title, trait: ld.trait, relation: randInt(-3, 5), partyId: null, respawnAt: 0 };
   s.calendarDone ||= [];
   if (!s.flags?.fortV13) {
     for (const st of Object.values(s.settlements)) {

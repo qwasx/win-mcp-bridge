@@ -25,11 +25,13 @@ function next() {
     h('h2', { class: 'chron-title' }, c.title),
     h('div', { class: 'chron-text' }, ...paras),
     h('div', { class: 'chron-seal' }, '史'),
-    h('div', { class: 'row chron-btns' },
-      c.x != null ? btn('🔍 前往一观', look) : null,
-      btn('知道了', done, 'primary'),
-    ),
-  ), { cls: `chron ${c.big ? 'big' : ''}`, onClose: () => next() });
+    c.choices?.length
+      ? h('div', { class: 'row chron-btns' }, ...c.choices.map((ch, i) => btn(ch.label, () => { closeTop(); ch.run(); next(); }, i === 0 ? 'primary' : '')))
+      : h('div', { class: 'row chron-btns' },
+        c.x != null ? btn('🔍 前往一观', look) : null,
+        btn('知道了', done, 'primary'),
+      ),
+  ), { cls: `chron ${c.big ? 'big' : ''}`, noClose: !!c.choices?.length, onClose: () => next() });
 }
 
 on('chronicle', (c: Chronicle) => { queue.push(c); if (!showing) next(); });

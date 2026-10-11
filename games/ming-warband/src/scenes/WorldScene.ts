@@ -1,6 +1,6 @@
 // 大地图场景
 import Phaser from 'phaser';
-import { SEGS, PASSES } from '../core/wall';
+import { SEGS, PASSES, BREACH_OPEN } from '../core/wall';
 import { renderMapCanvas, WORLD_W, WORLD_H, terAtXY, TER_NAME } from '../core/terrain';
 import { S, player, isNight, hostile, on, playerHostileToSettlement, lordName, partyById } from '../core/game';
 import { nav, setPlayerTarget, simulate } from '../core/sim';
@@ -376,7 +376,7 @@ export class WorldScene extends Phaser.Scene {
     if (S.wallHp) for (let k = 0; k < S.wallHp.length; k++) {
       if (S.wallHp[k] > 0 && S.wallHp[k] >= 100) continue;
       const sg = SEGS[k]; if (!sg) continue;
-      const broken = S.wallHp[k] <= 0;
+      const broken = S.wallHp[k] < BREACH_OPEN;
       const tx = sg.ny, ty = -sg.nx; // 沿墙方向
       if (broken) {
         fx.fillStyle(0x4a3c2c, 0.85); fx.fillEllipse(sg.x, sg.y, 22, 12);
