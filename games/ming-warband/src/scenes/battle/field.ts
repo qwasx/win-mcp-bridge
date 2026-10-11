@@ -16,11 +16,11 @@ export interface SiegeGeo {
   sections: Section[]; stairs: number[]; towers: number[]; town: boolean;
 }
 
-export type FieldSize = 0 | 1 | 2 | 3;
-export const FIELD_DIMS: [number, number][] = [[1800, 1150], [2400, 1550], [3000, 1950], [3600, 2300]];
+export type FieldSize = 0 | 1 | 2 | 3 | 4;
+export const FIELD_DIMS: [number, number][] = [[1800, 1150], [2400, 1550], [3000, 1950], [3600, 2300], [4400, 2800]];
 
 export function sizeFor(total: number, siege: boolean): FieldSize {
-  let s: FieldSize = total <= 90 ? 0 : total <= 220 ? 1 : total <= 420 ? 2 : 3;
+  let s: FieldSize = total <= 90 ? 0 : total <= 220 ? 1 : total <= 420 ? 2 : total <= 680 ? 3 : 4;
   if (siege && s === 0) s = 1;
   return s;
 }

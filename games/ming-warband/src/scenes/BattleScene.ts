@@ -80,12 +80,13 @@ export interface Unit {
   navT?: number; navX?: number; navY?: number; hgt?: number; slopeK?: number; terrT?: number; inForm?: boolean;
   spr?: Phaser.GameObjects.Sprite | null; sheet?: string; walkT?: number; aiming?: boolean; firedT?: number; dustT?: number;
   banner?: Phaser.GameObjects.Sprite | null;
+  disc?: Phaser.GameObjects.Image | null;
 }
 
 interface Proj { x: number; y: number; vx: number; vy: number; dmg: number; side: 0 | 1; life: number; kind: 'bow' | 'xbow' | 'gun'; from: Unit; sx: number; sy: number; dist: number; z0: number }
 interface Ent { id: string; pid: string; ally: boolean; k: number }
 
-const GAPS = [900, 1050, 1200, 1350];
+const GAPS = [900, 1050, 1200, 1350, 1550];
 
 export class BattleScene extends Phaser.Scene {
   setup!: BattleSetup;
@@ -172,6 +173,11 @@ export class BattleScene extends Phaser.Scene {
     this.makeGround();
     this.stamp = this.make.graphics({}, false);
     this.gUnder = this.add.graphics().setDepth(2);
+    for (const [k, w, hh] of [['disc_s', 24, 9], ['disc_m', 44, 14]] as [string, number, number][]) {
+      if (this.textures.exists(k)) continue;
+      const ct = this.textures.createCanvas(k, w, hh)!; const cx = ct.getContext();
+      cx.fillStyle = '#ffffff'; cx.beginPath(); cx.ellipse(w / 2, hh / 2, w / 2 - 0.5, hh / 2 - 0.5, 0, 0, Math.PI * 2); cx.fill(); ct.refresh();
+    }
     this.g = this.add.graphics().setDepth(2.5);
     this.gProj = this.add.graphics().setDepth(14);
     this.gTop = this.add.graphics().setDepth(31);
@@ -416,6 +422,7 @@ export class BattleScene extends Phaser.Scene {
     const info = ensureFigure(this, this.specOf(u));
     u.spr = this.add.sprite(u.x, u.y, info.key, 0).setOrigin(info.ax, info.ay).setScale(1 / RES).setDepth(this.dy(u.y));
     u.sheet = info.key; u.walkT = Math.random() * 30; u.firedT = 0; u.dustT = 0;
+    if (!u.hero && !u.disc) u.disc = this.add.image(u.x, u.y, u.mounted ? 'disc_m' : 'disc_s').setScale(0.5).setDepth(2).setAlpha(0.28);
   }
   refreshHeroSprite() {
     const h = this.hero; if (!h || !h.spr) return;
@@ -1080,7 +1087,9 @@ export class BattleScene extends Phaser.Scene {
     if (this.siegeCtl && this.siegeCtl.started && this.siegeCtl.brain(u, dt)) return;
     u.retarget -= dt;
     if (u.retarget <= 0 || !u.target || u.target.dead || u.target.fled || u.target.routed) {
-      u.target = this.findTarget(u); u.retarget = 0.4 + Math.random() * 0.4;
+      u.target = this.findTarget(u);
+      const td = u.target ? Math.abs(u.target.x - u.x) + Math.abs(u.target.y - u.y) : 9999;
+      u.retarget = td > 500 ? 1.1 + Math.random() * 0.8 : 0.4 + Math.random() * 0.4; // 敌人尚远时不必频繁索敌
     }
     const t = u.target;
     let order = this.orderOf(u);
@@ -1176,19 +1185,25 @@ export class BattleScene extends Phaser.Scene {
   }
 
   separate() {
+    const grid = this.grid;
     for (const u of this.units) {
       if (u.dead || u.fled || u.trans) continue;
-      this.near(u.x, u.y, 20, o => {
-        if (o === u || o.dead || o.onWall !== u.onWall || o.trans) return;
-        const dx = u.x - o.x, dy = u.y - o.y;
-        const md = u.onWall ? 7 : u.r + o.r;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < md * md && d2 > 0.01) {
-          const d = Math.sqrt(d2);
-          const push = (md - d) * (u.hero ? 0.25 : 0.5) * (o.mounted && !u.mounted ? 1.4 : 1);
-          this.moveUnit(u, u.onWall ? 0 : (dx / d) * push, (dy / d) * push);
+      const x0 = Math.floor((u.x - 20) / 40), x1 = Math.floor((u.x + 20) / 40), y0 = Math.floor((u.y - 20) / 40), y1 = Math.floor((u.y + 20) / 40);
+      for (let gx = x0; gx <= x1; gx++) for (let gy = y0; gy <= y1; gy++) {
+        const a = grid.get(gx * 1000 + gy); if (!a) continue;
+        for (let k = 0; k < a.length; k++) {
+          const o = a[k];
+          if (o === u || o.dead || o.onWall !== u.onWall || o.trans) continue;
+          const dx = u.x - o.x, dy = u.y - o.y;
+          const md = u.onWall ? 7 : u.r + o.r;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < md * md && d2 > 0.01) {
+            const d = Math.sqrt(d2);
+            const push = (md - d) * (u.hero ? 0.25 : 0.5) * (o.mounted && !u.mounted ? 1.4 : 1);
+            this.moveUnit(u, u.onWall ? 0 : (dx / d) * push, (dy / d) * push);
+          }
         }
-      });
+      }
     }
   }
 
@@ -1308,6 +1323,7 @@ export class BattleScene extends Phaser.Scene {
     if (!this.F.waterAt(u.x, u.y)) { try { this.ground?.draw(s, u.x - 6, u.y); } catch { /* */ } this.stampCorpse(u); }
     void lift;
     u.spr?.destroy(); u.spr = null;
+    u.disc?.destroy(); u.disc = null;
     if (u.banner) { u.banner.destroy(); u.banner = null; }
     if (u.mounted && !u.hero) this.parts.push({ x: u.x, y: u.y, z: 0, vx: 0, vy: 0, vz: 0, life: 0, max: 0.6, kind: 'dust', size: 8 });
   }
@@ -1532,9 +1548,9 @@ export class BattleScene extends Phaser.Scene {
     for (const u of this.units) {
       const spr = u.spr;
       if (!spr) continue;
-      if (u.dead || u.fled) { spr.setVisible(false); u.banner?.setVisible(false); continue; }
+      if (u.dead || u.fled) { spr.setVisible(false); u.banner?.setVisible(false); u.disc?.setVisible(false); continue; }
       const vis = u.x > mx0 && u.x < mx1 && u.y > my0 && u.y < my1;
-      if (!vis) { if (spr.visible) { spr.setVisible(false); u.banner?.setVisible(false); } continue; }
+      if (!vis) { if (spr.visible) { spr.setVisible(false); u.banner?.setVisible(false); u.disc?.setVisible(false); } continue; }
       spr.setVisible(true);
       const lift = this.liftOf(u);
       const sp = Math.hypot(u.vx, u.vy);
@@ -1549,7 +1565,7 @@ export class BattleScene extends Phaser.Scene {
       spr.setPosition(u.x, u.y - lift).setFrame(f).setFlipX(flip).setDepth(lift > 2 ? 11.2 + u.y / 1e5 : this.dy(u.y));
       if (u.hitFlash > 0) spr.setTintFill(0xffffff); else if (u.routed) spr.setTint(0xb0b0b0); else spr.clearTint();
       const col = this.colorOf(u);
-      gu.fillStyle(col, u.hero ? 0 : 0.28); gu.fillEllipse(u.x, u.y - lift + 0.5, u.mounted ? 22 : 12, u.mounted ? 7 : 4.5);
+      if (u.disc) u.disc.setPosition(u.x, u.y - lift + 0.5).setTint(col).setVisible(true);
       if (u.hero || u.comp) {
         gu.lineStyle(1.6, u.hero ? 0xffe070 : 0x8fd8ff, 0.95); gu.strokeEllipse(u.x, u.y - lift + 0.5, u.mounted ? 30 : 18, u.mounted ? 10 : 7);
         const w = 22, top = u.y - lift - (u.mounted ? 46 : 34);

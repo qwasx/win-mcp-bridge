@@ -1,4 +1,5 @@
 // 主菜单、角色创建、游戏菜单、存读档
+import { settings, saveSettings, FIELD_CAPS } from '../core/settings';
 import { h, uiRoot, openPanel, closeTop, closeAll, btn, toast, confirmDialog } from './dom';
 import { BACKGROUNDS, newGame, S, on } from '../core/game';
 import { SLOTS, readMeta, saveGame, loadGame, hasAnySave } from '../core/save';
@@ -89,6 +90,21 @@ export function openSave() {
   }, 'menu-item'))));
 }
 
+export function openBattleSettings() {
+  const body = h('div');
+  const render = () => {
+    body.replaceChildren(
+      h('h4', null, '战场规模（敌我双方同时在场的最多人数）'),
+      h('div', { class: 'row' }, ...FIELD_CAPS.map(([n, label]) => btn(label, () => { settings.fieldCap = n; saveSettings(); render(); }, settings.fieldCap === n ? 'primary' : ''))),
+      h('p', { class: 'dim' }, '超出上限的兵力作为后援，前线有人倒下就陆续补上。千人大战需要较好的电脑；若觉卡顿可调小。'),
+      h('h4', null, '战前布阵'),
+      h('div', { class: 'row' }, btn(settings.deploy ? '✔ 开战前先布阵' : '✘ 直接开战', () => { settings.deploy = !settings.deploy; saveSettings(); render(); }, settings.deploy ? 'primary' : '')),
+    );
+  };
+  render();
+  openPanel('战场设置', body);
+}
+
 export function openGameMenu() {
   openPanel('菜单', h('div', { class: 'menu' },
     btn('继续游戏', () => closeTop(), 'menu-item primary'),
@@ -96,6 +112,7 @@ export function openGameMenu() {
     btn('读取存档', () => openLoad(), 'menu-item'),
     btn('游戏说明', () => openPanel('游戏说明', helpContent(), { wide: true }), 'menu-item'),
     btn('声音设置', () => openPanel('声音设置', soundSettings()), 'menu-item'),
+    btn('战场设置', () => openBattleSettings(), 'menu-item'),
     btn('返回主菜单', () => confirmDialog('返回主菜单', '未保存的进度将会丢失（自动存档除外）。确定吗？', () => { onQuit?.(); }), 'menu-item danger'),
   ));
 }
