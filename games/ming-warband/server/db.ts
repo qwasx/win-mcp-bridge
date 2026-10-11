@@ -2,7 +2,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, existsSync, copyFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { randomBytes, scryptSync, scrypt, timingSafeEqual } from 'node:crypto';
 import type { PRec } from '../src/net/protocol';
 
 export interface UserRow { name: string; salt: string; hash: string; token: string | null; rec: string; created: number; last: number; banned: number; gm: number }
@@ -24,18 +24,21 @@ export class DB {
   }
   // ---------- 账号 ----------
   static hashPass(pass: string, salt: string) { return scryptSync(pass, salt, 32).toString('hex'); }
+  /** 异步版（libuv 线程池），不阻塞世界主循环 */
+  static hashPassAsync(pass: string, salt: string): Promise<string> { return new Promise((res, rej) => scrypt(pass, salt, 32, (e, k) => e ? rej(e) : res(k.toString('hex')))); }
   user(name: string): UserRow | undefined { return this.db.prepare('SELECT * FROM users WHERE name = ?').get(name) as unknown as UserRow | undefined; }
   userByToken(token: string): UserRow | undefined { return this.db.prepare('SELECT * FROM users WHERE token = ?').get(token) as unknown as UserRow | undefined; }
-  register(name: string, pass: string, rec: PRec): string {
+  async register(name: string, pass: string, rec: PRec): Promise<string> {
     const salt = randomBytes(12).toString('hex');
     const token = randomBytes(24).toString('hex');
+    const hash = await DB.hashPassAsync(pass, salt);
     const gm = (this.db.prepare('SELECT COUNT(*) AS n FROM users').get() as { n: number }).n === 0 ? 1 : 0; // 第一个注册的账号自动成为 GM
     this.db.prepare('INSERT INTO users (name, salt, hash, token, rec, created, last, banned, gm) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)')
-      .run(name, salt, DB.hashPass(pass, salt), token, JSON.stringify(rec), Date.now(), Date.now(), gm);
+      .run(name, salt, hash, token, JSON.stringify(rec), Date.now(), Date.now(), gm);
     return token;
   }
-  checkPass(u: UserRow, pass: string) {
-    const a = Buffer.from(DB.hashPass(pass, u.salt), 'hex'), b = Buffer.from(u.hash, 'hex');
+  async checkPass(u: UserRow, pass: string) {
+    const a = Buffer.from(await DB.hashPassAsync(pass, u.salt), 'hex'), b = Buffer.from(u.hash, 'hex');
     return a.length === b.length && timingSafeEqual(a, b);
   }
   newToken(name: string) { const t = randomBytes(24).toString('hex'); this.db.prepare('UPDATE users SET token = ?, last = ? WHERE name = ?').run(t, Date.now(), name); return t; }

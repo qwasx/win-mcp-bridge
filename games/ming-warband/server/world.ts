@@ -144,6 +144,10 @@ export function despawnHero(acct: string, rec: PRec) {
   const p = heroOf(acct);
   if (!p) return;
   rec.x = p.x; rec.y = p.y; rec.troops = p.troops; rec.gold = p.gold; rec.goods = p.goods; rec.prisoners = p.prisoners;
+  // 下线：退入最近的己方（非敌对）城池驻扎，上线从该城出发
+  const home = settlementList().filter(s => s.kind !== 'village' && !factionHostileToSettlement(p.faction, s))
+    .sort((a, b) => dist(a.x, a.y, p.x, p.y) - dist(b.x, b.y, p.x, p.y))[0];
+  if (home) { rec.x = home.x + 6; rec.y = home.y + 6; }
   for (const [eid, e] of encounters) if (e.hero === p.id) endEncounter(eid);
   heroNav.delete(p.id);
   for (const s of settlementList()) if (s.siege && s.siege.by === p.id) s.siege = null;
@@ -493,11 +497,22 @@ export function worldSnap(): WorldSnap {
 }
 
 /** 差量：只发生变化的城池/领主/部队 */
-const lastSt = new Map<string, string>(), lastLord = new Map<string, string>(), lastParty = new Map<number, string>();
+const lastStF = new Map<string, Record<string, string>>(), lastLord = new Map<string, string>(), lastParty = new Map<number, string>();
 let lastMisc = '';
 export function worldDelta(full = false): S2C | null {
   const sts: Settlement[] = [], lords: any[] = [];
-  for (const s of settlementList()) { const j = JSON.stringify(s); if (full || lastSt.get(s.id) !== j) { lastSt.set(s.id, j); sts.push(s); } }
+  // 城池：只发变化了的字段（兵源按整数比较，小数累积 racc 不发）
+  for (const s of settlementList()) {
+    let prev = lastStF.get(s.id); if (!prev) { prev = {}; lastStF.set(s.id, prev); }
+    const patch: any = { id: s.id }; let n = 0;
+    for (const k of Object.keys(s) as (keyof Settlement)[]) {
+      if (k === 'racc' || k === 'id') continue;
+      const v = k === 'recruits' ? Math.floor(s.recruits) : s[k];
+      const j = typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v);
+      if (full || prev[k] !== j) { prev[k] = j; patch[k] = v; n++; }
+    }
+    if (n) sts.push(patch);
+  }
   for (const l of Object.values(S.lords)) { const j = JSON.stringify(l); if (full || lastLord.get(l.id) !== j) { lastLord.set(l.id, j); lords.push(l); } }
   const misc = JSON.stringify([S.wars, S.alive, S.truceUntil, S.treaties, S.customFactions, S.chronLog?.length, (S.wallHp ?? []).filter(h => h <= 0).length, S.beacons?.length]);
   const m: S2C = { t: 'world', time: S.time };
@@ -518,9 +533,21 @@ export function partiesDelta(): S2C {
   for (const id of lastParty.keys()) if (!seen.has(id)) { gone.push(id); lastParty.delete(id); }
   return { t: 'parties', up, gone };
 }
+// 位置广播：只发“变了的”部队（量化到 1 像素），每 5 秒一次全量关键帧
+const lastPos = new Map<number, number>();
+let posFrame = 0;
 export function posPacket(): S2C {
   const a: number[] = [];
-  for (const p of visibleParties()) { if (p.inside) continue; a.push(p.id, Math.round(p.x * 10), Math.round(p.y * 10), (p.busy ? 1 : 0)); }
+  const full = posFrame++ % 12 === 0;
+  for (const p of visibleParties()) {
+    if (p.inside) continue;
+    const x = Math.round(p.x), y = Math.round(p.y), f = p.busy ? 1 : 0;
+    const key = (x * 4096 + y) * 2 + f;
+    if (!full && lastPos.get(p.id) === key) continue;
+    lastPos.set(p.id, key);
+    a.push(p.id, x * 10, y * 10, f);
+  }
+  if (full) for (const id of lastPos.keys()) if (!partyById(id)) lastPos.delete(id);
   return { t: 'pos', time: S.time, a };
 }
 

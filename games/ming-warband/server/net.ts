@@ -17,7 +17,7 @@ import { declareIndependence, indepCheck, proclaimEmperor, invite, acceptInvite,
 
 interface Sess {
   ws: WebSocket; ip: string; acct?: string; rec?: PRec; gm: boolean; entered: boolean;
-  msgTimes: number[]; chatAt: number; lastSyncAt: number;
+  msgTimes: number[]; chatAt: number; lastSyncAt: number; authing?: boolean;
 }
 
 export const sessions = new Set<Sess>();
@@ -71,14 +71,13 @@ function onClose(s: Sess) {
   if (!s.acct || byAcct.get(s.acct) !== s) return;
   byAcct.delete(s.acct);
   const acct = s.acct, rec = s.rec!;
-  // 20 秒内重连则保留部队
+  // 下线后部队在野外再留 2 分钟（防“下线逃跑”，期间仍可被截击、自动迎战），2 分钟内重连无缝接回
   leaving.set(acct, setTimeout(() => {
     leaving.delete(acct);
     if (byAcct.has(acct)) return;
     W.despawnHero(acct, rec);
     db.saveRec(acct, rec);
-    pushOnline();
-  }, 20000));
+  }, 120000));
 }
 
 function handle(s: Sess, m: C2S) {
@@ -93,14 +92,24 @@ function handle(s: Sess, m: C2S) {
       const regs = (regByIp.get(s.ip) ?? []).filter(t => Date.now() - t < 24 * 3600 * 1000);
       if (regs.length >= REG_PER_IP && s.ip !== '127.0.0.1' && s.ip !== '::1' && s.ip !== '::ffff:127.0.0.1') return send(s, { t: 'auth', ok: false, err: `同一网络一天最多注册 ${REG_PER_IP} 个名号` });
       regByIp.set(s.ip, [...regs, Date.now()]);
-      const token = db.register(name, pass, { name, nation: null } as unknown as PRec);
-      db.audit(name, `register from ${s.ip}`);
-      return afterAuth(s, name, token);
+      if (s.authing) return; s.authing = true;
+      void db.register(name, pass, { name, nation: null } as unknown as PRec).then(token => {
+        s.authing = false;
+        db.audit(name, `register from ${s.ip}`);
+        if (s.ws.readyState === 1) afterAuth(s, name, token);
+      }, () => { s.authing = false; send(s, { t: 'auth', ok: false, err: '此名号已被占用' }); });
+      return;
     }
     case 'login': {
       const u = db.user(String(m.name ?? '').trim());
-      if (!u || !db.checkPass(u, String(m.pass ?? ''))) return send(s, { t: 'auth', ok: false, err: '名号或密码不对' });
-      return afterAuth(s, u.name, db.newToken(u.name));
+      if (!u) return send(s, { t: 'auth', ok: false, err: '名号或密码不对' });
+      if (s.authing) return; s.authing = true;
+      void db.checkPass(u, String(m.pass ?? '')).then(ok => {
+        s.authing = false;
+        if (!ok) return send(s, { t: 'auth', ok: false, err: '名号或密码不对' });
+        if (s.ws.readyState === 1) afterAuth(s, u.name, db.newToken(u.name));
+      });
+      return;
     }
     case 'resume': {
       const u = db.userByToken(String(m.token ?? ''));
@@ -196,6 +205,7 @@ function afterAuth(s: Sess, name: string, token: string) {
   if (!needCreate) enter(s);
 }
 
+let snapCache = { at: 0, json: '' };
 function enter(s: Sess) {
   const rec = s.rec!;
   if (rec.nation && !S.alive[rec.nation]) {
@@ -207,14 +217,22 @@ function enter(s: Sess) {
   }
   const p = W.spawnHero(rec);
   s.entered = true;
-  send(s, { t: 'welcome', rec, partyId: p.id, world: W.worldSnap(), parties: W.visibleParties().map(W.netParty), cfg: W.CFG, gm: s.gm, chat: db.recentChat(30) });
-  pushOnline();
+  // 世界快照约 250KB：1 秒内多人上线共用同一份序列化结果
+  const now = Date.now();
+  if (now - snapCache.at > 1000) snapCache = { at: now, json: JSON.stringify(W.worldSnap()) };
+  raw0(s, `{"t":"welcome","world":${snapCache.json},` + JSON.stringify({ rec, partyId: p.id, parties: W.visibleParties().map(W.netParty), cfg: W.CFG, gm: s.gm, chat: db.recentChat(30) }).slice(1));
+  send(s, { t: 'online', list: onlineList() }); // 其他人随下一个 3 秒周期收到
 }
 
 let lastOnline = '';
-export function pushOnline(force = false) {
+function onlineList() {
   const list: OnlineInfo[] = [];
   for (const s of byAcct.values()) if (s.entered && s.rec) list.push({ name: s.acct!, nation: s.rec.nation, lvl: s.rec.hero?.level ?? 1, gm: s.gm || undefined });
+  return list;
+}
+/** 在线名单：变化时随 3 秒周期合并广播（避免大批玩家同时上线时 O(N²) 刷屏） */
+export function pushOnline(force = false) {
+  const list = onlineList();
   const j = JSON.stringify(list);
   if (!force && j === lastOnline) return;
   lastOnline = j;

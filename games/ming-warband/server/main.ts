@@ -56,19 +56,20 @@ server.listen(PORT, '0.0.0.0', () => console.log(`[boot] listening on 0.0.0.0:${
 
 // ---------- 主循环 ----------
 let last = Date.now(), lastPos = 0, lastParties = 0, lastWorld = 0, lastSave = Date.now(), lastHb = 0, lastBackup = 0;
-let tickCost = 0;
+let tickCost = 0, maxLag = 0;
 setInterval(() => {
   const now = Date.now();
   const dt = Math.min(1, (now - last) / 1000);
+  maxLag = Math.max(maxLag, now - last - 100);
   last = now;
   const a = performance.now();
   W.tick(dt);
   tickCost = tickCost * 0.95 + (performance.now() - a) * 0.05;
-  if (now - lastPos >= 200) { lastPos = now; broadcastRaw(JSON.stringify(W.posPacket())); }
+  if (now - lastPos >= 400) { lastPos = now; broadcastRaw(JSON.stringify(W.posPacket())); }
   if (now - lastParties >= 1000) { lastParties = now; const d = W.partiesDelta(); if (d.t === 'parties' && (d.up.length || d.gone.length)) broadcastRaw(JSON.stringify(d)); }
   if (now - lastWorld >= 3000) { lastWorld = now; kingdomTick(); checkOrphans(); const d = W.worldDelta(); if (d) broadcastRaw(JSON.stringify(d)); pushOnline(); }
   if (now - lastHb >= 20000) { lastHb = now; heartbeat(); }
-  if (now - lastSave >= 60000) { lastSave = now; const b = performance.now(); saveAll(); console.log(`[save] ${Math.round(performance.now() - b)} ms; tick avg ${tickCost.toFixed(1)} ms; online ${[...sessions].filter(s => s.entered).length}`); }
+  if (now - lastSave >= 60000) { lastSave = now; const b = performance.now(); saveAll(); console.log(`[save] ${Math.round(performance.now() - b)} ms; tick avg ${tickCost.toFixed(1)} ms; max lag ${maxLag} ms; online ${[...sessions].filter(s => s.entered).length}`); maxLag = 0; }
   if (now - lastBackup >= 6 * 3600 * 1000) { lastBackup = now; db.backup(); }
 }, 100);
 

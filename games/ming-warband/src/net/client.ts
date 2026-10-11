@@ -135,7 +135,7 @@ function mergeWorld(m: Extract<S2C, { t: 'world' }>) {
   for (const s of m.settlements ?? []) {
     fixSt(s);
     const cur = S.settlements[s.id];
-    if (cur) { if (cur.faction !== s.faction || cur.owner !== s.owner) ownerChanged = true; Object.assign(cur, s); } else { S.settlements[s.id] = s; ownerChanged = true; }
+    if (cur) { if (('faction' in s && cur.faction !== s.faction) || ('owner' in s && cur.owner !== s.owner)) ownerChanged = true; Object.assign(cur, s); } else { S.settlements[s.id] = s; ownerChanged = true; }
   }
   for (const l of m.lords ?? []) { const cur = S.lords[l.id]; if (cur) Object.assign(cur, l); else S.lords[l.id] = l; }
   if (m.wars) S.wars = m.wars;
