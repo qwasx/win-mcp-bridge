@@ -125,6 +125,7 @@ function markBad(p: Party, t: string | number | undefined, hours = 48) {
 import { thinkFollower, aiArmyBattle, rallyArmy, rallyPotential, armySiegeAssault } from './war';
 import { calendarDaily, randomEvents, reviveFactions } from './calendar';
 import { theaterMarch, theaterAllows } from './strategy';
+import { lordReinforce, dailyRecruits } from './recruits';
 const regionOfParty = (p: Party) => regionOfXY(p.x, p.y);
 const STEP = 0.25;
 let pathBudget = 0;
@@ -676,7 +677,7 @@ function daily() {
     for (const st of p.troops) if (st.w > 0) st.w = Math.max(0, st.w - Math.ceil(st.w * 0.2));
     if (p.inside) {
       const s = S.settlements[p.inside];
-      if (s && s.faction === p.faction) for (const t of genTroops(FACTION[p.faction].culture, randInt(5, 10), 0.35)) addTroops(p.troops, t.id, t.n);
+      if (s && s.faction === p.faction) lordReinforce(p, s);
     }
     // 升级
     for (const st of [...p.troops]) {
@@ -725,10 +726,8 @@ function weekly() {
     else { const pay = 50 + healthy(pp.troops) * 5; pp.gold += pay; log(`${FACTION[S.mercOf].name}支付雇佣金 ${pay} 两。`, 'good'); }
   }
   // 村庄刷新
-  for (const s of settlementList()) {
-    if (s.kind === 'village') s.recruits = Math.min(15, s.recruits + randInt(1, 4) + Math.max(0, Math.floor(s.relation / 15)));
-    else refreshShop(s);
-  }
+  dailyRecruits();
+  for (const s of settlementList()) if (s.kind !== 'village') refreshShop(s);
   diplomacy();
 }
 

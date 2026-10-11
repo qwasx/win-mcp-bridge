@@ -11,7 +11,7 @@ import {
   S, player, log, lordName, playerHostileToSettlement, playerHostileTo, changePlayerRel, cultureOf, fiefsOf, partyById, setWar,
   refreshTavern, settlementList, emit, atWar,
 } from '../core/game';
-import { FACTION, COMPANIONS, BANDIT_ZONES, CAMP_RECRUIT, CAMP_RECRUIT_GOOD } from '../data/world';
+import { FACTION, COMPANIONS, BANDIT_ZONES } from '../data/world';
 import { TROOPS, RECRUIT_OF, recruitCost, classLabel } from '../data/troops';
 import { GOODS, GOOD, ITEMS } from '../data/items';
 import { goodPrice, itemBuyPrice, itemSellPrice, ransomPrice } from '../core/economy';
@@ -26,6 +26,7 @@ import type { SiegeKit } from '../scenes/battle/siege';
 import { playerAutoBattle, applyPlayerBattle, setOwner } from '../core/combat';
 import { showReport } from './encounter';
 import { saveGame } from '../core/save';
+import { recruitTroopOf } from '../core/recruits';
 import { pick, randInt } from '../core/rng';
 import { ll } from '../core/terrain';
 
@@ -301,7 +302,7 @@ function openRecruit(st: Settlement) {
   const body = h('div');
   const culture = st.owner === 'player' ? cultureOf(S.playerFaction ?? 'ming') : FACTION[st.faction].culture;
   // 蒙古包只出骑兵：牧民；交情深了，帐中的好骑手也愿意跟你走
-  const tid = st.camp ? (st.relation >= 15 ? CAMP_RECRUIT_GOOD : CAMP_RECRUIT) : (RECRUIT_OF[culture] ?? 'ming_recruit');
+  const tid = recruitTroopOf(st, culture);
   const t = TROOPS[tid];
   const render = () => {
     body.innerHTML = '';
