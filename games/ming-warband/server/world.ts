@@ -524,9 +524,33 @@ function applyBattle(rec: PRec, p: Party, a: { eid?: number; enemy?: number; ext
 }
 
 // ---------- 同步 ----------
+/** 未显圣的天命之主：广播给别人的兵种换成本国同类精兵，免得一看“金甲天骑”就露馅（自己的真实兵马走 rec，不受影响） */
+const disguiseCache = new Map<string, string>();
+function disguiseId(id: string, faction: string): string {
+  const key = id + '|' + faction;
+  let r = disguiseCache.get(key);
+  if (!r) {
+    const want = TROOPS[id], culture = FACTION[faction]?.culture ?? 'ming';
+    const pool = Object.values(TROOPS).filter(t => t.culture === culture);
+    const score = (t: typeof want) => (t.cls === want.cls ? 100 : t.mounted === want.mounted ? 50 : 0) + (!!t.rng === !!want.rng ? 20 : 0) + t.tier;
+    r = pool.sort((x, y) => score(y) - score(x))[0]?.id ?? RECRUIT_OF.ming;
+    disguiseCache.set(key, r);
+  }
+  return r;
+}
+function publicTroops(p: Party): Stack[] {
+  if (p.kind !== 'hero' || !p.troops.some(st => TROOPS[st.id]?.culture === 'god') || godOf(p)?.reveal) return p.troops;
+  const out: Stack[] = [];
+  for (const st of p.troops) {
+    const id = TROOPS[st.id]?.culture === 'god' ? disguiseId(st.id, p.faction) : st.id;
+    const o = out.find(x => x.id === id);
+    if (o) { o.n += st.n; o.w += st.w; } else out.push({ ...st, id });
+  }
+  return out;
+}
 export function netParty(p: Party): NetParty {
   return {
-    id: p.id, kind: p.kind, name: p.name, faction: p.faction, x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10, troops: p.troops, gold: p.gold, goods: p.goods,
+    id: p.id, kind: p.kind, name: p.name, faction: p.faction, x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10, troops: publicTroops(p), gold: p.gold, goods: p.goods,
     lordId: p.lordId, home: p.home, inside: p.inside, questId: undefined, hidden: p.hidden, acct: p.acct, busy: p.busy, grace: p.grace, hp: p.hp, lvl: p.lvl,
     ai: { mode: p.ai.mode, target: p.ai.target }, ...(p.kind === 'hero' && godOf(p)?.reveal && godOf(p)?.aura ? { god: 1 as const } : {}),
   };

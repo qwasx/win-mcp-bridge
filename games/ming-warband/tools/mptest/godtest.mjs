@@ -83,6 +83,14 @@ G.send({ t: 'sync', data: { troops: gpatch.data.troops, gold: 5000000 }, ps: gpa
 await sleep(600);
 r = await G.gmReply('audit');
 check('天命之主上传 3000+ 兵力/巨款不被判作弊', !/suspicious/.test(r?.text.split('\n').slice(0, 5).join('\n') ?? ''));
+await sleep(1200);
+const seenTroops = () => (gp()?.troops ?? []);
+check('未显圣：别人看到的是本国精兵，不是“金甲天骑”', seenTroops().length > 0 && !seenTroops().some(s => s.id.startsWith('god_')) && seenTroops().reduce((n, s) => n + s.n, 0) >= 3000, JSON.stringify(seenTroops()));
+await G.gmReply('god reveal on'); await sleep(1400);
+check('显圣：别人看到天兵真身', seenTroops().some(s => s.id.startsWith('god_')));
+await G.gmReply('god reveal off'); await sleep(1400);
+check('收起显圣：又伪装回去', !seenTroops().some(s => s.id.startsWith('god_')));
+check('自己看到的仍是真实天兵', G.of('patch').some(m => (m.data?.troops ?? []).some(s => s.id === 'god_cav')));
 
 console.log('— 金身：玩家对玩家自动结算 —');
 // 把 P2 武装起来去截 GM
@@ -145,7 +153,7 @@ check('普通玩家截击新手仍被新手保护拦下', !!prot && /新手保�
 
 console.log('— GM 指令：玩家 —');
 const cmds = [
-  ['setgold 李自成 12345', m => m.why === 'gm' && m.data.addGold !== undefined],
+  ['setgold 李自成 12345', m => m.why === undefined && m.data.addGold !== undefined],
   ['setrenown 李自成 777', m => m.data.renown === 777],
   ['level 李自成 30', m => m.data.hero?.level === 30],
   ['attr 李自成 str 25', m => m.data.hero?.attrs?.str === 25],
@@ -307,6 +315,7 @@ G.close(); await sleep(600);
 const G2 = await client('神君', 'ming', { token: tok });
 await sleep(500);
 check('断线重连：天命状态保持（只发给自己）', G2.gmLevel === 2 && G2.god?.on === true, JSON.stringify(G2.god));
+check('被 GM 修改的玩家收到的数据里没有任何 gm 痕迹', [P1, P2, P3].every(c => c.log.filter(m => m.t === 'patch').every(m => m.why !== 'gm')));
 check('重连后别人仍收不到 god 消息', [P1, P2, P3].every((c, i) => c.of('god').length === godMsgs0[i]));
 console.log(`（测试期间 AI 主动来袭 ${[G, P1, P2, P3].map(c => c.name + (c.ambushed ?? 0)).join(' ')} 次，已自动突围）`);
 await G2.gmReply('god on off'); await sleep(200);

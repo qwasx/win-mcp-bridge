@@ -55,7 +55,7 @@ function tgt(me: Sess, q: string): Tgt | null {
   const u = NETX.db.user(name); if (!u) return null;
   return { name, rec: JSON.parse(u.rec) as PRec, online: false };
 }
-function patch(t: Tgt, data: any) { if (t.online) W.OUT.send(t.name, { t: 'patch', data, why: 'gm' }); }
+function patch(t: Tgt, data: any) { if (t.online) W.OUT.send(t.name, { t: 'patch', data }); }
 function saveT(t: Tgt) { NETX.db.saveRec(t.name, t.rec); }
 /** 兵力：在线玩家以部队为准 */
 function troopsOf(t: Tgt) { return t.party ? t.party.troops : (t.rec.troops ??= []); }
@@ -90,7 +90,7 @@ function bestGear() {
 function moveParty(p: Party, x: number, y: number) {
   if (!passable(x, y)) [x, y] = nearestPassable(x, y);
   p.x = x; p.y = y; p.inside = undefined;
-  if (p.kind === 'hero') { W.stopHero(p); W.OUT.send(p.acct!, { t: 'patch', data: { x, y } as any, why: 'gm' }); }
+  if (p.kind === 'hero') { W.stopHero(p); W.OUT.send(p.acct!, { t: 'patch', data: { x, y } as any }); }
   else { p.ai.path = []; p.ai.mode = 'idle'; p.ai.nextThink = S.time + 1; }
 }
 function plist() {
@@ -223,7 +223,7 @@ export function gm(s: Sess, cmd: string, a: string[]) {
       const p = partyById(num(a[0], -1));
       if (!p || p.id === S.playerId) return reply('找不到这支部队（用部队 id）');
       if (cmd === 'smite') {
-        if (p.kind === 'hero') { if (godOfSafe(p)) return reply('不能对天命之主出手'); p.troops = []; W.OUT.send(p.acct!, { t: 'patch', data: { troops: [] }, why: 'gm' }); W.OUT.send(p.acct!, { t: 'report', title: '天降灾殃', lines: ['一场突如其来的瘟疫与山洪，你的军队一夜之间荡然无存。'] }); return reply(`${p.name}的军队已化为乌有`); }
+        if (p.kind === 'hero') { if (godOfSafe(p)) return reply('不能对天命之主出手'); p.troops = []; W.OUT.send(p.acct!, { t: 'patch', data: { troops: [] } }); W.OUT.send(p.acct!, { t: 'report', title: '天降灾殃', lines: ['一场突如其来的瘟疫与山洪，你的军队一夜之间荡然无存。'] }); return reply(`${p.name}的军队已化为乌有`); }
         removeParty(p); return reply(`${p.name}（#${p.id}）已从世上抹去`);
       }
       const me = W.heroOf(s.acct!);

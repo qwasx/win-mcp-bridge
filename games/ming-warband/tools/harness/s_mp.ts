@@ -41,8 +41,31 @@ export default async function (c: any) {
   mp.openDiplomacy(); await wait(300);
   console.log('diplomacy panel:', [...document.querySelectorAll('.panel-title')].pop()?.textContent, ([...document.querySelectorAll('.panel')].pop() as any)?.textContent?.slice(0, 160));
   closeAll();
-  mp.openGm(); await wait(300);
-  console.log('gm panel:', ([...document.querySelectorAll('.panel')].pop() as any)?.textContent?.slice(0, 160));
+  // ---- 天命：在聊天框输入令牌认领（令牌来自服务器 DATA_DIR/GM_KEY.txt） ----
+  const gmBtn = () => [...document.querySelectorAll('button')].find((b: any) => b.textContent?.includes('天意')) as any;
+  console.log('before claim: gm', NET.gm, '天意 button visible', !!gmBtn() && gmBtn().style.display !== 'none');
+  const fs = await import('node:fs');
+  const key = /([A-Z2-9]{4}(-[A-Z2-9]{4}){3})/.exec(fs.readFileSync((process.env.DATA_DIR ?? '/tmp/gt1') + '/GM_KEY.txt', 'utf8'))?.[1];
+  await wait(900);
+  if (ci && key) { ci.value = '/天命 ' + key.toLowerCase(); ci.dispatchEvent(new (window as any).KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }
+  await wait(1200);
+  const chatTxt = (document.querySelector('.mp-chat') as any)?.textContent ?? '';
+  console.log('after claim: gmLevel', NET.gmLevel, '天意 button visible', !!gmBtn() && gmBtn().style.display !== 'none', 'key leaked into chat?', chatTxt.includes(key!) || chatTxt.includes(key!.toLowerCase()));
+  const god = await import(GAME + 'src/core/god.ts');
+  gmBtn()?.click(); await wait(400);
+  const panelTxt = () => (document.querySelector('.gm-panel') as any)?.textContent ?? '';
+  for (const tab of [...document.querySelectorAll('.gm-tab')] as any[]) { tab.click(); await wait(500); console.log('  tab', tab.textContent, '→', panelTxt().replace(/\s+/g, ' ').slice(0, 110)); }
+  (document.querySelector('.gm-tab') as any)?.click(); await wait(300);
+  const onBtn = [...document.querySelectorAll('.gm-panel button')].find((b: any) => /开启天命|降临|天命/.test(b.textContent ?? '') && !/关闭|收起/.test(b.textContent ?? '')) as any;
+  console.log('god tab buttons:', [...document.querySelectorAll('.gm-panel button')].map((b: any) => b.textContent).slice(0, 18).join(' | '));
+  onBtn?.click(); await wait(800);
+  console.log('GOD.on', god.GOD.on, 'invincible', god.GOD.invincible, 'mapSpeed', god.GOD.mapSpeed);
+  const togs = [...document.querySelectorAll('.gm-tog')] as any[];
+  const revealTog = togs.find(b => b.textContent.includes('显圣'));
+  revealTog?.click(); await wait(800);
+  console.log('reveal toggled via panel →', god.GOD.reveal);
+  revealTog && ([...document.querySelectorAll('.gm-tog')] as any[]).find(b => b.textContent.includes('显圣'))?.click(); await wait(600);
+  await snap('/tmp/t/shot_mp_god.png');
   closeAll();
   await snap('/tmp/t/shot_mp.png');
   console.log('errors', errs.length, errs.slice(0, 5));

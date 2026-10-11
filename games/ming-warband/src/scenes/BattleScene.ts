@@ -1285,6 +1285,7 @@ export class BattleScene extends Phaser.Scene {
   damage(a: Unit, t: Unit, raw: number, hitChance: number, heroAttack = false, armorFactor = 0.45, src: 'melee' | 'arrow' | 'bullet' = 'melee') {
     const loud = a.hero || t.hero ? 1.4 : 0.75;
     if (godInvU(t)) { this.godBlock(t, src); return; }
+    if (godU(a)) { raw = raw * 2.2 + 12; hitChance += 0.3; armorFactor *= 0.4; } // 神威：哪怕是民壮，挥刀也破甲
     if (GOD.on && GOD.oneHit && godU(a)) { raw = t.maxHp * 4 + t.def * 2; hitChance = 9; }
     if (src === 'melee' && t.inForm && t.sq?.form === 'block') { if (a.mounted) raw *= 0.72; hitChance -= 0.06; }
     if (t.foot && t.foot > this.elapsed) hitChance -= 0.25;
@@ -1332,6 +1333,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   kill(u: Unit, by: Unit | null) {
+    if (u.dead) return; // 同一帧被多次击中：只算一次阵亡
     if (godInvU(u)) { u.hp = u.maxHp; return; }
     u.dead = true; u.hp = 0;
     if (Math.random() < 0.5 || u.hero || u.comp) this.snd('death', u.x, u.y, u.hero || u.comp ? 1.3 : 0.8);
@@ -1481,6 +1483,7 @@ export class BattleScene extends Phaser.Scene {
         n = 0;
       }
     };
+    if (GOD.on && GOD.invincible) { r.aWin = true; r.aDown = {}; for (const e of b) r.bDown[e.id] = (r.bDown[e.id] ?? 0); } // 金身：自动结算也零伤亡、必胜
     apply(0, a, r.aDown); apply(1, b, r.bDown);
     this.finish(r.aWin);
   }
