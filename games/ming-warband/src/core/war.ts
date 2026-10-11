@@ -132,7 +132,7 @@ export function aiArmyBattle(a: Party, b: Party) {
     if (win[0].lordId && lose[0].lordId) log(`${wn}大破${ln}。`, 'war');
     else if (near) log(`${wn}击败了${ln}。`, 'dim');
   }
-  for (const p of lose) removeParty(p);
+  for (const p of lose) { if (p.lordId && S.lords[p.lordId]) S.lords[p.lordId].grudge = win[0].lordId ?? undefined; removeParty(p); }
   for (const p of win) { cleanStacks(p.troops); if (healthy(p.troops) <= 0) removeParty(p); }
 }
 
@@ -178,8 +178,9 @@ export function thinkFollower(p: Party, goTo: (p: Party, x: number, y: number) =
   const k = p.id % 6, ox = Math.cos(k) * 14, oy = Math.sin(k) * 14;
   const dd = d2(p, L);
   if (dd < 10) { ai.path = []; return true; }
-  if (dd < 90) ai.path = [[L.x + ox, L.y + oy]];
-  else goTo(p, L.x + ox, L.y + oy);
+  // 统一走 goTo：近处视线通畅才直走，隔着城墙/海湾则绕路
+  if (ai.path?.length && ai.tx !== undefined && Math.hypot(ai.tx - L.x - ox, ai.ty! - L.y - oy) < 12 && dd > 90) return true;
+  goTo(p, L.x + ox, L.y + oy);
   return true;
 }
 

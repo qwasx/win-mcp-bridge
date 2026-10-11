@@ -179,15 +179,38 @@ export function wallRuleAt(x: number, y: number, who: unknown) {
 /** 两点之间是否有挡路的城墙（2 = 需夜间潜越） */
 export function wallBetween(x0: number, y0: number, x1: number, y1: number, who: unknown): number {
   if (who === undefined || !wallRule) return 0;
-  const d = Math.hypot(x1 - x0, y1 - y0), steps = Math.max(1, Math.ceil(d / (CELL / 4)));
   let worst = 0;
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const r = wallRuleAt(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, who);
-    if (r === 0) return 1;
+  traceCells(x0, y0, x1, y1, ci => {
+    if (wallSeg[ci] < 0) return true;
+    const r = wallRule!(ci, who);
+    if (r === 0) { worst = 1; return false; }
     if (r === 2) worst = 2;
-  }
+    return true;
+  });
   return worst;
+}
+/** 精确遍历线段经过的所有格（Amanatides–Woo，穿过格点时两侧邻格都算）。visit 返回 false 则中止；越界返回 false */
+export function traceCells(x0: number, y0: number, x1: number, y1: number, visit: (ci: number) => boolean): boolean {
+  let gx = Math.floor(x0 / CELL), gy = Math.floor(y0 / CELL);
+  const ex = Math.floor(x1 / CELL), ey = Math.floor(y1 / CELL);
+  const inb = (x: number, y: number) => x >= 0 && y >= 0 && x < GW && y < GH;
+  if (!inb(gx, gy)) return false;
+  if (!visit(gy * GW + gx)) return false;
+  const dx = x1 - x0, dy = y1 - y0;
+  const stepX = dx > 0 ? 1 : -1, stepY = dy > 0 ? 1 : -1;
+  const tdx = dx !== 0 ? Math.abs(CELL / dx) : Infinity, tdy = dy !== 0 ? Math.abs(CELL / dy) : Infinity;
+  let tmx = dx !== 0 ? ((stepX > 0 ? (gx + 1) * CELL - x0 : x0 - gx * CELL) / Math.abs(dx)) : Infinity;
+  let tmy = dy !== 0 ? ((stepY > 0 ? (gy + 1) * CELL - y0 : y0 - gy * CELL) / Math.abs(dy)) : Infinity;
+  for (let n = 0; n < 4 * (GW + GH) && (gx !== ex || gy !== ey); n++) {
+    if (Math.abs(tmx - tmy) < 1e-9) {
+      if (!inb(gx + stepX, gy) || !visit(gy * GW + gx + stepX)) return false;
+      if (!inb(gx, gy + stepY) || !visit((gy + stepY) * GW + gx)) return false;
+      gx += stepX; gy += stepY; tmx += tdx; tmy += tdy;
+    } else if (tmx < tmy) { gx += stepX; tmx += tdx; }
+    else { gy += stepY; tmy += tdy; }
+    if (!inb(gx, gy) || !visit(gy * GW + gx)) return false;
+  }
+  return true;
 }
 export function nearestPassable(x: number, y: number): [number, number] {
   if (passable(x, y)) return [x, y];
@@ -237,19 +260,17 @@ class Heap {
   get size() { return this.a.length; }
 }
 
-function losClear(x0: number, y0: number, x1: number, y1: number, who?: unknown) {
+export function losClear(x0: number, y0: number, x1: number, y1: number, who?: unknown) {
   if (who !== undefined && wallBetween(x0, y0, x1, y1, who)) return false;
-  const d = Math.hypot(x1 - x0, y1 - y0);
-  const steps = Math.ceil(d / (CELL / 2));
-  let startSpeed = TER_SPEED[terAtXY(x0, y0)];
-  for (let i = 1; i <= steps; i++) {
-    const t = i / steps;
-    const s = TER_SPEED[terAtXY(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)];
-    if (s <= 0) return false;
-    if (s < 0.7 && startSpeed >= 0.7) return false; // 避免抄近路翻山
-    startSpeed = Math.min(startSpeed, s);
-  }
-  return true;
+  let startSpeed = -1;
+  return traceCells(x0, y0, x1, y1, ci => {
+    const sp = TER_SPEED[grid[ci]];
+    if (startSpeed < 0) { startSpeed = sp; return true; } // 起点格（可能刚好站在岸边）不判
+    if (sp <= 0) return false;
+    if (sp < 0.7 && startSpeed >= 0.7) return false; // 避免抄近路翻山
+    startSpeed = Math.min(startSpeed, sp);
+    return true;
+  });
 }
 
 export function findPath(sx: number, sy: number, tx: number, ty: number, who?: unknown): P[] | null {
@@ -298,6 +319,7 @@ export function findPath(sx: number, sy: number, tx: number, ty: number, who?: u
       if (dx && dy && (TER_SPEED[grid[cy * GW + nx]] <= 0 || TER_SPEED[grid[ny * GW + cx]] <= 0)) continue;
       let mul = 1;
       if (walls && wallSeg[ni] >= 0) { const r = wallRule!(ni, who); if (r === 0) continue; if (r === 2) mul = 6; }
+      if (walls && dx && dy) { const c1 = cy * GW + nx, c2 = ny * GW + cx; if ((wallSeg[c1] >= 0 && wallRule!(c1, who) === 0) || (wallSeg[c2] >= 0 && wallRule!(c2, who) === 0)) continue; }
       const cost = (dx && dy ? 1.4142 : 1) / sp * mul;
       const ng = gScore[cur] + cost;
       if (stamp[ni] !== curStamp) { stamp[ni] = curStamp; closed[ni] = 0; gScore[ni] = Infinity; }

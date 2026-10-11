@@ -188,6 +188,7 @@ export function applyPlayerBattle(enemy: Party | null, siegeOf: Settlement | nul
         log(`${S.hero.name}击败了${FACTION[enemy.faction].name}的${l.name}！`, 'gold');
       } else log(`你击败了${enemy.name}。`, 'good');
       if (enemy.questId) completeBanditQuest(enemy.questId);
+      if (enemy.lordId && S.lords[enemy.lordId]) S.lords[enemy.lordId].grudge = 'player';
       removeParty(enemy);
       for (const e of extras) { if (e.lordId) { lines.push(`${S.lords[e.lordId].name}也溃败而去。`); S.lords[e.lordId].relation -= 2; } removeParty(e); }
       if (ctx.defendOf) {
@@ -299,7 +300,9 @@ export function checkVictory() {
 
 // ---------- AI 之间的战斗 ----------
 export function aiBattle(a: Party, b: Party) {
-  const multA = a.kind === 'lord' ? 1.1 : 1, multB = b.kind === 'lord' ? 1.1 : 1;
+  // 背水一战的一方士气高涨
+  const desperate = (p: Party) => (p.ai.cornered && S.time - p.ai.cornered < 12 ? 1.15 : 1);
+  const multA = (a.kind === 'lord' ? 1.1 : 1) * desperate(a), multB = (b.kind === 'lord' ? 1.1 : 1) * desperate(b);
   const r = autoResolve(a.troops, b.troops, multA, multB, a.kind === 'lord' ? 8 : 0, b.kind === 'lord' ? 8 : 0);
   for (const id in r.aDown) removeTroops(a.troops, id, Math.round(r.aDown[id] * 0.75)), woundSome(a.troops, id, r.aDown[id]);
   for (const id in r.bDown) removeTroops(b.troops, id, Math.round(r.bDown[id] * 0.75)), woundSome(b.troops, id, r.bDown[id]);
@@ -314,6 +317,7 @@ export function aiBattle(a: Party, b: Party) {
     if (winner.lordId && loser.lordId) log(`${FACTION[winner.faction].name}${wn}击败了${FACTION[loser.faction].name}${ln}。`, 'war');
     else if (near) log(`${wn}击败了${ln}。`, 'dim');
   }
+  if (loser.lordId && S.lords[loser.lordId]) S.lords[loser.lordId].grudge = winner.lordId ?? undefined; // 记仇
   removeParty(loser);
   cleanStacks(winner.troops);
 }

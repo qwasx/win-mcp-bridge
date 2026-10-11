@@ -395,7 +395,8 @@ export function spawnCaravan(): Party | null {
 export function spawnVillager(v: Settlement): Party | null {
   if (!v.parent) return null;
   const troops: Stack[] = [{ id: 'civ_peasant', n: randInt(5, 14), w: 0, xp: 0 }];
-  const p = makeParty('villager', `${v.name}乡民`, v.faction, v.x + 5, v.y + 5, troops, { home: v.id, gold: randInt(20, 80) });
+  const [vx, vy] = nearestPassable(v.x + 5, v.y + 5);
+  const p = makeParty('villager', `${v.name}乡民`, v.faction, vx, vy, troops, { home: v.id, gold: randInt(20, 80) });
   for (const g of v.produce) p.goods[g] = randInt(2, 6);
   return p;
 }

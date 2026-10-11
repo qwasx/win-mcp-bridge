@@ -34,6 +34,12 @@ export interface AIState {
   nextThink: number;
   ax?: number; ay?: number; // 活动中心
   pathFor?: string;
+  replan?: boolean;            // 路被挡住，需要重新寻路
+  lm?: [number, number, number]; // 防卡死：上次明显移动的位置与时间
+  cornered?: number;           // 背水一战（无路可逃）的时间
+  avoid?: string | number;     // 刚刚到不了的目标，暂时不再选它
+  avoidUntil?: number;
+  bad?: Record<string, number>;   // 暂时去不了的目标 id → 到期时间
 }
 
 export interface Party {
@@ -82,6 +88,7 @@ export interface Settlement {
 
 export interface Lord {
   id: string; name: string; faction: FactionId; title: string; trait: string;
+  grudge?: string;             // 仇人（打败过自己的领主 id，或 'player'）
   relation: number;
   partyId: number | null;
   respawnAt: number;
