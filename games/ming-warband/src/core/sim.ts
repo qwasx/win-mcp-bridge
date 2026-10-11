@@ -339,7 +339,7 @@ function arrive(p: Party) {
 function visibleHostiles(p: Party, range: number) {
   const out: { o: Party; d: number; s: number }[] = [];
   for (const o of S.parties) {
-    if (o === p || o.inside || o.busy || (o.grace ?? 0) > S.time) continue;
+    if (o === p || o.inside || o.busy || o.hidden || (o.grace ?? 0) > S.time) continue;
     const d = dist(p.x, p.y, o.x, o.y);
     if (d > range) continue;
     if (!hostile(p, o)) continue;

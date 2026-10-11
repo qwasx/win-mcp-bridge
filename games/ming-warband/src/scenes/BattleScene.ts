@@ -21,6 +21,11 @@ import { ensureLifeTextures } from './worldLife';
 import { BattleField, sizeFor, FIELD_DIMS } from './battle/field';
 import { SiegeCtl, type SiegeKit, type CannonAim } from './battle/siege';
 import { settings } from '../core/settings';
+import { GOD } from '../core/god';
+
+/** 天命：本部兵马（我方、非友军）。单机时 GOD.on 恒为 false */
+const godU = (u: Unit) => GOD.on && u.side === 0 && !u.ally;
+const godInvU = (u: Unit) => GOD.on && GOD.invincible && u.side === 0 && !u.ally;
 
 const SWING = 0.32;
 interface Prop { spr: Phaser.GameObjects.Image; x: number; y: number; w: number; h: number; tree: boolean }
@@ -509,6 +514,7 @@ export class BattleScene extends Phaser.Scene {
       sq: null as unknown as Squad, slotX: 0, slotY: 0,
     };
     if (this.setup.siege) u.ammo = Math.round(u.ammo * 1.6); // 攻守城时箭矢充足
+    if (godU(u)) { u.speed *= GOD.battleSpeed; u.ammo = Math.max(u.ammo, ranged ? 999 : 0); }
     return u;
   }
 
@@ -584,6 +590,7 @@ export class BattleScene extends Phaser.Scene {
       (u as any).meleeSpeed = melee?.speed ?? 0.8;
       if (st.night) u.range *= 0.8;
       if (st.siege) u.ammo = Math.round(u.ammo * 1.5);
+      if (godU(u)) { u.speed *= GOD.battleSpeed; if (u.rng) u.ammo = 999; }
       this.hero = u; this.units.push(u);
       if (h.equip.horse && !mounted && !st.siege) this.msg('你的骑术不足以驾驭这匹马，只能步战。');
     }
@@ -599,6 +606,7 @@ export class BattleScene extends Phaser.Scene {
         cd: 0, rcd: 0, target: null, retarget: 0, group: g, dead: false, routed: false, fled: false, hero: false,
         disengage: 0, r: mounted ? 9 : 7, onWall: false, swing: 0, hitFlash: 0, sq: this.psq[g], slotX: 0, slotY: 0,
       };
+      if (godU(u)) u.speed *= GOD.battleSpeed;
       this.units.push(u);
     }
     for (const e of field0) this.units.push(this.makeUnit(0, e.id, e.pid, e.ally));
@@ -1186,7 +1194,7 @@ export class BattleScene extends Phaser.Scene {
     let dmg = u.atk;
     if (u.mounted && speedNow > u.speed * 0.55) dmg *= u.sq?.form === 'wedge' ? 1.95 : 1.7;
     if (u.antiCav && t.mounted) dmg *= 1.5;
-    if (u.mounted && t.antiCav) { u.hp -= 2; }
+    if (u.mounted && t.antiCav && !godInvU(u)) { u.hp -= 2; }
     if (u.sq?.form === 'wedge' && !u.mounted) dmg *= 1.08;
     dmg *= 1 + Math.max(-0.15, Math.min(0.2, ((u.hgt ?? 0) - (t.hgt ?? 0)) / 60));
     this.damage(u, t, dmg, 0.55 + (u.skill - t.skill) * 0.025);
@@ -1276,6 +1284,8 @@ export class BattleScene extends Phaser.Scene {
 
   damage(a: Unit, t: Unit, raw: number, hitChance: number, heroAttack = false, armorFactor = 0.45, src: 'melee' | 'arrow' | 'bullet' = 'melee') {
     const loud = a.hero || t.hero ? 1.4 : 0.75;
+    if (godInvU(t)) { this.godBlock(t, src); return; }
+    if (GOD.on && GOD.oneHit && godU(a)) { raw = t.maxHp * 4 + t.def * 2; hitChance = 9; }
     if (src === 'melee' && t.inForm && t.sq?.form === 'block') { if (a.mounted) raw *= 0.72; hitChance -= 0.06; }
     if (t.foot && t.foot > this.elapsed) hitChance -= 0.25;
     if (Math.random() > Math.max(0.15, Math.min(0.95, hitChance))) {
@@ -1296,9 +1306,17 @@ export class BattleScene extends Phaser.Scene {
     if (t.hero) this.floater(t.x, t.y - 14 - this.liftOf(t), `-${Math.round(dmg)}`, '#ff6050');
     if (t.hp <= 0) this.kill(t, a);
   }
+  /** 金身：刀枪不入，只迸出金光 */
+  godBlock(t: Unit, src: string) {
+    t.hp = t.maxHp;
+    if (Math.random() < 0.35) this.sparks(t.x, t.y - 14 - this.liftOf(t), 3);
+    if (src === 'melee' && Math.random() < 0.5) this.snd('clash', t.x, t.y, 0.5);
+    if (t.hero && Math.random() < 0.25) this.floater(t.x, t.y - 16 - this.liftOf(t), '金身', '#ffd860');
+  }
   /** 直接伤害（礌石、金汁、炮弹、坠落） */
   hurt(t: Unit, dmg: number, by: Unit | null) {
     if (t.dead || t.fled) return;
+    if (godInvU(t)) { this.godBlock(t, 'hurt'); return; }
     const d = Math.max(3, dmg - t.def * 0.25);
     t.hp -= d; t.hitFlash = 0.15;
     this.blood(t.x, t.y - this.liftOf(t), 3);
@@ -1314,6 +1332,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   kill(u: Unit, by: Unit | null) {
+    if (godInvU(u)) { u.hp = u.maxHp; return; }
     u.dead = true; u.hp = 0;
     if (Math.random() < 0.5 || u.hero || u.comp) this.snd('death', u.x, u.y, u.hero || u.comp ? 1.3 : 0.8);
     this.snd('fall', u.x, u.y, 0.6);
@@ -1356,7 +1375,7 @@ export class BattleScene extends Phaser.Scene {
       const m = this.sideMorale(side);
       if (m > 40) continue;
       for (const u of this.units) {
-        if (u.side !== side || u.dead || u.routed || u.hero || u.comp) continue;
+        if (u.side !== side || u.dead || u.routed || u.hero || u.comp || godInvU(u)) continue;
         const p = (m < 10 ? 0.25 : m < 25 ? 0.06 : 0.015) * (u.hp / u.maxHp < 0.5 ? 2 : 1) * dt;
         if (Math.random() < p) { u.routed = true; u.target = null; u.task = undefined; }
       }
@@ -1549,6 +1568,30 @@ export class BattleScene extends Phaser.Scene {
     setTimeout(() => el.remove(), 2800);
   }
 
+  /** 天命金光：脚下金轮、旋转光芒、升腾的金色火星 */
+  drawGodAura(gu: Phaser.GameObjects.Graphics, gt: Phaser.GameObjects.Graphics, x: number, y: number, now: number, mounted: boolean) {
+    const pulse = 1 + 0.12 * Math.sin(now / 180);
+    const R = (mounted ? 34 : 26) * pulse;
+    gu.fillStyle(0xffd040, 0.10); gu.fillEllipse(x, y, R * 3.2, R * 1.3);
+    gu.fillStyle(0xffe070, 0.16); gu.fillEllipse(x, y, R * 2.2, R * 0.9);
+    gu.lineStyle(2, 0xffe890, 0.9); gu.strokeEllipse(x, y, R * 2, R * 0.75);
+    gu.lineStyle(1, 0xfff6c0, 0.6); gu.strokeEllipse(x, y, R * 2.6, R * 1.0);
+    const rot = now / 900;
+    for (let i = 0; i < 12; i++) {
+      const a = rot + i * Math.PI / 6;
+      const c = Math.cos(a), sn = Math.sin(a) * 0.38;
+      gu.lineStyle(1.5, 0xffe070, 0.35 + 0.25 * Math.sin(now / 200 + i));
+      gu.lineBetween(x + c * R * 0.8, y + sn * R * 0.8, x + c * R * 1.6, y + sn * R * 1.6);
+    }
+    for (let i = 0; i < 9; i++) {
+      const ph = (now / 1300 + i / 9) % 1;
+      const ang = i * 2.39 + now / 2000;
+      const px = x + Math.cos(ang) * R * 0.7 * (1 - ph * 0.4), py = y - 6 - ph * (mounted ? 60 : 46);
+      gt.fillStyle(0xfff0a0, 0.85 * (1 - ph)); gt.fillCircle(px, py, 1.8 * (1 - ph) + 0.6);
+    }
+    gt.fillStyle(0xffe070, 0.18 + 0.08 * Math.sin(now / 150)); gt.fillCircle(x, y - (mounted ? 40 : 30), 10 * pulse);
+  }
+
   render() {
     const g = this.g, gp = this.gProj, gu = this.gUnder, gt = this.gTop;
     g.clear(); gp.clear(); gu.clear(); gt.clear();
@@ -1574,9 +1617,11 @@ export class BattleScene extends Phaser.Scene {
       else if (sp > 6) { u.walkT = (u.walkT ?? 0) + sp * dt; f = FR.walk0 + Math.floor(u.walkT / (u.mounted ? 11 : 7)) % 4; }
       const flip = Math.cos(u.face) < 0;
       spr.setPosition(u.x, u.y - lift).setFrame(f).setFlipX(flip).setDepth(lift > 2 ? 11.2 + u.y / 1e5 : this.dy(u.y));
-      if (u.hitFlash > 0) spr.setTintFill(0xffffff); else if (u.routed) spr.setTint(0xb0b0b0); else spr.clearTint();
-      const col = this.colorOf(u);
+      const gold = GOD.aura && godU(u);
+      if (u.hitFlash > 0) spr.setTintFill(0xffffff); else if (u.routed) spr.setTint(0xb0b0b0); else if (gold) spr.setTint(0xfff0c0); else spr.clearTint();
+      const col = gold ? 0xffd040 : this.colorOf(u);
       if (u.disc) u.disc.setPosition(u.x, u.y - lift + 0.5).setTint(col).setVisible(true);
+      if (gold && u.hero) this.drawGodAura(gu, gt, u.x, u.y - lift, now, u.mounted);
       if (u.hero || u.comp) {
         gu.lineStyle(1.6, u.hero ? 0xffe070 : 0x8fd8ff, 0.95); gu.strokeEllipse(u.x, u.y - lift + 0.5, u.mounted ? 30 : 18, u.mounted ? 10 : 7);
         const w = 22, top = u.y - lift - (u.mounted ? 46 : 34);

@@ -1,4 +1,5 @@
 // 战斗结算（自动结算 / 战后处理 / 攻城）
+import { godInv } from './god';
 import { TROOPS, troopPower } from '../data/troops';
 import { ITEM_LIST, GOOD } from '../data/items';
 import { FACTION, COMPANIONS } from '../data/world';
@@ -77,6 +78,11 @@ export function playerExtraPower() {
 }
 
 export function playerAutoBattle(enemy: Stack[], enemyMult = 1, enemyExtra = 0, ours?: Stack[], ourMult = 1, ourExtra = 0): Outcome {
+  if (godInv()) { // 天命金身：零损失，敌军尽没
+    const enemyDown: Casualties = {};
+    for (const st of enemy) enemyDown[st.id] = (enemyDown[st.id] ?? 0) + st.n - st.w;
+    return { win: true, ourDown: {}, enemyDown, heroDown: false, compDown: [] };
+  }
   const pp = player();
   const tactics = partySkill(S, 'tactics');
   const moraleMod = 0.85 + S.morale / 333;

@@ -1,5 +1,5 @@
 // 兵种数据
-export type Culture = 'ming' | 'jin' | 'chuang' | 'xi' | 'mon' | 'bandit' | 'merc' | 'civ';
+export type Culture = 'ming' | 'jin' | 'chuang' | 'xi' | 'mon' | 'bandit' | 'merc' | 'civ' | 'god';
 export type TroopClass = 'inf' | 'spear' | 'arc' | 'xbow' | 'gun' | 'cav' | 'hca';
 
 export interface TroopDef {
@@ -107,6 +107,15 @@ add(
   T({ id: 'civ_guard', name: '商队护卫', culture: 'civ', tier: 3, cls: 'inf', hp: 58, atk: 13, def: 9, skill: 7, desc: '' }),
   T({ id: 'civ_cguard', name: '护商骑手', culture: 'civ', tier: 3, cls: 'cav', hp: 58, atk: 13, def: 9, skill: 7, desc: '' }),
 );
+
+// ---------- 天兵（只有 GM 能召出：不进任何招募池、商店、雇佣兵与升级树） ----------
+add(
+  T({ id: 'god_cav', name: '金甲天骑', culture: 'god', tier: 5, cls: 'cav', hp: 420, atk: 85, def: 60, skill: 30, wage: 0, desc: '金甲金鞍，奔腾如雷，天降神兵。' }),
+  T({ id: 'god_guard', name: '金刚力士', culture: 'god', tier: 5, cls: 'inf', hp: 520, atk: 95, def: 70, skill: 30, wage: 0, desc: '身披金甲的力士，一刀断马。' }),
+  T({ id: 'god_gun', name: '神机天兵', culture: 'god', tier: 5, cls: 'gun', hp: 320, atk: 50, def: 50, skill: 28, rng: 140, ammo: 60, wage: 0, desc: '神机火铳，弹无虚发。' }),
+  T({ id: 'god_bow', name: '天弓骑', culture: 'god', tier: 5, cls: 'hca', hp: 360, atk: 60, def: 50, skill: 30, rng: 95, ammo: 80, wage: 0, desc: '马上开天弓，箭出如流星。' }),
+);
+export const GOD_TROOPS = ['god_cav', 'god_guard', 'god_gun', 'god_bow'];
 
 export const RECRUIT_OF: Record<string, string> = {
   ming: 'ming_recruit', jin: 'jin_recruit', chuang: 'chuang_recruit', xi: 'xi_recruit', mon: 'mon_recruit',

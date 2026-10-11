@@ -352,3 +352,35 @@ body.mp .hud-speed .spd { display: none; }
 }
 .swatch { display: inline-block; width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #6a4a1a; cursor: pointer; }
 .swatch.sel { box-shadow: 0 0 0 3px var(--gold); }
+
+/* ---------- 天意 · 上帝面板 ---------- */
+.gm-panel { width: min(1060px, 96vw) !important; }
+.gm-tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 2px solid #8a6a2a; margin-bottom: 8px; }
+.gm-tab { background: #3a2a14; color: #e8d6a8; border: 1px solid #6a4a1a; border-bottom: none; border-radius: 5px 5px 0 0; padding: 6px 12px; cursor: pointer; font-size: 14px; }
+.gm-tab.sel { background: linear-gradient(#d8b04a, #9a7420); color: #2a1a06; font-weight: bold; }
+.gm-card { padding: 6px 10px; }
+.gm-card-t { font-weight: bold; color: #6a3a0a; margin-bottom: 4px; }
+.gm-row { gap: 6px; align-items: center; margin: 4px 0; }
+.gm-lab { color: #5a4020; font-size: 13px; }
+.gm-in { padding: 3px 6px !important; font-size: 13px !important; height: auto !important; }
+.gm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin: 4px 0 8px; }
+.gm-tog { background: #2a2016; color: #b8a888; border: 1px solid #5a4a30; border-radius: 4px; padding: 7px 8px; cursor: pointer; text-align: left; font-size: 14px; }
+.gm-tog.on { background: linear-gradient(#f0d070, #b8881c); color: #2a1804; border-color: #ffe9a0; box-shadow: 0 0 10px rgba(255, 210, 80, .55); }
+.gm-tog b { font-size: 12px; }
+.gm-master { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 8px; border-radius: 6px; background: #1e160c; margin-bottom: 6px; }
+.gm-master.on { background: radial-gradient(circle at 20% 50%, rgba(255, 220, 110, .45), #2a1c08 70%); }
+.gm-master .dim { color: #c8b890; }
+.gm-big { font-size: 17px; padding: 9px 18px; border-radius: 6px; border: 1px solid #a88a40; background: #3a2c14; color: #e8d6a8; cursor: pointer; }
+.gm-big.on { background: linear-gradient(#ffe89a, #d4a020); color: #3a2000; font-weight: bold; box-shadow: 0 0 18px rgba(255, 215, 90, .8); }
+.gm-range { width: 260px; accent-color: #d4a020; }
+.gm-val { min-width: 42px; color: #8a5a0a; }
+.gm-table { max-height: 260px; overflow-y: auto; background: rgba(255, 255, 255, .35); border: 1px solid rgba(106, 74, 26, .35); border-radius: 4px; font-size: 13px; }
+.gm-tr { display: grid; grid-template-columns: 2.2fr .8fr 1fr .5fr 1fr .8fr 1.6fr; gap: 4px; padding: 3px 6px; border-bottom: 1px solid rgba(106, 74, 26, .15); cursor: pointer; align-items: center; }
+.gm-tr:hover { background: rgba(255, 220, 140, .35); }
+.gm-tr.sel { background: rgba(230, 180, 60, .5); }
+.gm-th { font-weight: bold; background: rgba(106, 74, 26, .2); cursor: default; position: sticky; top: 0; }
+.gm-tag { font-style: normal; font-size: 11px; background: #8a6a2a; color: #fff; border-radius: 3px; padding: 0 3px; margin-left: 3px; }
+.gm-tag.bad { background: #a03020; } .gm-tag.good { background: #3a7a3a; }
+.gm-out.small { height: 110px; }
+.gm-foot { margin-top: 6px; }
+button.gold, .btn.gold { background: linear-gradient(#ffe08a, #c8961c) !important; color: #3a2000 !important; }

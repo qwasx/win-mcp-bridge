@@ -81,6 +81,10 @@ export function troopSpec(troopId: string, teamColor: number): FigureSpec {
       else if (t.id === 'merc_rider') { head = 'furHat'; headColor = 0x6a4a2a; }
       else { head = 'cap'; }
       break;
+    case 'god':
+      body = 0xd4af37; head = 'goldHelm'; headColor = 0xffe070; backFlag = 0xffd040; horse = 0xf4efe4; barding = t.mounted;
+      if (t.cls === 'inf') shield = 'round';
+      return { body, trim: 0xfff2b0, armor: 3, head, headColor, weapon, shield, mounted: t.mounted, horse, barding, backFlag, robe: false, cape: 0xc8102e };
     case 'civ':
       if (t.id === 'civ_peasant') { head = 'straw'; body = mix(teamColor, 0x8a7a5a, 0.7); }
       else head = 'cap';

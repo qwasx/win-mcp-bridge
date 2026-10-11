@@ -5,6 +5,8 @@ import type { GameState, Party, Settlement } from '../core/state';
 import type { C2S, S2C, PRec, ServerCfg, OnlineInfo, NetParty, PrivatePart } from './protocol';
 import { NETH, type ReqResult } from './hooks';
 import { FACTION } from '../data/world';
+import { setGod } from '../core/god';
+import { NEWBIE } from './protocol';
 
 export interface ChatMsg { ch: string; who: string; nation?: string | null; text: string; at: number; to?: string }
 export const NET = {
@@ -15,6 +17,7 @@ export const NET = {
   partyId: 0,
   cfg: { hoursPerSec: 0.4, allianceOpenDay: 36, pvp: true, motd: '' } as ServerCfg,
   gm: false,
+  gmLevel: 0,   // 0 普通｜1 助手｜2 天命之主
   online: [] as OnlineInfo[],
   chat: [] as ChatMsg[],
   gmLog: [] as string[],
@@ -72,6 +75,7 @@ export function connect(url = defaultUrl()): Promise<void> {
 }
 export function disconnect() {
   NET.wantClose = true; NET.inWorld = false; NETH.on = false;
+  setGod(null); NET.gmLevel = 0; NET.gm = false; // 回到单机：天命失效
   try { NET.ws?.close(); } catch { /* */ }
   NET.ws = null;
 }
@@ -93,6 +97,9 @@ function fromNet(np: NetParty, rec?: PRec): Party {
 function buildState(m: Extract<S2C, { t: 'welcome' }>) {
   const w = m.world, rec = m.rec;
   NET.rec = rec; NET.partyId = m.partyId; NET.cfg = m.cfg; NET.gm = m.gm; NET.name = rec.name; NETH.name = rec.name;
+  setGod(null); NET.gmLevel = 0; // 天命状态随后单独下发（只发给 GM 本人）
+  if (m.cfg.newbieHours !== undefined) NEWBIE.ms = m.cfg.newbieHours * 3600000;
+  applyFnames(w.flags as Record<string, unknown> | undefined);
   for (const s of Object.values(w.settlements)) fixSt(s);
   for (const [id, d] of Object.entries(w.customFactions ?? {})) FACTION[id] = d;
   const st: GameState = {
@@ -123,11 +130,15 @@ function upsertParties(up: NetParty[], gone: number[]) {
     if (p) {
       const { x, y, ...rest } = np;
       Object.assign(p, rest, { ai: { ...p.ai, mode: np.ai.mode, target: np.ai.target } });
+      (p as any).god = np.god; // 显圣标记可能被撤销
       if (!targets.has(p.id)) targets.set(p.id, { x, y });
     } else S.parties.push(fromNet(np));
   }
   if (gone.length) { const g = new Set(gone); S.parties = S.parties.filter(p => p.id === NET.partyId || !g.has(p.id)); for (const id of gone) targets.delete(id); }
 }
+
+/** GM 改过的国号 */
+function applyFnames(f: Record<string, unknown> | undefined) { for (const [k, v] of Object.entries(f ?? {})) if (k.startsWith('fname:') && FACTION[k.slice(6)] && typeof v === 'string') FACTION[k.slice(6)].name = v; }
 
 function mergeWorld(m: Extract<S2C, { t: 'world' }>) {
   NET.serverTime = m.time; NET.recvAt = performance.now();
@@ -146,6 +157,7 @@ function mergeWorld(m: Extract<S2C, { t: 'world' }>) {
   if (m.wallHp) S.wallHp = m.wallHp;
   if (m.beacons) S.beacons = m.beacons;
   if (m.chronLog) S.chronLog = m.chronLog;
+  if (m.fnames) { applyFnames(m.fnames); ownerChanged = true; }
   if (ownerChanged) emit('ownerChanged');
   fire('world');
 }
@@ -158,17 +170,24 @@ function applyPatch(d: Extract<S2C, { t: 'patch' }>['data']) {
   if (typeof dd.x === 'number') { pp.x = dd.x; pp.y = dd.y; targets.set(pp.id, { x: dd.x, y: dd.y }); nav.target = null; nav.path = []; }
   if (typeof dd.hp === 'number') S.hero.hp = dd.hp;
   if (typeof d.renown === 'number') S.renown = d.renown;
+  if (typeof dd.gold === 'number') pp.gold = dd.gold;
+  if (d.hero) { S.hero = d.hero; if (NET.rec) NET.rec.hero = d.hero; emit('heroChanged'); }
+  if (typeof d.honor === 'number') S.honor = d.honor;
+  if (typeof d.morale === 'number') S.morale = d.morale;
+  if (d.goods) pp.goods = d.goods;
+  if (dd.faction && FACTION[dd.faction]) { S.playerFaction = dd.faction; pp.faction = dd.faction; if (NET.rec) NET.rec.nation = dd.faction; emit('ownerChanged'); }
   lastSyncJson = '';
 }
 
 function handle(m: S2C) {
   switch (m.t) {
-    case 'auth': if (m.ok && m.token) localStorage.setItem('mw_token', m.token); if (m.name) NET.name = m.name; NET.gm = !!m.gm; fire('auth', m); return;
+    case 'auth': if (m.ok && m.token) localStorage.setItem('mw_token', m.token); if (m.name) NET.name = m.name; NET.gm = !!m.gm; if (!m.gm) { NET.gmLevel = 0; setGod(null); } fire('auth', m); return;
+    case 'god': NET.gmLevel = m.level; NET.gm = m.level > 0; setGod(m.level >= 2 ? m.god : null); fire('god'); return;
     case 'welcome': buildState(m); fire('welcome', m); return;
-    case 'cfg': NET.cfg = m.cfg; fire('cfg'); return;
+    case 'cfg': NET.cfg = m.cfg; if (m.cfg.newbieHours !== undefined) NEWBIE.ms = m.cfg.newbieHours * 3600000; fire('cfg'); return;
     case 'online': NET.online = m.list; fire('online'); return;
     case 'chat': NET.chat.push(m); if (NET.chat.length > 200) NET.chat.splice(0, 50); fire('chat', m); return;
-    case 'gm': NET.gmLog.push(m.text); fire('gm', m.text); return;
+    case 'gm': if (m.text) { NET.gmLog.push(m.text); if (NET.gmLog.length > 200) NET.gmLog.splice(0, 50); } fire('gm', m.text, m.data); return;
     case 'kick': NET.wantClose = true; fire('kick', m.why); return;
     case 'pong': NET.ping = Math.round(performance.now() - m.at); return;
     case 'res': { const r = pending.get(m.rid); pending.delete(m.rid); r?.({ ok: m.ok, data: m.data, err: m.err }); return; }
@@ -222,13 +241,14 @@ export function privatePart(): PrivatePart {
 export function netFrame(dt: number) {
   if (!NET.inWorld) return;
   const ext = Math.min(1.5, (performance.now() - NET.recvAt) / 1000);
-  S.time = NET.serverTime + ext * NET.cfg.hoursPerSec;
-  const k = 1 - Math.exp(-dt * 7);
+  S.time = NET.serverTime + (NET.cfg.paused ? 0 : ext * NET.cfg.hoursPerSec);
+  const k = 1 - Math.exp(-dt * 7), kMe = 1 - Math.exp(-dt * 12);
   for (const p of S.parties) {
     const t = targets.get(p.id);
     if (!t) continue;
     const dx = t.x - p.x, dy = t.y - p.y;
-    if (dx * dx + dy * dy > 3600) { p.x = t.x; p.y = t.y; } else { p.x += dx * k; p.y += dy * k; }
+    const me = p.id === NET.partyId; // 自己（神行时一步可达上百像素）：只有真正的瞬移才跳
+    if (dx * dx + dy * dy > (me ? 90000 : 3600)) { p.x = t.x; p.y = t.y; } else { p.x += dx * (me ? kMe : k); p.y += dy * (me ? kMe : k); }
   }
   const pp = player();
   while (nav.path.length && Math.hypot(nav.path[0][0] - pp.x, nav.path[0][1] - pp.y) < 7) nav.path.shift();

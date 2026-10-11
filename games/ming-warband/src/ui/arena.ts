@@ -22,7 +22,7 @@ let atTown = '';
 
 function opponents(r: number): Stack[] {
   const R = ROUNDS[r];
-  const pool = Object.values(TROOPS).filter(t => t.tier >= R.tier[0] && t.tier <= R.tier[1] && t.culture !== 'bandit' as any);
+  const pool = Object.values(TROOPS).filter(t => t.tier >= R.tier[0] && t.tier <= R.tier[1] && t.culture !== 'bandit' as any && t.culture !== 'god');
   const out: Stack[] = [];
   for (let i = 0; i < R.n; i++) {
     let t = pick(pool);

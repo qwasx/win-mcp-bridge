@@ -7,6 +7,8 @@ export const PROTO_VERSION = 1;
 export const NATIONS: FactionId[] = ['ming', 'jin', 'chuang', 'xi', 'mon'];
 
 /** 玩家档案（服务器持久化；私有部分由客户端上传，服务器做合理性检查） */
+import type { GodState } from '../core/god';
+
 export interface PRec {
   name: string;
   nation: FactionId | null;
@@ -28,6 +30,8 @@ export interface PRec {
   x?: number; y?: number; // 下线位置
   created: number;
   pvpOptIn?: boolean;     // 主动发起过 PvP（新手保护提前解除）
+  god?: GodState;         // 天命（只有 GM 有；客户端不能上传）
+  mutedUntil?: number;    // 禁言到（现实毫秒）
 }
 
 /** 玩家可上传的私有字段 */
@@ -47,7 +51,7 @@ export interface WorldSnap {
 }
 
 /** 部队对外信息 */
-export type NetParty = Pick<Party, 'id' | 'kind' | 'name' | 'faction' | 'x' | 'y' | 'troops' | 'gold' | 'goods' | 'lordId' | 'home' | 'inside' | 'questId' | 'hidden' | 'acct' | 'busy' | 'grace' | 'hp' | 'lvl'> & { ai: { mode: Party['ai']['mode']; target?: string | number } };
+export type NetParty = Pick<Party, 'id' | 'kind' | 'name' | 'faction' | 'x' | 'y' | 'troops' | 'gold' | 'goods' | 'lordId' | 'home' | 'inside' | 'questId' | 'hidden' | 'acct' | 'busy' | 'grace' | 'hp' | 'lvl'> & { ai: { mode: Party['ai']['mode']; target?: string | number }; god?: 1 };
 
 export type { Treaty } from '../core/state';
 import type { Treaty } from '../core/state';
@@ -57,9 +61,11 @@ export interface ServerCfg {
   allianceOpenDay: number; // 第几天开放结盟
   pvp: boolean;
   motd: string;
+  newbieHours?: number;  // 新手保护时长（小时）
+  paused?: boolean;      // 天下静止（GM 暂停时间）
 }
 
-export interface OnlineInfo { name: string; nation: FactionId | null; lvl: number; gm?: boolean }
+export interface OnlineInfo { name: string; nation: FactionId | null; lvl: number }
 
 // ---------- 客户端 → 服务器 ----------
 export type C2S =
@@ -82,13 +88,14 @@ export type C2S =
 export type S2C =
   | { t: 'auth'; ok: boolean; err?: string; token?: string; name?: string; needCreate?: boolean; gm?: boolean }
   | { t: 'welcome'; rec: PRec; partyId: number; world: WorldSnap; parties: NetParty[]; cfg: ServerCfg; gm: boolean; chat: { at: number; who: string; text: string; ch: string }[] }
-  | { t: 'world'; time: number; settlements?: Settlement[]; lords?: Lord[]; wars?: string[]; truceUntil?: Record<string, number>; alive?: Record<string, boolean>; treaties?: Treaty[]; customFactions?: Record<string, FactionDef>; wallHp?: number[]; beacons?: WorldSnap['beacons']; chronLog?: WorldSnap['chronLog'] }
+  | { t: 'world'; time: number; settlements?: Settlement[]; lords?: Lord[]; wars?: string[]; truceUntil?: Record<string, number>; alive?: Record<string, boolean>; treaties?: Treaty[]; customFactions?: Record<string, FactionDef>; wallHp?: number[]; beacons?: WorldSnap['beacons']; chronLog?: WorldSnap['chronLog']; fnames?: Record<string, string> }
   | { t: 'parties'; up: NetParty[]; gone: number[] }
   | { t: 'pos'; time: number; a: number[] } // [id, x*10, y*10, flags] ...
   | { t: 'arrive'; st: string }
   | { t: 'navEnd' }
   | { t: 'encounter'; enemy: number; forced: boolean; eid: number }
-  | { t: 'patch'; data: Partial<PrivatePart> & { addGold?: number; x?: number; y?: number; hp?: number }; why?: string; seq?: number }
+  | { t: 'patch'; data: Partial<PrivatePart> & { addGold?: number; x?: number; y?: number; hp?: number; faction?: FactionId }; why?: string; seq?: number }
+  | { t: 'god'; god: GodState | null; level: number }
   | { t: 'report'; title: string; lines: string[] }
   | { t: 'res'; rid: number; ok: boolean; data?: any; err?: string }
   | { t: 'chat'; ch: string; who: string; nation?: string | null; text: string; at: number; to?: string }
@@ -108,5 +115,7 @@ export const ENVOY_RENOWN = 150, WAR_RENOWN = 800;
 
 /** 新手保护：注册后这么久（现实毫秒）内不会被玩家截击，除非自己主动出手 */
 export const NEWBIE_MS = 2 * 3600 * 1000;
+/** 可由 GM 调整（ServerCfg.newbieHours） */
+export const NEWBIE = { ms: NEWBIE_MS };
 export const newbieLeft = (rec: { created: number; pvpOptIn?: boolean } | undefined, now = Date.now()) =>
-  !rec || rec.pvpOptIn ? 0 : Math.max(0, rec.created + NEWBIE_MS - now);
+  !rec || rec.pvpOptIn ? 0 : Math.max(0, rec.created + NEWBIE.ms - now);

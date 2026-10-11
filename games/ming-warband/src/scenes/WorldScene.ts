@@ -1,4 +1,5 @@
 // 大地图场景
+import { GOD, GODUI } from '../core/god';
 import { NETH } from '../net/hooks';
 import { netFrame } from '../net/client';
 import Phaser from 'phaser';
@@ -160,6 +161,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   clickWorld(x: number, y: number) {
+    if (GODUI.tpArm && GOD.on) { GODUI.tpArm = false; GODUI.onTeleport(x, y); return; } // 天命：缩地成寸
     const z = this.cameras.main.zoom;
     const r = 14 / Math.min(z, 1.5);
     // 部队优先（可见的）
@@ -182,6 +184,7 @@ export class WorldScene extends Phaser.Scene {
 
   visible(p: Party) {
     if (p.kind === 'player') return true;
+    if (GOD.on && GOD.eye) return true; // 天眼
     if (NETH.on && (p.kind === 'hero' || p.kind === 'lord') && S.playerFaction && (p.faction === S.playerFaction ? p.kind === 'hero' : allied(S.playerFaction, p.faction))) return true; // 本国玩家与盟军：共享视野
     const pp = player();
     return dist(pp.x, pp.y, p.x, p.y) < sightRange(S, isNight());
@@ -390,6 +393,34 @@ export class WorldScene extends Phaser.Scene {
     return p.kind + p.faction;
   }
 
+  /** 天命金光（大地图）：多层光晕、旋转光芒、金色火星、疾行时的流光残影 */
+  godTrail: { x: number; y: number; t: number }[] = [];
+  drawGodAura(fx: Phaser.GameObjects.Graphics, g: Phaser.GameObjects.Graphics, x: number, y: number, t: number, k = 1) {
+    const pulse = 1 + 0.12 * Math.sin(t / 220);
+    const R = 16 * pulse * k;
+    if (k === 1) {
+      const last = this.godTrail[this.godTrail.length - 1];
+      if (!last || Math.hypot(last.x - x, last.y - y) > 3) this.godTrail.push({ x, y, t });
+      while (this.godTrail.length && (t - this.godTrail[0].t > 900 || this.godTrail.length > 40)) this.godTrail.shift();
+      for (const q of this.godTrail) { const a = 1 - (t - q.t) / 900; fx.fillStyle(0xffd040, 0.22 * a); fx.fillCircle(q.x, q.y - 4, 6 * a + 2); }
+    }
+    fx.fillStyle(0xffd040, 0.10); fx.fillCircle(x, y - 6, R * 2.6);
+    fx.fillStyle(0xffe070, 0.14); fx.fillCircle(x, y - 6, R * 1.7);
+    fx.fillStyle(0xfff4c0, 0.18); fx.fillCircle(x, y - 6, R * 1.0);
+    const rot = t / 1400;
+    for (let i = 0; i < 16; i++) {
+      const a = rot + i * Math.PI / 8, L = (i % 2 ? 1.9 : 2.7) * R;
+      fx.lineStyle(i % 2 ? 1 : 1.6, 0xffe590, 0.28 + 0.18 * Math.sin(t / 260 + i));
+      fx.lineBetween(x + Math.cos(a) * R * 0.9, y - 6 + Math.sin(a) * R * 0.9, x + Math.cos(a) * L, y - 6 + Math.sin(a) * L);
+    }
+    g.lineStyle(2, 0xffe070, 0.95); g.strokeEllipse(x, y, 30 * pulse * k, 13 * pulse * k);
+    g.lineStyle(1, 0xfff8d0, 0.7); g.strokeEllipse(x, y, 40 * pulse * k, 17 * pulse * k);
+    for (let i = 0; i < 10; i++) {
+      const ph = (t / 1500 + i / 10) % 1, ang = i * 2.39 + t / 2500;
+      fx.fillStyle(0xfff0a0, 0.9 * (1 - ph)); fx.fillCircle(x + Math.cos(ang) * R * 1.1, y - 4 - ph * 34 * k, 1.4 * (1 - ph) + 0.5);
+    }
+  }
+
   drawDynamic(timeMs: number) {
     const g = this.gParties, fx = this.gFx;
     g.clear(); fx.clear();
@@ -467,7 +498,10 @@ export class WorldScene extends Phaser.Scene {
       if (!this.visible(p)) continue;
       if (p.kind === 'player') {
         const pulse = 1 + 0.15 * Math.sin(timeMs / 250);
-        g.lineStyle(1.6, 0xffe9a0, 0.85); g.strokeEllipse(p.x, p.y, 22 * pulse, 10 * pulse);
+        if (GOD.on && GOD.aura) this.drawGodAura(fx, g, p.x, p.y, timeMs);
+        else { g.lineStyle(1.6, 0xffe9a0, 0.85); g.strokeEllipse(p.x, p.y, 22 * pulse, 10 * pulse); }
+      } else if ((p as any).god) {
+        this.drawGodAura(fx, g, p.x, p.y, timeMs, 0.7); // 显圣：别人身上的金光
       } else if (hostile(pp, p)) {
         g.lineStyle(1.3, 0xff4030, 0.85); g.strokeEllipse(p.x, p.y, 20, 9);
       }
@@ -475,6 +509,7 @@ export class WorldScene extends Phaser.Scene {
         const t = this.partyLabels[li++];
         t.setText(p.kind === 'player' ? S.hero.name : p.kind === 'hero' ? `${p.name}${p.busy ? ' ⚔' : ''}` : `${S.lords[p.lordId!]?.name ?? p.name}`);
         t.setPosition(p.x, p.y - 27).setVisible(true);
+        if (p.kind === 'player' && GOD.on && GOD.aura) t.setText(`✦ ${S.hero.name} ✦`);
         t.setColor(p.kind === 'player' ? '#ffe28a' : p.kind === 'hero' ? (hostile(pp, p) ? '#ff9a8a' : '#9fe0ff') : '#ffffff');
         t.setFontSize(Math.round(12 / Math.max(0.8, Math.min(z, 1.6)) * 1.0));
       }

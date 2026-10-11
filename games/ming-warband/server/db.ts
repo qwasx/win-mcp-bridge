@@ -32,9 +32,9 @@ export class DB {
     const salt = randomBytes(12).toString('hex');
     const token = randomBytes(24).toString('hex');
     const hash = await DB.hashPassAsync(pass, salt);
-    const gm = (this.db.prepare('SELECT COUNT(*) AS n FROM users').get() as { n: number }).n === 0 ? 1 : 0; // 第一个注册的账号自动成为 GM
-    this.db.prepare('INSERT INTO users (name, salt, hash, token, rec, created, last, banned, gm) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)')
-      .run(name, salt, hash, token, JSON.stringify(rec), Date.now(), Date.now(), gm);
+    // 注册的账号一律是普通玩家；GM 只能凭服务器上的“天命令牌”认领（见 gmkey.ts）
+    this.db.prepare('INSERT INTO users (name, salt, hash, token, rec, created, last, banned, gm) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0)')
+      .run(name, salt, hash, token, JSON.stringify(rec), Date.now(), Date.now());
     return token;
   }
   async checkPass(u: UserRow, pass: string) {
@@ -43,6 +43,11 @@ export class DB {
   }
   newToken(name: string) { const t = randomBytes(24).toString('hex'); this.db.prepare('UPDATE users SET token = ?, last = ? WHERE name = ?').run(t, Date.now(), name); return t; }
   saveRec(name: string, rec: PRec) { this.db.prepare('UPDATE users SET rec = ?, last = ? WHERE name = ?').run(JSON.stringify(rec), Date.now(), name); }
+  /** 旧版“第一个注册的自动成为 GM”留下的权限：在没有天命之主时一律收回 */
+  migrateGm() {
+    const owner = this.db.prepare('SELECT COUNT(*) AS n FROM users WHERE gm >= 2').get() as { n: number };
+    if (owner.n === 0) { const r = this.db.prepare('UPDATE users SET gm = 0 WHERE gm = 1').run(); if (Number(r.changes)) console.log(`[gm] 收回了 ${r.changes} 个旧版自动 GM 权限（请用天命令牌认领）`); }
+  }
   setFlag(name: string, col: 'banned' | 'gm', v: number) { this.db.prepare(`UPDATE users SET ${col} = ? WHERE name = ?`).run(v, name); }
   setPass(name: string, pass: string) { const salt = randomBytes(12).toString('hex'); this.db.prepare('UPDATE users SET salt = ?, hash = ?, token = NULL WHERE name = ?').run(salt, DB.hashPass(pass, salt), name); }
   allUsers(): { name: string; last: number; banned: number; gm: number; rec: string }[] {

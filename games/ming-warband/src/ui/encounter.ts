@@ -19,6 +19,7 @@ import type { BattleSetup, SideParty } from '../scenes/BattleScene';
 import { GOOD } from '../data/items';
 import { chance } from '../core/rng';
 import { nav } from '../core/sim';
+import { GOD } from '../core/god';
 
 function troopSummary(stacks: Stack[]) {
   const byCls: Record<string, number> = {};
@@ -29,7 +30,8 @@ function troopSummary(stacks: Stack[]) {
 export function openEncounter(p: Party, forced: boolean) {
   closeAll();
   const pp = player();
-  const isHostile = hostile(pp, p);
+  const godAtk = GOD.on && GOD.any && !hostile(pp, p); // 天命：无视敌我
+  const isHostile = hostile(pp, p) || godAtk;
   if (isHostile) { sfx('drumRoll', { vol: 0.55 }); if (forced) sfx('horn', { vol: 0.4, delay: 0.6 }); }
   const f = FACTION[p.faction];
   const n = count(p.troops);
@@ -40,6 +42,7 @@ export function openEncounter(p: Party, forced: boolean) {
   let intro = '';
   if (p.kind === 'bandit') intro = forced ? `一伙${p.name}从路旁杀出，拦住了你的去路！“此山是我开……留下买路财！”` : `你追上了一伙${p.name}。`;
   else if (p.kind === 'lord') intro = isHostile ? `${f.name}的${lord!.title}${lord!.name}${forced ? '率军向你杀来！' : '的军队就在眼前。'}` : `你遇到了${f.name}的${lord!.title}${lord!.name}。`;
+  else if (p.kind === 'hero') intro = `${f.name}的${p.name}率 ${n} 人${godAtk ? '就在眼前。只要你愿意，天下无人能挡。' : '就在眼前。'}`;
   else if (p.kind === 'caravan') intro = `一支${p.name}正在赶路，护卫们警惕地看着你。`;
   else intro = `一群${p.name}正赶着牲口去集市。`;
 
@@ -49,7 +52,7 @@ export function openEncounter(p: Party, forced: boolean) {
   const heroOk = S.hero.hp >= 0.25;
 
   const attack = (manual: boolean) => {
-    if (!isHostile && p.faction !== 'bandit') {
+    if (!isHostile && p.faction !== 'bandit' && !godAtk) {
       changePlayerRel(p.faction, p.kind === 'lord' ? -25 : -15);
       if (p.lordId) S.lords[p.lordId].relation -= 15;
     }

@@ -8,6 +8,7 @@ import { NETH } from '../net/hooks';
 import { showReport } from './encounter';
 import { healthy } from '../core/party';
 import { EXILE_DAYS } from '../core/combat';
+import { openGm, gmReply, gmGodChanged } from './gm';
 
 let hooks: { start: () => void; quit: () => void } = { start: () => {}, quit: () => {} };
 export function setMpHooks(start: () => void, quit: () => void) { hooks = { start, quit }; }
@@ -37,7 +38,7 @@ export function openMpLogin() {
     h('h4', null, '名号'), name, h('h4', null, '密码'), pass,
     h('div', { class: 'row', style: { marginTop: '10px' } }, btn('登录', () => go('login'), 'primary'), btn('注册新名号', () => go('register'))),
     status, adv,
-    h('p', { class: 'dim' }, '提示：名号即你在天下的姓名，注册后不可更改。第一个注册的账号自动成为 GM（上帝）。'),
+    h('p', { class: 'dim' }, '提示：名号即你在天下的姓名，注册后不可更改。'),
   ));
 }
 let authStatus: (t: string) => void = () => {};
@@ -94,8 +95,9 @@ onNet('disconnect', () => {
 });
 onNet('chat', (m: ChatMsg) => pushChat(m));
 onNet('online', () => renderOnline());
-onNet('gm', (t: string) => {
-  if (t.startsWith('INVITE|')) {
+onNet('god', () => { if (gmBtn) gmBtn.style.display = NET.gm ? '' : 'none'; gmGodChanged(); });
+onNet('gm', (t: string, data?: any) => {
+  if (t && t.startsWith('INVITE|')) {
     const [, from, fid, fname] = t.split('|');
     confirmDialog('招揽', `${from}邀你投奔“${fname}”，归其麾下。你的封地将随你一同改换门庭，原国家会视你为叛臣。是否接受？`, async () => {
       const r = await NETH.req('acceptInvite', {});
@@ -104,7 +106,9 @@ onNet('gm', (t: string) => {
       toast(`你已投奔${fname}`);
     }, '投奔', '婉拒');
     void fid; return;
-  } gmOut?.append(h('pre', null, t)); gmOut && (gmOut.scrollTop = gmOut.scrollHeight); if (!gmOut) toast(t.slice(0, 80)); });
+  }
+  gmReply(t, data);
+});
 
 export function leaveMp() {
   disconnect();
@@ -114,6 +118,7 @@ export function leaveMp() {
 }
 
 // ---------- 浮层：聊天 + 按钮 ----------
+let gmBtn: HTMLElement | null = null;
 let chatBox: HTMLElement | null = null, chatCh: 'all' | 'nation' = 'all', onlineEl: HTMLElement | null = null;
 function mountOverlay() {
   overlay?.remove();
@@ -136,7 +141,7 @@ function mountOverlay() {
       onlineEl,
       h('button', { class: 'hbtn', onclick: () => openOnline() }, '👥 在线'),
       h('button', { class: 'hbtn', onclick: () => openDiplomacy() }, '🤝 外交'),
-      NET.gm ? h('button', { class: 'hbtn gm', onclick: () => openGm() }, '⚙ 天意') : null,
+      gmBtn = h('button', { class: 'hbtn gm', onclick: () => openGm(), style: { display: NET.gm ? '' : 'none' } }, '⚙ 天意'),
       h('button', { class: 'hbtn', onclick: () => overlay!.classList.toggle('chat-hidden') }, '💬'),
     ),
     h('div', { class: 'mp-chat' }, h('div', { class: 'chat-tabs' }, tab('all', '天下'), tab('nation', '本国')), chatBox, input),
@@ -164,7 +169,7 @@ function openOnline() {
   openPanel(`在线豪杰（${NET.online.length}）`, h('div', null,
     ...Object.entries(byN).map(([f, list]) => h('div', { class: 'card' },
       h('b', { style: { color: FACTION[f]?.css ?? '#888' } }, FACTION[f]?.name ?? '未投效'), h('span', { class: 'dim' }, ` ${list.length} 人`),
-      h('div', { class: 'row wrap' }, ...list.map(o => h('span', { class: 'online-who' }, `${o.name}${o.gm ? '（GM）' : ''} Lv${o.lvl} `,
+      h('div', { class: 'row wrap' }, ...list.map(o => h('span', { class: 'online-who' }, `${o.name} Lv${o.lvl} `,
         o.name === NETH.name ? null : btn('私聊', () => { closeAll(); const i = document.querySelector('.chat-input') as HTMLInputElement | null; if (i) { i.value = `@${o.name} `; i.focus(); } }, 'sm')))))),
     newbieNote(),
   ));
@@ -275,21 +280,4 @@ export async function openIndependence() {
   ), { wide: true });
 }
 
-// ---------- GM ----------
-let gmOut: HTMLElement | null = null;
-export function openGm() {
-  gmOut = h('div', { class: 'gm-out' }, ...NET.gmLog.slice(-20).map(t => h('pre', null, t)));
-  const input = h('input', { class: 'input', style: { width: '100%' }, placeholder: '输入指令，如：gold 李定国 5000（回车执行，help 查看全部）' }) as HTMLInputElement;
-  const run = (line: string) => { const [cmd, ...args] = line.trim().split(/\s+/); if (cmd) send({ t: 'gm', cmd, args }); };
-  input.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') { run(input.value); input.value = ''; } });
-  const q = (label: string, line: string) => btn(label, () => run(line), 'sm');
-  openPanel('天意 · GM 上帝面板', h('div', null,
-    h('div', { class: 'row wrap' }, q('概况', 'status'), q('玩家', 'players'), q('帮助', 'help'), q('立即存档', 'save'), q('审计', 'audit')),
-    h('div', { class: 'row wrap' }, h('span', { class: 'dim' }, '时间流速：'), q('0.2', 'speed 0.2'), q('0.4（默认）', 'speed 0.4'), q('1', 'speed 1'), q('3', 'speed 3'), q('快进一天', 'time 24')),
-    h('div', { class: 'row wrap' }, q('PvP 开', 'pvp on'), q('PvP 关', 'pvp off'), q('立即开放结盟', 'allianceday 0'), q('结盟第 36 日', 'allianceday 36')),
-    gmOut, input,
-    h('p', { class: 'dim' }, '在聊天框里以 / 开头也能执行（如 /say 天下大赦）。所有 GM 操作都会记入审计。'),
-  ), { wide: true, onClose: () => { gmOut = null; } } as any);
-  setTimeout(() => input.focus(), 50);
-}
 void closeTop;

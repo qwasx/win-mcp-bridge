@@ -1,7 +1,7 @@
 // 联机服务器：权威世界
 import { S, setState, newGame, ensureWorld, makeParty, removeParty, partyById, settlementList, hostile, atWar, log, on, factionHostileToSettlement, setWar } from '../src/core/game';
 import { simulate, SIM_HOOKS, moveAlong, guard, WORLD_OPT } from '../src/core/sim';
-import { findPath, wallBetween, buildGrid } from '../src/core/terrain';
+import { findPath, wallBetween, buildGrid, nearestPassable } from '../src/core/terrain';
 import { whoOf } from '../src/core/wall';
 import { mapSpeed, healthy, count, cleanStacks, addTroops } from '../src/core/party';
 import { RECRUIT, tickRecruits, recruitTroopOf } from '../src/core/recruits';
@@ -17,13 +17,32 @@ import type { NetParty, PRec, S2C, ServerCfg, Treaty, WorldSnap, PrivatePart } f
 import { PRIVATE_KEYS, newbieLeft } from '../src/net/protocol';
 import { tickDiplomacy, treatyBetween } from './diplomacy';
 import { installCustomFactions } from './kingdom';
+import type { GodState } from '../src/core/god';
 
 export const CFG: ServerCfg = { hoursPerSec: 0.4, allianceOpenDay: 36, pvp: true, motd: '欢迎来到《铁血大明》联机世界！' };
 
 /** 发给某个玩家（由网络层注入） */
-export const OUT: { send: (acct: string, m: S2C) => void; broadcast: (m: S2C, filter?: (acct: string) => boolean) => void; online: (acct: string) => boolean; rec: (acct: string) => PRec | undefined } = {
-  send: () => {}, broadcast: () => {}, online: () => false, rec: () => undefined,
+export const OUT: { send: (acct: string, m: S2C) => void; broadcast: (m: S2C, filter?: (acct: string) => boolean) => void; online: (acct: string) => boolean; rec: (acct: string) => PRec | undefined; gmLevel: (acct: string) => number } = {
+  send: () => {}, broadcast: () => {}, online: () => false, rec: () => undefined, gmLevel: () => 0,
 };
+
+// ---------- 天命（GM 上帝模式；只有天命之主 gm=2 生效，对其他玩家完全不可见） ----------
+export function godOf(p: Party | undefined | null): GodState | null {
+  if (!p || p.kind !== 'hero' || !p.acct) return null;
+  const r = OUT.rec(p.acct);
+  if (!r?.god?.on || OUT.gmLevel(p.acct) < 2) return null;
+  return r.god;
+}
+export const godHidden = (p: Party) => p.kind === 'hero' && !!godOf(p)?.hidden;
+export const godAny = (p: Party) => !!godOf(p)?.any;
+/** 天命状态变化后：同步部队上的隐身标记 */
+export function refreshGod(acct: string) {
+  const p = heroOf(acct); if (!p) return;
+  p.hidden = !!godOf(p)?.hidden || undefined;
+  if (p.hidden) { // 隐身：解除所有追击自己的 AI
+    for (const q of S.parties) if (q.ai.mode === 'chase' && q.ai.target === p.id) { q.ai.mode = 'idle'; q.ai.path = []; q.ai.nextThink = S.time + 0.5; }
+  }
+}
 /** 玩家截击玩家前的新手保护检查：返回 true 表示可以开战 */
 function pvpAllowed(att: Party, def: Party): boolean {
   const dr = OUT.rec(def.acct!), left = newbieLeft(dr);
@@ -62,6 +81,7 @@ export function initWorld(saved: string | null) {
   }
   S.treaties ??= [];
   installCustomFactions(S.customFactions);
+  applyRenames();
   // 虚拟“玩家”：藏在远处城中，不参与任何事
   const dummy = S.parties.find(p => p.id === S.playerId)!;
   dummy.troops = []; dummy.gold = 0; dummy.goods = {}; dummy.hidden = true;
@@ -75,14 +95,20 @@ export function worldJSON() { return JSON.stringify(S); }
 // ---------- 主循环 ----------
 let lastLogLen = 0;
 export function tick(realSec: number) {
-  const hours = realSec * CFG.hoursPerSec;
   const dummy = S.parties.find(p => p.id === S.playerId);
   if (dummy) { dummy.troops = []; dummy.x = S.settlements[dummy.inside ?? '']?.x ?? dummy.x; }
-  guard('simulate', () => { simulate(hours); });
-  guard('recruits', () => tickRecruits(realSec));
-  guard('encounters', checkEncounterTimeouts);
-  guard('sieges', checkHeroSieges);
-  guard('diplomacy', () => tickDiplomacy(realSec));
+  if (CFG.paused) {
+    // 天下静止：万物停顿，只有天命之主还能行走
+    for (const p of S.parties) if (p.kind === 'hero' && !p.inside && godOf(p)) guard('godMove', () => heroMove(p, realSec * 0.4, false));
+    guard('encounters', checkEncounterTimeouts);
+  } else {
+    const hours = realSec * CFG.hoursPerSec;
+    guard('simulate', () => { simulate(hours); });
+    guard('recruits', () => tickRecruits(realSec));
+    guard('encounters', checkEncounterTimeouts);
+    guard('sieges', checkHeroSieges);
+    guard('diplomacy', () => tickDiplomacy(realSec));
+  }
   // 世界大事广播
   if (S.log.length !== lastLogLen) {
     const fresh = S.log.slice(Math.max(0, lastLogLen > S.log.length ? S.log.length - 5 : lastLogLen));
@@ -137,6 +163,7 @@ export function spawnHero(rec: PRec): Party {
   p.ai.nextThink = Infinity;
   p.hp = rec.hero.hp; p.lvl = rec.hero.level;
   p.grace = S.time + 1;
+  p.hidden = !!godOf(p)?.hidden || undefined;
   return p;
 }
 
@@ -161,10 +188,10 @@ export function applySync(rec: PRec, data: Partial<PrivatePart>): string | null 
   for (const k of PRIVATE_KEYS) if (k in data) (rec as any)[k] = (data as any)[k];
   if (data.troops) {
     const n = count(data.troops);
-    if (n > 2500) { warn = `兵力异常 ${n}`; rec.troops = rec.troops.slice(0, 20); }
+    if (n > 2500 && !(rec.god?.on && OUT.gmLevel(rec.name) >= 2)) { warn = `兵力异常 ${n}`; rec.troops = rec.troops.slice(0, 20); }
     rec.troops = rec.troops.filter(s => TROOPS[s.id] && s.n > 0).map(s => ({ id: s.id, n: Math.floor(s.n), w: Math.max(0, Math.min(s.n, Math.floor(s.w))), xp: s.xp || 0 }));
   }
-  if (typeof data.gold === 'number' && p && data.gold - p.gold > 50000) warn = `银两暴涨 ${p.gold} → ${data.gold}`;
+  if (typeof data.gold === 'number' && p && data.gold - p.gold > 50000 && !godOf(p)) warn = `银两暴涨 ${p.gold} → ${data.gold}`;
   if (p) {
     p.troops = rec.troops; p.gold = rec.gold; p.goods = rec.goods; p.prisoners = rec.prisoners;
     p.hp = rec.hero.hp; p.lvl = rec.hero.level;
@@ -195,7 +222,8 @@ function heroMove(p: Party, h: number, night: boolean) {
     if (dist(p.x, p.y, tp.x, tp.y) < 100 && !wallBetween(p.x, p.y, tp.x, tp.y, whoOf(p))) nv.path = [[tp.x, tp.y]];
     else if (S.time - nv.lastPathAt > 1.5) { nv.path = findPath(p.x, p.y, tp.x, tp.y, whoOf(p)) ?? nv.path; nv.lastPathAt = S.time; }
   }
-  moveAlong(p, nv.path, mapSpeed(S, p, night) * h);
+  const g = godOf(p);
+  moveAlong(p, nv.path, mapSpeed(S, p, night) * h * (g ? g.mapSpeed : 1));
   if (nv.kind === 'settlement') {
     const st = S.settlements[String(nv.id)];
     if (!st) { heroNav.delete(p.id); return; }
@@ -207,8 +235,9 @@ function heroMove(p: Party, h: number, night: boolean) {
     const tp = partyById(Number(nv.id));
     if (tp && dist(p.x, p.y, tp.x, tp.y) < 12) {
       heroNav.delete(p.id);
-      if (tp.kind === 'hero') { if (hostile(p, tp) && CFG.pvp && !tp.busy) { if (pvpAllowed(p, tp)) heroBattle(p, tp, '你截住了'); } else OUT.send(p.acct!, { t: 'report', title: '相遇', lines: [`你遇到了${FACTION[tp.faction]?.name ?? ''}的${tp.name}（${healthy(tp.troops)} 人）。`] }); }
-      else if (hostile(p, tp) && !tp.busy) startEncounter(p, tp, false);
+      if (tp.kind === 'hero' && g?.any && !tp.busy) startEncounter(p, tp, false); // 天命：可亲自上阵与任何玩家实战
+      else if (tp.kind === 'hero') { if (hostile(p, tp) && CFG.pvp && !tp.busy) { if (pvpAllowed(p, tp)) heroBattle(p, tp, '你截住了'); } else OUT.send(p.acct!, { t: 'report', title: '相遇', lines: [`你遇到了${FACTION[tp.faction]?.name ?? ''}的${tp.name}（${healthy(tp.troops)} 人）。`] }); }
+      else if ((hostile(p, tp) || g?.any) && !tp.busy) startEncounter(p, tp, false);
       else OUT.send(p.acct!, { t: 'encounter', enemy: tp.id, forced: false, eid: 0 });
     }
   } else if (!nv.path.length) { heroNav.delete(p.id); OUT.send(p.acct!, { t: 'navEnd' }); }
@@ -217,6 +246,7 @@ function heroMove(p: Party, h: number, night: boolean) {
 // ---------- 遭遇 ----------
 function heroContact(hero: Party, other: Party) {
   if (hero.busy || other.busy) return;
+  if (godHidden(hero) || (other.kind === 'hero' && godHidden(other))) return; // 隐身：谁也碰不到
   if (other.kind === 'hero') {
     if (!CFG.pvp || !hostile(hero, other)) return;
     // 只有一方主动追击（目标是对方）时才开战
@@ -225,7 +255,7 @@ function heroContact(hero: Party, other: Party) {
     const bChases = navB?.kind === 'party' && Number(navB.id) === hero.id;
     if (!aChases && !bChases) return;
     const [att, def] = aChases ? [hero, other] : [other, hero];
-    if (!pvpAllowed(att, def)) { heroNav.delete(att.id); OUT.send(att.acct!, { t: 'navEnd' }); return; }
+    if (!godOf(att) && !pvpAllowed(att, def)) { heroNav.delete(att.id); OUT.send(att.acct!, { t: 'navEnd' }); return; }
     heroBattle(hero, other, '两军相遇：');
     return;
   }
@@ -272,7 +302,7 @@ function checkEncounterTimeouts() {
 export function heroBattle(a: Party, b: Party, prefix: string) {
   const A = [a], B = [b];
   for (const p of S.parties) {
-    if (p === a || p === b || p.inside || p.busy || (p.kind !== 'lord' && p.kind !== 'hero')) continue;
+    if (p === a || p === b || p.inside || p.busy || (p.kind !== 'lord' && p.kind !== 'hero') || p.hidden) continue;
     if (dist(p.x, p.y, a.x, a.y) > 60) continue;
     const ha = hostile(p, a), hb = hostile(p, b);
     if (hb && !ha && A.length < 8) A.push(p);
@@ -282,6 +312,12 @@ export function heroBattle(a: Party, b: Party, prefix: string) {
   const lead = (xs: Party[]) => xs.reduce((s, p) => s + (p.kind === 'lord' ? 8 : p.kind === 'hero' ? 6 + (p.lvl ?? 1) : 0), 0);
   const mult = (xs: Party[]) => xs.some(p => p.kind === 'lord' || p.kind === 'hero') ? 1.1 : 1;
   const r = autoResolve(mergeStacks(pa), mergeStacks(pb), mult(A), mult(B), lead(A), lead(B));
+  // 金身：有天命之主的一方零损失、必胜（敌方全军覆没）
+  const godA = A.some(p => godOf(p)?.invincible), godB = B.some(p => godOf(p)?.invincible);
+  if (godA !== godB) {
+    const allDown = (xs: Stack[]) => { const c: Record<string, number> = {}; for (const s of xs) c[s.id] = (c[s.id] ?? 0) + s.n - s.w; return c; };
+    if (godA) { r.aWin = true; r.aDown = {}; r.bDown = allDown(mergeStacks(pb)); } else { r.aWin = false; r.bDown = {}; r.aDown = allDown(mergeStacks(pa)); }
+  }
   const da = splitDown(r.aDown, pa), db = splitDown(r.bDown, pb);
   const lossA = new Map<Party, number>(), lossB = new Map<Party, number>();
   for (const p of A) lossA.set(p, applyPartyLosses(p, da[String(p.id)]));
@@ -402,7 +438,8 @@ export function handleReq(rec: PRec, op: string, a: any): { ok: boolean; data?: 
     }
     case 'siege': {
       if (!st || st.kind === 'village' || !near(p, st, 40)) return { ok: false, err: '离得太远' };
-      if (!factionHostileToSettlement(p.faction, st)) return { ok: false, err: '这不是敌城' };
+      if (!factionHostileToSettlement(p.faction, st) && !godAny(p) && st.owner !== 'P:' + rec.name) return { ok: false, err: '这不是敌城' };
+      if (!factionHostileToSettlement(p.faction, st) && st.owner === 'P:' + rec.name) return { ok: false, err: '这是你自己的封地' };
       if (st.siege && st.siege.by !== p.id) { const by = partyById(st.siege.by); if (by && !hostile(by, p)) return { ok: true, data: { joined: true } }; }
       st.siege = { by: p.id, since: S.time };
       log(`${p.name}率军围攻${st.name}！`, 'war');
@@ -440,7 +477,15 @@ function applyBattle(rec: PRec, p: Party, a: { eid?: number; enemy?: number; ext
   const ids = [a.enemy, ...(a.extras ?? [])].filter((x): x is number => typeof x === 'number');
   for (const id of ids) {
     const en = partyById(id);
-    if (!en || en.kind === 'hero' || dist(en.x, en.y, p.x, p.y) > 120) continue;
+    if (!en || dist(en.x, en.y, p.x, p.y) > 120) continue;
+    if (en.kind === 'hero') { // 只有天命之主能与玩家实战
+      if (!godOf(p)?.any) continue;
+      fix(en, a.left?.[String(id)]);
+      cleanStacks(en.troops);
+      if (a.win || healthy(en.troops) <= 0) heroDefeated(en, `${p.name}击溃了你的军队`);
+      else { OUT.send(en.acct!, { t: 'patch', data: { troops: en.troops }, why: 'battle' }); en.grace = S.time + 2; }
+      continue;
+    }
     fix(en, a.left?.[String(id)]);
     if (a.win || healthy(en.troops) <= 0) {
       if (en.lordId && S.lords[en.lordId]) { S.lords[en.lordId].grudge = 'P:' + rec.name; log(`${p.name}击败了${FACTION[en.faction]?.name ?? ''}的${S.lords[en.lordId].name}！`, 'war'); }
@@ -451,7 +496,7 @@ function applyBattle(rec: PRec, p: Party, a: { eid?: number; enemy?: number; ext
   let captured = false;
   if (a.siege) {
     const st = S.settlements[a.siege];
-    if (st && near(p, st, 60) && factionHostileToSettlement(p.faction, st)) {
+    if (st && near(p, st, 60) && (factionHostileToSettlement(p.faction, st) || godAny(p))) {
       if (a.win) {
         const old = st.faction;
         setOwner(st, p.faction, 'P:' + rec.name);
@@ -483,10 +528,17 @@ export function netParty(p: Party): NetParty {
   return {
     id: p.id, kind: p.kind, name: p.name, faction: p.faction, x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10, troops: p.troops, gold: p.gold, goods: p.goods,
     lordId: p.lordId, home: p.home, inside: p.inside, questId: undefined, hidden: p.hidden, acct: p.acct, busy: p.busy, grace: p.grace, hp: p.hp, lvl: p.lvl,
-    ai: { mode: p.ai.mode, target: p.ai.target },
+    ai: { mode: p.ai.mode, target: p.ai.target }, ...(p.kind === 'hero' && godOf(p)?.reveal && godOf(p)?.aura ? { god: 1 as const } : {}),
   };
 }
-export function visibleParties() { return S.parties.filter(p => p.id !== S.playerId); }
+/** 广播用：去掉虚拟玩家与隐身的天命之主；me = 自己的账号（自己总是看得见自己） */
+export function visibleParties(me?: string) { return S.parties.filter(p => p.id !== S.playerId && (!p.hidden || p.kind !== 'hero' || p.acct === me)); }
+/** 隐身的天命之主：单独把自己的位置发给自己 */
+export function hiddenSelfPos(): { acct: string; m: S2C }[] {
+  const out: { acct: string; m: S2C }[] = [];
+  for (const p of S.parties) if (p.kind === 'hero' && p.hidden && p.acct && !p.inside) out.push({ acct: p.acct, m: { t: 'pos', time: S.time, a: [p.id, Math.round(p.x) * 10, Math.round(p.y) * 10, p.busy ? 1 : 0] } });
+  return out;
+}
 
 export function worldSnap(): WorldSnap {
   return {
@@ -514,11 +566,12 @@ export function worldDelta(full = false): S2C | null {
     if (n) sts.push(patch);
   }
   for (const l of Object.values(S.lords)) { const j = JSON.stringify(l); if (full || lastLord.get(l.id) !== j) { lastLord.set(l.id, j); lords.push(l); } }
-  const misc = JSON.stringify([S.wars, S.alive, S.truceUntil, S.treaties, S.customFactions, S.chronLog?.length, (S.wallHp ?? []).filter(h => h <= 0).length, S.beacons?.length]);
+  const fnames = Object.fromEntries(Object.entries(S.flags ?? {}).filter(([k]) => k.startsWith('fname:')));
+  const misc = JSON.stringify([S.wars, S.alive, S.truceUntil, S.treaties, S.customFactions, S.chronLog?.length, (S.wallHp ?? []).filter(h => h <= 0).length, S.beacons?.length, fnames]);
   const m: S2C = { t: 'world', time: S.time };
   if (sts.length) m.settlements = sts;
   if (lords.length) m.lords = lords;
-  if (full || misc !== lastMisc) { lastMisc = misc; Object.assign(m, { wars: S.wars, alive: S.alive, truceUntil: S.truceUntil, treaties: S.treaties, customFactions: S.customFactions, wallHp: S.wallHp, beacons: S.beacons, chronLog: S.chronLog }); }
+  if (full || misc !== lastMisc) { lastMisc = misc; Object.assign(m, { wars: S.wars, alive: S.alive, truceUntil: S.truceUntil, treaties: S.treaties, customFactions: S.customFactions, wallHp: S.wallHp, beacons: S.beacons, chronLog: S.chronLog, fnames }); }
   return m;
 }
 export function partiesDelta(): S2C {
@@ -526,7 +579,7 @@ export function partiesDelta(): S2C {
   for (const p of visibleParties()) {
     seen.add(p.id);
     const np = netParty(p);
-    const j = JSON.stringify([np.kind, np.name, np.faction, np.troops, np.gold, np.inside, np.busy, np.ai.mode, np.ai.target, np.hp, np.lvl, np.hidden, np.lordId]);
+    const j = JSON.stringify([np.kind, np.name, np.faction, np.troops, np.gold, np.inside, np.busy, np.ai.mode, np.ai.target, np.hp, np.lvl, np.hidden, np.lordId, np.god]);
     if (lastParty.get(p.id) !== j) { lastParty.set(p.id, j); up.push(np); }
   }
   const gone: number[] = [];
@@ -552,15 +605,21 @@ export function posPacket(): S2C {
 }
 
 // ---------- GM 辅助 ----------
-export function gmSpawnArmy(f: FactionId, stId: string, n: number) {
+export function gmSpawnArmy(f: FactionId, stId: string, n: number, troop?: string) {
   const st = S.settlements[stId];
   if (!st) return null;
   const culture = FACTION[f]?.culture ?? 'ming';
   const troops: Stack[] = [];
-  const pool = Object.values(TROOPS).filter(t => t.culture === culture);
-  for (let i = 0; i < n; i++) { const t = pool[Math.floor(Math.random() * pool.length)]; addTroops(troops, t.id, 1); }
-  const p = makeParty('lord', `${FACTION[f].name}天兵`, f, st.x + 10, st.y + 10, troops, { gold: 500 });
+  if (troop && TROOPS[troop]) addTroops(troops, troop, n);
+  else {
+    const pool = Object.values(TROOPS).filter(t => t.culture === culture && t.tier >= 2);
+    for (let i = 0; i < n; i++) { const t = pool[Math.floor(Math.random() * pool.length)]; addTroops(troops, t.id, 1); }
+  }
+  const [x, y] = nearestPassable(st.x + 10, st.y + 10);
+  const p = makeParty('lord', `${FACTION[f].name}${['勤王', '援', '义', '新'][Math.floor(Math.random() * 4)]}军`, f, x, y, troops, { gold: 500 });
   return p;
 }
+/** GM 改过的国号（存在 S.flags 里，随世界存档） */
+export function applyRenames() { for (const [k, v] of Object.entries(S.flags ?? {})) if (k.startsWith('fname:') && FACTION[k.slice(6)] && typeof v === 'string') FACTION[k.slice(6)].name = v; }
 export { setWar, atWar, treatyBetween };
 export type { Treaty };

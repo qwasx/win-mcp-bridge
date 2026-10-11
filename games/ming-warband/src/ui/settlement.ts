@@ -1,3 +1,4 @@
+import { GOD } from '../core/god';
 // 据点菜单：城镇 / 城堡 / 村庄
 import { NETH } from '../net/hooks';
 import { openArena } from './arena';
@@ -93,6 +94,7 @@ export function openSettlement(st: Settlement) {
     return;
   }
 
+  if (GOD.on && GOD.any && st.kind !== 'village' && st.owner !== 'player') add('⚡ 神威：攻取此城（无视敌我）', () => beginSiege(st), 'danger');
   if (st.kind === 'town') {
     add('🏪 集市（买卖货物）', () => openTrade(st));
     add('⚒ 铁匠铺（兵器甲胄）', () => openShop(st));
@@ -559,7 +561,7 @@ export function siegeKitOf(st: Settlement): SiegeKit {
 function beginSiege(st: Settlement) {
   const pp = player();
   if (st.siege && st.siege.by !== pp.id) { const p = partyById(st.siege.by); if (p) return toast(`${p.name}正在围攻此地`); }
-  if (!playerHostileTo(st.faction) || !S.playerFaction) {
+  if ((!playerHostileTo(st.faction) || !S.playerFaction) && !GOD.on) {
     // 独立玩家攻击会导致开战
     if (!(S.playerFaction && atWar(S.playerFaction, st.faction)) && !(S.mercOf && atWar(S.mercOf, st.faction))) {
       changePlayerRel(st.faction, -10);

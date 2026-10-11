@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { gzipSync } from 'node:zlib';
 import { DB } from './db';
+import { GmKey } from './gmkey';
+import { NEWBIE } from '../src/net/protocol';
 import * as W from './world';
 import { initNet, onConnection, sessions, saveAll, heartbeat, pushOnline, broadcastRaw, checkOrphans } from './net';
 import { kingdomTick } from './kingdom';
@@ -24,10 +26,12 @@ console.log(`[boot] data=${DATA_DIR} dist=${DIST_DIR} port=${PORT}`);
 const db = new DB(DATA_DIR);
 const cfgRaw = db.get('cfg');
 if (cfgRaw) { try { const c = JSON.parse(cfgRaw); Object.assign(W.CFG, c.cfg ?? {}); Object.assign(RECRUIT, c.recruit ?? {}); Object.assign(DIPLO, c.diplo ?? {}); } catch { /* */ } }
+if (W.CFG.newbieHours !== undefined) NEWBIE.ms = W.CFG.newbieHours * 3600000;
 const t0 = Date.now();
 W.initWorld(db.get('world'));
 console.log(`[boot] world ready in ${Date.now() - t0} ms`);
-initNet(db);
+db.migrateGm();
+initNet(db, new GmKey(db, DATA_DIR));
 
 // ---------- 静态文件 ----------
 const MIME: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.webp': 'image/webp', '.woff2': 'font/woff2' };
@@ -77,7 +81,7 @@ setInterval(() => {
   const a = performance.now();
   W.tick(dt);
   tickCost = tickCost * 0.95 + (performance.now() - a) * 0.05;
-  if (now - lastPos >= 400) { lastPos = now; broadcastRaw(JSON.stringify(W.posPacket())); }
+  if (now - lastPos >= 400) { lastPos = now; broadcastRaw(JSON.stringify(W.posPacket())); for (const x of W.hiddenSelfPos()) W.OUT.send(x.acct, x.m); }
   if (now - lastParties >= 1000) { lastParties = now; const d = W.partiesDelta(); if (d.t === 'parties' && (d.up.length || d.gone.length)) broadcastRaw(JSON.stringify(d)); }
   if (now - lastWorld >= 3000) { lastWorld = now; kingdomTick(); checkOrphans(); const d = W.worldDelta(); if (d) broadcastRaw(JSON.stringify(d)); pushOnline(); }
   if (now - lastHb >= 20000) { lastHb = now; heartbeat(); }

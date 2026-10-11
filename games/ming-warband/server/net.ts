@@ -14,20 +14,26 @@ import { FACTION, type FactionId } from '../src/data/world';
 import { TROOPS } from '../src/data/troops';
 import { BACKGROUNDS } from '../src/core/game';
 import { declareIndependence, indepCheck, proclaimEmperor, invite, acceptInvite, INDEP, fiefsOfAcct } from './kingdom';
+import { GmKey, claimBlocked, claimFailed } from './gmkey';
+import { gm } from './gm';
+import { GOD_DEFAULT } from '../src/core/god';
 
-interface Sess {
-  ws: WebSocket; ip: string; acct?: string; rec?: PRec; gm: boolean; entered: boolean;
+/** gm：0 普通玩家｜1 助手（被天命之主任命）｜2 天命之主（凭令牌认领，唯一能开上帝模式） */
+export interface Sess {
+  ws: WebSocket; ip: string; acct?: string; rec?: PRec; gm: number; entered: boolean;
   msgTimes: number[]; chatAt: number; lastSyncAt: number; authing?: boolean;
 }
 
 export const sessions = new Set<Sess>();
-const byAcct = new Map<string, Sess>();
+export const byAcct = new Map<string, Sess>();
+/** 供 gm.ts 使用 */
+export const NETX = { db: null as unknown as DB, key: null as unknown as GmKey };
 const leaving = new Map<string, NodeJS.Timeout>();
 const patchSeq = new Map<string, number>(); // 服务器下发的修正序号：旧的上传不得覆盖
 let db: DB;
 
-export function initNet(d: DB) {
-  db = d;
+export function initNet(d: DB, key: GmKey) {
+  db = d; NETX.db = d; NETX.key = key;
   W.OUT.send = (acct, m) => {
     if (m.t === 'patch') { const q = (patchSeq.get(acct) ?? 0) + 1; patchSeq.set(acct, q); m.seq = q; }
     const s = byAcct.get(acct); if (s) send(s, m);
@@ -35,10 +41,14 @@ export function initNet(d: DB) {
   W.OUT.broadcast = (m, filter) => { const raw = JSON.stringify(m); for (const s of sessions) if (s.entered && (!filter || filter(s.acct!))) raw0(s, raw); };
   W.OUT.online = acct => byAcct.has(acct) && byAcct.get(acct)!.entered;
   W.OUT.rec = acct => byAcct.get(acct)?.rec;
+  W.OUT.gmLevel = acct => byAcct.get(acct)?.gm ?? 0;
 }
 
 function raw0(s: Sess, raw: string) { if (s.ws.readyState === 1) { try { s.ws.send(raw); } catch { /* */ } } }
-function send(s: Sess, m: S2C) { raw0(s, JSON.stringify(m)); }
+export function send(s: Sess, m: S2C) { raw0(s, JSON.stringify(m)); }
+export const sysMsg = (s: Sess, text: string) => send(s, { t: 'chat', ch: 'gm', who: '系统', text, at: Date.now() });
+/** 把天命状态（只）发给 GM 本人 */
+export function sendGod(s: Sess) { if (s.gm) send(s, { t: 'god', god: s.gm >= 2 ? (s.rec?.god ?? null) : null, level: s.gm }); }
 export function broadcastRaw(raw: string) { for (const s of sessions) if (s.entered) raw0(s, raw); }
 
 const NAME_RE = /^[\u4e00-\u9fa5A-Za-z0-9_]{2,12}$/;
@@ -49,7 +59,7 @@ const BAD_WORDS = ['习近平', '共产党', '法轮', '六四', 'fuck', 'shit']
 const clean = (t: string) => { let x = t.slice(0, 200).replace(/[<>]/g, ''); for (const w of BAD_WORDS) x = x.split(w).join('*'.repeat(w.length)); return x; };
 
 export function onConnection(ws: WebSocket, ip: string) {
-  const s: Sess = { ws, ip, gm: false, entered: false, msgTimes: [], chatAt: 0, lastSyncAt: 0 };
+  const s: Sess = { ws, ip, gm: 0, entered: false, msgTimes: [], chatAt: 0, lastSyncAt: 0 };
   sessions.add(s);
   (ws as any).isAlive = true;
   ws.on('pong', () => { (ws as any).isAlive = true; });
@@ -149,7 +159,7 @@ function handle(s: Sess, m: C2S) {
     case 'leave': if (p) p.inside = undefined; return;
     case 'sync': {
       const data = { ...m.data };
-      if ((m.ps ?? 0) < (patchSeq.get(s.acct) ?? 0)) { delete data.troops; delete data.gold; delete data.prisoners; } // 客户端还没收到最新修正
+      if ((m.ps ?? 0) < (patchSeq.get(s.acct) ?? 0)) return; // 客户端还没收到最新修正：这次上传作废，等下一次
       const warn = W.applySync(rec, data);
       if (warn) db.audit(s.acct, 'suspicious: ' + warn);
       return;
@@ -170,9 +180,17 @@ function handle(s: Sess, m: C2S) {
       const now = Date.now();
       if (now - s.chatAt < 800) return;
       s.chatAt = now;
-      const text = clean(String(m.text ?? '')).trim();
+      const raw = String(m.text ?? '').trim();
+      // 以 / 开头的一律是指令：绝不广播（防止误把令牌发到公屏）
+      if (raw.startsWith('/')) {
+        const [c0, ...args] = raw.slice(1).split(/\s+/);
+        if (c0 === '天命' || c0.toLowerCase() === 'claim') return claimGm(s, args.join(''));
+        if (s.gm) return gm(s, c0, args);
+        return sysMsg(s, '没有这个指令。');
+      }
+      if ((rec.mutedUntil ?? 0) > now) return sysMsg(s, `你被禁言了，还剩 ${Math.ceil((rec.mutedUntil! - now) / 60000)} 分钟。`);
+      const text = clean(raw).trim();
       if (!text) return;
-      if (text.startsWith('/') && s.gm) return gm(s, text.slice(1).split(/\s+/)[0], text.slice(1).split(/\s+/).slice(1));
       if (m.ch === 'pm') { // 私聊
         const to = String(m.to ?? '').trim(); const ts = byAcct.get(to);
         if (!ts?.entered) return send(s, { t: 'chat', ch: 'gm', who: '系统', text: `${to || '对方'}不在线`, at: now });
@@ -186,7 +204,7 @@ function handle(s: Sess, m: C2S) {
       else W.OUT.broadcast(msg, a => byAcct.get(a)?.rec?.nation === rec.nation);
       return;
     }
-    case 'gm': if (s.gm) gm(s, m.cmd, m.args ?? []); else send(s, { t: 'gm', text: '你不是 GM' }); return;
+    case 'gm': if (s.gm) gm(s, String(m.cmd ?? ''), (m.args ?? []).map(String)); return; // 非 GM：静默忽略
   }
 }
 
@@ -196,12 +214,12 @@ function afterAuth(s: Sess, name: string, token: string) {
   const old = byAcct.get(name);
   if (old && old !== s) { send(old, { t: 'kick', why: '你的账号在别处登录了' }); old.acct = undefined; old.entered = false; try { old.ws.close(); } catch { /* */ } }
   const lt = leaving.get(name); if (lt) { clearTimeout(lt); leaving.delete(name); }
-  s.acct = name; s.gm = !!u.gm;
+  s.acct = name; s.gm = u.gm | 0;
   // 已在世界中（重连）：沿用内存中的档案
   s.rec = (old?.rec && old.rec.name === name) ? old.rec : JSON.parse(u.rec) as PRec;
   byAcct.set(name, s);
   const needCreate = !s.rec.nation;
-  send(s, { t: 'auth', ok: true, token, name, needCreate, gm: s.gm });
+  send(s, { t: 'auth', ok: true, token, name, needCreate, gm: s.gm > 0 });
   if (!needCreate) enter(s);
 }
 
@@ -212,22 +230,28 @@ function enter(s: Sess) {
     // 效忠的国家已灭亡：重新选择
     log(`${rec.name}的故国已亡，流落江湖。`, 'event');
     rec.nation = null; db.saveRec(rec.name, rec);
-    send(s, { t: 'auth', ok: true, name: rec.name, needCreate: true, gm: s.gm });
+    send(s, { t: 'auth', ok: true, name: rec.name, needCreate: true, gm: s.gm > 0 });
     return;
   }
+  if (s.gm < 2 && rec.god) delete rec.god; // 天命被收回
   const p = W.spawnHero(rec);
   s.entered = true;
   // 世界快照约 250KB：1 秒内多人上线共用同一份序列化结果
   const now = Date.now();
   if (now - snapCache.at > 1000) snapCache = { at: now, json: JSON.stringify(W.worldSnap()) };
-  raw0(s, `{"t":"welcome","world":${snapCache.json},` + JSON.stringify({ rec, partyId: p.id, parties: W.visibleParties().map(W.netParty), cfg: W.CFG, gm: s.gm, chat: db.recentChat(30) }).slice(1));
+  raw0(s, `{"t":"welcome","world":${snapCache.json},` + JSON.stringify({ rec, partyId: p.id, parties: W.visibleParties(s.acct).map(W.netParty), cfg: W.CFG, gm: s.gm > 0, chat: db.recentChat(30) }).slice(1));
+  sendGod(s);
   send(s, { t: 'online', list: onlineList() }); // 其他人随下一个 3 秒周期收到
 }
 
 let lastOnline = '';
 function onlineList() {
   const list: OnlineInfo[] = [];
-  for (const s of byAcct.values()) if (s.entered && s.rec) list.push({ name: s.acct!, nation: s.rec.nation, lvl: s.rec.hero?.level ?? 1, gm: s.gm || undefined });
+  for (const s of byAcct.values()) {
+    if (!s.entered || !s.rec) continue;
+    if (s.gm >= 2 && s.rec.god?.on && s.rec.god.hidden) continue; // 隐身：名单里也没有
+    list.push({ name: s.acct!, nation: s.rec.nation, lvl: s.rec.hero?.level ?? 1 });
+  }
   return list;
 }
 /** 在线名单：变化时随 3 秒周期合并广播（避免大批玩家同时上线时 O(N²) 刷屏） */
@@ -270,92 +294,6 @@ function diplo(s: Sess, a: { to: FactionId; type: 'alliance' | 'truce' | 'peace'
   return { ok: r.ok, data: { msg: r.msg, rank: RANK_NAMES[rankOf(rec.renown)] }, err: r.ok ? undefined : r.msg };
 }
 
-// ---------- GM（上帝面板） ----------
-function findSt(q: string) { return S.settlements[q] ?? settlementList().find(x => x.name === q); }
-function findFaction(q: string): FactionId | null {
-  if (FACTION[q]) return q as FactionId;
-  const alias: Record<string, FactionId> = { 明: 'ming', 大明: 'ming', 明朝: 'ming', 清: 'jin', 大清: 'jin', 后金: 'jin', 金: 'jin', 闯: 'chuang', 闯军: 'chuang', 大顺: 'chuang', 西: 'xi', 西营: 'xi', 大西: 'xi', 蒙: 'mon', 蒙古: 'mon', 察哈尔: 'mon' };
-  if (alias[q]) return alias[q];
-  const f = Object.entries(FACTION).find(([, v]) => v.name === q || v.name.includes(q));
-  return f ? (f[0] as FactionId) : null;
-}
-export const GM_HELP = `GM 指令：
-status｜players｜online｜save｜audit
-speed <每秒游戏小时>｜pvp on/off｜allianceday <日>｜motd <文字>｜say <文字>
-gold <玩家> <数量>｜troops <玩家> <兵种id> <数量>｜heal <玩家>｜renown <玩家> <数量>
-tp <玩家> <城名/ID>｜noprotect <玩家>（解除新手保护）｜indepcfg <声望> <兵力> <称帝城数> <国家上限>
-spawn <势力> <城名> <人数>｜owner <城名> <势力>｜garrison <城名> <人数>
-war <甲> <乙>｜peace <甲> <乙>｜ally <甲> <乙> [日]｜truce <甲> <乙> [日]｜vassal <宗主> <藩属>｜betray <甲> <乙>
-recruit <每秒> <上限>｜speedcfg <player.max> <player.min> <ai.max> <ai.min>
-kick <玩家>｜ban <玩家>｜unban <玩家>｜setgm <玩家> on/off｜pass <玩家> <新密码>
-time <+小时>｜resetworld confirm`;
-
-function gm(s: Sess, cmd: string, a: string[]) {
-  const reply = (text: string, data?: any) => send(s, { t: 'gm', text, data });
-  const target = (n: string) => byAcct.get(n);
-  db.audit(s.acct!, `gm ${cmd} ${a.join(' ')}`);
-  const num = (x: string, d = 0) => (Number.isFinite(Number(x)) ? Number(x) : d);
-  switch (cmd) {
-    case 'help': case '': return reply(GM_HELP);
-    case 'indepcfg': { if (a.length) { INDEP.renown = num(a[0], INDEP.renown); INDEP.troops = num(a[1], INDEP.troops); INDEP.emperorCities = num(a[2], INDEP.emperorCities); INDEP.maxKingdoms = num(a[3], INDEP.maxKingdoms); } return reply(`自立：声望 ${INDEP.renown}｜兵力 ${INDEP.troops}｜称帝城数 ${INDEP.emperorCities}｜玩家国家上限 ${INDEP.maxKingdoms}`); }
-    case 'noprotect': { const t = target(a[0]); if (!t?.rec) return reply('该玩家不在线'); t.rec.pvpOptIn = true; db.saveRec(t.rec.name, t.rec); return reply(`${t.rec.name}的新手保护已解除`); }
-    case 'status': return reply(`在线 ${[...byAcct.values()].filter(x => x.entered).length} 人｜部队 ${S.parties.length}｜第 ${Math.floor(S.time / 24)} 日｜流速 ${W.CFG.hoursPerSec} 时/秒｜PvP ${W.CFG.pvp ? '开' : '关'}｜结盟开放日 ${W.CFG.allianceOpenDay}｜交战中 ${W.encounters.size}｜战争 ${S.wars.join(' ')}｜条约 ${(S.treaties ?? []).map(t => `${t.a}-${t.b}:${t.type}`).join(' ') || '无'}`);
-    case 'players': return reply(db.allUsers().slice(0, 80).map(u => { const r = JSON.parse(u.rec) as PRec; return `${u.name}${u.gm ? '[GM]' : ''}${u.banned ? '[封]' : ''} ${r.nation ? FACTION[r.nation]?.name : '未选'} Lv${r.hero?.level ?? '-'} 银${r.gold ?? 0} 兵${(r.troops ?? []).reduce((n, x) => n + x.n, 0)} ${byAcct.has(u.name) ? '在线' : ''}`; }).join('\n'));
-    case 'online': pushOnline(true); return reply([...byAcct.keys()].join('、') || '无人在线');
-    case 'save': saveAll(); return reply('已保存');
-    case 'audit': return reply((db.recentAudit(40) as any[]).map(x => `${new Date(x.at).toLocaleString()} ${x.who}: ${x.what}`).join('\n'));
-    case 'speed': W.CFG.hoursPerSec = Math.max(0.05, Math.min(10, num(a[0], 0.4))); W.OUT.broadcast({ t: 'cfg', cfg: W.CFG }); return reply(`时间流速 = ${W.CFG.hoursPerSec} 游戏小时/秒`);
-    case 'pvp': W.CFG.pvp = a[0] !== 'off'; W.OUT.broadcast({ t: 'cfg', cfg: W.CFG }); return reply(`PvP ${W.CFG.pvp ? '开启' : '关闭'}`);
-    case 'allianceday': W.CFG.allianceOpenDay = Math.max(0, num(a[0], 36)); W.OUT.broadcast({ t: 'cfg', cfg: W.CFG }); return reply(`结盟开放：第 ${W.CFG.allianceOpenDay} 日`);
-    case 'motd': W.CFG.motd = a.join(' '); W.OUT.broadcast({ t: 'cfg', cfg: W.CFG }); return reply('公告已更新');
-    case 'say': W.OUT.broadcast({ t: 'chat', ch: 'gm', who: '天意', text: a.join(' '), at: Date.now() }); return;
-    case 'gold': case 'renown': case 'heal': case 'troops': case 'tp': {
-      const t = target(a[0]); const p = W.heroOf(a[0]);
-      if (!t || !p) return reply('该玩家不在线');
-      if (cmd === 'gold') { const n = num(a[1]); p.gold += n; t.rec!.gold += n; W.OUT.send(t.acct!, { t: 'patch', data: { addGold: n }, why: 'gm' }); }
-      if (cmd === 'renown') { t.rec!.renown += num(a[1]); W.OUT.send(t.acct!, { t: 'patch', data: { renown: t.rec!.renown }, why: 'gm' }); }
-      if (cmd === 'heal') { for (const x of p.troops) x.w = 0; W.OUT.send(t.acct!, { t: 'patch', data: { troops: p.troops, hp: 1 } as any, why: 'gm' }); }
-      if (cmd === 'troops') { if (!TROOPS[a[1]]) return reply('兵种 id 不存在。例：ming_musket jin_bayara mon_hca'); addTroops(p.troops, a[1], num(a[2], 10)); W.OUT.send(t.acct!, { t: 'patch', data: { troops: p.troops }, why: 'gm' }); }
-      if (cmd === 'tp') { const st = findSt(a[1]); if (!st) return reply('找不到此城'); p.x = st.x + 6; p.y = st.y + 6; p.inside = undefined; W.stopHero(p); W.OUT.send(t.acct!, { t: 'patch', data: { x: p.x, y: p.y } as any, why: 'gm' }); }
-      send(t, { t: 'log', msg: `天意降临（GM ${cmd}）。`, cls: 'gold' });
-      return reply('完成');
-    }
-    case 'spawn': { const f = findFaction(a[0]); const st = findSt(a[1] ?? ''); if (!f || !st) return reply('用法：spawn 大清 沈阳 300'); const p = W.gmSpawnArmy(f, st.id, Math.min(2000, num(a[2], 200))); return reply(p ? `已在${st.name}召出${p.name}（${healthy(p.troops)} 人）` : '失败'); }
-    case 'owner': { const st = findSt(a[0]); const f = findFaction(a[1] ?? ''); if (!st || !f) return reply('用法：owner 北京 大清'); const old = st.faction; setOwner(st, f, null); checkFactionAlive(old); log(`天命所归：${st.name}归于${FACTION[f].name}。`, 'event'); return reply('完成'); }
-    case 'garrison': { const st = findSt(a[0]); if (!st) return reply('找不到此城'); const cul = FACTION[st.faction]?.culture ?? 'ming'; const pool = Object.values(TROOPS).filter(t => t.culture === cul); for (let i = 0; i < num(a[1], 100); i++) addTroops(st.garrison, pool[Math.floor(Math.random() * pool.length)].id, 1); return reply(`${st.name}守军 ${healthy(st.garrison)}`); }
-    case 'war': case 'peace': case 'ally': case 'truce': case 'vassal': case 'betray': {
-      const x = findFaction(a[0] ?? ''), y = findFaction(a[1] ?? '');
-      if (!x || !y || x === y) return reply('用法：war 大明 大清');
-      if (cmd === 'war') { setWar(x, y, true); delete S.truceUntil[[x, y].sort().join('|')]; S.treaties = (S.treaties ?? []).filter(t => !((t.a === x && t.b === y) || (t.a === y && t.b === x))); log(`天意：${FACTION[x].name}与${FACTION[y].name}开战！`, 'event'); }
-      if (cmd === 'peace') { setWar(x, y, false); log(`天意：${FACTION[x].name}与${FACTION[y].name}罢兵。`, 'event'); }
-      if (cmd === 'ally') makeTreaty(x, y, 'alliance', num(a[2], DIPLO.allianceDays), '天意');
-      if (cmd === 'truce') makeTreaty(x, y, 'truce', num(a[2], DIPLO.truceDays), '天意');
-      if (cmd === 'vassal') makeTreaty(x, y, 'vassal', num(a[2], DIPLO.vassalDays), '天意');
-      if (cmd === 'betray') breakTreaty(x, y);
-      return reply('完成');
-    }
-    case 'recruit': RECRUIT.perSec = num(a[0], RECRUIT.perSec); RECRUIT.cap = num(a[1], RECRUIT.cap); return reply(`村庄兵源：每秒 ${RECRUIT.perSec}，上限 ${RECRUIT.cap}`);
-    case 'speedcfg': SPEED.player.max = num(a[0], SPEED.player.max); SPEED.player.min = num(a[1], SPEED.player.min); SPEED.ai.max = num(a[2], SPEED.ai.max); SPEED.ai.min = num(a[3], SPEED.ai.min); return reply(`速度：玩家 ${SPEED.player.min}~${SPEED.player.max}，AI ${SPEED.ai.min}~${SPEED.ai.max}`);
-    case 'kick': case 'ban': {
-      const t = target(a[0]);
-      if (cmd === 'ban') db.setFlag(a[0], 'banned', 1);
-      if (t) { send(t, { t: 'kick', why: cmd === 'ban' ? '你已被封禁' : '你被 GM 请出了服务器' }); try { t.ws.close(); } catch { /* */ } }
-      return reply('完成');
-    }
-    case 'unban': db.setFlag(a[0], 'banned', 0); return reply('已解封');
-    case 'setgm': db.setFlag(a[0], 'gm', a[1] === 'off' ? 0 : 1); { const t = target(a[0]); if (t) t.gm = a[1] !== 'off'; } return reply('完成');
-    case 'pass': if (!db.user(a[0]) || (a[1] ?? '').length < 4) return reply('用法：pass 名号 新密码'); db.setPass(a[0], a[1]); return reply('密码已重置');
-    case 'time': S.time += Math.max(0, num(a[0], 24)); return reply(`时间推进到第 ${Math.floor(S.time / 24)} 日`);
-    case 'resetworld': if (a[0] !== 'confirm') return reply('危险！确认请输入：resetworld confirm');
-      db.set('world_prev', W.worldJSON()); db.del('world');
-      for (const x of [...sessions]) { send(x, { t: 'kick', why: '天地重开，请重新登录' }); try { x.ws.close(); } catch { /* */ } }
-      setTimeout(() => process.exit(0), 500); // 由守护进程重启
-      return reply('世界将重置');
-  }
-  reply('未知指令。输入 help 查看。');
-  void partyById; void PROTO_VERSION;
-}
-
 /** 效忠的国家已覆灭（如玩家国家流亡期满）：在线成员重新择主，保留角色与家当 */
 export function checkOrphans() {
   for (const s of sessions) {
@@ -363,6 +301,21 @@ export function checkOrphans() {
     const dead = FACTION[s.rec.nation]?.name ?? s.rec.nation;
     s.rec.nation = null; db.saveRec(s.rec.name, s.rec);
     send(s, { t: 'log', msg: `${dead}国祚已绝。你流落江湖，须另择明主。`, cls: 'bad' });
-    send(s, { t: 'auth', ok: true, name: s.rec.name, needCreate: true, gm: s.gm });
+    send(s, { t: 'auth', ok: true, name: s.rec.name, needCreate: true, gm: s.gm > 0 });
   }
+}
+
+// ---------- 认领天命（GM） ----------
+function claimGm(s: Sess, key: string) {
+  const ks = ['ip:' + s.ip, 'acct:' + s.acct];
+  if (claimBlocked(...ks)) { db.audit(s.acct!, `gm-claim blocked (${s.ip})`); return sysMsg(s, '尝试次数太多，请一小时后再试。'); }
+  if (!NETX.key.check(key)) { claimFailed(...ks); db.audit(s.acct!, `gm-claim FAILED from ${s.ip}`); return sysMsg(s, '令牌不对。'); }
+  db.setFlag(s.acct!, 'gm', 2); s.gm = 2;
+  s.rec!.god ??= { ...GOD_DEFAULT, on: false };
+  db.saveRec(s.acct!, s.rec!);
+  db.audit(s.acct!, `gm-claim OK from ${s.ip}`);
+  console.log(`[gm] ${s.acct} 认领了天命（${s.ip}）`);
+  sendGod(s);
+  W.refreshGod(s.acct!);
+  sysMsg(s, '天命所归。你已是天命之主——右上角“⚙ 天意”打开上帝面板。此事只有你自己知道。');
 }
