@@ -1,0 +1,36 @@
+沙盒环境信息（不是 VPS）
+
+【和 VPS 的区别】
+- 没有公网 IP，只有 NAT 出口（152.136.218.160，非绑定）
+- 没有入站端口，外部无法直连任何端口
+- 对外访问只能走代理域名 https://<appId>.app.workbuddy.host
+- 服务要暴露 = 用发布脚本把运行中服务的端口映射成上面的域名
+- 会休眠/重启，内存数据会丢，需持久化到磁盘
+
+【系统】
+Ubuntu 24.04.3 LTS, x86_64, 内核 6.6.117
+CPU 32 核 / 内存 123G / 磁盘 256G
+
+【运行时】
+node v22.13.1 / npm 11.9.0 / pnpm 10.28.2
+python 3.11.1 / pip 26.0.1 / git 2.43.0 / gh 2.86.0
+出网正常
+
+【网络】
+主机名 174166e76b04，内网 172.24.0.19
+出口公网 152.136.218.160（腾讯云·北京，NAT）
+
+【已占端口】
+3000（python）
+65310 9090 65213 65216 65225 18601 49983（沙箱内部，别碰）
+39099 45413 8089（本地）
+
+【发布方式】
+node /root/.codebuddy/skills/sites/scripts/publish.js --dir <目录> --port <端口> --language node --start-cmd "node server.js"
+→ 输出链接 https://<appId>.app.workbuddy.host
+
+【联机要点】
+- 别写死 IP/端口，对外一律走 app.workbuddy.host
+- 建议一个服务同时托管页面 + ws 中继，同源发布，客户端连 ws://${location.host}/ws
+- ws 是否透传 Upgrade 需实测
+- 端口避开 3000 和上面的沙箱内部端口
