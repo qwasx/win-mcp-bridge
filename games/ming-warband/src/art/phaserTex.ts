@@ -82,8 +82,9 @@ export function heroWeapon(mode: 'melee' | 'ranged' = 'melee'): Weapon {
   if (mode === 'ranged' && h.equip.ranged) { const k = ITEMS[h.equip.ranged]?.kind; return k === 'gun' ? 'gun' : k === 'xbow' ? 'xbow' : 'bow'; }
   const m = h.equip.melee ? ITEMS[h.equip.melee] : null;
   if (!m) return 'club';
-  if (m.id === 'w_jian') return 'club';
-  if (m.id === 'w_miaodao') return 'katana';
+  const b = m.base ?? m.id;
+  if (['w_jian', 'w_club', 'w_tiebian', 'w_langya', 'w_guduo', 'w_jingua', 'w_meteor', 'w_tiechi'].includes(b)) return 'club';
+  if (b === 'w_miaodao' || b === 'w_taidao') return 'katana';
   if (m.antiCav || (m.reach ?? 0) >= 40) return 'spear';
   return 'sabre';
 }

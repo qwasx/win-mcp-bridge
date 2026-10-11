@@ -311,3 +311,9 @@ details summary { cursor: pointer; color: var(--red); margin: 10px 0 4px; font-f
 .menu-item:hover:not([disabled])::before { content: ''; position: absolute; left: -10%; top: 15%; bottom: 15%; width: 60%; pointer-events: none;
   background: linear-gradient(90deg, rgba(42,26,14,.0), rgba(42,26,14,.10) 30%, rgba(42,26,14,.04) 80%, transparent); border-radius: 40%; }
 .panel-body { position: relative; z-index: 1; }
+/* 商店：品质色与滚动列表 */
+.q-poor { color: #8a7d6a; }
+.q-fine { color: #2f7a3a; }
+.q-master { color: #b0451c; text-shadow: 0 0 6px rgba(220,140,40,.45); }
+.row.wrap { flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+.shop-list { max-height: 58vh; overflow-y: auto; padding-right: 4px; }

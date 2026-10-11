@@ -1,11 +1,11 @@
 // 全局游戏状态、常用辅助函数、新游戏生成
 import type { FactionId } from '../data/world';
-import { FACTION, FACTIONS, INITIAL_WARS, LORD_DEFS, MAJOR_FACTIONS, MONTHS, SHICHEN, TOWN_DEFS, VILLAGE_NAMES, VILLAGE_PRODUCE, COMPANIONS, BANDIT_ZONES, CHINESE_NUM, CAMP_DEFS, JIN_VILLAGE_NAMES, MON_VILLAGE_NAMES } from '../data/world';
+import { FACTION, FACTIONS, INITIAL_WARS, LORD_DEFS, MAJOR_FACTIONS, MONTHS, SHICHEN, TOWN_DEFS, VILLAGE_NAMES, VILLAGE_PRODUCE, COMPANIONS, BANDIT_ZONES, CHINESE_NUM, CAMP_DEFS, JIN_VILLAGE_NAMES, MON_VILLAGE_NAMES, REGION_GOODS } from '../data/world';
 import { RECRUIT_OF, TROOPS, MERCS, type Culture } from '../data/troops';
-import { GOODS, ITEM_LIST } from '../data/items';
+import { GOODS, ITEM_LIST, ITEM_TAGS, type ItemDef } from '../data/items';
 import type { GameState, Party, PartyKind, Settlement, Stack, Lord } from './state';
 import { warKey } from './state';
-import { buildGrid, ll, nearestPassable, passable } from './terrain';
+import { buildGrid, ll, toLL, nearestPassable, passable } from './terrain';
 import { newHero } from './character';
 import { addTroops, count } from './party';
 import { pick, randInt, randRange, chance, shuffle, dist, weighted } from './rng';
@@ -177,15 +177,40 @@ export function removeParty(p: Party) {
 }
 
 // ---------- 商店与酒馆 ----------
+/** 据点所在地域的商品/装备标签 */
+export function regionTags(st: Settlement): string[] {
+  const lat = toLL(st.x, st.y)[1], lon = toLL(st.x, st.y)[0];
+  const c = st.culture === 'chuang' ? 'ming' : st.culture;
+  const t = [c];
+  if (c === 'ming' || c === 'xi') { if (lat < 32.5) t.push('south'); else if (lon < 106.5) t.push('west'); else t.push('north'); }
+  return t;
+}
+/** 铁匠铺 / 军需库进货：城镇 45~55 件，城堡 10~14 件；按地域、繁荣度、品质加权，尽量不重样 */
 export function refreshShop(st: Settlement) {
-  const maxTier = st.kind === 'town' ? (st.prosperity > 60 ? 5 : 4) : 2;
-  const pool = ITEM_LIST.filter(i => i.tier <= maxTier && i.price > 25);
-  const n = st.kind === 'town' ? randInt(9, 14) : randInt(2, 4);
-  st.shop = [];
-  for (let i = 0; i < n; i++) {
-    const it = weighted(pool.map(p => [p, 6 - p.tier] as [typeof p, number]));
-    st.shop.push(it.id);
+  const town = st.kind === 'town';
+  const rich = st.prosperity;
+  const maxTier = town ? (rich > 60 ? 5 : 4) : 3;
+  const tagsHere = regionTags(st);
+  const qW = (q: number) => q === 0 ? (rich < 40 ? 1.1 : 0.55) : q === 2 ? (town ? 0.5 : 0.25) : q === 3 ? (town && rich > 55 ? 0.14 : 0) : 1;
+  const pool: [ItemDef, number][] = [];
+  for (const it of ITEM_LIST) {
+    if (it.tier > maxTier || it.price <= 25) continue;
+    const local = (ITEM_TAGS[it.id] ?? []).some(t => tagsHere.includes(t));
+    const foreign = (ITEM_TAGS[it.id] ?? []).length > 0 && !local;
+    const w = (6 - it.tier) * (local ? 3 : foreign ? 0.6 : 1) * qW(it.quality ?? 1);
+    if (w > 0) pool.push([it, w]);
   }
+  const n = town ? randInt(42, 48) + Math.floor(rich / 12) : randInt(10, 14);
+  const out: string[] = [];
+  const take = (cands: [ItemDef, number][]) => {
+    const free = cands.filter(([i]) => !out.includes(i.id));
+    if (!free.length) return;
+    out.push(weighted(free).id);
+  };
+  // 城镇保证各类都有货
+  if (town) for (const slot of ['melee', 'ranged', 'armor', 'helm', 'horse'] as const) for (let k = 0; k < 6; k++) take(pool.filter(([i]) => i.slot === slot));
+  while (out.length < n && out.length < pool.length) take(pool);
+  st.shop = out;
 }
 export function refreshTavern(st: Settlement) {
   const used = new Set([...S.companions.map(c => c.id), ...settlementList().map(s => s.tavern.companion).filter(Boolean) as string[]]);
@@ -274,6 +299,15 @@ export function newGame(heroName: string, bgId: string): GameState {
     };
     s.settlements[d.id] = st; taken.push(st);
   }
+  // 城镇追加地域特产与紧缺货
+  for (const st of Object.values(s.settlements)) {
+    if (st.kind !== 'town') continue;
+    for (const tg of regionTags(st)) {
+      const R = REGION_GOODS[tg]; if (!R) continue;
+      for (const g of shuffle([...R.produce]).slice(0, randInt(1, 2))) if (!st.produce.includes(g) && !st.demand.includes(g)) st.produce.push(g);
+      for (const g of shuffle([...R.demand]).slice(0, randInt(1, 2))) if (!st.produce.includes(g) && !st.demand.includes(g)) st.demand.push(g);
+    }
+  }
   // 村庄
   const names = shuffle([...VILLAGE_NAMES]);
   const cultNames: Record<string, string[]> = { jin: shuffle([...JIN_VILLAGE_NAMES]), mon: shuffle([...MON_VILLAGE_NAMES]) };
@@ -288,7 +322,7 @@ export function newGame(heroName: string, bgId: string): GameState {
       const pool = cultNames[FACTION[d.faction].culture];
       const name = pool?.length ? pool.shift()! : names[hi % names.length] + (hi++ >= names.length ? '二' : '');
       vi++;
-      const prod = shuffle([...(VILLAGE_PRODUCE[FACTION[d.faction].culture] ?? ['grain'])]).slice(0, 2);
+      const prod = shuffle([...(VILLAGE_PRODUCE[FACTION[d.faction].culture] ?? ['grain'])]).slice(0, randInt(2, 3));
       const v: Settlement = {
         id, name, kind: 'village', faction: d.faction, owner: null, x: pos[0], y: pos[1], parent: d.id, villages: [], garrison: [],
         prosperity: randInt(35, 70), stock: {}, produce: prod, demand: [], shop: [], recruits: randInt(3, 8), relation: randInt(-5, 10),
@@ -306,7 +340,7 @@ export function newGame(heroName: string, bgId: string): GameState {
     if (!parent) continue;
     const v: Settlement = {
       id: c.id, name: c.name, kind: 'village', camp: true, faction: c.faction, owner: null, x, y, parent: parent.id, villages: [], garrison: [],
-      prosperity: randInt(30, 60), stock: {}, produce: ['meat', 'fur'], demand: [], shop: [], recruits: randInt(4, 9), relation: randInt(-5, 10),
+      prosperity: randInt(30, 60), stock: {}, produce: shuffle(['meat', 'fur', 'cheese', 'kumis', 'horse_t', 'leather']).slice(0, 3), demand: [], shop: [], recruits: randInt(4, 9), relation: randInt(-5, 10),
       lootedUntil: 0, siege: null, tavern: { companion: null, mercs: null, refresh: 0 }, culture: 'mon',
     };
     s.settlements[c.id] = v; parent.villages.push(c.id); taken.push(v);

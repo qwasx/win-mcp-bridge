@@ -133,8 +133,18 @@ export const VILLAGE_NAMES = [
   '双桥镇', '三河口', '四方店', '五里铺', '六合屯', '七星岗', '八里桥', '九龙集', '十里堡', '东关村', '西沟村', '南屯', '北营', '上河村',
 ];
 
+/** 城镇额外特产/紧缺（按地域，在开局时各抽 1~2 种追加） */
+export const REGION_GOODS: Record<string, { produce: string[]; demand: string[] }> = {
+  south: { produce: ['sugar', 'fish', 'ricewine', 'lacquer', 'spice', 'paper', 'books', 'pottery', 'tobacco', 'pearl'], demand: ['horse_t', 'leather', 'copper', 'antler', 'flour'] },
+  north: { produce: ['flour', 'timber', 'copper', 'saltpeter', 'pottery', 'books', 'hemp', 'leather'], demand: ['sugar', 'spice', 'lacquer', 'fish', 'pearl', 'horse_t'] },
+  west:  { produce: ['jade', 'leather', 'horse_t', 'fruit', 'saltpeter'], demand: ['paper', 'books', 'sugar', 'ricewine'] },
+  jin:   { produce: ['antler', 'leather', 'timber', 'fish', 'horse_t'], demand: ['books', 'paper', 'saltpeter', 'copper', 'ricewine', 'sugar'] },
+  mon:   { produce: ['cheese', 'kumis', 'horse_t', 'leather', 'antler'], demand: ['tobacco', 'sugar', 'flour', 'copper', 'lacquer'] },
+  xi:    { produce: ['sugar', 'tobacco', 'lacquer', 'paper', 'saltpeter'], demand: ['horse_t', 'leather', 'copper', 'pearl'] },
+};
 export const VILLAGE_PRODUCE: Record<string, string[]> = {
-  ming: ['grain', 'cloth', 'meat', 'wine', 'salt'], jin: ['fur', 'ginseng', 'grain'], mon: ['meat', 'fur'], chuang: ['grain', 'wine'], xi: ['herb', 'tea', 'salt'],
+  ming: ['grain', 'cloth', 'meat', 'wine', 'salt', 'flour', 'hemp', 'timber', 'pottery', 'fish'], jin: ['fur', 'ginseng', 'grain', 'antler', 'leather', 'timber'],
+  mon: ['meat', 'fur', 'cheese', 'kumis', 'leather', 'horse_t'], chuang: ['grain', 'wine', 'flour', 'hemp'], xi: ['herb', 'tea', 'salt', 'sugar', 'tobacco'],
 };
 
 export interface LordDef { id: string; name: string; faction: FactionId; title: string; trait: 'brave' | 'cautious' | 'greedy' | 'honorable' }

@@ -101,6 +101,7 @@ export function openSettlement(st: Settlement) {
     add('🏹 武举校场（比武押注）', () => openArena(st));
     add(`🏯 拜见${lordName(st.owner)}`, () => openHall(st));
   } else if (st.kind === 'castle') {
+    add('⚒ 军需库（兵器甲胄）', () => openShop(st));
     add(`🏯 拜见${lordName(st.owner)}`, () => openHall(st), '', st.owner === 'player');
   } else {
     add('🙋 招募乡勇', () => openRecruit(st), '', st.lootedUntil > S.time);
@@ -174,37 +175,56 @@ function openTrade(st: Settlement) {
   openPanel(`${st.name} · 集市`, body, { wide: true });
 }
 
-// ---------- 铁匠铺 ----------
+// ---------- 铁匠铺 / 军需库 ----------
+const QCLS = ['q-poor', '', 'q-fine', 'q-master'];
+let shopTab = 'all', shopSort: 'price' | 'tier' | 'name' = 'tier';
 function openShop(st: Settlement) {
   const pp = player();
   const body = h('div');
   const statLine = (id: string) => {
     const it = ITEMS[id];
-    if (it.slot === 'melee') return `伤害${it.dmg} 距离${it.reach}${it.antiCav ? ' 克骑' : ''}`;
-    if (it.slot === 'ranged') return `伤害${it.dmg} 射程${it.range} 装填${it.reload}s`;
-    if (it.slot === 'horse') return `速度${it.horseSpeed} 护甲${it.horseArmor} 需骑术${Math.max(0, it.tier - 2)}`;
+    if (it.slot === 'melee') return `伤害${it.dmg} 距离${it.reach} 间隔${it.speed}s${it.antiCav ? ' 克骑' : ''}`;
+    if (it.slot === 'ranged') return `伤害${it.dmg} 射程${it.range} 装填${it.reload}s 弹${it.ammo}`;
+    if (it.slot === 'horse') return `速度${it.horseSpeed} 体力${it.horseHp} 护甲${it.horseArmor} 需骑术${Math.max(0, it.tier - 2)}`;
     return `护甲${it.armor}`;
+  };
+  const equipped = (slot: string) => { const id = (S.hero.equip as unknown as Record<string, string | undefined>)[slot]; return id ? ITEMS[id] : null; };
+  const cmp = (id: string) => {
+    const it = ITEMS[id], cur = equipped(it.slot);
+    if (!cur) return null;
+    const v = (x: typeof it) => x.dmg ?? x.armor ?? x.horseSpeed ?? 0;
+    const d = v(it) - v(cur);
+    if (Math.abs(d) < 1e-6) return null;
+    return h('span', { class: d > 0 ? 'tag good' : 'tag bad' }, `${d > 0 ? '▲' : '▼'}${Math.abs(Math.round(d * 100) / 100)}`);
   };
   const render = () => {
     body.innerHTML = '';
-    const forSale = st.shop.map((id, idx) => {
+    const tabs = [['all', '全部'], ['melee', '近战'], ['ranged', '远程'], ['armor', '身甲'], ['helm', '头盔'], ['horse', '坐骑']].map(([k, label]) => {
+      const n = k === 'all' ? st.shop.length : st.shop.filter(id => ITEMS[id]?.slot === k).length;
+      return btn(`${label} ${n}`, () => { shopTab = k; render(); }, shopTab === k ? 'sm gold' : 'sm');
+    });
+    const sorts = ([['tier', '按品阶'], ['price', '按价格'], ['name', '按名称']] as const).map(([k, label]) => btn(label, () => { shopSort = k; render(); }, shopSort === k ? 'sm gold' : 'sm'));
+    const list = st.shop.map((id, idx) => ({ id, idx })).filter(o => ITEMS[o.id] && (shopTab === 'all' || ITEMS[o.id].slot === shopTab));
+    list.sort((a, b) => { const A = ITEMS[a.id], B = ITEMS[b.id]; return shopSort === 'price' ? A.price - B.price : shopSort === 'name' ? A.name.localeCompare(B.name, 'zh') : (A.tier - B.tier) || (A.price - B.price); });
+    const forSale = list.map(({ id, idx }) => {
       const it = ITEMS[id]; const price = itemBuyPrice(id);
-      return h('div', { class: 'item' }, h('div', null, h('b', null, it.name), h('small', null, ` [${slotName(it.slot)}] ${statLine(id)}`), h('div', { class: 'dim' }, it.desc)),
+      return h('div', { class: 'item' }, h('div', null, h('b', { class: QCLS[it.quality ?? 1] }, it.name), h('small', null, ` [${slotName(it.slot)}·${'★'.repeat(it.tier)}] ${statLine(id)} `), cmp(id), h('div', { class: 'dim' }, it.desc)),
         btn(`购买 ${price}两`, () => { if (pp.gold < price) return toast('银两不足'); pp.gold -= price; S.hero.inventory.push(id); st.shop.splice(idx, 1); toast(`购得${it.name}，可在行囊中装备`); render(); }, 'sm', pp.gold < price));
     });
     const mine = S.hero.inventory.map((id, idx) => {
       const it = ITEMS[id]; const price = itemSellPrice(id);
-      return h('div', { class: 'item' }, h('div', null, h('b', null, it.name), h('small', null, ` [${slotName(it.slot)}] ${statLine(id)}`)),
+      return h('div', { class: 'item' }, h('div', null, h('b', { class: QCLS[it.quality ?? 1] }, it.name), h('small', null, ` [${slotName(it.slot)}] ${statLine(id)}`)),
         btn(`出售 ${price}两`, () => { pp.gold += price; S.hero.inventory.splice(idx, 1); st.shop.push(id); render(); }, 'sm'));
     });
-    body.append(h('div', { class: 'row between' }, h('span', null, `银两：${pp.gold}`)),
+    body.append(h('div', { class: 'row between' }, h('span', null, `银两：${pp.gold}`), h('span', { class: 'dim' }, `货架 ${st.shop.length} 件 · 每日进新货`)),
+      h('div', { class: 'row wrap' }, ...tabs), h('div', { class: 'row wrap' }, h('span', { class: 'dim' }, '排序：'), ...sorts),
       h('div', { class: 'cols' },
-        h('div', null, h('h4', null, '待售'), forSale.length ? forSale : h('p', { class: 'dim' }, '货架空空如也。')),
-        h('div', null, h('h4', null, '你的行囊'), mine.length ? mine : h('p', { class: 'dim' }, '行囊中没有多余的装备。')),
+        h('div', { class: 'shop-list' }, h('h4', null, '待售'), forSale.length ? forSale : h('p', { class: 'dim' }, '这一类暂时没货。')),
+        h('div', { class: 'shop-list' }, h('h4', null, '你的行囊'), mine.length ? mine : h('p', { class: 'dim' }, '行囊中没有多余的装备。')),
       ));
   };
   render();
-  openPanel(`${st.name} · 铁匠铺`, body, { wide: true });
+  openPanel(`${st.name} · ${st.kind === 'town' ? '铁匠铺' : '军需库'}`, body, { wide: true });
 }
 function slotName(s: string) { return ({ melee: '近战', ranged: '远程', armor: '身甲', helm: '头盔', horse: '坐骑' } as Record<string, string>)[s]; }
 
