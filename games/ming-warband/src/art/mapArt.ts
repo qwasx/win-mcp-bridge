@@ -390,6 +390,57 @@ function drawVillage(ctx: Ctx, looted: boolean) {
   }
 }
 
+/** 蒙古包营地：几座白毡帐、马圈与马群、苏勒德旗 */
+function yurt(ctx: Ctx, x: number, y: number, r: number, burnt: boolean) {
+  const wall = r * 0.62;
+  ell(ctx, x + 0.6, y + 0.6, r * 1.05, r * 0.32, 'rgba(30,24,16,0.28)');
+  // 围壁（哈那）
+  const g = ctx.createLinearGradient(x - r, 0, x + r, 0);
+  g.addColorStop(0, burnt ? '#3a3028' : '#f4efe2'); g.addColorStop(0.7, burnt ? '#2a221c' : '#ddd3bd'); g.addColorStop(1, burnt ? '#1e1814' : '#b8ab90');
+  ctx.fillStyle = g; ctx.fillRect(x - r, y - wall, r * 2, wall);
+  // 穹顶（乌尼）
+  ctx.beginPath(); ctx.moveTo(x - r - 0.3, y - wall); ctx.quadraticCurveTo(x, y - wall - r * 1.05, x + r + 0.3, y - wall); ctx.closePath();
+  const d = ctx.createLinearGradient(x, y - wall - r, x, y - wall);
+  d.addColorStop(0, burnt ? '#2a221c' : '#fffaf0'); d.addColorStop(1, burnt ? '#3a3028' : '#e6dcc6');
+  ctx.fillStyle = d; ctx.fill();
+  ctx.strokeStyle = OUTLINE; ctx.lineWidth = 0.35; ctx.stroke(); ctx.strokeRect(x - r, y - wall, r * 2, wall);
+  if (!burnt) {
+    // 捆绳与门
+    ctx.strokeStyle = 'rgba(150,40,30,0.85)'; ctx.lineWidth = 0.4;
+    ctx.beginPath(); ctx.moveTo(x - r, y - wall * 0.5); ctx.lineTo(x + r, y - wall * 0.5); ctx.stroke();
+    ctx.fillStyle = '#b8402c'; ctx.fillRect(x - r * 0.2, y - wall * 0.85, r * 0.4, wall * 0.85);
+    ctx.fillStyle = '#e8c860'; ctx.fillRect(x - r * 0.2, y - wall * 0.85, r * 0.4, 0.4);
+    // 天窗（陶脑）与炊烟
+    ctx.fillStyle = '#6a5640'; ctx.beginPath(); ctx.ellipse(x, y - wall - r * 0.5, r * 0.18, r * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+  } else {
+    ctx.strokeStyle = '#140e0a'; ctx.lineWidth = 0.4;
+    for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.moveTo(x + k * r * 0.35, y - wall); ctx.lineTo(x, y - wall - r * 0.5); ctx.stroke(); }
+  }
+}
+function horse(ctx: Ctx, x: number, y: number, col: string) {
+  ctx.fillStyle = col;
+  ctx.beginPath(); ctx.ellipse(x, y - 1.3, 1.5, 0.75, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillRect(x + 1.0, y - 2.6, 0.55, 1.4); ctx.beginPath(); ctx.ellipse(x + 1.6, y - 2.6, 0.6, 0.35, -0.4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillRect(x - 1.1, y - 0.8, 0.3, 1.1); ctx.fillRect(x + 0.8, y - 0.8, 0.3, 1.1);
+}
+function drawCamp(ctx: Ctx, looted: boolean) {
+  ell(ctx, 0.5, 2.5, 15, 4.6, looted ? 'rgba(40,35,30,0.35)' : 'rgba(140,150,80,0.4)');
+  // 马圈
+  ctx.strokeStyle = looted ? 'rgba(40,30,20,0.6)' : 'rgba(110,80,40,0.9)'; ctx.lineWidth = 0.35;
+  ctx.beginPath(); ctx.ellipse(-8, 3.6, 6, 2.4, 0, 0, Math.PI * 2); ctx.stroke();
+  for (let a = 0; a < 10; a++) { const px = -8 + Math.cos(a / 10 * Math.PI * 2) * 6, py = 3.6 + Math.sin(a / 10 * Math.PI * 2) * 2.4; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py - 1.1); ctx.stroke(); }
+  if (!looted) { horse(ctx, -10, 4.4, '#6a4428'); horse(ctx, -7, 3.6, '#e8e0d0'); horse(ctx, -5.4, 5.0, '#3a2a1c'); }
+  yurt(ctx, 2, -0.5, 4.6, looted);
+  yurt(ctx, 9.5, 2.6, 3.6, looted);
+  yurt(ctx, -3, 5.2, 3.2, looted);
+  // 苏勒德（长矛缨旗）
+  if (!looted) {
+    ctx.strokeStyle = '#3a2a18'; ctx.lineWidth = 0.45; ctx.beginPath(); ctx.moveTo(13.5, 5); ctx.lineTo(13.5, -9); ctx.stroke();
+    ctx.fillStyle = '#2a2018'; ctx.beginPath(); ctx.moveTo(13.5, -10.5); ctx.lineTo(12.9, -9); ctx.lineTo(14.1, -9); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#5a4030'; ctx.beginPath(); ctx.ellipse(13.5, -8, 1.1, 1.4, 0, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
 /** 关城：骑墙而建的城台与多层关楼，左右接长城，南侧瓮城 */
 function drawPass(ctx: Ctx, major: boolean) {
   const W = major ? 58 : 46;
@@ -432,6 +483,8 @@ export function buildSettlementAtlas(): Atlas {
     { name: 'pass_major', w: 62, h: 50, ax: 31, ay: 35, draw: c => drawPass(c, true) },
     { name: 'village', w: 32, h: 20, ax: 16, ay: 13, draw: c => drawVillage(c, false) },
     { name: 'village_looted', w: 32, h: 20, ax: 16, ay: 13, draw: c => drawVillage(c, true) },
+    { name: 'camp', w: 34, h: 22, ax: 17, ay: 14, draw: c => drawCamp(c, false) },
+    { name: 'camp_looted', w: 34, h: 22, ax: 17, ay: 14, draw: c => drawCamp(c, true) },
   ], MRES, 1024);
 }
 

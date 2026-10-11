@@ -82,6 +82,7 @@ export interface Settlement {
   lootedUntil: number;
   siege: { by: number; since: number; mineAt?: number } | null;
   isPass?: boolean;            // 长城关隘
+  camp?: boolean;              // 蒙古包营地（村庄的一种，只出骑兵）
   tavern: TavernState;
   culture: string;
 }

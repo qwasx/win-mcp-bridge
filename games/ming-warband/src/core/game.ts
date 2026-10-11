@@ -1,6 +1,6 @@
 // 全局游戏状态、常用辅助函数、新游戏生成
 import type { FactionId } from '../data/world';
-import { FACTION, FACTIONS, INITIAL_WARS, LORD_DEFS, MAJOR_FACTIONS, MONTHS, SHICHEN, TOWN_DEFS, VILLAGE_NAMES, VILLAGE_PRODUCE, COMPANIONS, BANDIT_ZONES, CHINESE_NUM } from '../data/world';
+import { FACTION, FACTIONS, INITIAL_WARS, LORD_DEFS, MAJOR_FACTIONS, MONTHS, SHICHEN, TOWN_DEFS, VILLAGE_NAMES, VILLAGE_PRODUCE, COMPANIONS, BANDIT_ZONES, CHINESE_NUM, CAMP_DEFS, JIN_VILLAGE_NAMES, MON_VILLAGE_NAMES } from '../data/world';
 import { RECRUIT_OF, TROOPS, MERCS, type Culture } from '../data/troops';
 import { GOODS, ITEM_LIST } from '../data/items';
 import type { GameState, Party, PartyKind, Settlement, Stack, Lord } from './state';
@@ -276,7 +276,8 @@ export function newGame(heroName: string, bgId: string): GameState {
   }
   // 村庄
   const names = shuffle([...VILLAGE_NAMES]);
-  let vi = 0;
+  const cultNames: Record<string, string[]> = { jin: shuffle([...JIN_VILLAGE_NAMES]), mon: shuffle([...MON_VILLAGE_NAMES]) };
+  let vi = 0, hi = 0;
   for (const d of TOWN_DEFS) {
     const parent = s.settlements[d.id];
     const nv = d.kind === 'town' ? 2 : 1;
@@ -284,7 +285,8 @@ export function newGame(heroName: string, bgId: string): GameState {
       const pos = placeVillage(parent.x, parent.y, taken, vi);
       if (!pos) continue;
       const id = `v${vi}`;
-      const name = names[vi % names.length] + (vi >= names.length ? '二' : '');
+      const pool = cultNames[FACTION[d.faction].culture];
+      const name = pool?.length ? pool.shift()! : names[hi % names.length] + (hi++ >= names.length ? '二' : '');
       vi++;
       const prod = shuffle([...(VILLAGE_PRODUCE[FACTION[d.faction].culture] ?? ['grain'])]).slice(0, 2);
       const v: Settlement = {
@@ -294,6 +296,20 @@ export function newGame(heroName: string, bgId: string): GameState {
       };
       s.settlements[id] = v; parent.villages.push(id); taken.push(v);
     }
+  }
+  // 蒙古包营地（关外草原）
+  for (const c of CAMP_DEFS) {
+    let [x, y] = nearestPassable(...ll(c.lon, c.lat));
+    if (taken.some(t => dist(t.x, t.y, x, y) < 36)) { const p2 = placeVillage(x, y, taken, vi); if (p2) [x, y] = p2; }
+    let parent: Settlement | null = null, bd = Infinity;
+    for (const o of Object.values(s.settlements)) if (o.kind !== 'village' && o.faction === c.faction) { const dd = dist(o.x, o.y, x, y); if (dd < bd) { bd = dd; parent = o; } }
+    if (!parent) continue;
+    const v: Settlement = {
+      id: c.id, name: c.name, kind: 'village', camp: true, faction: c.faction, owner: null, x, y, parent: parent.id, villages: [], garrison: [],
+      prosperity: randInt(30, 60), stock: {}, produce: ['meat', 'fur'], demand: [], shop: [], recruits: randInt(4, 9), relation: randInt(-5, 10),
+      lootedUntil: 0, siege: null, tavern: { companion: null, mercs: null, refresh: 0 }, culture: 'mon',
+    };
+    s.settlements[c.id] = v; parent.villages.push(c.id); taken.push(v);
   }
   for (const st of Object.values(s.settlements)) {
     st.stock = stockFor(st);
@@ -394,9 +410,9 @@ export function spawnCaravan(): Party | null {
 
 export function spawnVillager(v: Settlement): Party | null {
   if (!v.parent) return null;
-  const troops: Stack[] = [{ id: 'civ_peasant', n: randInt(5, 14), w: 0, xp: 0 }];
+  const troops: Stack[] = [{ id: v.camp ? 'mon_recruit' : 'civ_peasant', n: randInt(5, 14), w: 0, xp: 0 }];
   const [vx, vy] = nearestPassable(v.x + 5, v.y + 5);
-  const p = makeParty('villager', `${v.name}乡民`, v.faction, vx, vy, troops, { home: v.id, gold: randInt(20, 80) });
+  const p = makeParty('villager', `${v.name}${v.camp ? '牧民' : '乡民'}`, v.faction, vx, vy, troops, { home: v.id, gold: randInt(20, 80) });
   for (const g of v.produce) p.goods[g] = randInt(2, 6);
   return p;
 }

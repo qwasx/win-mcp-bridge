@@ -4,7 +4,7 @@ import type { Weather } from '../core/weather';
 
 type Ctx = CanvasRenderingContext2D;
 export interface VistaOpts {
-  kind: 'town' | 'castle' | 'village';
+  kind: 'town' | 'castle' | 'village'; camp?: boolean;
   seed: number; hour: number; season: number; weather: Weather;
   color: number; looted: boolean; siege: boolean; capital: boolean; south: boolean;
 }
@@ -75,6 +75,7 @@ export function settlementVista(o: VistaOpts): HTMLCanvasElement {
   const cx = W * (0.42 + r() * 0.16);
   if (o.kind === 'town') drawCity(c, cx, groundY, o, r, night, snowy);
   else if (o.kind === 'castle') drawFort(c, cx, groundY, o, r, night, snowy);
+  else if (o.camp) drawCampVista(c, cx, groundY, o, r, night, snowy);
   else drawVillage(c, cx, groundY, o, r, night, snowy);
 
   // 前景：松 / 柳与草
@@ -208,6 +209,44 @@ function drawFort(c: Ctx, cx: number, gy: number, o: VistaOpts, r: () => number,
   c.beginPath(); c.moveTo(cx + 120, gy + 4); c.quadraticCurveTo(cx + 40, gy - 10, cx + 10, gy - 36); c.stroke();
   void r;
 }
+/** 草原营地：低缓的丘陵、几座毡帐、马群与敖包 */
+function drawCampVista(c: Ctx, cx: number, gy: number, o: VistaOpts, r: () => number, night: boolean, snow: boolean) {
+  // 远处缓丘（盖过山）
+  c.fillStyle = night ? 'rgba(50,60,56,0.7)' : snow ? 'rgba(230,234,238,0.9)' : 'rgba(150,160,100,0.55)';
+  c.beginPath(); c.moveTo(0, gy); for (let x = 0; x <= W; x += 20) c.lineTo(x, gy - 10 - Math.sin(x / 90 + r()) * 6); c.lineTo(W, gy); c.closePath(); c.fill();
+  // 敖包
+  const ax = cx + 170 + r() * 30;
+  c.fillStyle = night ? '#444' : '#8a8478'; c.beginPath(); c.moveTo(ax - 14, gy); c.lineTo(ax, gy - 16); c.lineTo(ax + 14, gy); c.closePath(); c.fill();
+  c.strokeStyle = night ? '#555' : '#5a4a34'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(ax, gy - 16); c.lineTo(ax, gy - 34); c.stroke();
+  const flags = ['#3a6ac0', '#f4f0e0', '#c03a2a', '#3a9a5a', '#e8c040'];
+  for (let i = 0; i < 5; i++) { c.strokeStyle = flags[i]; c.lineWidth = 1; c.beginPath(); c.moveTo(ax, gy - 32 + i); c.lineTo(ax - 20 + i * 10, gy - 4); c.stroke(); }
+  // 毡帐
+  const n = 3 + Math.floor(r() * 3);
+  for (let i = 0; i < n; i++) {
+    const x = cx - 110 + i * (200 / n) + r() * 18, s = 0.85 + r() * 0.35, y = gy + r() * 6;
+    const rr = 18 * s, wall = rr * 0.6;
+    c.fillStyle = 'rgba(20,16,10,0.25)'; c.beginPath(); c.ellipse(x + 3, y + 2, rr * 1.1, rr * 0.25, 0, 0, Math.PI * 2); c.fill();
+    const burnt = o.looted && r() < 0.7;
+    c.fillStyle = burnt ? '#2a221c' : night ? '#9a988c' : '#efe8d6'; c.fillRect(x - rr, y - wall, rr * 2, wall);
+    c.beginPath(); c.moveTo(x - rr - 1, y - wall); c.quadraticCurveTo(x, y - wall - rr * 1.05, x + rr + 1, y - wall); c.closePath();
+    c.fillStyle = burnt ? '#1e1814' : night ? '#b0aea0' : '#fffaf0'; c.fill();
+    c.strokeStyle = 'rgba(40,30,20,0.6)'; c.lineWidth = 0.8; c.stroke();
+    if (!burnt) {
+      c.strokeStyle = '#a03424'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(x - rr, y - wall * 0.5); c.lineTo(x + rr, y - wall * 0.5); c.stroke();
+      c.fillStyle = night ? '#e8a040' : '#b8402c'; c.fillRect(x - rr * 0.18, y - wall * 0.85, rr * 0.36, wall * 0.85);
+      if (!night && r() < 0.7) for (let j = 0; j < 5; j++) { c.fillStyle = `rgba(200,196,186,${0.25 - j * 0.04})`; c.beginPath(); c.arc(x + j * 3, y - wall - rr * 0.55 - j * 7, 2.5 + j * 1.4, 0, Math.PI * 2); c.fill(); }
+    }
+  }
+  // 马群
+  if (!o.looted) for (let i = 0; i < 7; i++) {
+    const x = 40 + r() * 120 + (i > 3 ? W - 260 : 0), y = gy + 6 + r() * 14, col = ['#5a3a22', '#e8e0d0', '#2a2018', '#8a6040'][i % 4];
+    c.fillStyle = night ? '#2a2a2a' : col;
+    c.beginPath(); c.ellipse(x, y - 5, 6, 3, 0, 0, Math.PI * 2); c.fill();
+    c.fillRect(x + 4, y - 11, 2.2, 6); c.beginPath(); c.ellipse(x + 6.5, y - 11, 2.6, 1.4, -0.5, 0, Math.PI * 2); c.fill();
+    c.fillRect(x - 4.5, y - 3, 1.2, 4); c.fillRect(x + 3, y - 3, 1.2, 4);
+  }
+}
+
 function drawVillage(c: Ctx, cx: number, gy: number, o: VistaOpts, r: () => number, night: boolean, snow: boolean) {
   // 田垄
   c.strokeStyle = night ? 'rgba(80,90,70,0.4)' : o.south ? 'rgba(200,220,200,0.6)' : 'rgba(120,100,60,0.4)'; c.lineWidth = 1;

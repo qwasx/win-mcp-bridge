@@ -197,7 +197,7 @@ export class WorldScene extends Phaser.Scene {
     } else {
       const s = found.s;
       const f = FACTION[s.faction];
-      const kind = s.isPass ? '长城关隘' : s.kind === 'town' ? '城镇' : s.kind === 'castle' ? '城堡' : '村庄';
+      const kind = s.isPass ? '长城关隘' : s.kind === 'town' ? '城镇' : s.kind === 'castle' ? '城堡' : s.camp ? '蒙古包（出骑兵）' : '村庄';
       const passInfo = s.isPass ? `<i style="color:#d8c8a0">${PASSES.find(x => x.id === s.id)?.desc ?? ''}</i><br>${playerHostileToSettlement(s) ? '<span class="bad">关门紧闭，不许通行</span>' : '<span class="good">可以通关</span>'}<br>` : '';
       const parent = s.parent ? `隶属：${S.settlements[s.parent].name}<br>` : '';
       const gar = s.kind !== 'village' ? `守军：约 ${Math.round(count(s.garrison) / 10) * 10} 人<br>` : '';
@@ -226,7 +226,7 @@ export class WorldScene extends Phaser.Scene {
     }
   }
   settFrame(s: Settlement) {
-    if (s.kind === 'village') return s.lootedUntil > S.time ? 'village_looted' : 'village';
+    if (s.kind === 'village') return (s.camp ? 'camp' : 'village') + (s.lootedUntil > S.time ? '_looted' : '');
     const h = [...s.id].reduce((a, c) => a * 31 + c.charCodeAt(0), 7) >>> 0;
     if (s.isPass) return MAJOR_PASS.has(s.id) ? 'pass_major' : 'pass';
     if (s.kind === 'castle') return h % 3 === 0 ? 'castle1' : 'castle';

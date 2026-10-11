@@ -11,7 +11,7 @@ import {
   S, player, log, lordName, playerHostileToSettlement, playerHostileTo, changePlayerRel, cultureOf, fiefsOf, partyById, setWar,
   refreshTavern, settlementList, emit, atWar,
 } from '../core/game';
-import { FACTION, COMPANIONS, BANDIT_ZONES } from '../data/world';
+import { FACTION, COMPANIONS, BANDIT_ZONES, CAMP_RECRUIT, CAMP_RECRUIT_GOOD } from '../data/world';
 import { TROOPS, RECRUIT_OF, recruitCost, classLabel } from '../data/troops';
 import { GOODS, GOOD, ITEMS } from '../data/items';
 import { goodPrice, itemBuyPrice, itemSellPrice, ransomPrice } from '../core/economy';
@@ -38,7 +38,7 @@ function header(st: Settlement) {
   try {
     const pp = player();
     vista = settlementVista({
-      kind: st.kind, seed: hashStr(st.id), hour: S.time % 24, season: seasonOf(S.time), weather: weatherAt(pp.x, pp.y, S.time),
+      kind: st.kind, camp: !!st.camp, seed: hashStr(st.id), hour: S.time % 24, season: seasonOf(S.time), weather: weatherAt(pp.x, pp.y, S.time),
       color: f.color, looted: st.lootedUntil > S.time, siege: !!st.siege, capital: st.id === 'beijing' || st.id === 'shengjing' || f.capital === st.id,
       south: toLL(st.x, st.y)[1] < 32.5,
     });
@@ -47,7 +47,7 @@ function header(st: Settlement) {
   return h('div', null, vista, h('div', { class: 'st-head' },
     h('div', { class: 'st-flag', style: { background: f.css } }, f.name[0]),
     h('div', null,
-      h('div', { class: 'st-name' }, st.name, h('small', null, ` ${st.isPass ? '长城关隘' : KIND[st.kind]}`)),
+      h('div', { class: 'st-name' }, st.name, h('small', null, ` ${st.isPass ? '长城关隘' : st.camp ? '蒙古包' : KIND[st.kind]}`)),
       h('div', { class: 'st-sub' }, `${f.name} · 领主：${lordName(st.owner)}`, st.parent ? ` · 隶属${S.settlements[st.parent].name}` : ''),
       h('div', { class: 'st-sub' }, `繁荣 ${Math.round(st.prosperity)}　`, gar,
         st.siege ? h('span', { class: 'bad' }, ' · 正被围攻') : null,
@@ -300,7 +300,8 @@ function openRecruit(st: Settlement) {
   const pp = player();
   const body = h('div');
   const culture = st.owner === 'player' ? cultureOf(S.playerFaction ?? 'ming') : FACTION[st.faction].culture;
-  const tid = RECRUIT_OF[culture] ?? 'ming_recruit';
+  // 蒙古包只出骑兵：牧民；交情深了，帐中的好骑手也愿意跟你走
+  const tid = st.camp ? (st.relation >= 15 ? CAMP_RECRUIT_GOOD : CAMP_RECRUIT) : (RECRUIT_OF[culture] ?? 'ming_recruit');
   const t = TROOPS[tid];
   const render = () => {
     body.innerHTML = '';
@@ -308,7 +309,7 @@ function openRecruit(st: Settlement) {
     const space = partyLimit(S) - partySize(S, pp);
     const can = Math.min(st.recruits, space, Math.floor(pp.gold / cost));
     if (st.relation < -10) { body.append(h('p', null, '村民们对你心存戒备，没人愿意跟你走。（关系过低）')); return; }
-    body.append(h('div', { class: 'recruit-row' }, troopPortrait(tid, 56), troopPortrait(tid, 50), troopPortrait(tid, 56)), h('p', null, `村里有 ${st.recruits} 名青壮愿意从军（${t.name}，每人 ${cost} 两安家银）。`),
+    body.append(h('div', { class: 'recruit-row' }, troopPortrait(tid, 56), troopPortrait(tid, 50), troopPortrait(tid, 56)), h('p', null, st.camp ? `帐中有 ${st.recruits} 名骑手愿随你出征（${t.name}，每人 ${cost} 两）。${st.relation < 15 ? '与部落交情再深些（关系 15），能招到更好的骑手。' : ''}` : `村里有 ${st.recruits} 名青壮愿意从军（${t.name}，每人 ${cost} 两安家银）。`),
       h('p', { class: 'dim' }, `部队空位：${space}`),
       h('div', { class: 'row' }, btn('招募 1 人', () => hire(1), 'sm', can < 1), btn(`全部招募（${can}人）`, () => hire(can), 'sm primary', can < 1)));
     function hire(n: number) { pp.gold -= n * cost; st.recruits -= n; addTroops(pp.troops, tid, n); st.relation = Math.min(100, st.relation + (n > 3 ? 1 : 0)); render(); }

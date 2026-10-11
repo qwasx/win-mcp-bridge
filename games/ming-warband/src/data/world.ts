@@ -88,7 +88,42 @@ export const TOWN_DEFS: SettlementDef[] = [
   { id: 'kuizhou', name: '夔州', kind: 'castle', faction: 'xi', lon: 109.5, lat: 31.0 },
   { id: 'jianmen', name: '剑门关', kind: 'castle', faction: 'xi', lon: 105.55, lat: 32.2 },
   { id: 'luzhou', name: '泸州', kind: 'castle', faction: 'xi', lon: 105.44, lat: 28.87 },
+  // —— 关外扩展（v2.0）——
+  // 后金：辽东腹地与海西女真旧地，科尔沁已与后金结盟
+  { id: 'yehe', name: '叶赫', kind: 'castle', faction: 'jin', lon: 124.9, lat: 43.2 },
+  { id: 'kaiyuan', name: '开原', kind: 'castle', faction: 'jin', lon: 124.0, lat: 42.55 },
+  { id: 'wula', name: '乌拉', kind: 'castle', faction: 'jin', lon: 126.5, lat: 44.0 },
+  { id: 'huifa', name: '辉发', kind: 'castle', faction: 'jin', lon: 126.2, lat: 42.6 },
+  { id: 'fenghuang', name: '凤凰城', kind: 'castle', faction: 'jin', lon: 124.1, lat: 40.45 },
+  { id: 'horqin', name: '科尔沁', kind: 'castle', faction: 'jin', lon: 122.4, lat: 44.3 },
+  // 察哈尔：漠南诸部与河套以西
+  { id: 'harqin', name: '喀喇沁', kind: 'castle', faction: 'mon', lon: 118.9, lat: 41.9 },
+  { id: 'ujimqin', name: '乌珠穆沁', kind: 'castle', faction: 'mon', lon: 117.0, lat: 45.0 },
+  { id: 'sunid', name: '苏尼特', kind: 'castle', faction: 'mon', lon: 113.0, lat: 43.8 },
+  { id: 'alashan', name: '阿拉善', kind: 'castle', faction: 'mon', lon: 105.7, lat: 38.9 },
+  { id: 'heicheng', name: '黑城', kind: 'castle', faction: 'mon', lon: 101.1, lat: 41.8 },
 ];
+
+/** 蒙古包营地：只出骑兵的游牧部落（kind 为 village，camp = true） */
+export const CAMP_DEFS: { id: string; name: string; faction: FactionId; lon: number; lat: number }[] = [
+  { id: 'c_baarin', name: '巴林部', faction: 'mon', lon: 119.5, lat: 44.4 },
+  { id: 'c_ongniud', name: '翁牛特部', faction: 'mon', lon: 119.9, lat: 42.9 },
+  { id: 'c_aohan', name: '敖汉部', faction: 'jin', lon: 120.6, lat: 42.3 },
+  { id: 'c_naiman', name: '奈曼部', faction: 'jin', lon: 121.0, lat: 43.1 },
+  { id: 'c_jarud', name: '扎鲁特部', faction: 'jin', lon: 120.8, lat: 44.8 },
+  { id: 'c_hexigten', name: '克什克腾部', faction: 'mon', lon: 117.5, lat: 43.3 },
+  { id: 'c_abag', name: '阿巴噶部', faction: 'mon', lon: 115.0, lat: 44.4 },
+  { id: 'c_dorben', name: '四子部', faction: 'mon', lon: 111.5, lat: 42.0 },
+  { id: 'c_urad', name: '乌拉特部', faction: 'mon', lon: 108.8, lat: 41.4 },
+  { id: 'c_otog', name: '鄂托克部', faction: 'mon', lon: 107.5, lat: 39.3 },
+  { id: 'c_khalkha', name: '喀尔喀部', faction: 'mon', lon: 112.0, lat: 45.1 },
+];
+/** 营地招募的兵种：牧民；与营地关系好时可招察哈尔骑手 */
+export const CAMP_RECRUIT = 'mon_recruit', CAMP_RECRUIT_GOOD = 'mon_rider';
+
+/** 关外村庄名（按文化） */
+export const JIN_VILLAGE_NAMES = ['萨尔浒', '界凡寨', '董鄂屯', '苏完寨', '哲陈屯', '浑河屯', '铁岭堡', '懿路屯', '蒲河屯', '清河堡', '碱场堡', '汪清屯', '长白屯', '佛阿拉', '宁古屯', '珲春屯'];
+export const MON_VILLAGE_NAMES = ['美岱召', '大板升', '善岱板升', '五当召', '席力图召', '达拉特', '准格尔', '乌兰察布', '锡林郭勒', '多伦淖尔', '达里诺尔', '白塔子'];
 
 export const VILLAGE_NAMES = [
   '张家庄', '李家集', '王家屯', '柳树营', '石桥镇', '杏花村', '黄土坡', '青山堡', '马家湾', '白沙铺', '河口镇', '枣林庄', '刘家寨', '赵家沟',
@@ -117,7 +152,7 @@ export const LORD_DEFS: LordDef[] = [
   ...L('chuang', [['刘宗敏', '权将军', 'brave'], ['李过', '制将军', 'brave'], ['高一功', '果毅将军', 'honorable'], ['田见秀', '制将军', 'cautious'],
     ['袁宗第', '将军', 'brave'], ['郝摇旗', '将军', 'greedy'], ['李岩', '制将军', 'honorable'], ['刘芳亮', '将军', 'brave'], ['贺锦', '将军', 'brave']]),
   ...L('xi', [['孙可望', '平东将军', 'cautious'], ['李定国', '安西将军', 'honorable'], ['刘文秀', '抚南将军', 'brave'], ['艾能奇', '定北将军', 'brave'], ['王尚礼', '将军', 'greedy']]),
-  ...L('mon', [['额哲', '台吉', 'cautious'], ['衮楚克', '台吉', 'brave'], ['布延图', '诺颜', 'greedy'], ['多尔济', '台吉', 'brave'], ['巴雅尔', '诺颜', 'honorable']]),
+  ...L('mon', [['额哲', '台吉', 'cautious'], ['衮楚克', '台吉', 'brave'], ['布延图', '诺颜', 'greedy'], ['多尔济', '台吉', 'brave'], ['巴雅尔', '诺颜', 'honorable'], ['僧格', '诺颜', 'greedy'], ['固穆', '台吉', 'brave'], ['阿穆尔', '台吉', 'honorable']]),
 ];
 
 export interface CompanionDef {
