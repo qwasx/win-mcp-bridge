@@ -52,28 +52,35 @@ export function partySize(s: GameState, p: Party) {
 export function cargoCount(p: Party) { let n = 0; for (const k in p.goods) n += p.goods[k]; return n; }
 export function cargoLimit(s: GameState, p: Party) { return 40 + healthy(p.troops) * 2 + (p.kind === 'player' ? s.companions.length * 5 : 0); }
 
+/** 行军速度参数（GM 可在运行时调整）。
+ *  平地白天：玩家 7~10、AI 5~8；兵越多越慢、骑兵越多越快；地形/夜晚再降，但有底线。
+ *  金银、货物、火炮一律不影响速度。 */
+export const SPEED = {
+  player: { max: 10, min: 7, sizeDrop: 3, sizeFull: 600, cav: 1.5, floor: 5 },
+  ai:     { max: 8,  min: 5, sizeDrop: 3, sizeFull: 400, cav: 1.0, floor: 4 },
+  night: 0.85,
+  wounded: 0.12,       // 全员带伤时最多慢 12%
+  pathfinding: 0.03,   // 玩家每级寻路 +3%
+  lowMorale: 0.9,      // 玩家士气 < 20
+  kind: { caravan: 0.9, villager: 0.9, bandit: 1.05 } as Record<string, number>,
+};
+
 export function mapSpeed(s: GameState, p: Party, night: boolean): number {
-  let base = 9;
+  const isP = p.kind === 'player';
+  const c = isP ? SPEED.player : SPEED.ai;
   const total = Math.max(1, count(p.troops));
   let mounted = 0;
   for (const st of p.troops) if (TROOPS[st.id]?.mounted) mounted += st.n - st.w;
-  base *= 1 + 0.3 * (mounted / total);
-  base *= 1 - Math.min(0.32, total / 350);
-  const wf = wounded(p.troops) / total;
-  base *= 1 - wf * 0.2;
-  if (p.kind === 'player') {
-    base *= 1 + partySkill(s, 'pathfinding') * 0.03;
-    if (s.hero.equip.horse && total < 5) base *= 1.12;
-    const over = cargoCount(p) - cargoLimit(s, p);
-    if (over > 0) base *= Math.max(0.5, 1 - over / 100);
-    if (s.morale < 20) base *= 0.85;
-    if (s.cannons) base *= 1 - Math.min(0.2, s.cannons * 0.05);
-  }
-  if (p.kind === 'caravan' || p.kind === 'villager') base *= 0.85;
-  if (p.kind === 'bandit') base *= 1.05;
-  if (night) base *= 0.85;
-  const ts = TER_SPEED[terAtXY(p.x, p.y)] || 0.5;
-  return base * ts;
+  let v = c.max - c.sizeDrop * Math.min(1, total / c.sizeFull) + c.cav * (mounted / total);
+  v *= 1 - (wounded(p.troops) / total) * SPEED.wounded;
+  if (isP) {
+    v *= 1 + partySkill(s, 'pathfinding') * SPEED.pathfinding;
+    if (s.morale < 20) v *= SPEED.lowMorale;
+  } else v *= SPEED.kind[p.kind] ?? 1;
+  v = Math.max(c.min, Math.min(c.max, v));
+  if (night) v *= SPEED.night;
+  v *= TER_SPEED[terAtXY(p.x, p.y)] || 0.5;
+  return Math.max(c.floor, v);
 }
 
 export function weeklyWages(s: GameState, p: Party) {
