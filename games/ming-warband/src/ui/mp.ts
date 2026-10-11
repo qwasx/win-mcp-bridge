@@ -237,7 +237,7 @@ function stateAffairs() {
       h('p', null, h('b', { style: { color: F.css } }, F.name), `　${F.rulerTitle}：${F.ruler}　城池 ${cities} 座`),
       h('p', { class: 'dim' }, F.desc),
       h('div', { class: 'row wrap' },
-        btn(F.rulerTitle === '皇帝' ? '已登基' : `👑 登基称帝（需城池 6 座）`, async () => { const r = await NETH.req('emperor', {}); toast(r.ok ? '登基大典已成！' : (r.err ?? '失败')); if (r.ok) closeAll(); }, 'sm primary', F.rulerTitle === '皇帝' || cities < 6),
+        btn(F.rulerTitle === '皇帝' ? '已登基' : `👑 登基称帝（需足够城池，默认 6 座）`, async () => { const r = await NETH.req('emperor', {}); toast(r.ok ? '登基大典已成！' : (r.err ?? '失败')); if (r.ok) closeAll(); }, 'sm primary', F.rulerTitle === '皇帝'),
         who, btn('🎌 招揽入伙', async () => { const r = await NETH.req('invite', { name: who.value.trim() }); toast(r.ok ? '使者已出发，等对方答复' : (r.err ?? '失败')); }, 'sm')),
     );
   } else if (f && f.startsWith('p_')) {

@@ -1,6 +1,6 @@
 // 持久化：node:sqlite（账号、玩家档案、世界存档、配置）
 import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync, existsSync, copyFileSync } from 'node:fs';
+import { mkdirSync, existsSync, copyFileSync, readdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes, scryptSync, scrypt, timingSafeEqual } from 'node:crypto';
 import type { PRec } from '../src/net/protocol';
@@ -65,6 +65,9 @@ export class DB {
       const day = new Date().toISOString().slice(0, 10);
       const f = join(this.dir, `backup-${day}.db`);
       if (!existsSync(f)) { this.db.exec('PRAGMA wal_checkpoint(FULL)'); copyFileSync(join(this.dir, 'world.db'), f); }
+      // 只保留最近 7 天的备份
+      const olds = readdirSync(this.dir).filter(n => /^backup-\d{4}-\d{2}-\d{2}\.db$/.test(n)).sort().reverse().slice(7);
+      for (const n of olds) unlinkSync(join(this.dir, n));
     } catch (e) { console.error('[db] backup failed', e); }
   }
   close() { try { this.db.close(); } catch { /* */ } }

@@ -6,7 +6,7 @@ import { FACTION, MAJOR_FACTIONS, type FactionDef, type FactionId } from '../src
 import type { PRec } from '../src/net/protocol';
 import { heroOf, OUT } from './world';
 
-export const INDEP = { renown: 300, troops: 50, fiefs: 1, emperorCities: 6 };
+export const INDEP = { renown: 300, troops: 50, fiefs: 1, emperorCities: 6, maxKingdoms: 8 };
 const ANCIENT = ['beijing', 'nanjing', 'xian', 'luoyang']; // 古都：正统加成
 const BAD = ['习', '共产', '法轮', '六四', '台独', '藏独', '疆独'];
 
@@ -23,6 +23,8 @@ export function indepCheck(rec: PRec): string | null {
   const fiefs = fiefsOfAcct(rec.name).filter(s => s.kind !== 'village');
   if (fiefs.length < INDEP.fiefs) return `需要至少 ${INDEP.fiefs} 座城堡或城镇作为根基（攻下一座城即可）`;
   if (rec.renown < INDEP.renown) return `声望不足 ${INDEP.renown}，振臂一呼也无人响应`;
+  const live = Object.keys(S.customFactions ?? {}).filter(id => S.alive[id]).length;
+  if (live >= INDEP.maxKingdoms) return `天下已有 ${live} 个新立之国，群雄并起已到极限（上限 ${INDEP.maxKingdoms}）`;
   const p = heroOf(rec.name);
   if (!p || healthy(p.troops) < INDEP.troops) return `麾下至少要有 ${INDEP.troops} 名可战之兵`;
   return null;

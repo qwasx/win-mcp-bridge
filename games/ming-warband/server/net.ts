@@ -283,7 +283,8 @@ export const GM_HELP = `GM 指令：
 status｜players｜online｜save｜audit
 speed <每秒游戏小时>｜pvp on/off｜allianceday <日>｜motd <文字>｜say <文字>
 gold <玩家> <数量>｜troops <玩家> <兵种id> <数量>｜heal <玩家>｜renown <玩家> <数量>
-tp <玩家> <城名/ID>｜noprotect <玩家>（解除新手保护）｜spawn <势力> <城名> <人数>｜owner <城名> <势力>｜garrison <城名> <人数>
+tp <玩家> <城名/ID>｜noprotect <玩家>（解除新手保护）｜indepcfg <声望> <兵力> <称帝城数> <国家上限>
+spawn <势力> <城名> <人数>｜owner <城名> <势力>｜garrison <城名> <人数>
 war <甲> <乙>｜peace <甲> <乙>｜ally <甲> <乙> [日]｜truce <甲> <乙> [日]｜vassal <宗主> <藩属>｜betray <甲> <乙>
 recruit <每秒> <上限>｜speedcfg <player.max> <player.min> <ai.max> <ai.min>
 kick <玩家>｜ban <玩家>｜unban <玩家>｜setgm <玩家> on/off｜pass <玩家> <新密码>
@@ -296,6 +297,7 @@ function gm(s: Sess, cmd: string, a: string[]) {
   const num = (x: string, d = 0) => (Number.isFinite(Number(x)) ? Number(x) : d);
   switch (cmd) {
     case 'help': case '': return reply(GM_HELP);
+    case 'indepcfg': { if (a.length) { INDEP.renown = num(a[0], INDEP.renown); INDEP.troops = num(a[1], INDEP.troops); INDEP.emperorCities = num(a[2], INDEP.emperorCities); INDEP.maxKingdoms = num(a[3], INDEP.maxKingdoms); } return reply(`自立：声望 ${INDEP.renown}｜兵力 ${INDEP.troops}｜称帝城数 ${INDEP.emperorCities}｜玩家国家上限 ${INDEP.maxKingdoms}`); }
     case 'noprotect': { const t = target(a[0]); if (!t?.rec) return reply('该玩家不在线'); t.rec.pvpOptIn = true; db.saveRec(t.rec.name, t.rec); return reply(`${t.rec.name}的新手保护已解除`); }
     case 'status': return reply(`在线 ${[...byAcct.values()].filter(x => x.entered).length} 人｜部队 ${S.parties.length}｜第 ${Math.floor(S.time / 24)} 日｜流速 ${W.CFG.hoursPerSec} 时/秒｜PvP ${W.CFG.pvp ? '开' : '关'}｜结盟开放日 ${W.CFG.allianceOpenDay}｜交战中 ${W.encounters.size}｜战争 ${S.wars.join(' ')}｜条约 ${(S.treaties ?? []).map(t => `${t.a}-${t.b}:${t.type}`).join(' ') || '无'}`);
     case 'players': return reply(db.allUsers().slice(0, 80).map(u => { const r = JSON.parse(u.rec) as PRec; return `${u.name}${u.gm ? '[GM]' : ''}${u.banned ? '[封]' : ''} ${r.nation ? FACTION[r.nation]?.name : '未选'} Lv${r.hero?.level ?? '-'} 银${r.gold ?? 0} 兵${(r.troops ?? []).reduce((n, x) => n + x.n, 0)} ${byAcct.has(u.name) ? '在线' : ''}`; }).join('\n'));

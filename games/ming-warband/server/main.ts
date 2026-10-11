@@ -6,6 +6,7 @@ import { existsSync } from 'node:fs';
 import { join, extname, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
+import { gzipSync } from 'node:zlib';
 import { DB } from './db';
 import * as W from './world';
 import { initNet, onConnection, sessions, saveAll, heartbeat, pushOnline, broadcastRaw, checkOrphans } from './net';
@@ -30,6 +31,8 @@ initNet(db);
 
 // ---------- 静态文件 ----------
 const MIME: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.webp': 'image/webp', '.woff2': 'font/woff2' };
+const ZIP_EXT = new Set(['.html', '.js', '.mjs', '.css', '.json', '.svg']);
+const gzCache = new Map<string, { mt: number; buf: Buffer }>();
 async function serveStatic(req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? '/', 'http://x');
   if (url.pathname === '/health') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true, online: [...sessions].filter(s => s.entered).length, day: Math.floor(S.time / 24), parties: S.parties.length })); return; }
@@ -39,9 +42,18 @@ async function serveStatic(req: IncomingMessage, res: ServerResponse) {
   let file = join(DIST_DIR, p);
   try { if (!(await stat(file)).isFile()) file = join(DIST_DIR, 'index.html'); } catch { file = join(DIST_DIR, 'index.html'); }
   try {
-    const body = await readFile(file);
     const ext = extname(file);
-    res.writeHead(200, { 'content-type': MIME[ext] ?? 'application/octet-stream', 'cache-control': ext === '.html' ? 'no-cache' : 'public, max-age=86400' });
+    const headers: Record<string, string> = { 'content-type': MIME[ext] ?? 'application/octet-stream', 'cache-control': ext === '.html' ? 'no-cache' : 'public, max-age=86400', vary: 'accept-encoding' };
+    // 文本类资源 gzip（压缩一次后缓存在内存；文件改动按修改时间失效）
+    if (ZIP_EXT.has(ext) && /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''))) {
+      const mt = (await stat(file)).mtimeMs;
+      let z = gzCache.get(file);
+      if (!z || z.mt !== mt) { z = { mt, buf: gzipSync(await readFile(file), { level: 9 }) }; gzCache.set(file, z); }
+      headers['content-encoding'] = 'gzip';
+      res.writeHead(200, headers); res.end(z.buf); return;
+    }
+    const body = await readFile(file);
+    res.writeHead(200, headers);
     res.end(body);
   } catch { res.writeHead(404); res.end('客户端未构建：请先 npm run build'); }
 }
