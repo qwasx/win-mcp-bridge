@@ -14,16 +14,24 @@ import { FACTION, type FactionId } from '../src/data/world';
 import { RECRUIT_OF, TROOPS } from '../src/data/troops';
 import type { GameState, Party, Settlement, Stack } from '../src/core/state';
 import type { NetParty, PRec, S2C, ServerCfg, Treaty, WorldSnap, PrivatePart } from '../src/net/protocol';
-import { PRIVATE_KEYS } from '../src/net/protocol';
+import { PRIVATE_KEYS, newbieLeft } from '../src/net/protocol';
 import { tickDiplomacy, treatyBetween } from './diplomacy';
 import { installCustomFactions } from './kingdom';
 
 export const CFG: ServerCfg = { hoursPerSec: 0.4, allianceOpenDay: 36, pvp: true, motd: '欢迎来到《铁血大明》联机世界！' };
 
 /** 发给某个玩家（由网络层注入） */
-export const OUT: { send: (acct: string, m: S2C) => void; broadcast: (m: S2C, filter?: (acct: string) => boolean) => void; online: (acct: string) => boolean } = {
-  send: () => {}, broadcast: () => {}, online: () => false,
+export const OUT: { send: (acct: string, m: S2C) => void; broadcast: (m: S2C, filter?: (acct: string) => boolean) => void; online: (acct: string) => boolean; rec: (acct: string) => PRec | undefined } = {
+  send: () => {}, broadcast: () => {}, online: () => false, rec: () => undefined,
 };
+/** 玩家截击玩家前的新手保护检查：返回 true 表示可以开战 */
+function pvpAllowed(att: Party, def: Party): boolean {
+  const dr = OUT.rec(def.acct!), left = newbieLeft(dr);
+  if (left > 0) { OUT.send(att.acct!, { t: 'report', title: '新手保护', lines: [`${def.name}初出茅庐（新手保护还剩 ${Math.ceil(left / 60000)} 分钟），此时不能截击。`] }); return false; }
+  const ar = OUT.rec(att.acct!);
+  if (ar && !ar.pvpOptIn) { if (newbieLeft(ar) > 0) OUT.send(att.acct!, { t: 'log', msg: '你主动截击他人，新手保护就此解除。', cls: 'bad' }); ar.pvpOptIn = true; }
+  return true;
+}
 
 interface HNav { kind: 'point' | 'settlement' | 'party'; id?: string | number; x: number; y: number; path: [number, number][]; lastPathAt: number }
 interface Enc { eid: number; acct: string; hero: number; enemy: number; started: number; forced: boolean; fighting?: boolean }
@@ -122,7 +130,7 @@ export function createRec(name: string, nation: FactionId, bg: string): PRec {
 
 export function spawnHero(rec: PRec): Party {
   const old = heroOf(rec.name);
-  if (old) return old;
+  if (old) { if (rec.nation) old.faction = rec.nation; return old; }
   let x = rec.x ?? 0, y = rec.y ?? 0;
   if (!rec.x || !findPath(x, y, x + 1, y + 1)) { const st = nationStart(rec.nation ?? 'ming'); x = st.x + 6; y = st.y + 6; }
   const p = makeParty('hero', rec.name, rec.nation ?? 'ming', x, y, rec.troops, { acct: rec.name, gold: rec.gold, goods: rec.goods, prisoners: rec.prisoners });
@@ -195,7 +203,7 @@ function heroMove(p: Party, h: number, night: boolean) {
     const tp = partyById(Number(nv.id));
     if (tp && dist(p.x, p.y, tp.x, tp.y) < 12) {
       heroNav.delete(p.id);
-      if (tp.kind === 'hero') { if (hostile(p, tp) && CFG.pvp && !tp.busy) heroBattle(p, tp, '你截住了'); else OUT.send(p.acct!, { t: 'report', title: '相遇', lines: [`你遇到了${FACTION[tp.faction]?.name ?? ''}的${tp.name}（${healthy(tp.troops)} 人）。`] }); }
+      if (tp.kind === 'hero') { if (hostile(p, tp) && CFG.pvp && !tp.busy) { if (pvpAllowed(p, tp)) heroBattle(p, tp, '你截住了'); } else OUT.send(p.acct!, { t: 'report', title: '相遇', lines: [`你遇到了${FACTION[tp.faction]?.name ?? ''}的${tp.name}（${healthy(tp.troops)} 人）。`] }); }
       else if (hostile(p, tp) && !tp.busy) startEncounter(p, tp, false);
       else OUT.send(p.acct!, { t: 'encounter', enemy: tp.id, forced: false, eid: 0 });
     }
@@ -209,7 +217,12 @@ function heroContact(hero: Party, other: Party) {
     if (!CFG.pvp || !hostile(hero, other)) return;
     // 只有一方主动追击（目标是对方）时才开战
     const navA = heroNav.get(hero.id), navB = heroNav.get(other.id);
-    if ((navA?.kind === 'party' && Number(navA.id) === other.id) || (navB?.kind === 'party' && Number(navB.id) === hero.id)) heroBattle(hero, other, '两军相遇：');
+    const aChases = navA?.kind === 'party' && Number(navA.id) === other.id;
+    const bChases = navB?.kind === 'party' && Number(navB.id) === hero.id;
+    if (!aChases && !bChases) return;
+    const [att, def] = aChases ? [hero, other] : [other, hero];
+    if (!pvpAllowed(att, def)) { heroNav.delete(att.id); OUT.send(att.acct!, { t: 'navEnd' }); return; }
+    heroBattle(hero, other, '两军相遇：');
     return;
   }
   const chased = other.ai.mode === 'chase' && other.ai.target === hero.id;

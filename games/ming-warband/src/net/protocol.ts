@@ -27,6 +27,7 @@ export interface PRec {
   rank?: number;          // 官职等级（本国内）
   x?: number; y?: number; // 下线位置
   created: number;
+  pvpOptIn?: boolean;     // 主动发起过 PvP（新手保护提前解除）
 }
 
 /** 玩家可上传的私有字段 */
@@ -73,7 +74,7 @@ export type C2S =
   | { t: 'leave' }
   | { t: 'sync'; data: Partial<PrivatePart>; ps?: number }
   | { t: 'req'; rid: number; op: string; args: any }
-  | { t: 'chat'; ch: 'all' | 'nation'; text: string }
+  | { t: 'chat'; ch: 'all' | 'nation' | 'pm'; text: string; to?: string }
   | { t: 'gm'; cmd: string; args: string[] }
   | { t: 'ping'; at: number };
 
@@ -90,7 +91,7 @@ export type S2C =
   | { t: 'patch'; data: Partial<PrivatePart> & { addGold?: number; x?: number; y?: number; hp?: number }; why?: string; seq?: number }
   | { t: 'report'; title: string; lines: string[] }
   | { t: 'res'; rid: number; ok: boolean; data?: any; err?: string }
-  | { t: 'chat'; ch: string; who: string; nation?: string | null; text: string; at: number }
+  | { t: 'chat'; ch: string; who: string; nation?: string | null; text: string; at: number; to?: string }
   | { t: 'log'; msg: string; cls?: string }
   | { t: 'online'; list: OnlineInfo[] }
   | { t: 'cfg'; cfg: ServerCfg }
@@ -104,3 +105,8 @@ export const RANK_RENOWN = [0, 100, 250, 500, 900, 1500, 2400, 3600, 5500];
 export function rankOf(renown: number) { let r = 0; for (let i = 0; i < RANK_RENOWN.length; i++) if (renown >= RANK_RENOWN[i]) r = i; return r; }
 /** 外交门槛 */
 export const ENVOY_RENOWN = 150, WAR_RENOWN = 800;
+
+/** 新手保护：注册后这么久（现实毫秒）内不会被玩家截击，除非自己主动出手 */
+export const NEWBIE_MS = 2 * 3600 * 1000;
+export const newbieLeft = (rec: { created: number; pvpOptIn?: boolean } | undefined, now = Date.now()) =>
+  !rec || rec.pvpOptIn ? 0 : Math.max(0, rec.created + NEWBIE_MS - now);

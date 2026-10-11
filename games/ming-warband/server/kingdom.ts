@@ -1,6 +1,6 @@
 // 联机：玩家自立（称王 / 称帝）、招揽其他玩家入伙
 import { S, setWar, atWar, log, settlementList } from '../src/core/game';
-import { setOwner } from '../src/core/combat';
+import { setOwner, checkFactionAlive, EXILE_DAYS } from '../src/core/combat';
 import { healthy } from '../src/core/party';
 import { FACTION, MAJOR_FACTIONS, type FactionDef, type FactionId } from '../src/data/world';
 import type { PRec } from '../src/net/protocol';
@@ -107,4 +107,14 @@ export function acceptInvite(rec: PRec): { ok: boolean; err?: string; data?: any
   if (old && old !== iv.faction && !old.startsWith('p_')) rec.playerRel[old] = Math.min(rec.playerRel[old] ?? 0, -20);
   log(`${rec.name}投奔${FACTION[iv.faction].name}，归于${iv.from}麾下。`, 'event');
   return { ok: true, data: { faction: iv.faction, def: FACTION[iv.faction] } };
+}
+
+/** 每隔几秒：玩家国家的流亡计时（失城 → 流亡 → 光复 / 断绝） */
+export function kingdomTick() {
+  for (const id of Object.keys(S.customFactions ?? {})) if (S.alive[id]) checkFactionAlive(id);
+}
+/** 流亡剩余日数（未流亡返回 null） */
+export function exileLeft(f: string): number | null {
+  const cf = S.customFactions?.[f];
+  return cf?.exileSince == null ? null : Math.max(0, Math.ceil(EXILE_DAYS - (S.time - cf.exileSince) / 24));
 }

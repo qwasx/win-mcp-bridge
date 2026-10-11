@@ -108,7 +108,19 @@ export class WorldScene extends Phaser.Scene {
       if (panelOpen()) return;
       this.drag = { down: true, sx: p.x, sy: p.y, moved: false, camX: cam.scrollX, camY: cam.scrollY };
     });
+    // 触屏双指缩放
+    this.input.addPointer(1);
+    let pinch: { d: number; z: number } | null = null;
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      const p1 = this.input.pointer1, p2 = this.input.pointer2;
+      if (p1?.isDown && p2?.isDown) {
+        const d = Math.max(1, Math.hypot(p1.x - p2.x, p1.y - p2.y));
+        if (!pinch) pinch = { d, z: cam.zoom };
+        cam.setZoom(Phaser.Math.Clamp(pinch.z * d / pinch.d, 0.45, 3));
+        this.drag.moved = true; this.drag.down = false; this.follow = false; this.staticDirty = true;
+        return;
+      }
+      pinch = null;
       if (this.drag.down && p.isDown) {
         const dx = p.x - this.drag.sx, dy = p.y - this.drag.sy;
         if (Math.abs(dx) + Math.abs(dy) > 6) { this.drag.moved = true; this.follow = false; }

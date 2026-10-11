@@ -207,6 +207,17 @@ export class BattleScene extends Phaser.Scene {
     music.weather(wth.kind === 'rain' ? wth.k : 0);
     if (st.night) this.makeTorches();
     this.input.on('wheel', (_p: any, _o: any, _dx: number, dy: number) => cam.setZoom(Phaser.Math.Clamp(cam.zoom * (dy > 0 ? 0.9 : 1.1), this.minZoom(), 2)));
+    // 触屏双指缩放
+    this.input.addPointer(1);
+    let pinch: { d: number; z: number } | null = null;
+    this.input.on('pointermove', () => {
+      const p1 = this.input.pointer1, p2 = this.input.pointer2;
+      if (p1?.isDown && p2?.isDown) {
+        const d = Math.max(1, Math.hypot(p1.x - p2.x, p1.y - p2.y));
+        if (!pinch) pinch = { d, z: cam.zoom };
+        cam.setZoom(Phaser.Math.Clamp(pinch.z * d / pinch.d, this.minZoom(), 2));
+      } else pinch = null;
+    });
     this.keys = this.input.keyboard!.addKeys('W,A,S,D,Q,E,F,V,B,Z,X,C,R,ONE,TWO,THREE,FOUR,UP,DOWN,LEFT,RIGHT,SPACE,TAB,ENTER');
     this.input.keyboard!.addCapture('SPACE,TAB');
     const kb = this.input.keyboard!;

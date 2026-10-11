@@ -5,6 +5,7 @@ export type FactionId = 'ming' | 'jin' | 'chuang' | 'xi' | 'mon' | 'player' | 'b
 
 export interface FactionDef {
   id: FactionId; name: string; color: number; css: string; culture: Culture; ruler: string; rulerTitle: string; capital: string; desc: string;
+  exileSince?: number; // 联机：玩家国家失去全部城池的时刻（流亡政权）
 }
 
 export const FACTIONS: FactionDef[] = [

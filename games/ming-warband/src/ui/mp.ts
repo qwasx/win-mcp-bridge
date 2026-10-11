@@ -3,10 +3,11 @@ import { h, uiRoot, openPanel, closeAll, closeTop, btn, toast, confirmDialog } f
 import { S, BACKGROUNDS, atWar, allied, log } from '../core/game';
 import { FACTION, type FactionId } from '../data/world';
 import { NET, connect, send, onNet, defaultUrl, savedToken, clearToken, disconnect, type ChatMsg } from '../net/client';
-import { NATIONS, RANK_NAMES, rankOf, ENVOY_RENOWN, WAR_RENOWN } from '../net/protocol';
+import { NATIONS, RANK_NAMES, rankOf, ENVOY_RENOWN, WAR_RENOWN, newbieLeft } from '../net/protocol';
 import { NETH } from '../net/hooks';
 import { showReport } from './encounter';
 import { healthy } from '../core/party';
+import { EXILE_DAYS } from '../core/combat';
 
 let hooks: { start: () => void; quit: () => void } = { start: () => {}, quit: () => {} };
 export function setMpHooks(start: () => void, quit: () => void) { hooks = { start, quit }; }
@@ -116,10 +117,15 @@ export function leaveMp() {
 let chatBox: HTMLElement | null = null, chatCh: 'all' | 'nation' = 'all', onlineEl: HTMLElement | null = null;
 function mountOverlay() {
   overlay?.remove();
-  const input = h('input', { class: 'chat-input', placeholder: '说点什么…（回车发送）', maxlength: '200' }) as HTMLInputElement;
+  const input = h('input', { class: 'chat-input', placeholder: '说点什么…（回车发送，@名号 私聊）', maxlength: '200' }) as HTMLInputElement;
   input.addEventListener('keydown', e => {
     e.stopPropagation();
-    if (e.key === 'Enter' && input.value.trim()) { send({ t: 'chat', ch: chatCh, text: input.value.trim() }); input.value = ''; }
+    if (e.key === 'Enter' && input.value.trim()) {
+      const v = input.value.trim();
+      const pm = /^[@＠](\S+)\s+([\s\S]+)$/.exec(v); // @名号 内容 = 私聊
+      if (pm) { send({ t: 'chat', ch: 'pm', to: pm[1], text: pm[2] }); input.value = `@${pm[1]} `; }
+      else { send({ t: 'chat', ch: chatCh, text: v }); input.value = ''; }
+    }
     if (e.key === 'Escape') input.blur();
   });
   const tab = (k: 'all' | 'nation', label: string) => h('button', { class: `chat-tab ${chatCh === k ? 'sel' : ''}`, onclick: (e: Event) => { chatCh = k; (e.target as HTMLElement).parentElement!.querySelectorAll('.chat-tab').forEach(x => x.classList.remove('sel')); (e.target as HTMLElement).classList.add('sel'); } }, label);
@@ -143,8 +149,9 @@ function pushChat(m: ChatMsg) {
   if (!chatBox) return;
   const F = m.nation ? FACTION[m.nation] : null;
   const line = h('div', { class: `chat-line ${m.ch}` },
-    m.ch === 'nation' ? h('span', { class: 'chat-ch' }, '[本国]') : m.ch === 'gm' ? h('span', { class: 'chat-ch gm' }, '[天意]') : null,
-    h('b', { style: { color: F?.css ?? '#f0d77a' } }, m.who), '：', m.text);
+    m.ch === 'nation' ? h('span', { class: 'chat-ch' }, '[本国]') : m.ch === 'gm' ? h('span', { class: 'chat-ch gm' }, '[天意]') : m.ch === 'pm' ? h('span', { class: 'chat-ch pm' }, '[密]') : null,
+    h('b', { style: { color: F?.css ?? '#f0d77a' }, onclick: () => { const i = document.querySelector('.chat-input') as HTMLInputElement | null; if (i && m.who !== NETH.name) { i.value = `@${m.who} `; i.focus(); } } }, m.who),
+    m.ch === 'pm' && m.to ? h('span', { class: 'dim' }, `→${m.to}`) : null, '：', m.text);
   chatBox.appendChild(line);
   while (chatBox.children.length > 80) chatBox.firstChild!.remove();
   chatBox.scrollTop = chatBox.scrollHeight;
@@ -157,10 +164,16 @@ function openOnline() {
   openPanel(`在线豪杰（${NET.online.length}）`, h('div', null,
     ...Object.entries(byN).map(([f, list]) => h('div', { class: 'card' },
       h('b', { style: { color: FACTION[f]?.css ?? '#888' } }, FACTION[f]?.name ?? '未投效'), h('span', { class: 'dim' }, ` ${list.length} 人`),
-      h('p', null, list.map(o => `${o.name}${o.gm ? '（GM）' : ''} Lv${o.lvl}`).join('、')))),
+      h('div', { class: 'row wrap' }, ...list.map(o => h('span', { class: 'online-who' }, `${o.name}${o.gm ? '（GM）' : ''} Lv${o.lvl} `,
+        o.name === NETH.name ? null : btn('私聊', () => { closeAll(); const i = document.querySelector('.chat-input') as HTMLInputElement | null; if (i) { i.value = `@${o.name} `; i.focus(); } }, 'sm')))))),
+    newbieNote(),
   ));
 }
 
+function newbieNote() {
+  const left = newbieLeft(NET.rec ?? undefined);
+  return left > 0 ? h('p', { class: 'good' }, `🛡 新手保护还剩 ${Math.ceil(left / 60000)} 分钟：其他玩家不能截击你（你主动截击他人则立即解除）。`) : null;
+}
 // ---------- 外交 ----------
 export function openDiplomacy() {
   const me = S.playerFaction;
@@ -206,9 +219,16 @@ function adoptFaction(id: string, def: any) {
   if (NET.rec) NET.rec.nation = id as FactionId;
   S.alive[id] = true;
 }
+function exileNote(f: string) {
+  const since = FACTION[f]?.exileSince;
+  if (since == null) return null;
+  const left = Math.max(0, Math.ceil(EXILE_DAYS - (S.time - since) / 24));
+  return h('p', { class: 'bad' }, `⚠ 流亡政权：已失去全部城池。${left} 日内须夺回一座城堡或城镇，否则国祚断绝。`);
+}
 function stateAffairs() {
   const f = S.playerFaction;
   const box = h('div', { class: 'card' }, h('h4', null, '国事'));
+  if (f && f.startsWith('p_')) { const n = exileNote(f); if (n) box.append(n); }
   if (f && f.startsWith('p_') && FACTION[f]?.ruler === S.hero.name) {
     const F = FACTION[f];
     const cities = Object.values(S.settlements).filter(s => s.faction === f && s.kind !== 'village').length;

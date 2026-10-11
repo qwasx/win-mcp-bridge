@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { DB } from './db';
 import * as W from './world';
-import { initNet, onConnection, sessions, saveAll, heartbeat, pushOnline, broadcastRaw } from './net';
+import { initNet, onConnection, sessions, saveAll, heartbeat, pushOnline, broadcastRaw, checkOrphans } from './net';
+import { kingdomTick } from './kingdom';
 import { RECRUIT } from '../src/core/recruits';
 import { DIPLO } from './diplomacy';
 import { S } from '../src/core/game';
@@ -65,7 +66,7 @@ setInterval(() => {
   tickCost = tickCost * 0.95 + (performance.now() - a) * 0.05;
   if (now - lastPos >= 200) { lastPos = now; broadcastRaw(JSON.stringify(W.posPacket())); }
   if (now - lastParties >= 1000) { lastParties = now; const d = W.partiesDelta(); if (d.t === 'parties' && (d.up.length || d.gone.length)) broadcastRaw(JSON.stringify(d)); }
-  if (now - lastWorld >= 3000) { lastWorld = now; const d = W.worldDelta(); if (d) broadcastRaw(JSON.stringify(d)); pushOnline(); }
+  if (now - lastWorld >= 3000) { lastWorld = now; kingdomTick(); checkOrphans(); const d = W.worldDelta(); if (d) broadcastRaw(JSON.stringify(d)); pushOnline(); }
   if (now - lastHb >= 20000) { lastHb = now; heartbeat(); }
   if (now - lastSave >= 60000) { lastSave = now; const b = performance.now(); saveAll(); console.log(`[save] ${Math.round(performance.now() - b)} ms; tick avg ${tickCost.toFixed(1)} ms; online ${[...sessions].filter(s => s.entered).length}`); }
   if (now - lastBackup >= 6 * 3600 * 1000) { lastBackup = now; db.backup(); }

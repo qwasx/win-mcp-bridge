@@ -6,7 +6,7 @@ import { settlementVista, hashStr } from '../art/vista';
 import { weatherAt, seasonOf } from '../core/weather';
 import { toLL } from '../core/terrain';
 import { troopPortrait, companionPortrait } from '../art/portrait';
-import { h, openPanel, closeTop, closeAll, btn, toast, confirmDialog, replaceTop } from './dom';
+import { h, openPanel, closeTop, closeAll, btn, toast, confirmDialog, replaceTop, panelOpen } from './dom';
 import type { Settlement, Stack } from '../core/state';
 import {
   S, player, log, lordName, playerHostileToSettlement, playerHostileTo, changePlayerRel, cultureOf, fiefsOf, partyById, setWar,
@@ -532,6 +532,19 @@ async function raidVillage(st: Settlement) {
 }
 
 // ---------- 攻城 ----------
+// 联机：时间不能快进，围城等待按现实时间流逝（服务器时钟），到点自动回到攻城菜单
+let siegeTimer: ReturnType<typeof setInterval> | null = null;
+function mpSiegeWait(st: Settlement, hrs: number) {
+  if (siegeTimer) clearInterval(siegeTimer);
+  const until = S.time + hrs, pp = player(), x0 = pp.x, y0 = pp.y;
+  toast(`营中赶造器械，约需 ${Math.ceil(hrs)} 个时辰……（可随时移动取消）`);
+  siegeTimer = setInterval(() => {
+    const me = player();
+    const moved = !me || Math.hypot(me.x - x0, me.y - y0) > 30 || !!nav.target;
+    if (moved || !st.siege) { clearInterval(siegeTimer!); siegeTimer = null; if (moved) toast('你离开了营地，围城暂停。'); return; }
+    if (S.time >= until) { clearInterval(siegeTimer!); siegeTimer = null; if (!panelOpen()) openSiege(st); }
+  }, 500);
+}
 const SIEGE_PREP = 10;
 const RAM_AT = 18, MINE_DUR = 30;
 export function siegeKitOf(st: Settlement): SiegeKit {
@@ -569,7 +582,11 @@ function openSiege(st: Settlement) {
   const fol = myFollowers();
   const inside = lordsInside(st);
   const mineLeft = st.siege?.mineAt ? Math.max(0, Math.ceil(MINE_DUR - (S.time - st.siege.mineAt))) : -1;
-  const wait = (hrs: number) => () => { closeAll(); const interrupted = simulate(Math.max(0.5, hrs)); if (!interrupted && st.siege) openSiege(st); };
+  const wait = (hrs: number) => () => {
+    closeAll();
+    if (NETH.on) { mpSiegeWait(st, Math.max(0.5, hrs)); return; }
+    const interrupted = simulate(Math.max(0.5, hrs)); if (!interrupted && st.siege) openSiege(st);
+  };
   const line = (ok: boolean, txt: string) => h('div', { class: ok ? 'good' : 'dim' }, (ok ? '✔ ' : '… ') + txt);
   const our = healthy(pp.troops) + fol.reduce((a, p) => a + healthy(p.troops), 0);
   const their = healthy(st.garrison) + inside.reduce((a, p) => a + healthy(p.troops), 0);
@@ -589,7 +606,7 @@ function openSiege(st: Settlement) {
       ready && (kit.ladders < 6 || !kit.ram) ? btn('🪓 继续打造器械（8 小时）', wait(8), 'menu-item') : null,
       !st.siege?.mineAt ? btn('⛏ 挖掘地道（约 30 小时，需 40 人）', () => { st.siege!.mineAt = S.time; log(`你命工兵在${st.name}城外挖掘地道。`, 'war'); openSiege(st); }, 'menu-item', healthy(pp.troops) < 40, healthy(pp.troops) < 40 ? '至少需要 40 名健康的部下' : '')
         : !kit.mine ? btn(`⛏ 等待地道挖通（${mineLeft} 小时）`, wait(mineLeft), 'menu-item') : null,
-      btn('解除包围', () => { st.siege = null; closeAll(); log(`你解除了对${st.name}的包围。`, 'dim'); }, 'menu-item'),
+      btn('解除包围', () => { st.siege = null; if (NETH.on) void NETH.req('siegeEnd', { st: st.id }); closeAll(); log(`你解除了对${st.name}的包围。`, 'dim'); }, 'menu-item'),
       btn('暂时离开（保持包围）', () => closeAll(), 'menu-item'),
     ));
   openPanel(`围攻${st.name}`, body);

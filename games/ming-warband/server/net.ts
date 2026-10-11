@@ -34,6 +34,7 @@ export function initNet(d: DB) {
   };
   W.OUT.broadcast = (m, filter) => { const raw = JSON.stringify(m); for (const s of sessions) if (s.entered && (!filter || filter(s.acct!))) raw0(s, raw); };
   W.OUT.online = acct => byAcct.has(acct) && byAcct.get(acct)!.entered;
+  W.OUT.rec = acct => byAcct.get(acct)?.rec;
 }
 
 function raw0(s: Sess, raw: string) { if (s.ws.readyState === 1) { try { s.ws.send(raw); } catch { /* */ } } }
@@ -41,6 +42,9 @@ function send(s: Sess, m: S2C) { raw0(s, JSON.stringify(m)); }
 export function broadcastRaw(raw: string) { for (const s of sessions) if (s.entered) raw0(s, raw); }
 
 const NAME_RE = /^[\u4e00-\u9fa5A-Za-z0-9_]{2,12}$/;
+/** 同 IP 每 24 小时最多注册的账号数（内存计数，重启清零） */
+const REG_PER_IP = 5;
+const regByIp = new Map<string, number[]>();
 const BAD_WORDS = ['习近平', '共产党', '法轮', '六四', 'fuck', 'shit'];
 const clean = (t: string) => { let x = t.slice(0, 200).replace(/[<>]/g, ''); for (const w of BAD_WORDS) x = x.split(w).join('*'.repeat(w.length)); return x; };
 
@@ -86,6 +90,9 @@ function handle(s: Sess, m: C2S) {
       if (BAD_WORDS.some(w => name.includes(w))) return send(s, { t: 'auth', ok: false, err: '名号不合适' });
       if (pass.length < 4) return send(s, { t: 'auth', ok: false, err: '密码至少 4 位' });
       if (db.user(name)) return send(s, { t: 'auth', ok: false, err: '此名号已被占用' });
+      const regs = (regByIp.get(s.ip) ?? []).filter(t => Date.now() - t < 24 * 3600 * 1000);
+      if (regs.length >= REG_PER_IP && s.ip !== '127.0.0.1' && s.ip !== '::1' && s.ip !== '::ffff:127.0.0.1') return send(s, { t: 'auth', ok: false, err: `同一网络一天最多注册 ${REG_PER_IP} 个名号` });
+      regByIp.set(s.ip, [...regs, Date.now()]);
       const token = db.register(name, pass, { name, nation: null } as unknown as PRec);
       db.audit(name, `register from ${s.ip}`);
       return afterAuth(s, name, token);
@@ -157,6 +164,13 @@ function handle(s: Sess, m: C2S) {
       const text = clean(String(m.text ?? '')).trim();
       if (!text) return;
       if (text.startsWith('/') && s.gm) return gm(s, text.slice(1).split(/\s+/)[0], text.slice(1).split(/\s+/).slice(1));
+      if (m.ch === 'pm') { // 私聊
+        const to = String(m.to ?? '').trim(); const ts = byAcct.get(to);
+        if (!ts?.entered) return send(s, { t: 'chat', ch: 'gm', who: '系统', text: `${to || '对方'}不在线`, at: now });
+        const pm: S2C = { t: 'chat', ch: 'pm', who: s.acct, nation: rec.nation, text, at: now, to };
+        send(ts, pm); if (ts !== s) send(s, pm);
+        return;
+      }
       const ch = m.ch === 'nation' ? 'nation' : 'all';
       const msg: S2C = { t: 'chat', ch, who: s.acct, nation: rec.nation, text, at: now };
       if (ch === 'all') { db.chat('all', s.acct, text); W.OUT.broadcast(msg); }
@@ -251,7 +265,7 @@ export const GM_HELP = `GM 指令：
 status｜players｜online｜save｜audit
 speed <每秒游戏小时>｜pvp on/off｜allianceday <日>｜motd <文字>｜say <文字>
 gold <玩家> <数量>｜troops <玩家> <兵种id> <数量>｜heal <玩家>｜renown <玩家> <数量>
-tp <玩家> <城名/ID>｜spawn <势力> <城名> <人数>｜owner <城名> <势力>｜garrison <城名> <人数>
+tp <玩家> <城名/ID>｜noprotect <玩家>（解除新手保护）｜spawn <势力> <城名> <人数>｜owner <城名> <势力>｜garrison <城名> <人数>
 war <甲> <乙>｜peace <甲> <乙>｜ally <甲> <乙> [日]｜truce <甲> <乙> [日]｜vassal <宗主> <藩属>｜betray <甲> <乙>
 recruit <每秒> <上限>｜speedcfg <player.max> <player.min> <ai.max> <ai.min>
 kick <玩家>｜ban <玩家>｜unban <玩家>｜setgm <玩家> on/off｜pass <玩家> <新密码>
@@ -264,6 +278,7 @@ function gm(s: Sess, cmd: string, a: string[]) {
   const num = (x: string, d = 0) => (Number.isFinite(Number(x)) ? Number(x) : d);
   switch (cmd) {
     case 'help': case '': return reply(GM_HELP);
+    case 'noprotect': { const t = target(a[0]); if (!t?.rec) return reply('该玩家不在线'); t.rec.pvpOptIn = true; db.saveRec(t.rec.name, t.rec); return reply(`${t.rec.name}的新手保护已解除`); }
     case 'status': return reply(`在线 ${[...byAcct.values()].filter(x => x.entered).length} 人｜部队 ${S.parties.length}｜第 ${Math.floor(S.time / 24)} 日｜流速 ${W.CFG.hoursPerSec} 时/秒｜PvP ${W.CFG.pvp ? '开' : '关'}｜结盟开放日 ${W.CFG.allianceOpenDay}｜交战中 ${W.encounters.size}｜战争 ${S.wars.join(' ')}｜条约 ${(S.treaties ?? []).map(t => `${t.a}-${t.b}:${t.type}`).join(' ') || '无'}`);
     case 'players': return reply(db.allUsers().slice(0, 80).map(u => { const r = JSON.parse(u.rec) as PRec; return `${u.name}${u.gm ? '[GM]' : ''}${u.banned ? '[封]' : ''} ${r.nation ? FACTION[r.nation]?.name : '未选'} Lv${r.hero?.level ?? '-'} 银${r.gold ?? 0} 兵${(r.troops ?? []).reduce((n, x) => n + x.n, 0)} ${byAcct.has(u.name) ? '在线' : ''}`; }).join('\n'));
     case 'online': pushOnline(true); return reply([...byAcct.keys()].join('、') || '无人在线');
@@ -319,4 +334,15 @@ function gm(s: Sess, cmd: string, a: string[]) {
   }
   reply('未知指令。输入 help 查看。');
   void partyById; void PROTO_VERSION;
+}
+
+/** 效忠的国家已覆灭（如玩家国家流亡期满）：在线成员重新择主，保留角色与家当 */
+export function checkOrphans() {
+  for (const s of sessions) {
+    if (!s.entered || !s.rec?.nation || S.alive[s.rec.nation]) continue;
+    const dead = FACTION[s.rec.nation]?.name ?? s.rec.nation;
+    s.rec.nation = null; db.saveRec(s.rec.name, s.rec);
+    send(s, { t: 'log', msg: `${dead}国祚已绝。你流落江湖，须另择明主。`, cls: 'bad' });
+    send(s, { t: 'auth', ok: true, name: s.rec.name, needCreate: true, gm: s.gm });
+  }
 }

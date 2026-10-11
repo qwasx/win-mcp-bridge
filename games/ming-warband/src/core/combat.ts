@@ -275,9 +275,20 @@ export function setOwner(st: Settlement, faction: any, owner: string | null) {
   for (const vid of st.villages) { const v = S.settlements[vid]; v.faction = faction; v.owner = owner; }
 }
 
+/** 联机：玩家建立的国家失去全部城池后，可流亡这么多日以图光复 */
+export const EXILE_DAYS = 60;
 export function checkFactionAlive(f: string) {
   if (f === 'player' || !S.alive[f]) return;
-  if (factionSettlements(f).filter(s => s.kind !== 'village').length === 0) {
+  const cf = S.customFactions?.[f];
+  const forts = factionSettlements(f).filter(s => s.kind !== 'village').length;
+  if (cf) {
+    if (forts > 0) { if (cf.exileSince != null) { delete cf.exileSince; delete FACTION[f].exileSince; log(`${cf.name}光复城池，重整旗鼓！`, 'gold'); } }
+    else {
+      if (cf.exileSince == null) { cf.exileSince = S.time; FACTION[f].exileSince = S.time; log(`${cf.name}失去了最后一座城池！${cf.ruler}率残部流亡，誓要光复故土（${EXILE_DAYS} 日内须夺回一城，否则国祚断绝）。`, 'gold'); }
+      if (S.time - cf.exileSince < EXILE_DAYS * 24) { checkVictory(); return; }
+    }
+  }
+  if (forts === 0) {
     S.alive[f] = false;
     log(`${FACTION[f].name}已经覆灭！`, 'gold');
     for (const p of [...S.parties]) if (p.faction === f && p.kind !== 'player' && p.kind !== 'hero') removeParty(p);

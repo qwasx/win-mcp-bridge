@@ -6,7 +6,7 @@ import type { C2S, S2C, PRec, ServerCfg, OnlineInfo, NetParty, PrivatePart } fro
 import { NETH, type ReqResult } from './hooks';
 import { FACTION } from '../data/world';
 
-export interface ChatMsg { ch: string; who: string; nation?: string | null; text: string; at: number }
+export interface ChatMsg { ch: string; who: string; nation?: string | null; text: string; at: number; to?: string }
 export const NET = {
   ws: null as WebSocket | null,
   url: '',
