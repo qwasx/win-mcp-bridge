@@ -226,7 +226,8 @@ def job_sh(i, j):
             code = r.returncode
         except subprocess.TimeoutExpired:
             code = "timeout"
-    return {"ok": code == 0, "exit": code, "seconds": round(time.time() - t0, 1), "files": [so.name, se.name]}
+    made = sorted(str(p.relative_to(OUT)) for p in WORK.rglob("*") if p.is_file())
+    return {"ok": code == 0, "exit": code, "seconds": round(time.time() - t0, 1), "files": [so.name, se.name] + made[:200]}
 
 
 JOBS = {"fetch": job_fetch, "download": job_fetch, "get": job_fetch, "render": job_browser, "browser": job_browser, "sh": job_sh}
