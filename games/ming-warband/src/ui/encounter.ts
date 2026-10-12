@@ -41,7 +41,7 @@ export function openEncounter(p: Party, forced: boolean) {
   const lord = p.lordId ? S.lords[p.lordId] : null;
   let intro = '';
   if (p.kind === 'bandit') intro = forced ? `一伙${p.name}从路旁杀出，拦住了你的去路！“此山是我开……留下买路财！”` : `你追上了一伙${p.name}。`;
-  else if (p.kind === 'lord') intro = isHostile ? `${f.name}的${lord!.title}${lord!.name}${forced ? '率军向你杀来！' : '的军队就在眼前。'}` : `你遇到了${f.name}的${lord!.title}${lord!.name}。`;
+  else if (p.kind === 'lord') { const who = lord ? `${lord.title}${lord.name}` : p.name; intro = isHostile ? `${f.name}的${who}${forced ? '率军向你杀来！' : '的军队就在眼前。'}` : `你遇到了${f.name}的${who}。`; }
   else if (p.kind === 'hero') intro = `${f.name}的${p.name}率 ${n} 人${godAtk ? '就在眼前。只要你愿意，天下无人能挡。' : '就在眼前。'}`;
   else if (p.kind === 'caravan') intro = `一支${p.name}正在赶路，护卫们警惕地看着你。`;
   else intro = `一群${p.name}正赶着牲口去集市。`;
@@ -54,7 +54,7 @@ export function openEncounter(p: Party, forced: boolean) {
   const attack = (manual: boolean) => {
     if (!isHostile && p.faction !== 'bandit' && !godAtk) {
       changePlayerRel(p.faction, p.kind === 'lord' ? -25 : -15);
-      if (p.lordId) S.lords[p.lordId].relation -= 15;
+      if (p.lordId && S.lords[p.lordId]) S.lords[p.lordId].relation -= 15;
     }
     closeAll();
     startBattle(p, null, manual);
@@ -86,7 +86,7 @@ export function openEncounter(p: Party, forced: boolean) {
       }
     } else add('离开', () => { netEncEnd(false); closeAll(); });
   } else {
-    if (p.kind === 'lord') add('💬 交谈', () => talkLord(p));
+    if (p.kind === 'lord' && p.lordId && S.lords[p.lordId]) add('💬 交谈', () => talkLord(p));
     if (p.kind === 'caravan' || p.kind === 'villager') add('💬 询问消息', () => {
       const goods = Object.keys(p.goods).map(g => GOOD[g]?.name).filter(Boolean).join('、') || '一些杂货';
       openPanel('交谈', h('div', null, h('p', null, `领头的说：“我们${p.kind === 'caravan' ? '运着' : '带着'}${goods}，${p.ai.target && S.settlements[p.ai.target as string] ? `要去${S.settlements[p.ai.target as string].name}` : '正在赶路'}。这年头，路上不太平啊。”`), btn('好', () => closeTop())));
@@ -159,7 +159,7 @@ export function startBattle(enemy: Party | null, siege: Settlement | null, manua
   const defendOf = opt.defendOf ?? null;
   const { allies, extras } = battleSides(enemy, siege, opt);
   const enemyStacks = enemy ? enemy.troops : siege!.garrison;
-  const enemyName = enemy ? (enemy.lordId ? `${S.lords[enemy.lordId].name}部` : enemy.name) : `${siege!.name}守军`;
+  const enemyName = enemy ? (enemy.lordId && S.lords[enemy.lordId] ? `${S.lords[enemy.lordId].name}部` : enemy.name) : `${siege!.name}守军`;
   const enemyFaction = enemy ? enemy.faction : siege!.faction;
   const mainPid = enemy ? String(enemy.id) : 'g';
   const eParts: SideParty[] = [{ pid: mainPid, name: enemyName, stacks: enemyStacks }, ...extras.map(e => ({ pid: String(e.id), name: partyLabel(e), stacks: e.troops }))];

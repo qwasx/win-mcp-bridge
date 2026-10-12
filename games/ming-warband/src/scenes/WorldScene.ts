@@ -230,7 +230,7 @@ export class WorldScene extends Phaser.Scene {
       const ratio = q.kind === 'player' ? 1 : partyStrength(S, q) / Math.max(1, partyStrength(S, player()));
       const threat = q.kind === 'player' ? '' : ratio > 1.5 ? '<span class="bad">远强于我</span>' : ratio > 0.9 ? '<span class="warn">势均力敌</span>' : '<span class="good">弱于我</span>';
       const mode = q.ai.mode === 'siege' ? '正在攻城' : q.ai.mode === 'raid' ? '正在劫掠' : q.ai.mode === 'chase' ? (q.ai.target === S.playerId ? '<span class="bad">正在追击你！</span>' : '正在追击') : q.ai.mode === 'flee' ? '正在撤退' : '';
-      showTooltip(p.event as MouseEvent, `<b style="color:${f.css}">${q.kind === 'player' ? S.hero.name + '（你）' : q.name}</b><br>${q.kind === 'lord' ? `${S.lords[q.lordId!].title} · ` : ''}${f.name}<br>${describeSize(n)}：${n} 人 ${threat}<br>${host ? '<span class="bad">敌对</span>' : q.kind === 'player' ? '' : '<span class="good">非敌对</span>'} ${mode}`);
+      showTooltip(p.event as MouseEvent, `<b style="color:${f.css}">${q.kind === 'player' ? S.hero.name + '（你）' : q.name}</b><br>${q.kind === 'lord' && S.lords[q.lordId!] ? `${S.lords[q.lordId!].title} · ` : ''}${f.name}<br>${describeSize(n)}：${n} 人 ${threat}<br>${host ? '<span class="bad">敌对</span>' : q.kind === 'player' ? '' : '<span class="good">非敌对</span>'} ${mode}`);
     } else {
       const s = found.s;
       const f = FACTION[s.faction];

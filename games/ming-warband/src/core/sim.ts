@@ -554,8 +554,8 @@ function thinkLord(p: Party) {
 
   const enemies = MAJOR_FACTIONS.filter(f => S.alive[f] && atWar(p.faction, f)) as string[];
   if (atWar(p.faction, 'player') || (playerSide() && atWar(p.faction, playerSide()!))) enemies.push('player');
-  const lord = S.lords[p.lordId!];
-  const aggression = lord.trait === 'brave' ? 1.3 : lord.trait === 'cautious' ? 0.75 : 1;
+  const lord = S.lords[p.lordId!] as (typeof S.lords)[string] | undefined; // 天意召出的军队没有主将
+  const aggression = lord?.trait === 'brave' ? 1.3 : lord?.trait === 'cautious' ? 0.75 : 1;
   if (enemies.length && (ai.mode !== 'patrol' || !ai.path?.length || chance(0.3))) {
     {
       // 攻城
@@ -572,7 +572,7 @@ function thinkLord(p: Party) {
       }
       // 拆墙入塞：大军被长城挡住、关内有可图之地时
       const blocked = allTargets.filter(s => !targets.includes(s));
-      if (blocked.length && (pot > 900 || count(p.troops) > 150) && chance(lord.trait === 'brave' ? 0.3 : 0.15)) {
+      if (blocked.length && (pot > 900 || count(p.troops) > 150) && chance(lord?.trait === 'brave' ? 0.3 : 0.15)) {
         const b = pickBreachSeg(p);
         if (b) {
           if (pot > me * 1.3) rallyArmy(p, 3);
@@ -581,7 +581,7 @@ function thinkLord(p: Party) {
       }
       // 劫掠村庄
       const vills = settlementList().filter(s => s.kind === 'village' && factionHostileToSettlement(p.faction, s) && s.lootedUntil < S.time && !avoiding(p, s.id) && dist(p.x, p.y, s.x, s.y) < 450 && reachableFor(who, p.x, p.y, s.x, s.y) && theaterAllows(p, s.x, s.y));
-      if (vills.length && chance(lord.trait === 'honorable' ? 0.25 : 0.55)) {
+      if (vills.length && chance(lord?.trait === 'honorable' ? 0.25 : 0.55)) {
         const v = pick(vills);
         ai.mode = 'raid'; ai.target = v.id; ai.until = undefined; goTo(p, v.x, v.y); return;
       }
@@ -599,7 +599,7 @@ function thinkLord(p: Party) {
     markBad(p, t.id); own = own.filter(s => s !== t);
   }
   // 自家地盘一处都去不了（比如被困在长城另一侧）：拆墙打回去，或者就地游弋寻找战机
-  if (enemies.length && chance(lord.trait === 'cautious' ? 0.25 : 0.45)) {
+  if (enemies.length && chance(lord?.trait === 'cautious' ? 0.25 : 0.45)) {
     const b = pickBreachSeg(p);
     if (b && !avoiding(p, 'seg' + b.seg)) {
       if (goTo(p, b.x, b.y)) { ai.mode = 'breach'; ai.target = b.seg; ai.until = undefined; ai.tx = b.x; ai.ty = b.y; return; }
