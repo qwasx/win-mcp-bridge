@@ -17,6 +17,7 @@ import { declareIndependence, indepCheck, proclaimEmperor, invite, acceptInvite,
 import { GmKey, claimBlocked, claimFailed } from './gmkey';
 import { gm } from './gm';
 import { GOD_DEFAULT } from '../src/core/god';
+import * as B from './battles';
 
 /** gm：0 普通玩家｜1 助手（被天命之主任命）｜2 天命之主（凭令牌认领，唯一能开上帝模式） */
 export interface Sess {
@@ -42,6 +43,8 @@ export function initNet(d: DB, key: GmKey) {
   W.OUT.online = acct => byAcct.has(acct) && byAcct.get(acct)!.entered;
   W.OUT.rec = acct => byAcct.get(acct)?.rec;
   W.OUT.gmLevel = acct => byAcct.get(acct)?.gm ?? 0;
+  B.BOUT.bin = (acct, buf) => { const s = byAcct.get(acct); if (s?.entered && s.ws.readyState === 1) { try { s.ws.send(buf, { binary: true }); } catch { /* */ } } };
+  B.BOUT.json = (acct, m) => { const s = byAcct.get(acct); if (s?.entered) send(s, m); };
 }
 
 function raw0(s: Sess, raw: string) { if (s.ws.readyState === 1) { try { s.ws.send(raw); } catch { /* */ } } }
@@ -67,7 +70,7 @@ export function onConnection(ws: WebSocket, ip: string) {
     const now = Date.now();
     s.msgTimes.push(now);
     while (s.msgTimes.length && now - s.msgTimes[0] > 1000) s.msgTimes.shift();
-    if (s.msgTimes.length > 60) return; // 限流
+    if (s.msgTimes.length > 90) return; // 限流（实时战斗的操作上报 20 次/秒）
     let m: C2S;
     try { m = JSON.parse(String(data)); } catch { return; }
     try { handle(s, m); } catch (e) { console.error('[net] handle', m.t, e); }
@@ -85,9 +88,14 @@ function onClose(s: Sess) {
   leaving.set(acct, setTimeout(() => {
     leaving.delete(acct);
     if (byAcct.has(acct)) return;
+    if (B.inBattle(acct)) { // 还在实时战斗里：等战斗结束再撤下（所部由副将代为指挥）
+      const again = () => { if (byAcct.has(acct)) { leaving.delete(acct); return; } if (B.inBattle(acct)) { leaving.set(acct, setTimeout(again, 15000)); return; } leaving.delete(acct); W.despawnHero(acct, rec); db.saveRec(acct, rec); };
+      leaving.set(acct, setTimeout(again, 15000)); return;
+    }
     W.despawnHero(acct, rec);
     db.saveRec(acct, rec);
   }, 120000));
+  B.onPresence(acct, false);
 }
 
 function handle(s: Sess, m: C2S) {
@@ -172,6 +180,8 @@ function handle(s: Sess, m: C2S) {
       else if (m.op === 'emperor') r = proclaimEmperor(rec);
       else if (m.op === 'invite') r = invite(rec, String(m.args?.name ?? ''), byAcct.get(String(m.args?.name ?? ''))?.rec);
       else if (m.op === 'acceptInvite') r = acceptInvite(rec);
+      else if (m.op === 'bjoin') r = B.joinRT(s.acct, Number(m.args?.bid), m.args?.side === 0 || m.args?.side === 1 ? m.args.side : undefined);
+      else if (m.op === 'battles') r = { ok: true, data: B.battleList() };
       else r = W.handleReq(rec, m.op, m.args);
       send(s, { t: 'res', rid: m.rid, ok: r.ok, data: r.data, err: r.err });
       return;
@@ -205,6 +215,7 @@ function handle(s: Sess, m: C2S) {
       return;
     }
     case 'gm': if (s.gm) gm(s, String(m.cmd ?? ''), (m.args ?? []).map(String)); return; // 非 GM：静默忽略
+    case 'bi': case 'bc': case 'bleave': case 'bsync': B.onClientMsg(s.acct, m); return;
   }
 }
 
@@ -242,6 +253,8 @@ function enter(s: Sess) {
   raw0(s, `{"t":"welcome","world":${snapCache.json},` + JSON.stringify({ rec, partyId: p.id, parties: W.visibleParties(s.acct).map(W.netParty), cfg: W.CFG, gm: s.gm > 0, chat: db.recentChat(30) }).slice(1));
   sendGod(s);
   send(s, { t: 'online', list: onlineList() }); // 其他人随下一个 3 秒周期收到
+  send(s, { t: 'battles', list: B.battleList() });
+  if (B.inBattle(s.acct!)) B.onPresence(s.acct!, true); // 重连：回到正在进行的战斗
 }
 
 let lastOnline = '';

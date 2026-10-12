@@ -18,6 +18,7 @@ import { PRIVATE_KEYS, newbieLeft } from '../src/net/protocol';
 import { tickDiplomacy, treatyBetween } from './diplomacy';
 import { installCustomFactions } from './kingdom';
 import type { GodState } from '../src/core/god';
+import { startRT } from './battles';
 
 export const CFG: ServerCfg = { hoursPerSec: 0.4, allianceOpenDay: 36, pvp: true, motd: '欢迎来到《铁血大明》联机世界！' };
 
@@ -236,7 +237,7 @@ function heroMove(p: Party, h: number, night: boolean) {
     if (tp && dist(p.x, p.y, tp.x, tp.y) < 12) {
       heroNav.delete(p.id);
       if (tp.kind === 'hero' && g?.any && !tp.busy) startEncounter(p, tp, false); // 天命：可亲自上阵与任何玩家实战
-      else if (tp.kind === 'hero') { if (hostile(p, tp) && CFG.pvp && !tp.busy) { if (pvpAllowed(p, tp)) heroBattle(p, tp, '你截住了'); } else OUT.send(p.acct!, { t: 'report', title: '相遇', lines: [`你遇到了${FACTION[tp.faction]?.name ?? ''}的${tp.name}（${healthy(tp.troops)} 人）。`] }); }
+      else if (tp.kind === 'hero') { if (hostile(p, tp) && CFG.pvp && !tp.busy) { if (pvpAllowed(p, tp) && !startRT(p, tp, `${p.name}截击了${tp.name}：`)) heroBattle(p, tp, '你截住了'); } else OUT.send(p.acct!, { t: 'report', title: '相遇', lines: [`你遇到了${FACTION[tp.faction]?.name ?? ''}的${tp.name}（${healthy(tp.troops)} 人）。`] }); }
       else if ((hostile(p, tp) || g?.any) && !tp.busy) startEncounter(p, tp, false);
       else OUT.send(p.acct!, { t: 'encounter', enemy: tp.id, forced: false, eid: 0 });
     }
@@ -256,7 +257,7 @@ function heroContact(hero: Party, other: Party) {
     if (!aChases && !bChases) return;
     const [att, def] = aChases ? [hero, other] : [other, hero];
     if (!godOf(att) && !pvpAllowed(att, def)) { heroNav.delete(att.id); OUT.send(att.acct!, { t: 'navEnd' }); return; }
-    heroBattle(hero, other, '两军相遇：');
+    if (!startRT(att, def, `${att.name}截击了${def.name}：`)) heroBattle(hero, other, '两军相遇：');
     return;
   }
   const chased = other.ai.mode === 'chase' && other.ai.target === hero.id;
@@ -455,6 +456,16 @@ export function handleReq(rec: PRec, op: string, a: any): { ok: boolean; data?: 
       return { ok: true };
     }
     case 'battle': return applyBattle(rec, p, a);
+    case 'bfight': { // 遭遇后选择实时开战：在服务器上开一场可多人加入的战斗
+      const e = encounters.get(Number(a?.eid));
+      if (!e || e.acct !== rec.name) return { ok: false, err: '遭遇已经结束' };
+      const en = partyById(e.enemy);
+      if (!en) { endEncounter(e.eid); return { ok: false, err: '对方已经离开' }; }
+      p.busy = undefined; en.busy = undefined;
+      const bid = startRT(p, en, '');
+      if (!bid) { p.busy = e.eid; en.busy = e.eid; return { ok: false, err: '无法开启实时战斗' }; }
+      return { ok: true, data: { bid } };
+    }
     case 'garrison': {
       if (!st || st.owner !== 'P:' + rec.name) return { ok: false, err: '这不是你的封地' };
       st.garrison = (a.garrison as Stack[]).filter(s => TROOPS[s.id] && s.n > 0);

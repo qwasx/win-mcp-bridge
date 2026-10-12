@@ -82,7 +82,12 @@ export type C2S =
   | { t: 'req'; rid: number; op: string; args: any }
   | { t: 'chat'; ch: 'all' | 'nation' | 'pm'; text: string; to?: string }
   | { t: 'gm'; cmd: string; args: string[] }
-  | { t: 'ping'; at: number };
+  | { t: 'ping'; at: number }
+  // 实时战斗：d = [x*10, y*10, 朝向*1000, 远程?, 出招序号, 出招方向*1000, 射击序号, 射击方向*1000, 射击距离, 纠正序号, [视野 x,y,w,h]]
+  | { t: 'bi'; d: (number | number[])[] }
+  | { t: 'bc'; o?: string; f?: string; g?: string; gs?: string[]; mv?: [number, number] }
+  | { t: 'bleave' }
+  | { t: 'bsync' };
 
 // ---------- 服务器 → 客户端 ----------
 export type S2C =
@@ -104,7 +109,27 @@ export type S2C =
   | { t: 'cfg'; cfg: ServerCfg }
   | { t: 'gm'; text: string; data?: any }
   | { t: 'kick'; why: string }
-  | { t: 'pong'; at: number; srv: number };
+  | { t: 'pong'; at: number; srv: number }
+  // 实时战斗（另有二进制帧，见 src/battle/wire.ts）
+  | { t: 'bstart'; bid: number; init: BattleInit; joined?: boolean; resume?: boolean }
+  | { t: 'bspawn'; u: SpawnRow[] }
+  | { t: 'bstat'; m: [number, number]; a: [number, number]; tm: number }
+  | { t: 'bmsg'; text: string }
+  | { t: 'bcorr'; x: number; y: number; cs: number }
+  | { t: 'bend'; bid: number; win: boolean; retreat: boolean; out: any; lines: string[]; gold: number }
+  | { t: 'bgone'; bid: number }
+  | { t: 'battles'; list: BattleMark[] };
+
+/** 单位静态信息：[uid, side, pid, troop, comp, x, y, 标志(1主角 2骑乘 4远程), maxHp, 天命位, 名字, 射程, 弹药] */
+export type SpawnRow = [number, 0 | 1, string, string, string, number, number, number, number, number, string, number, number];
+export interface BattleInit {
+  W: number; H: number; seed: number; terrain: number; night: boolean;
+  side: 0 | 1; pid: string; hero: number; cs: number; hx: number; hy: number; hammo: number;
+  parties: { pid: string; name: string; side: 0 | 1; faction: string; acct: string | null; online: boolean; look: { w: string; wr: string | null; a: number; c: number } | null; god: number }[];
+  sq: [string, string, string, number, number][];
+  units: SpawnRow[]; t: number; tick: number;
+}
+export interface BattleMark { bid: number; x: number; y: number; n: [number, number]; f: [string, string]; names: [string, string] }
 
 // ---------- 官职（按声望） ----------
 export const RANK_NAMES = ['白身', '把总', '千总', '守备', '游击', '参将', '副将', '总兵', '提督'];

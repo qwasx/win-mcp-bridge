@@ -16,6 +16,13 @@ import { kingdomTick } from './kingdom';
 import { RECRUIT } from '../src/core/recruits';
 import { DIPLO } from './diplomacy';
 import { S } from '../src/core/game';
+import { isMainThread, parentPort } from 'node:worker_threads';
+import { initBattles, runBattleWorker, battleList, battleStats } from './battles';
+
+if (!isMainThread) runBattleWorker(parentPort!);
+else boot();
+
+function boot() {
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT ?? 8080);
@@ -32,6 +39,7 @@ W.initWorld(db.get('world'));
 console.log(`[boot] world ready in ${Date.now() - t0} ms`);
 db.migrateGm();
 initNet(db, new GmKey(db, DATA_DIR));
+initBattles();
 
 // ---------- 静态文件 ----------
 const MIME: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.webp': 'image/webp', '.woff2': 'font/woff2' };
@@ -39,6 +47,7 @@ const ZIP_EXT = new Set(['.html', '.js', '.mjs', '.css', '.json', '.svg']);
 const gzCache = new Map<string, { mt: number; buf: Buffer }>();
 async function serveStatic(req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? '/', 'http://x');
+  if (url.pathname === '/battles') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(battleStats())); return; }
   if (url.pathname === '/health') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true, online: [...sessions].filter(s => s.entered).length, day: Math.floor(S.time / 24), parties: S.parties.length })); return; }
   let p = decodeURIComponent(url.pathname);
   if (p.includes('..')) { res.writeHead(400); res.end(); return; }
@@ -72,7 +81,7 @@ server.listen(PORT, '0.0.0.0', () => console.log(`[boot] listening on 0.0.0.0:${
 
 // ---------- 主循环 ----------
 let last = Date.now(), lastPos = 0, lastParties = 0, lastWorld = 0, lastSave = Date.now(), lastHb = 0, lastBackup = 0;
-let tickCost = 0, maxLag = 0;
+let tickCost = 0, maxLag = 0, lastBattles = 0, lastBattlesJson = '';
 setInterval(() => {
   const now = Date.now();
   const dt = Math.min(1, (now - last) / 1000);
@@ -85,6 +94,7 @@ setInterval(() => {
   if (now - lastParties >= 1000) { lastParties = now; const d = W.partiesDelta(); if (d.t === 'parties' && (d.up.length || d.gone.length)) broadcastRaw(JSON.stringify(d)); }
   if (now - lastWorld >= 3000) { lastWorld = now; kingdomTick(); checkOrphans(); const d = W.worldDelta(); if (d) broadcastRaw(JSON.stringify(d)); pushOnline(); }
   if (now - lastHb >= 20000) { lastHb = now; heartbeat(); }
+  if (now - lastBattles >= 2000) { lastBattles = now; const j = JSON.stringify({ t: 'battles', list: battleList() }); if (j !== lastBattlesJson) { lastBattlesJson = j; broadcastRaw(j); } }
   if (now - lastSave >= 60000) { lastSave = now; const b = performance.now(); saveAll(); console.log(`[save] ${Math.round(performance.now() - b)} ms; tick avg ${tickCost.toFixed(1)} ms; max lag ${maxLag} ms; online ${[...sessions].filter(s => s.entered).length}`); maxLag = 0; }
   if (now - lastBackup >= 6 * 3600 * 1000) { lastBackup = now; db.backup(); }
 }, 100);
@@ -98,3 +108,4 @@ function shutdown(sig: string) {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('uncaughtException', e => { console.error('[fatal]', e); });
+}
