@@ -5,3 +5,4 @@ dist-single-tmp/
 *.zip
 dist-server/
 data/
+dist-h5/

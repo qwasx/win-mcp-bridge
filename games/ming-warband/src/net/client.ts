@@ -45,6 +45,9 @@ function fire(ev: string, ...a: any[]) { for (const f of listeners[ev] ?? []) { 
 export function defaultUrl() {
   const saved = localStorage.getItem('mw_server');
   if (saved) return saved;
+  // 前端托管在别的平台（如无丸 Wovoon“自建后端 Web 应用”）时，构建时写入联机服务器地址：VITE_MW_SERVER=wss://域名/ws
+  const fixed = (import.meta as any).env?.VITE_MW_SERVER as string | undefined;
+  if (fixed) return fixed;
   return `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`;
 }
 export function savedToken() { return localStorage.getItem('mw_token'); }

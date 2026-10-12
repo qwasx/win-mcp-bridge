@@ -258,3 +258,17 @@ src/
 ## 说明
 
 本作是架空演义，部分人物、势力与地盘为了游戏性做了调整，并不完全符合史实。
+
+## 前端托管到其它 H5 平台（如无丸 Wovoon「自建后端 Web 应用」）
+
+联机版需要一台常驻的 Node 服务器（权威世界 + 20Hz 实时战斗 + 存档），无法改写成平台云函数/房间。
+做法：服务器照常自己部署（见 docs/MULTIPLAYER.md），前端单独打包上传到平台：
+
+```bash
+MW_SERVER=wss://你的服务器域名/ws npm run build:h5
+# 产物：dist-h5/（index.html + assets，相对路径）与 release/ming-warband-h5.zip
+```
+
+- 必须是 `wss://`（平台页面是 https，浏览器会拦 ws://）。
+- 服务器不校验 Origin，跨域页面可直接连。
+- 玩家仍可在登录界面手动改服务器地址（会记住在本机）。
