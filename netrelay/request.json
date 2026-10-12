@@ -1,13 +1,17 @@
 {
-  "id": "20261012-090551-5e1c8f64",
-  "created": "2026-10-12T09:05:51+0000",
-  "pubkey": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAnJLKHUKC86rCB07ipFiA\n5ax6qrjXbBGAmIaSZawhhV4wJQa1nZNLdcNcKVIPU3LbQUGuB1GcaC1jfhbw8alx\n3+UqCGMpBQ9pkaEYah6Hq2Lp6YKAL90fxdJWwfUHvD4yC5jMm5A+yK1MLavFz06B\nGGFhqZOhoi0U/T3IYymu0kqcme/SyZ/I5VdA6Ui9K6Gjtq6cEBToEvmQ8NgC9LS/\ntn1aU9I21UqR5OKIpgrJesPL24r3wHBLPd1q5ZARwwadfhgflbkG1T2f4uZRToT5\nqoa9dzycNH547oWd+/0UqaI1OBEPcKKR3rT54xhlHqOeocJPc7cymRlJDq7GXs1U\nBzhx0IWOFw8CGYbNfoOIjeExAoM7Y82rL8cK9eDMozA+PmQHtUlqu9zfMjGQN+yR\nwwwedKd5W6TYwsioncHMejVpPo1DnUVNYyl0aZfAqI94mfx3AqEv8lfGGityZRFz\nb3qxHbyQeD/eKI/3rFyLpNp5ZwbOhymffMblC4fPaG/nAgMBAAE=\n-----END PUBLIC KEY-----\n",
+  "id": "20261012-090726-f91f4b23",
+  "created": "2026-10-12T09:07:26+0000",
+  "pubkey": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAnujUOQJxvQ8RE9IuuUuW\n/YM5G/4LDUPfBL3EuWz+NNbvW29FYhqWfNlawH/vJ5EhEe/8F1gXLSY312dcRi1K\nDELfopjazPEyg+S7f9CVxba5d3HELIDvb/U4KhLEBWDgh8CZyJFkUzNLbGr9IcoY\nlj2N6CFRH68EAzOpjeLdXtsXs6OHrC5K4rIiI8td0TI7VGT3aWuPGmPDL0aWMzXt\nAt174XpsFbtkzduGSiyys6/W7snj/BRVnKasW1Szs7HKZBQlr0n9si6E8xZ1+D1R\n96v2RaebXIyRjqOuXQpcMVPhcSiM0ekFdwcIBGeYrcWpzYhYhzEpyZygtkOhD2H5\nmS8f19uEjadfUVC8Fs2QsfWk5tHCw6LkAJKBCywbi8ALFaoBxk85dFy6D1XM4zo5\ngKN/PaXWXSI9QrbRtTO2iVec6ESoQdoq2Y6N5SeIj8GBuyYyRs0Nevxf8M4x56tT\ngM24MLzj4qUXvergCORrObQBYxysmoVrNTjJLXqoNButAgMBAAE=\n-----END PUBLIC KEY-----\n",
   "jobs": [
     {
-      "type": "render",
-      "url": "https://www.wovoon.com/discover",
-      "mobile": false,
-      "wait": 4000
+      "type": "browser",
+      "url": "https://www.wovoon.com/",
+      "script": "await page.click('a[href=\"/community\"]').catch(()=>{});\nawait new Promise(r => setTimeout(r, 3000));\nlog('now at', page.url());\nreturn { url: page.url(), links: await page.$$eval('a', as => as.slice(0, 8).map(a => a.textContent.trim().slice(0, 20))) };\n",
+      "full": false
+    },
+    {
+      "type": "get",
+      "url": "https://registry.npmjs.org/left-pad/-/left-pad-1.3.0.tgz"
     }
   ]
 }
