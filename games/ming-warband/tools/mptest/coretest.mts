@@ -15,7 +15,7 @@ function run(nA: number, nB: number, cap: number, humans = true, maxT = 300) {
   ];
   core.start(parts);
   if (humans) for (const a of ['A', 'B']) core.order(a, ['inf', 'rng', 'cav'], 'charge');
-  let maxMs = 0, tot = 0, steps = 0, bytes = 0, frames = 0, decodedUnits = 0;
+  let maxMs = 0, tot = 0, steps = 0, bytes = 0, frames = 0, decodedUnits = 0, evs = 0;
   const t0 = performance.now();
   while (!core.finished && core.elapsed < maxT) {
     const a = performance.now();
@@ -31,10 +31,10 @@ function run(nA: number, nB: number, cap: number, humans = true, maxT = 300) {
     }
     core.step(TICK);
     core.endTick();
-    for (const c of core.cmds.values()) { const f = core.frameFor(c); if (f) { bytes += f.length; frames++; const fr = readFrame(f); decodedUnits += fr!.units.length; } }
+    for (const c of core.cmds.values()) { const f = core.frameFor(c); if (f) { bytes += f.length; frames++; const fr = readFrame(f); decodedUnits += fr!.units.length; evs += fr!.evs.length; } }
     const ms = performance.now() - a; tot += ms; steps++; if (ms > maxMs && steps > 40) maxMs = ms;
   }
-  return { core, avg: tot / steps, maxMs, steps, bytes, frames, decodedUnits, wall: performance.now() - t0 };
+  return { core, evs, avg: tot / steps, maxMs, steps, bytes, frames, decodedUnits, wall: performance.now() - t0 };
 }
 
 {
@@ -45,6 +45,7 @@ function run(nA: number, nB: number, cap: number, humans = true, maxT = 300) {
   check('有伤亡记录', downs > 20, `downs ${downs}`);
   check('两名玩家都有结算', (res?.cmds.length ?? 0) === 2);
   check('杀伤按部队统计', Object.keys(res?.killsBy ?? {}).length >= 2, JSON.stringify(res?.killsBy));
+  check('帧里带有射击/命中事件', r.evs > 50, `${r.evs} 个事件`);
   check('帧可解码', r.decodedUnits > 0, `${r.frames} frames, avg ${(r.bytes / r.frames).toFixed(0)} B`);
 }
 {

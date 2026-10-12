@@ -124,9 +124,10 @@ check('下行带宽（每人）< 40 KB/s', kbs < 40, `${kbs.toFixed(1)} KB/s（�
 check('机器人限速移动没有触发大量纠正', bA.corr < 10 && bB.corr < 10, `A ${bA.corr} B ${bB.corr}`);
 // 瞬移作弊：被拒绝并纠正
 const cheat = { ...bB };
-Bc.send({ t: 'bi', d: [Math.round((bB.hx + 900) * 10), Math.round(bB.hy * 10), 0, 0, bB.atk, 0, 0, 0, 0, bB.cs, 0] });
+bB.active = false; // 停下机器人，模拟外挂客户端反复上报瞬移后的位置
 const before = bB.corr;
-for (let i = 0; i < 20 && bB.corr === before; i++) await sleep(50);
+for (let i = 0; i < 20 && bB.corr === before; i++) { Bc.send({ t: 'bi', d: [Math.round((cheat.hx + 900) * 10), Math.round(cheat.hy * 10), 0, 0, bB.atk, 0, 0, 0, 0, cheat.cs, 0] }); await sleep(50); }
+bB.active = true;
 check('瞬移被服务器拒绝并下发纠正', bB.corr > before, `corr ${before}→${bB.corr}`);
 void cheat;
 

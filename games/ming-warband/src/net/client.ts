@@ -133,6 +133,7 @@ function upsertParties(up: NetParty[], gone: number[]) {
       const { x, y, ...rest } = np;
       Object.assign(p, rest, { ai: { ...p.ai, mode: np.ai.mode, target: np.ai.target } });
       (p as any).god = np.god; // 显圣标记可能被撤销
+      p.busy = np.busy; p.grace = np.grace; // 战斗结束：busy 被清除（增量里缺省即为无）
       if (!targets.has(p.id)) targets.set(p.id, { x, y });
     } else S.parties.push(fromNet(np));
   }

@@ -407,8 +407,8 @@ export class BattleCore {
     c.online = on; c.offlineT = 0; c.inp = null;
     if (on) { c.viewer?.reset(); c.budget = 0; c.lastAtk = -1; c.lastFire = -1; }
     for (const g of ['inf', 'rng', 'cav'] as Group[]) c.sq[g].ai = !on;
-    if (!on) this.say(null, `${c.name}断线了，所部由副将代为指挥。`, c.side);
-    else this.say(null, `${c.name}重返战场！`, c.side);
+    if (!on) this.say(null, `${c.name}断线了，所部由副将代为指挥。`);
+    else this.say(null, `${c.name}重返战场！`);
   }
   /** 玩家撤出战场：所部（含预备队）离场，场上的兵约 15% 在撤退中倒下 */
   retreat(acct: string): CmdResult | null {
@@ -435,6 +435,7 @@ export class BattleCore {
   // ---------- 模拟 ----------
   step(dt = TICK) {
     if (this.finished) return;
+    this.evs.length = 0; // 上一步的事件已编码进各玩家的帧
     this.tick++;
     this.elapsed += dt;
     this.aiT -= dt;
@@ -1049,9 +1050,8 @@ export class BattleCore {
     v.frames++; v.bytes += w.pos;
     return w.bytes();
   }
-  /** 本 tick 结束：清空事件，返回新出生单位的静态信息 */
+  /** 本 tick 结束：取出新出生单位的静态信息与待发消息（事件留给 frameFor，下一步开始时清空） */
   endTick() {
-    this.evs.length = 0;
     const sp = this.spawned; this.spawned = [];
     const out = this.out; this.out = [];
     return { spawned: sp.map(u => this.spawnInfo(u)), out };

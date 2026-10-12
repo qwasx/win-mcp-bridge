@@ -180,7 +180,7 @@ function handle(s: Sess, m: C2S) {
       else if (m.op === 'emperor') r = proclaimEmperor(rec);
       else if (m.op === 'invite') r = invite(rec, String(m.args?.name ?? ''), byAcct.get(String(m.args?.name ?? ''))?.rec);
       else if (m.op === 'acceptInvite') r = acceptInvite(rec);
-      else if (m.op === 'bjoin') r = B.joinRT(s.acct, Number(m.args?.bid), m.args?.side === 0 || m.args?.side === 1 ? m.args.side : undefined);
+      else if (m.op === 'bjoin') { const j = B.joinRT(s.acct, Number(m.args?.bid), m.args?.side === 0 || m.args?.side === 1 ? m.args.side : undefined); r = j.ok ? { ok: true, data: { side: j.side } } : { ok: false, err: j.err }; }
       else if (m.op === 'battles') r = { ok: true, data: B.battleList() };
       else r = W.handleReq(rec, m.op, m.args);
       send(s, { t: 'res', rid: m.rid, ok: r.ok, data: r.data, err: r.err });
