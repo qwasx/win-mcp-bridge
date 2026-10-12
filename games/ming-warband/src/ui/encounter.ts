@@ -133,7 +133,7 @@ function talkLord(p: Party) {
 }
 
 // ---------- 战斗 ----------
-export interface BattleOpts { defendOf?: Settlement | null; kit?: SiegeKit; extraAllies?: Party[] }
+export interface BattleOpts { defendOf?: Settlement | null; kit?: SiegeKit; extraAllies?: Party[]; noRT?: boolean }
 
 /** 战斗双方的全部参战部队 */
 export function battleSides(enemy: Party | null, siege: Settlement | null, opt: BattleOpts = {}) {
@@ -145,6 +145,16 @@ export function battleSides(enemy: Party | null, siege: Settlement | null, opt: 
 
 export function startBattle(enemy: Party | null, siege: Settlement | null, manual: boolean, opt: BattleOpts = {}) {
   const pp = player();
+  // 联机：野战改由服务器开一场实时战斗，附近的玩家可以随时加入（攻守城仍在本机进行）
+  if (NETH.on && manual && enemy && !siege && !opt.defendOf && !opt.extraAllies?.length && NETH.eid && !opt.noRT) {
+    const eid = NETH.eid;
+    toast('两军列阵……');
+    void NETH.req('bfight', { eid }).then(r => {
+      if (r.ok) { NETH.eid = 0; return; } // 稍后收到 bstart，进入联机战场
+      startBattle(enemy, siege, manual, { ...opt, noRT: true });
+    });
+    return;
+  }
   if (NETH.on && NETH.eid) void NETH.req('enc', { eid: NETH.eid, fight: true });
   const defendOf = opt.defendOf ?? null;
   const { allies, extras } = battleSides(enemy, siege, opt);

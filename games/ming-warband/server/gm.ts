@@ -1,5 +1,6 @@
 // GM 指令（上帝面板的唯一后端）。所有操作都记入审计；回复只发给执行者本人，其他玩家看不到任何“GM”痕迹。
 import type { PRec, S2C } from '../src/net/protocol';
+import * as B from './battles';
 import { NEWBIE, newbieLeft } from '../src/net/protocol';
 import * as W from './world';
 import { makeTreaty, breakTreaty, DIPLO } from './diplomacy';
@@ -20,6 +21,7 @@ import { byAcct, sessions, send, sendGod, pushOnline, saveAll, NETX, type Sess }
 export const GM_HELP = `GM 指令（“我”可代指自己）：
 【概况】status｜players｜plist｜online｜save｜backup｜audit｜motd <文字>｜say <文字>
 【时间规则】speed <时/秒>｜pause｜resume｜time <+小时>｜pvp on/off｜allianceday <日>｜protect <小时>
+  rtbattle on/off（野战改为多人实时战斗）｜battlecap <人数≤1000>｜battles（进行中的战斗）｜battleend <编号|all>
   recruit <每秒> <上限>｜speedcfg <玩家max> <玩家min> <AImax> <AImin>｜indepcfg <声望> <兵力> <称帝城数> <国家上限>
 【玩家】gold/setgold <玩家> <数>｜renown/setrenown｜honor｜level <玩家> <级>｜attr <玩家> <str|agi|int|cha> <数>
   skill <玩家> <技能id> <级>｜maxhero <玩家>｜gear <玩家>｜heal <玩家>｜troops <玩家> <兵种id> <数>（可为负）
@@ -144,6 +146,10 @@ export function gm(s: Sess, cmd: string, a: string[]) {
     case 'pause': W.CFG.paused = true; cfgOut(); return reply('天下静止：除你之外万物停顿（再点“继续”恢复）');
     case 'resume': W.CFG.paused = false; cfgOut(); return reply('时间恢复流动');
     case 'time': S.time += Math.max(0, Math.min(24 * 365, num(a[0], 24))); return reply(`时间推进到第 ${Math.floor(S.time / 24)} 日`);
+    case 'rtbattle': B.BCFG.on = a[0] !== 'off'; return reply(`多人实时战斗 ${B.BCFG.on ? '开启：野战在服务器上实时进行，附近玩家可加入' : '关闭：PvP 自动结算，遭遇战在各自浏览器里打'}`);
+    case 'battlecap': B.BCFG.cap = Math.max(60, Math.min(1000, num(a[0], 600))); return reply(`实时战场同时在场上限 = ${B.BCFG.cap} 人（双方合计）`);
+    case 'battles': { const st = B.battleStats(); return reply(st.battles.length ? st.battles.map(b => `#${b.bid} 在场 ${b.units} 人（${b.n[0]} 对 ${b.n[1]}）每步 ${b.ms} 毫秒｜玩家：${b.players.join('、') || '无'}`).join('\n') + `\n线程：${st.threads.map(t => `${t.name} ${t.battles} 场 ${t.ms} 毫秒`).join('｜')}｜帧/秒 ${st.framesPerSec}` : '当前没有进行中的实时战斗'); }
+    case 'battleend': if (a[0] === 'all') { B.abortAll(); return reply('所有实时战斗已按兵力强弱结算'); } return reply(B.abortBattle(num(a[0], 0)) ? '该战斗已按兵力强弱结算' : '没有这场战斗');
     case 'pvp': W.CFG.pvp = a[0] !== 'off'; cfgOut(); return reply(`PvP ${W.CFG.pvp ? '开启' : '关闭'}`);
     case 'allianceday': W.CFG.allianceOpenDay = Math.max(0, num(a[0], 36)); cfgOut(); return reply(`结盟开放：第 ${W.CFG.allianceOpenDay} 日`);
     case 'protect': W.CFG.newbieHours = Math.max(0, Math.min(240, num(a[0], 2))); NEWBIE.ms = W.CFG.newbieHours * 3600000; cfgOut(); return reply(`新手保护 = ${W.CFG.newbieHours} 小时`);

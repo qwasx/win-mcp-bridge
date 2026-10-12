@@ -25,6 +25,8 @@ import { GOD } from '../core/god';
 
 /** 天命：本部兵马（我方、非友军）。单机时 GOD.on 恒为 false */
 const godU = (u: Unit) => GOD.on && u.side === 0 && !u.ally;
+/** 金光：联机战斗里由服务器告知（天命位 8），单机按本地天命状态 */
+const goldU = (u: Unit) => u.godBits !== undefined ? !!(u.godBits & 8) : GOD.aura && godU(u);
 const godInvU = (u: Unit) => GOD.on && GOD.invincible && u.side === 0 && !u.ally;
 
 const SWING = 0.32;
@@ -86,6 +88,7 @@ export interface Unit {
   spr?: Phaser.GameObjects.Sprite | null; sheet?: string; walkT?: number; aiming?: boolean; firedT?: number; dustT?: number;
   banner?: Phaser.GameObjects.Sprite | null;
   disc?: Phaser.GameObjects.Image | null;
+  godBits?: number; // 联机：服务器下发的天命位
 }
 
 interface Proj { x: number; y: number; vx: number; vy: number; dmg: number; side: 0 | 1; life: number; kind: 'bow' | 'xbow' | 'gun'; from: Unit; sx: number; sy: number; dist: number; z0: number }
@@ -146,7 +149,7 @@ export class BattleScene extends Phaser.Scene {
   deployZone = { x0: 0, x1: 0 };
   arenaRound = 0;
 
-  constructor() { super('Battle'); }
+  constructor(key = 'Battle') { super(key); }
 
   init(data: BattleSetup) {
     this.setup = data;
@@ -175,26 +178,8 @@ export class BattleScene extends Phaser.Scene {
     if (st.arena) { this.W = 1400; this.H = 900; }
     this.F = new BattleField(this.W, this.H, st.terrain, Math.floor(Math.random() * 100000), st.siege ? { town: !!st.town } : null);
     if (st.arena) { this.F.hills = []; this.F.groves = []; this.F.boxes = []; this.F.river = null; this.F.version++; this.F.block.fill(0); this.F.wood.fill(0); this.F.slowC.fill(100); }
-    this.makeGround();
-    this.stamp = this.make.graphics({}, false);
-    this.gUnder = this.add.graphics().setDepth(2);
-    for (const [k, w, hh] of [['disc_s', 24, 9], ['disc_m', 44, 14]] as [string, number, number][]) {
-      if (this.textures.exists(k)) continue;
-      const ct = this.textures.createCanvas(k, w, hh)!; const cx = ct.getContext();
-      cx.fillStyle = '#ffffff'; cx.beginPath(); cx.ellipse(w / 2, hh / 2, w / 2 - 0.5, hh / 2 - 0.5, 0, 0, Math.PI * 2); cx.fill(); ct.refresh();
-    }
-    this.g = this.add.graphics().setDepth(2.5);
-    this.gProj = this.add.graphics().setDepth(14);
-    this.gTop = this.add.graphics().setDepth(31);
-    this.makeProps();
-    if (st.night) this.add.rectangle(-200, -200, this.W + 400, this.H + 400, 0x0a1430, 0.5).setOrigin(0).setDepth(30);
-    const bc0 = ensureBanner(this, this.colors[0], S.hero.name[0] ?? '义', true);
-    const bc1 = ensureBanner(this, this.colors[1], FACTION_CHAR[st.enemyFaction] ?? '敌', true);
-    const bc2 = ensureBanner(this, this.allyColor, '援', true);
-    this.bannerKeys = [bc0.key, bc1.key, bc2.key];
+    this.buildScene(S.hero.name[0] ?? '义');
     const cam = this.cameras.main;
-    cam.setBounds(0, 0, this.W, this.H);
-    cam.setZoom(Math.max(0.6, Math.min(1.2, this.scale.width / 1300)));
 
     this.deploy(q, capO, capT);
     for (const u of this.units) this.spawnSprite(u);
@@ -211,6 +196,44 @@ export class BattleScene extends Phaser.Scene {
     weatherFx.set(wth); weatherFx.setAmbient(st.season ?? 0, st.night);
     music.weather(wth.kind === 'rain' ? wth.k : 0);
     if (st.night) this.makeTorches();
+    this.bindInput();
+    this.phase = settings.deploy && !st.arena && this.units.filter(u => u.side === 0).length > 3 ? 'deploy' : 'fight';
+    battleHud.open(this);
+    if (this.phase === 'deploy') {
+      this.msg('布阵：1-4 选择部队，在高亮区域内点击放置，F 切换阵型。准备好后按空格开战。');
+      this.gDeploy = this.add.graphics().setDepth(2.2);
+    } else this.startFight(true);
+    if (this.hero) cam.centerOn(this.hero.x, this.hero.y); else cam.centerOn(this.psq.inf.ax, this.psq.inf.ay);
+  }
+
+  /** 地面、图层、草木、夜色、旗帜、镜头（单机与联机共用） */
+  buildScene(bannerChar: string) {
+    const st = this.setup;
+    this.makeGround();
+    this.stamp = this.make.graphics({}, false);
+    this.gUnder = this.add.graphics().setDepth(2);
+    for (const [k, w, hh] of [['disc_s', 24, 9], ['disc_m', 44, 14]] as [string, number, number][]) {
+      if (this.textures.exists(k)) continue;
+      const ct = this.textures.createCanvas(k, w, hh)!; const cx = ct.getContext();
+      cx.fillStyle = '#ffffff'; cx.beginPath(); cx.ellipse(w / 2, hh / 2, w / 2 - 0.5, hh / 2 - 0.5, 0, 0, Math.PI * 2); cx.fill(); ct.refresh();
+    }
+    this.g = this.add.graphics().setDepth(2.5);
+    this.gProj = this.add.graphics().setDepth(14);
+    this.gTop = this.add.graphics().setDepth(31);
+    this.makeProps();
+    if (st.night) this.add.rectangle(-200, -200, this.W + 400, this.H + 400, 0x0a1430, 0.5).setOrigin(0).setDepth(30);
+    const bc0 = ensureBanner(this, this.colors[0], bannerChar, true);
+    const bc1 = ensureBanner(this, this.colors[1], FACTION_CHAR[st.enemyFaction] ?? '敌', true);
+    const bc2 = ensureBanner(this, this.allyColor, '援', true);
+    this.bannerKeys = [bc0.key, bc1.key, bc2.key];
+    const cam = this.cameras.main;
+    cam.setBounds(0, 0, this.W, this.H);
+    cam.setZoom(Math.max(0.6, Math.min(1.2, this.scale.width / 1300)));
+  }
+
+  /** 战场输入：缩放、快捷键、右键指令 */
+  bindInput() {
+    const cam = this.cameras.main;
     this.input.on('wheel', (_p: any, _o: any, _dx: number, dy: number) => cam.setZoom(Phaser.Math.Clamp(cam.zoom * (dy > 0 ? 0.9 : 1.1), this.minZoom(), 2)));
     // 触屏双指缩放
     this.input.addPointer(1);
@@ -247,13 +270,6 @@ export class BattleScene extends Phaser.Scene {
       if (p.rightButtonDown() || (this.phase === 'deploy' && p.leftButtonDown())) this.moveOrder(wp.x, wp.y);
     });
     this.events.once('shutdown', () => { this.input.keyboard?.clearCaptures(); battleHud.close(); });
-    this.phase = settings.deploy && !st.arena && this.units.filter(u => u.side === 0).length > 3 ? 'deploy' : 'fight';
-    battleHud.open(this);
-    if (this.phase === 'deploy') {
-      this.msg('布阵：1-4 选择部队，在高亮区域内点击放置，F 切换阵型。准备好后按空格开战。');
-      this.gDeploy = this.add.graphics().setDepth(2.2);
-    } else this.startFight(true);
-    if (this.hero) cam.centerOn(this.hero.x, this.hero.y); else cam.centerOn(this.psq.inf.ax, this.psq.inf.ay);
   }
 
   minZoom() { return Math.max(0.28, Math.min(this.scale.width / this.W, this.scale.height / this.H) * 0.98); }
@@ -1616,11 +1632,11 @@ export class BattleScene extends Phaser.Scene {
       if (u.trans) { u.walkT = (u.walkT ?? 0) + 30 * dt; f = FR.walk0 + Math.floor(u.walkT / 7) % 4; }
       else if (u.swing > 0) { const prog = 1 - u.swing / SWING; f = FR.atk0 + Math.min(2, Math.floor(prog * 3)); }
       else if ((u.firedT ?? 0) > 0) f = FR.release;
-      else if (u.hero ? (this.heroMode === 'ranged' && u.rng > 0 && sp < 10) : u.aiming) f = FR.aim;
+      else if (u === this.hero ? (this.heroMode === 'ranged' && u.rng > 0 && sp < 10) : u.aiming) f = FR.aim;
       else if (sp > 6) { u.walkT = (u.walkT ?? 0) + sp * dt; f = FR.walk0 + Math.floor(u.walkT / (u.mounted ? 11 : 7)) % 4; }
       const flip = Math.cos(u.face) < 0;
       spr.setPosition(u.x, u.y - lift).setFrame(f).setFlipX(flip).setDepth(lift > 2 ? 11.2 + u.y / 1e5 : this.dy(u.y));
-      const gold = GOD.aura && godU(u);
+      const gold = goldU(u);
       if (u.hitFlash > 0) spr.setTintFill(0xffffff); else if (u.routed) spr.setTint(0xb0b0b0); else if (gold) spr.setTint(0xfff0c0); else spr.clearTint();
       const col = gold ? 0xffd040 : this.colorOf(u);
       if (u.disc) u.disc.setPosition(u.x, u.y - lift + 0.5).setTint(col).setVisible(true);

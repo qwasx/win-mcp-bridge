@@ -1,7 +1,8 @@
 // 大地图场景
 import { GOD, GODUI } from '../core/god';
 import { NETH } from '../net/hooks';
-import { netFrame } from '../net/client';
+import { netFrame, NET } from '../net/client';
+import { battleAt, openBattleJoin } from '../ui/nbattleUi';
 import Phaser from 'phaser';
 import { SEGS, PASSES, BREACH_OPEN } from '../core/wall';
 import { buildWallChunks, wallJitter, WALL_RES, type WallChunk } from '../art/wallArt';
@@ -160,10 +161,27 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  /** 战场标记：烟尘、火光与交叉的刀枪 */
+  drawBattleMark(fx: Phaser.GameObjects.Graphics, g: Phaser.GameObjects.Graphics, x: number, y: number, t: number, n: number) {
+    const k = Math.min(1.6, 0.8 + n / 600);
+    for (let i = 0; i < 4; i++) {
+      const ph = (t / 1800 + i / 4) % 1;
+      fx.fillStyle(0x6a5a48, 0.4 * (1 - ph)); fx.fillCircle(x + Math.sin(i * 2.1 + ph * 3) * 8 * k, y - 6 - ph * 30 * k, (4 + ph * 9) * k);
+    }
+    const pr = (13 + Math.sin(t / 220) * 2) * k;
+    fx.fillStyle(0xff3020, 0.16); fx.fillEllipse(x, y, pr * 2.6, pr * 1.2);
+    fx.lineStyle(1.6, 0xff5030, 0.75); fx.strokeEllipse(x, y, pr * 2.2, pr);
+    const yy = y - 12 * k, L = 9 * k;
+    g.lineStyle(3.2, 0x1a0c06, 0.9); g.lineBetween(x - L, yy - L, x + L, yy + L); g.lineBetween(x + L, yy - L, x - L, yy + L);
+    g.lineStyle(1.8, 0xf0e0c0, 1); g.lineBetween(x - L, yy - L, x + L, yy + L); g.lineBetween(x + L, yy - L, x - L, yy + L);
+    g.fillStyle(0xd4af37, 1); g.fillCircle(x - L * 0.55, yy + L * 0.55, 1.6 * k); g.fillCircle(x + L * 0.55, yy + L * 0.55, 1.6 * k);
+  }
+
   clickWorld(x: number, y: number) {
     if (GODUI.tpArm && GOD.on) { GODUI.tpArm = false; GODUI.onTeleport(x, y); return; } // 天命：缩地成寸
     const z = this.cameras.main.zoom;
     const r = 14 / Math.min(z, 1.5);
+    if (NETH.on) { const b = battleAt(x, y, r * 1.5); if (b) { openBattleJoin(b); return; } }
     // 部队优先（可见的）
     let bestP: Party | null = null, bd = r;
     for (const p of S.parties) {
@@ -429,6 +447,8 @@ export class WorldScene extends Phaser.Scene {
     const sight = sightRange(S, night);
     // 视野圈
     fx.lineStyle(1, 0xffffff, 0.12); fx.strokeCircle(pp.x, pp.y, sight);
+    // 联机：正在进行的实时战斗（点击可加入）
+    if (NETH.on) for (const b of NET.battles) this.drawBattleMark(fx, g, b.x, b.y, timeMs, b.n[0] + b.n[1]);
     // 被围攻/劫掠标记
     for (const s of Object.values(S.settlements)) {
       if (s.siege) {

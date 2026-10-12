@@ -4,6 +4,10 @@
 //   单位：u16 uid | u8 mask | [mask&1: u16 x*4, u16 y*4] [mask&2: i8 dx, i8 dy（1/4 像素）] [mask&4: u8 朝向] [mask&8: u8 血量] [mask&16: u8 状态位]
 //   事件 1（射击）：u8 种类|骑射<<4 | u16 射手 | u16 x*2 | u16 y*2 | u16 角度 | u16 距离 | u16 射程
 //   事件 2（命中）：u16 目标 | u16 攻击者 | u8 伤害 | u8 种类
+export const EV_SHOT = 1, EV_HIT = 2;
+export const HIT_MELEE = 0, HIT_ARROW = 1, HIT_BULLET = 2, BLOCK_MELEE = 3, BLOCK_ARROW = 4, GOD_BLOCK = 5;
+export const ST_DEAD = 1, ST_ROUTED = 2, ST_FLED = 4, ST_AIM = 8, ST_SWING = 16, ST_RANGED = 32;
+
 export class Writer {
   buf: Uint8Array; dv: DataView; pos = 0;
   constructor(n = 4096) { this.buf = new Uint8Array(n); this.dv = new DataView(this.buf.buffer); }

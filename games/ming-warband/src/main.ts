@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import './style.css';
 import { WorldScene } from './scenes/WorldScene';
 import { BattleScene } from './scenes/BattleScene';
+import { NetBattleScene, installNetBattle } from './net/nbattle';
 import { ref } from './gameRef';
 import { showMainMenu, setMenuHooks, hideMainMenu } from './ui/menu';
 import { setMpHooks } from './ui/mp';
@@ -25,6 +26,8 @@ const game = new Phaser.Game({
 ref.game = game;
 game.scene.add('World', WorldScene, false);
 game.scene.add('Battle', BattleScene, false);
+game.scene.add('NetBattle', NetBattleScene, false);
+installNetBattle();
 
 function startGame() {
   closeAll();
@@ -32,12 +35,14 @@ function startGame() {
   hud.mount(actions);
   resetWorldAudioWatch();
   if (game.scene.isActive('Battle')) game.scene.stop('Battle');
+  if (game.scene.isActive('NetBattle')) game.scene.stop('NetBattle');
   if (game.scene.getScene('World') && (game.scene.isActive('World') || game.scene.isSleeping('World'))) game.scene.stop('World');
   game.scene.start('World');
 }
 function quitToMenu() {
   closeAll();
   if (game.scene.isActive('Battle')) game.scene.stop('Battle');
+  if (game.scene.isActive('NetBattle')) game.scene.stop('NetBattle');
   game.scene.stop('World');
   hud.unmount();
   music.ambience('none'); music.weather(0); weatherFx.clear();

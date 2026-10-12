@@ -71,6 +71,54 @@ export interface Outcome {
 
 export interface BattleReport { title: string; win: boolean; lines: string[]; loot: string[]; prisoners: Stack[]; captured?: Settlement | null }
 
+/** 联机实时战斗的个人结算：兵员伤亡、银两、兵力已由服务器下发（patch），这里处理经验、声望、士气、俘虏、战利品与同伴伤情 */
+export function applyNetBattle(out: Outcome & { kills?: number }, srvLines: string[], gold: number, retreat: boolean): BattleReport {
+  const pp = player();
+  const lines = [...srvLines];
+  const loot: string[] = [];
+  if (gold > 0) loot.push(`${gold} 两银子`);
+  if (out.heroDown) lines.push('你在战斗中身负重伤。');
+  for (const cid of out.compDown ?? []) { const c = S.companions.find(x => x.id === cid); if (c) { c.wounded = 48; lines.push(`${COMPANIONS.find(x => x.id === cid)?.name ?? '同伴'}负伤倒地。`); } }
+  const kills = out.kills ?? 0;
+  const downN = sumCas(out.enemyDown ?? {});
+  // 自己的份额：按本部杀敌占全部敌军伤亡的比例（至少两成，避免“蹭战”毫无收获）
+  const share = downN ? Math.min(1, Math.max(0.2, (kills + 1) / downN)) : 0;
+  const myPow = casPower(out.enemyDown ?? {}) * share;
+  S.stats.kills += kills;
+  const xp = Math.round(myPow * 2.5 + (retreat ? 0 : 10));
+  const ups = addHeroXp(S, out.win ? xp : xp * 0.5);
+  giveTroopXp(pp.troops, myPow * (out.win ? 6 : 3));
+  if (xp > 0) lines.push(`获得经验 ${Math.round(out.win ? xp : xp * 0.5)}。`);
+  if (ups) lines.push(`你升到了 ${S.hero.level} 级！可以分配新的属性与技能点。`);
+  if (out.win) {
+    S.stats.won++;
+    const ren = Math.round(Math.min(60, 2 + myPow / 4));
+    S.renown += ren; lines.push(`声望 +${ren}。`);
+    S.morale = Math.min(100, S.morale + 8);
+    // 俘虏：从敌军伤亡中按本部杀敌数抽取
+    const pLimit = prisonerLimit(S) - count(pp.prisoners);
+    const pool: string[] = [];
+    for (const id in out.enemyDown) for (let i = 0; i < out.enemyDown[id]; i++) if (TROOPS[id]) pool.push(id);
+    const prisoners: Stack[] = [];
+    const nP = Math.min(pLimit, Math.round(Math.min(pool.length, kills + 1) * 0.38));
+    for (let i = 0; i < nP && pool.length; i++) addTroops(prisoners, pool.splice(Math.floor(Math.random() * pool.length), 1)[0], 1);
+    for (const p of prisoners) addTroops(pp.prisoners, p.id, p.n);
+    if (prisoners.length) lines.push(`俘获 ${count(prisoners)} 名敌兵。`);
+    // 装备掉落
+    const maxTier = Math.max(1, ...Object.keys(out.enemyDown ?? {}).map(k => TROOPS[k]?.tier ?? 1));
+    const drops = Math.min(3, Math.floor(Math.min(downN, kills * 1.5) / 12) + (chance(0.5) ? 1 : 0));
+    for (let i = 0; i < drops; i++) {
+      const pool2 = ITEM_LIST.filter(it => it.tier <= Math.min(5, maxTier) && it.price > 25);
+      const it = weighted(pool2.map(p => [p, 6 - p.tier] as [typeof p, number]));
+      S.hero.inventory.push(it.id); loot.push(it.name);
+    }
+    return { title: '胜利', win: true, lines, loot, prisoners };
+  }
+  if (!retreat) { S.stats.lost++; S.morale = Math.max(0, S.morale - 12); }
+  else S.morale = Math.max(0, S.morale - 4);
+  return { title: retreat ? '撤退' : '战败', win: false, lines, loot, prisoners: [] };
+}
+
 export function playerExtraPower() {
   let e = 6 + S.hero.level * 0.9;
   for (const c of S.companions) if (c.wounded <= 0) { const d = COMPANIONS.find(x => x.id === c.id)!; e += (d.hp / 10) * ((d.atk + d.skill * 0.6) / 10) * (1 + d.def / 25); }

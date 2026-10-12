@@ -67,9 +67,8 @@ const SWING = 0.32;
 const GAPS = [900, 1050, 1200, 1350, 1550];
 export const TICK = 0.05;
 // 事件类型（二进制帧）
-export const EV_SHOT = 1, EV_HIT = 2;
-export const HIT_MELEE = 0, HIT_ARROW = 1, HIT_BULLET = 2, BLOCK_MELEE = 3, BLOCK_ARROW = 4, GOD_BLOCK = 5;
-export const ST_DEAD = 1, ST_ROUTED = 2, ST_FLED = 4, ST_AIM = 8, ST_SWING = 16, ST_RANGED = 32;
+import { EV_SHOT, EV_HIT, HIT_MELEE, HIT_ARROW, HIT_BULLET, BLOCK_MELEE, BLOCK_ARROW, GOD_BLOCK, ST_DEAD, ST_ROUTED, ST_FLED, ST_AIM, ST_SWING, ST_RANGED } from './wire';
+export { EV_SHOT, EV_HIT, HIT_MELEE, HIT_ARROW, HIT_BULLET, BLOCK_MELEE, BLOCK_ARROW, GOD_BLOCK, ST_DEAD, ST_ROUTED, ST_FLED, ST_AIM, ST_SWING, ST_RANGED };
 const KIND_N: Record<PKind, number> = { bow: 0, xbow: 1, gun: 2 };
 
 interface Ev { k: number; x: number; y: number; a: number; b: number; c: number; d: number; e: number; f: number; from: number; to: number }
@@ -102,7 +101,7 @@ export class BattleCore {
   downPid: Record<string, Casualties> = {};
   killsBy: Record<string, number> = {};
   fledPid: Record<string, number> = {};
-  elapsed = 0; tick = 0; uidSeq = 1; sqSeq = 1; aiT = 0; reinforceT = 0; statT = 0;
+  elapsed = 0; tick = 0; lastHit = 0; uidSeq = 1; sqSeq = 1; aiT = 0; reinforceT = 0; statT = 0;
   finished = false; result: CoreResult | null = null;
   baseX: [number, number] = [0, 0];
   grid = new Map<number, BUnit[]>();
@@ -453,7 +452,8 @@ export class BattleCore {
     this.reinforce(dt);
     this.checkEnd();
     for (const c of this.cmds.values()) if (!c.online && !c.left) c.offlineT += dt;
-    if (!this.finished && this.elapsed > (this.opts.maxSec ?? 1200)) this.autoFinish();
+    // 超时，或双方对峙 2 分钟无人交手：按兵力自动结算
+    if (!this.finished && (this.elapsed > (this.opts.maxSec ?? 1200) || this.elapsed - this.lastHit > 120)) this.autoFinish();
     this.statT -= dt;
     if (this.statT <= 0) {
       this.statT = 0.5;
@@ -838,7 +838,7 @@ export class BattleCore {
     if (src === 0 && t.inForm && t.sq?.form === 'block') { if (a.mounted) raw *= 0.72; hitChance -= 0.06; }
     if (Math.random() > Math.max(0.15, Math.min(0.95, hitChance))) { this.hitEv(t, a, 0, src === 0 ? BLOCK_MELEE : BLOCK_ARROW); return; }
     const dmg = Math.max(2, raw * (0.8 + Math.random() * 0.4) - t.def * armorFactor);
-    t.hp -= dmg; t.hitFlash = 0.12;
+    t.hp -= dmg; t.hitFlash = 0.12; this.lastHit = this.elapsed;
     if (t.mounted && !t.hero) { t.vx *= 0.6; t.vy *= 0.6; }
     this.hitEv(t, a, dmg, src === 0 ? HIT_MELEE : src === 1 ? HIT_ARROW : HIT_BULLET);
     if (t.hp <= 0) this.kill(t, a);

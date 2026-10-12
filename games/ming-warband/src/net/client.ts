@@ -2,7 +2,7 @@
 import { S, setState, ensureWorld, emit, log, partyById, player, dayOf, factionHostileToSettlement } from '../core/game';
 import { nav, playerHourly, playerDaily, playerWeekly } from '../core/sim';
 import type { GameState, Party, Settlement } from '../core/state';
-import type { C2S, S2C, PRec, ServerCfg, OnlineInfo, NetParty, PrivatePart } from './protocol';
+import type { C2S, S2C, PRec, ServerCfg, OnlineInfo, NetParty, PrivatePart, BattleMark } from './protocol';
 import { NETH, type ReqResult } from './hooks';
 import { FACTION } from '../data/world';
 import { setGod } from '../core/god';
@@ -28,6 +28,7 @@ export const NET = {
   ping: 0,
   wantClose: false,
   patchSeq: 0,
+  battles: [] as BattleMark[], // 大地图上正在进行的实时战斗
 };
 
 type Fn = (...a: any[]) => void;
@@ -63,6 +64,7 @@ export function connect(url = defaultUrl()): Promise<void> {
     let ws: WebSocket;
     try { ws = new WebSocket(url); } catch (e) { reject(e); return; }
     NET.ws = ws;
+    ws.binaryType = 'arraybuffer'; // 实时战斗的二进制帧
     ws.onopen = () => { NET.connected = true; resolve(); clearInterval(pingTimer); pingTimer = window.setInterval(() => send({ t: 'ping', at: performance.now() }), 10000); };
     ws.onerror = () => { if (!NET.connected) reject(new Error('无法连接服务器')); };
     ws.onclose = () => {
@@ -70,7 +72,7 @@ export function connect(url = defaultUrl()): Promise<void> {
       for (const [, r] of pending) r({ ok: false, err: '与服务器断开了' }); pending.clear();
       if (was && !NET.wantClose) fire('disconnect');
     };
-    ws.onmessage = (ev) => { let m: S2C; try { m = JSON.parse(ev.data); } catch { return; } try { handle(m); } catch (e) { console.error('[net]', m.t, e); } };
+    ws.onmessage = (ev) => { if (typeof ev.data !== 'string') { fire('bframe', ev.data); return; } let m: S2C; try { m = JSON.parse(ev.data); } catch { return; } try { handle(m); } catch (e) { console.error('[net]', m.t, e); } };
   });
 }
 export function disconnect() {
@@ -228,6 +230,8 @@ function handle(m: S2C) {
     }
     case 'patch': applyPatch(m.data); if (m.seq) NET.patchSeq = m.seq; fire('patch', m); return;
     case 'report': fire('report', m); return;
+    case 'battles': NET.battles = m.list; fire('battles'); return;
+    case 'bstart': case 'bspawn': case 'bstat': case 'bmsg': case 'bcorr': case 'bend': case 'bgone': fire(m.t, m); return;
     case 'log': log(m.msg, m.cls); return;
   }
 }

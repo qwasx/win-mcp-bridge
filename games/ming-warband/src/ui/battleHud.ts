@@ -11,6 +11,7 @@ class BattleHud {
   scene: BattleScene | null = null;
   pointerOverUi = false;
   last = 0;
+  partsKey = '';
   lastMap = 0;
   els: Record<string, HTMLElement> = {};
   mapCv: HTMLCanvasElement | null = null;
@@ -30,6 +31,7 @@ class BattleHud {
         h('div', { class: 'b-side theirs' }, h('b', null, st.enemyName), E.theirN = h('span', null, ''), E.theirM = h('div', { class: 'mbar' }, h('i'))),
       ),
       E.siege = h('div', { class: 'b-siege' }),
+      E.parts = h('div', { class: 'b-parts', style: { display: (scene as any).net ? '' : 'none' } }),
       E.msgs = h('div', { class: 'b-msgs' }),
       E.mapWrap = h('div', { class: 'b-map ui-hit' }),
       E.deploy = h('div', { class: 'b-deploy ui-hit' }),
@@ -42,7 +44,7 @@ class BattleHud {
             h('button', { class: 'bbtn', onclick: () => scene.toggleWeapon() }, h('kbd', null, 'Q'), '换武器')),
         ),
         h('div', { class: 'b-actions' },
-          h('button', { class: 'btn', onclick: () => scene.autoFinish(), title: '用自动结算完成剩下的战斗' }, '自动结算'),
+          (scene as any).net ? null : h('button', { class: 'btn', onclick: () => scene.autoFinish(), title: '用自动结算完成剩下的战斗' }, '自动结算'),
           h('button', { class: 'btn danger', onclick: () => scene.retreat(), title: '撤出战场（会损失部分部下）' }, '撤退'),
           soundButton('btn'),
         ),
@@ -154,6 +156,20 @@ class BattleHud {
     if (now - this.lastMap > 200) { this.lastMap = now; this.drawMap(); }
     if (now - this.last < 150) return;
     this.last = now;
+    const ni = (s as any).netInfo?.() as { name: string; side: number; me: boolean; player: boolean; online: boolean }[] | undefined;
+    if (ni) {
+      const key = JSON.stringify(ni);
+      if (key !== this.partsKey) {
+        this.partsKey = key;
+        const row = (p: typeof ni[number]) => h('div', { class: `bp ${p.side ? 'foe' : p.me ? 'me' : 'ally'}` }, p.player ? (p.online ? '● ' : '○ ') : '', p.name, p.me ? '（你）' : '');
+        this.els.parts.replaceChildren(
+          h('b', null, '参战各部'),
+          ...ni.filter(p => p.side === 0).map(row),
+          h('i', null, '— 对阵 —'),
+          ...ni.filter(p => p.side === 1).map(row),
+        );
+      }
+    }
     this.els.ourN.textContent = ` ${s.activeCount(0)} 人`;
     this.els.theirN.textContent = ` ${s.activeCount(1)} 人`;
     (this.els.ourM.firstChild as HTMLElement).style.width = `${Math.max(0, Math.min(100, s.sideMorale(0)))}%`;
@@ -200,7 +216,7 @@ class BattleHud {
     this.root.appendChild(box);
   }
 
-  close() { this.root?.remove(); this.root = null; this.scene = null; this.pointerOverUi = false; this.mapCv = null; this.mapBg = null; }
+  close() { this.partsKey = ''; this.root?.remove(); this.root = null; this.scene = null; this.pointerOverUi = false; this.mapCv = null; this.mapBg = null; }
 }
 
 export const battleHud = new BattleHud();

@@ -384,3 +384,14 @@ body.mp .hud-speed .spd { display: none; }
 .gm-out.small { height: 110px; }
 .gm-foot { margin-top: 6px; }
 button.gold, .btn.gold { background: linear-gradient(#ffe08a, #c8961c) !important; color: #3a2000 !important; }
+
+/* 联机实时战斗：参战各部名单 */
+.b-parts { position: absolute; top: 200px; right: 8px; min-width: 150px; max-width: 220px; max-height: 40vh; overflow: auto; background: rgba(20,10,4,.78); border: 1px solid #6d4a1a; border-radius: 4px; padding: 6px 9px; color: #f3e6c4; font-size: 12px; line-height: 1.55; pointer-events: none; }
+.b-parts b { display: block; color: #ffd890; margin-bottom: 2px; letter-spacing: 2px; }
+.b-parts i { display: block; text-align: center; color: #a08a60; font-style: normal; font-size: 11px; margin: 2px 0; }
+.b-parts .bp.me { color: #ffe28a; font-weight: bold; }
+.b-parts .bp.ally { color: #9fe0ff; }
+.b-parts .bp.foe { color: #ff9a8a; }
+/* 大地图：进行中的战斗 */
+.mp-battle-pop .bjoin-sides { display: flex; gap: 10px; margin: 8px 0; }
+.mp-battle-pop .bjoin-sides > div { flex: 1; padding: 8px; border: 1px solid #6d4a1a; border-radius: 4px; background: rgba(0,0,0,.18); }

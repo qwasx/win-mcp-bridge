@@ -24,9 +24,11 @@ export function client(name, nation, opt = {}) {
     st.close = () => { try { ws.close(); } catch { /* */ } };
     ws.on('open', () => st.send(opt.token ? { t: 'resume', token: opt.token } : opt.login ? { t: 'login', name, pass: opt.pass ?? 'pass1234' } : { t: 'register', name, pass: opt.pass ?? 'pass1234' }));
     ws.on('error', reject);
-    ws.on('message', d => {
+    ws.on('message', (d, isBinary) => {
+      if (isBinary) { st.bin = (st.bin ?? 0) + 1; st.binBytes = (st.binBytes ?? 0) + d.length; st.onBin?.(d); return; } // 实时战斗帧
       const m = JSON.parse(String(d));
       st.log.push(m);
+      st.onMsg?.(m);
       if (m.t === 'auth') { st.auth = m; if (m.token) st.token = m.token; if (!m.ok) { if (!opt.allowFail) { console.log(name, 'auth err', m.err); process.exit(2); } resolve(st); } if (m.needCreate) st.send({ t: 'create', nation, bg: 'soldier' }); }
       if (m.t === 'welcome') { st.me = m; st.world = m.world; st.cfg = m.cfg; for (const p of m.parties) st.parties.set(p.id, p); resolve(st); }
       if (m.t === 'parties') { for (const p of m.up) st.parties.set(p.id, Object.assign(st.parties.get(p.id) ?? {}, { god: undefined }, p)); for (const id of m.gone) if (id !== st.me?.partyId) st.parties.delete(id); } // 与真客户端一致：自己的部队不因 gone 删除
