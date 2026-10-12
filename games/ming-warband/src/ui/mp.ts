@@ -9,6 +9,7 @@ import { showReport } from './encounter';
 import { healthy } from '../core/party';
 import { EXILE_DAYS } from '../core/combat';
 import { openGm, gmReply, gmGodChanged } from './gm';
+import { ref } from '../gameRef';
 
 let hooks: { start: () => void; quit: () => void } = { start: () => {}, quit: () => {} };
 export function setMpHooks(start: () => void, quit: () => void) { hooks = { start, quit }; }
@@ -95,6 +96,7 @@ onNet('disconnect', () => {
 });
 onNet('chat', (m: ChatMsg) => pushChat(m));
 onNet('online', () => renderOnline());
+onNet('ping', () => renderOnline());
 onNet('god', () => { if (gmBtn) gmBtn.style.display = NET.gm ? '' : 'none'; gmGodChanged(); });
 onNet('gm', (t: string, data?: any) => {
   if (t && t.startsWith('INVITE|')) {
@@ -161,7 +163,16 @@ function pushChat(m: ChatMsg) {
   while (chatBox.children.length > 80) chatBox.firstChild!.remove();
   chatBox.scrollTop = chatBox.scrollHeight;
 }
-function renderOnline() { if (onlineEl) onlineEl.textContent = `在线 ${NET.online.length} 人${NET.ping ? ` · ${NET.ping}ms` : ''}`; }
+/** 在线人数 + 网络延迟 + 帧率（颜色提示：绿=流畅，黄=一般，红=卡） */
+function renderOnline() {
+  if (!onlineEl) return;
+  const fps = Math.round((ref.game as any)?.loop?.actualFps ?? 0);
+  const pc = NET.ping < 90 ? '#7fd87f' : NET.ping < 200 ? '#e8d070' : '#ff7a6a';
+  const fc = fps >= 50 ? '#7fd87f' : fps >= 30 ? '#e8d070' : '#ff7a6a';
+  onlineEl.replaceChildren(`在线 ${NET.online.length} 人`,
+    NET.ping ? h('span', { style: { color: pc }, title: '网络往返延迟（毫秒）' }, ` · ${NET.ping}ms`) : '',
+    fps ? h('span', { style: { color: fc }, title: '画面帧率' }, ` · ${fps}帧`) : '');
+}
 
 function openOnline() {
   const byN: Record<string, typeof NET.online> = {};

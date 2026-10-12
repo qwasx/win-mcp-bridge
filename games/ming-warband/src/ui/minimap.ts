@@ -40,6 +40,8 @@ class Minimap {
   show() { if (this.el) this.el.style.display = ''; }
   hide() { if (this.el) this.el.style.display = 'none'; }
 
+  /** 该重画了吗（每 120ms 一次；不到时间就别准备数据） */
+  due() { return !!this.cv && !!this.base && !this.collapsed && performance.now() - this.last >= 120; }
   update(view: { x: number; y: number; width: number; height: number }, player: { x: number; y: number }, dots: { x: number; y: number; c: string }[], night: number) {
     if (!this.cv || !this.base || this.collapsed) return;
     const now = performance.now(); if (now - this.last < 120) return; this.last = now;

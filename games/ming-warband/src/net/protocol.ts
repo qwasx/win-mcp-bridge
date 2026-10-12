@@ -95,7 +95,7 @@ export type S2C =
   | { t: 'welcome'; rec: PRec; partyId: number; world: WorldSnap; parties: NetParty[]; cfg: ServerCfg; gm: boolean; chat: { at: number; who: string; text: string; ch: string }[] }
   | { t: 'world'; time: number; settlements?: Settlement[]; lords?: Lord[]; wars?: string[]; truceUntil?: Record<string, number>; alive?: Record<string, boolean>; treaties?: Treaty[]; customFactions?: Record<string, FactionDef>; wallHp?: number[]; beacons?: WorldSnap['beacons']; chronLog?: WorldSnap['chronLog']; fnames?: Record<string, string> }
   | { t: 'parties'; up: NetParty[]; gone: number[] }
-  | { t: 'pos'; time: number; a: number[] } // [id, x*10, y*10, flags] ...
+  | { t: 'pos'; time: number; a: number[]; full?: boolean } // [id, x*10, y*10, flags] ...；full=false：只含玩家部队的加密包
   | { t: 'arrive'; st: string }
   | { t: 'navEnd' }
   | { t: 'encounter'; enemy: number; forced: boolean; eid: number }

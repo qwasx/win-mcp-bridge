@@ -72,7 +72,7 @@ async function serveStatic(req: IncomingMessage, res: ServerResponse) {
 }
 
 const server = createServer((req, res) => { void serveStatic(req, res); });
-const wss = new WebSocketServer({ server, path: '/ws', perMessageDeflate: { threshold: 1024 }, maxPayload: 512 * 1024 });
+const wss = new WebSocketServer({ server, path: '/ws', perMessageDeflate: { threshold: 1400, zlibDeflateOptions: { level: 1, memLevel: 8 }, concurrencyLimit: 32 }, maxPayload: 512 * 1024 });
 wss.on('connection', (ws, req) => {
   const ip = String(req.headers['x-real-ip'] ?? req.headers['x-forwarded-for'] ?? req.socket.remoteAddress ?? '?');
   onConnection(ws, ip);
@@ -80,7 +80,7 @@ wss.on('connection', (ws, req) => {
 server.listen(PORT, '0.0.0.0', () => console.log(`[boot] listening on 0.0.0.0:${PORT}`));
 
 // ---------- 主循环 ----------
-let last = Date.now(), lastPos = 0, lastParties = 0, lastWorld = 0, lastSave = Date.now(), lastHb = 0, lastBackup = 0;
+let last = Date.now(), lastPos = 0, lastHeroPos = 0, lastParties = 0, lastWorld = 0, lastSave = Date.now(), lastHb = 0, lastBackup = 0;
 let tickCost = 0, maxLag = 0, lastBattles = 0, lastBattlesJson = '';
 setInterval(() => {
   const now = Date.now();
@@ -90,7 +90,8 @@ setInterval(() => {
   const a = performance.now();
   W.tick(dt);
   tickCost = tickCost * 0.95 + (performance.now() - a) * 0.05;
-  if (now - lastPos >= 400) { lastPos = now; broadcastRaw(JSON.stringify(W.posPacket())); for (const x of W.hiddenSelfPos()) W.OUT.send(x.acct, x.m); }
+  if (now - lastPos >= 400) { lastPos = now; lastHeroPos = now; broadcastRaw(JSON.stringify(W.posPacket())); for (const x of W.hiddenSelfPos()) W.OUT.send(x.acct, x.m); }
+  else if (now - lastHeroPos >= 200) { lastHeroPos = now; const pk = W.posPacket(true) as { a: number[] }; if (pk.a.length) broadcastRaw(JSON.stringify(pk)); for (const x of W.hiddenSelfPos()) W.OUT.send(x.acct, x.m); }
   if (now - lastParties >= 1000) { lastParties = now; const d = W.partiesDelta(); if (d.t === 'parties' && (d.up.length || d.gone.length)) broadcastRaw(JSON.stringify(d)); }
   if (now - lastWorld >= 3000) { lastWorld = now; kingdomTick(); checkOrphans(); const d = W.worldDelta(); if (d) broadcastRaw(JSON.stringify(d)); pushOnline(); }
   if (now - lastHb >= 20000) { lastHb = now; heartbeat(); }

@@ -571,7 +571,7 @@ export function visibleParties(me?: string) { return S.parties.filter(p => p.id 
 /** 隐身的天命之主：单独把自己的位置发给自己 */
 export function hiddenSelfPos(): { acct: string; m: S2C }[] {
   const out: { acct: string; m: S2C }[] = [];
-  for (const p of S.parties) if (p.kind === 'hero' && p.hidden && p.acct && !p.inside) out.push({ acct: p.acct, m: { t: 'pos', time: S.time, a: [p.id, Math.round(p.x) * 10, Math.round(p.y) * 10, p.busy ? 1 : 0] } });
+  for (const p of S.parties) if (p.kind === 'hero' && p.hidden && p.acct && !p.inside) out.push({ acct: p.acct, m: { t: 'pos', time: S.time, a: [p.id, Math.round(p.x * 10), Math.round(p.y * 10), p.busy ? 1 : 0] } });
   return out;
 }
 
@@ -621,22 +621,24 @@ export function partiesDelta(): S2C {
   for (const id of lastParty.keys()) if (!seen.has(id)) { gone.push(id); lastParty.delete(id); }
   return { t: 'parties', up, gone };
 }
-// 位置广播：只发“变了的”部队（量化到 1 像素），每 5 秒一次全量关键帧
+// 位置广播：只发“变了的”部队（精度 0.1 像素，慢速行军也连续），每 5 秒一次全量关键帧
+// heroesOnly：玩家部队单独加密到 5 次/秒（别人看你、你看别人都更跟手）
 const lastPos = new Map<number, number>();
 let posFrame = 0;
-export function posPacket(): S2C {
+export function posPacket(heroesOnly = false): S2C {
   const a: number[] = [];
-  const full = posFrame++ % 12 === 0;
+  const full = !heroesOnly && posFrame++ % 12 === 0;
   for (const p of visibleParties()) {
     if (p.inside) continue;
-    const x = Math.round(p.x), y = Math.round(p.y), f = p.busy ? 1 : 0;
-    const key = (x * 4096 + y) * 2 + f;
+    if (heroesOnly && p.kind !== 'hero') continue;
+    const x = Math.round(p.x * 10), y = Math.round(p.y * 10), f = p.busy ? 1 : 0;
+    const key = (x * 40000 + y) * 2 + f;
     if (!full && lastPos.get(p.id) === key) continue;
     lastPos.set(p.id, key);
-    a.push(p.id, x * 10, y * 10, f);
+    a.push(p.id, x, y, f);
   }
   if (full) for (const id of lastPos.keys()) if (!partyById(id)) lastPos.delete(id);
-  return { t: 'pos', time: S.time, a };
+  return heroesOnly ? { t: 'pos', time: S.time, a, full: false } : { t: 'pos', time: S.time, a };
 }
 
 // ---------- GM 辅助 ----------

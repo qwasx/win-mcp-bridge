@@ -1,6 +1,10 @@
 // 联机客户端：连接、世界镜像、插值、个人结算、私有数据上传
-import { S, setState, ensureWorld, emit, log, partyById, player, dayOf, factionHostileToSettlement } from '../core/game';
-import { nav, playerHourly, playerDaily, playerWeekly } from '../core/sim';
+import { S, setState, ensureWorld, emit, log, partyById, player, dayOf, factionHostileToSettlement, isNight } from '../core/game';
+import { nav, playerHourly, playerDaily, playerWeekly, moveAlong } from '../core/sim';
+import { mapSpeed } from '../core/party';
+import { findPath, losClear } from '../core/terrain';
+import { whoOf } from '../core/wall';
+import { GOD } from '../core/god';
 import type { GameState, Party, Settlement } from '../core/state';
 import type { C2S, S2C, PRec, ServerCfg, OnlineInfo, NetParty, PrivatePart, BattleMark } from './protocol';
 import { NETH, type ReqResult } from './hooks';
@@ -29,6 +33,8 @@ export const NET = {
   wantClose: false,
   patchSeq: 0,
   battles: [] as BattleMark[], // 大地图上正在进行的实时战斗
+  rtt: 0,      // 平滑后的往返延迟（毫秒），用于本地预测
+  corrections: 0, // 统计：本地预测被服务器纠正的次数
 };
 
 type Fn = (...a: any[]) => void;
@@ -65,7 +71,7 @@ export function connect(url = defaultUrl()): Promise<void> {
     try { ws = new WebSocket(url); } catch (e) { reject(e); return; }
     NET.ws = ws;
     ws.binaryType = 'arraybuffer'; // 实时战斗的二进制帧
-    ws.onopen = () => { NET.connected = true; resolve(); clearInterval(pingTimer); pingTimer = window.setInterval(() => send({ t: 'ping', at: performance.now() }), 10000); };
+    ws.onopen = () => { NET.connected = true; resolve(); clearInterval(pingTimer); send({ t: 'ping', at: performance.now() }); pingTimer = window.setInterval(() => send({ t: 'ping', at: performance.now() }), 3000); };
     ws.onerror = () => { if (!NET.connected) reject(new Error('无法连接服务器')); };
     ws.onclose = () => {
       const was = NET.connected; NET.connected = false; clearInterval(pingTimer);
@@ -83,7 +89,117 @@ export function disconnect() {
 }
 
 // ---------- 状态镜像 ----------
-const targets = new Map<number, { x: number; y: number }>();
+// 其他部队：线性插值（在两次位置包之间匀速走完，不再“冲一下停一下”）
+interface Tgt { fx: number; fy: number; x: number; y: number; t0: number; dur: number; last: number }
+const targets = new Map<number, Tgt>();
+let posPeriod = 400; // 位置包的实际间隔（毫秒，滑动平均）
+let lastPosAt = 0;
+function setTarget(p: Party | undefined, id: number, x: number, y: number, now: number) {
+  let t = targets.get(id);
+  if (!t) { targets.set(id, { fx: x, fy: y, x, y, t0: now, dur: 0, last: now }); if (p) { p.x = x; p.y = y; } return; }
+  const gap = now - t.last; t.last = now;
+  if (t.x === x && t.y === y) return;
+  const cx = p ? p.x : t.x, cy = p ? p.y : t.y;
+  if ((x - cx) ** 2 + (y - cy) ** 2 > 200 * 200) { t.fx = t.x = x; t.fy = t.y = y; t.dur = 0; if (p) { p.x = x; p.y = y; } return; } // 瞬移
+  t.fx = cx; t.fy = cy; t.x = x; t.y = y; t.t0 = now;
+  // 匀速走到新位置：用时≈两包间隔（稍长 10%，抖动时也不会停顿）
+  t.dur = (gap > 1500 ? posPeriod : Math.max(80, gap)) * 1.1;
+}
+
+// ---------- 自己：本地预测（点了马上走），服务器位置只用来校正 ----------
+const me = {
+  sx: 0, sy: 0, has: false,      // 最近一次服务器位置
+  srvMoveAt: 0,                  // 服务器位置最后一次变化的时间
+  trail: [] as { x: number; y: number; t: number }[], // 最近 3 秒预测轨迹
+  scale: 1,                      // 速度微调（与服务器对齐）
+  cx: 0, cy: 0,                  // 待平滑吸收的校正量
+  endAt: 0,                      // 本地路线走完的时间
+  repathAt: 0, fullPathAt: 0,
+};
+export const PRED = me; // 测试用
+function predSpeed(pp: Party) {
+  const k = pp.kind; (pp as any).kind = 'hero'; // 服务器上自己是 hero：速度公式按 hero 算
+  let v: number; try { v = mapSpeed(S, pp, isNight()); } finally { (pp as any).kind = k; }
+  const hps = NET.cfg.paused ? (GOD.on ? 0.4 : 0) : NET.cfg.hoursPerSec;
+  return v * hps * (GOD.on ? GOD.mapSpeed : 1);
+}
+function resetPred() { me.trail.length = 0; me.cx = me.cy = 0; me.scale = 1; }
+/** 服务器给出自己的位置 */
+function srvSelf(x: number, y: number, now: number) {
+  if (me.has && (x !== me.sx || y !== me.sy)) me.srvMoveAt = now;
+  const first = !me.has;
+  me.sx = x; me.sy = y; me.has = true;
+  const pp = partyById(NET.partyId);
+  if (!pp) return;
+  if (first) { pp.x = x; pp.y = y; return; }
+  const ex = x - pp.x, ey = y - pp.y;
+  if (ex * ex + ey * ey > 150 * 150) { pp.x = x; pp.y = y; resetPred(); return; } // 被传送/战后撤退
+  if (!nav.path.length && now - me.endAt > 1200) return; // 静止：每帧向服务器位置靠拢（见 netFrame）
+  // 在预测轨迹上找最接近服务器位置的点（从新到旧）
+  const tr = me.trail;
+  let best = Math.hypot(ex, ey), bx = pp.x, by = pp.y, age = 0;
+  let nx = pp.x, ny = pp.y, nt = now;
+  for (let i = tr.length - 1; i >= 0; i--) {
+    const a = tr[i];
+    const sx = nx - a.x, sy = ny - a.y, L2 = sx * sx + sy * sy;
+    let u = L2 > 1e-9 ? ((x - a.x) * sx + (y - a.y) * sy) / L2 : 0; u = Math.max(0, Math.min(1, u));
+    const px = a.x + sx * u, py = a.y + sy * u, d = Math.hypot(x - px, y - py);
+    if (d < best - 1e-6) { best = d; bx = px; by = py; age = now - (a.t + (nt - a.t) * u); }
+    nx = a.x; ny = a.y; nt = a.t;
+  }
+  const sp = predSpeed(pp);
+  const tol = 2.5 + sp * 0.25;
+  if (best > tol) {
+    // 走岔了（服务器绕路/被挡/速度差太多）：把“当时”的误差平移到现在，几帧内平滑吸收
+    me.cx += x - bx; me.cy += y - by; NET.corrections++;
+    return;
+  }
+  // 同一条路上：服务器应当落后我们约 1 个往返 + 半个服务器帧
+  if (nav.path.length) {
+    const want = (NET.rtt || 80) + 60;
+    const err = Math.max(-0.5, Math.min(0.5, (age - want) / 1000));
+    if (Math.abs(age - want) > 120) me.scale = Math.max(0.8, Math.min(1.2, me.scale * (1 - err * 0.25)));
+  }
+}
+function predictSelf(dt: number, now: number) {
+  const pp = partyById(NET.partyId);
+  if (!pp) return;
+  const moving = nav.path.length > 0 && !pp.busy;
+  if (moving) {
+    // 追击：目标在动，定期重算路线
+    if (nav.target?.kind === 'party' && now > me.repathAt) {
+      const t = partyById(nav.target.id);
+      if (t) {
+        me.repathAt = now + 400;
+        const who = whoOf(pp);
+        if (Math.hypot(t.x - pp.x, t.y - pp.y) < 100 && losClear(pp.x, pp.y, t.x, t.y, who)) nav.path = [[t.x, t.y]];
+        else if (now > me.fullPathAt) { me.fullPathAt = now + 1500; const np = findPath(pp.x, pp.y, t.x, t.y, who); if (np) nav.path = np; }
+      }
+    }
+    const before = nav.path.length;
+    moveAlong(pp, nav.path, predSpeed(pp) * me.scale * dt);
+    if (!nav.path.length && before) me.endAt = now;
+    me.trail.push({ x: pp.x, y: pp.y, t: now });
+  } else if (me.has && (now - me.endAt > 1200 || now - me.srvMoveAt > 450)) {
+    // 不走的时候：服务器位置为准（自己停下来后等服务器也停下再靠拢，避免先退后进）
+    const dx = me.sx - pp.x, dy = me.sy - pp.y;
+    if (dx * dx + dy * dy > 1e-4) { const k = 1 - Math.exp(-dt * 6); pp.x += dx * k; pp.y += dy * k; }
+    me.trail.length = 0; me.scale = 1;
+  }
+  // 吸收校正量
+  if (me.cx || me.cy) {
+    if (me.cx * me.cx + me.cy * me.cy > 80 * 80) { pp.x += me.cx; pp.y += me.cy; me.cx = me.cy = 0; me.trail.length = 0; }
+    else {
+      const k = 1 - Math.exp(-dt * 8);
+      pp.x += me.cx * k; pp.y += me.cy * k;
+      for (const a of me.trail) { a.x += me.cx * k; a.y += me.cy * k; }
+      me.cx -= me.cx * k; me.cy -= me.cy * k;
+      if (Math.abs(me.cx) + Math.abs(me.cy) < 0.01) me.cx = me.cy = 0;
+    }
+  }
+  while (me.trail.length && now - me.trail[0].t > 3000) me.trail.shift();
+  if (me.trail.length > 400) me.trail.splice(0, me.trail.length - 400);
+}
 const mapOwner = (o: string | null) => (o && o === 'P:' + NET.name ? 'player' : o);
 function fixSt(s: Settlement) { s.owner = mapOwner(s.owner); return s; }
 
@@ -115,7 +231,7 @@ function buildState(m: Extract<S2C, { t: 'welcome' }>) {
   if (!st.parties.some(p => p.id === m.partyId)) st.parties.push({ id: m.partyId, kind: 'player', name: rec.name, faction: rec.nation ?? 'ming', x: rec.x ?? 0, y: rec.y ?? 0, troops: rec.troops, prisoners: [], gold: rec.gold, goods: rec.goods, ai: { mode: 'idle', nextThink: Infinity } });
   setState(st);
   ensureWorld(st);
-  targets.clear();
+  targets.clear(); me.has = false; resetPred();
   NET.serverTime = w.time; NET.recvAt = performance.now();
   lastHour = Math.floor(w.time); lastSyncJson = JSON.stringify(privatePart());
   NET.chat = m.chat.map(c => ({ ...c }));
@@ -134,7 +250,7 @@ function upsertParties(up: NetParty[], gone: number[]) {
       Object.assign(p, rest, { ai: { ...p.ai, mode: np.ai.mode, target: np.ai.target } });
       (p as any).god = np.god; // 显圣标记可能被撤销
       p.busy = np.busy; p.grace = np.grace; // 战斗结束：busy 被清除（增量里缺省即为无）
-      if (!targets.has(p.id)) targets.set(p.id, { x, y });
+      if (!targets.has(p.id)) setTarget(p, p.id, x, y, performance.now());
     } else S.parties.push(fromNet(np));
   }
   if (gone.length) { const g = new Set(gone); S.parties = S.parties.filter(p => p.id === NET.partyId || !g.has(p.id)); for (const id of gone) targets.delete(id); }
@@ -170,7 +286,7 @@ function applyPatch(d: Extract<S2C, { t: 'patch' }>['data']) {
   const dd = d as any;
   if (d.troops) pp.troops = d.troops;
   if (typeof dd.addGold === 'number') pp.gold = Math.max(0, pp.gold + dd.addGold);
-  if (typeof dd.x === 'number') { pp.x = dd.x; pp.y = dd.y; targets.set(pp.id, { x: dd.x, y: dd.y }); nav.target = null; nav.path = []; }
+  if (typeof dd.x === 'number') { pp.x = dd.x; pp.y = dd.y; me.sx = dd.x; me.sy = dd.y; me.has = true; resetPred(); nav.target = null; nav.path = []; }
   if (typeof dd.hp === 'number') S.hero.hp = dd.hp;
   if (typeof d.renown === 'number') S.renown = d.renown;
   if (typeof dd.gold === 'number') pp.gold = dd.gold;
@@ -192,7 +308,7 @@ function handle(m: S2C) {
     case 'chat': NET.chat.push(m); if (NET.chat.length > 200) NET.chat.splice(0, 50); fire('chat', m); return;
     case 'gm': if (m.text) { NET.gmLog.push(m.text); if (NET.gmLog.length > 200) NET.gmLog.splice(0, 50); } fire('gm', m.text, m.data); return;
     case 'kick': NET.wantClose = true; fire('kick', m.why); return;
-    case 'pong': NET.ping = Math.round(performance.now() - m.at); return;
+    case 'pong': { const r = performance.now() - m.at; NET.ping = Math.round(r); NET.rtt = NET.rtt ? NET.rtt * 0.7 + r * 0.3 : r; fire('ping'); return; }
     case 'res': { const r = pending.get(m.rid); pending.delete(m.rid); r?.({ ok: m.ok, data: m.data, err: m.err }); return; }
   }
   if (!NET.inWorld || !S) return;
@@ -200,12 +316,16 @@ function handle(m: S2C) {
     case 'world': mergeWorld(m); return;
     case 'parties': upsertParties(m.up, m.gone); return;
     case 'pos': {
-      NET.serverTime = m.time; NET.recvAt = performance.now();
+      const now = performance.now();
+      NET.serverTime = m.time; NET.recvAt = now;
+      if (m.full !== false) { if (lastPosAt) posPeriod = posPeriod * 0.8 + Math.min(1500, now - lastPosAt) * 0.2; lastPosAt = now; }
       const a = m.a;
+      const idx = new Map<number, Party>(); for (const p of S.parties) idx.set(p.id, p);
       for (let i = 0; i < a.length; i += 4) {
-        const id = a[i]; const p = partyById(id);
+        const id = a[i]; const p = idx.get(id);
         if (!p) continue;
-        targets.set(id, { x: a[i + 1] / 10, y: a[i + 2] / 10 });
+        const x = a[i + 1] / 10, y = a[i + 2] / 10;
+        if (id === NET.partyId) srvSelf(x, y, now); else setTarget(p, id, x, y, now);
         p.busy = a[i + 3] & 1 ? 1 : undefined;
       }
       return;
@@ -215,16 +335,17 @@ function handle(m: S2C) {
       nav.target = null; nav.path = [];
       if (!st) return;
       if (st.kind !== 'village' && !factionHostileToSettlement(S.playerFaction ?? 'player', st)) send({ t: 'enter', st: st.id });
-      const pp = player(); const t = targets.get(pp.id); if (t) { pp.x = t.x; pp.y = t.y; }
+      const pp = player(); if (me.has) { pp.x = me.sx; pp.y = me.sy; resetPred(); }
       emit('arrive', st);
       return;
     }
-    case 'navEnd': nav.target = null; nav.path = []; return;
+    case 'navEnd': nav.target = null; nav.path = []; me.endAt = performance.now(); return;
     case 'encounter': {
       const p = partyById(m.enemy);
       nav.target = null; nav.path = [];
       if (!p) { if (m.eid) void NETH.req('enc', { eid: m.eid }); return; }
-      const t = targets.get(p.id); if (t) { p.x = t.x; p.y = t.y; }
+      const t = targets.get(p.id); if (t) { p.x = t.x; p.y = t.y; t.fx = t.x; t.fy = t.y; t.dur = 0; }
+      const pp = player(); if (me.has) { pp.x = me.sx; pp.y = me.sy; resetPred(); }
       NETH.eid = m.eid;
       emit('encounter', p, m.forced);
       return;
@@ -247,16 +368,17 @@ export function netFrame(dt: number) {
   if (!NET.inWorld) return;
   const ext = Math.min(1.5, (performance.now() - NET.recvAt) / 1000);
   S.time = NET.serverTime + (NET.cfg.paused ? 0 : ext * NET.cfg.hoursPerSec);
-  const k = 1 - Math.exp(-dt * 7), kMe = 1 - Math.exp(-dt * 12);
+  const now = performance.now();
   for (const p of S.parties) {
+    if (p.id === NET.partyId) continue;
     const t = targets.get(p.id);
     if (!t) continue;
-    const dx = t.x - p.x, dy = t.y - p.y;
-    const me = p.id === NET.partyId; // 自己（神行时一步可达上百像素）：只有真正的瞬移才跳
-    if (dx * dx + dy * dy > (me ? 90000 : 3600)) { p.x = t.x; p.y = t.y; } else { p.x += dx * (me ? kMe : k); p.y += dy * (me ? kMe : k); }
+    if (t.dur <= 0) { p.x = t.x; p.y = t.y; continue; }
+    const u = Math.min(1, (now - t.t0) / t.dur);
+    p.x = t.fx + (t.x - t.fx) * u; p.y = t.fy + (t.y - t.fy) * u;
+    if (u >= 1) t.dur = 0;
   }
-  const pp = player();
-  while (nav.path.length && Math.hypot(nav.path[0][0] - pp.x, nav.path[0][1] - pp.y) < 7) nav.path.shift();
+  predictSelf(dt, now);
   // 个人结算（按服务器时间）
   const hr = Math.floor(S.time);
   if (hr !== lastHour) {
@@ -272,7 +394,6 @@ export function netFrame(dt: number) {
     }
     lastHour = hr;
   }
-  const now = performance.now();
   if (now - lastSyncAt > 1500) {
     lastSyncAt = now;
     const data = privatePart();

@@ -20,6 +20,7 @@ class WeatherFx {
   last = 0;
   camDX = 0; camDY = 0;
   running = false;
+  dirty = true;
   // 季节点缀：春花瓣、秋落叶、夏夜萤火
   season = -1; night = false;
   amb: { x: number; y: number; a: number; va: number; s: number; ph: number; c: string }[] = [];
@@ -103,8 +104,12 @@ class WeatherFx {
     if (this.w.kind !== this.kind) { this.shown = Math.max(0, this.shown - dt * 0.8); if (this.shown <= 0.01) this.kind = this.w.kind; }
     else this.shown += (target - this.shown) * Math.min(1, dt * 0.8);
     const k = this.kind === 'clear' ? 0 : this.shown;
-    ctx.clearRect(0, 0, W, H);
     const cdx = this.camDX, cdy = this.camDY; this.camDX = 0; this.camDY = 0;
+    // 晴天且没有点缀：整张全屏画布不必每帧清空重画（省一次全屏合成）
+    const willDraw = (this.amb.length > 0 && k <= 0.4) || k >= 0.01 || this.flash > 0 || this.splash.length > 0;
+    if (!willDraw) { if (this.dirty) { ctx.clearRect(0, 0, W, H); this.dirty = false; } return; }
+    this.dirty = true;
+    ctx.clearRect(0, 0, W, H);
     this.drawAmbient(ctx, dt, W, H, cdx, cdy, k);
     if (k < 0.01 && this.flash <= 0) return;
     if (this.kind === 'rain') {

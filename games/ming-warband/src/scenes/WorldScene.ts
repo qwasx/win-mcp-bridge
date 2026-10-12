@@ -54,7 +54,8 @@ export class WorldScene extends Phaser.Scene {
   gParties!: Phaser.GameObjects.Graphics;
   gFx!: Phaser.GameObjects.Graphics;
   labels = new Map<string, Phaser.GameObjects.Text>();
-  partyLabels: Phaser.GameObjects.Text[] = [];
+  partyLabels: Phaser.GameObjects.Text[] = []; // 空闲的名牌
+  labelOf = new Map<number, Phaser.GameObjects.Text>(); // 部队 → 名牌（固定绑定：不再每帧重绘文字）
   drag = { down: false, sx: 0, sy: 0, moved: false, camX: 0, camY: 0 };
   follow = true;
   staticDirty = true;
@@ -70,7 +71,7 @@ export class WorldScene extends Phaser.Scene {
 
   create() {
     worldScene = this;
-    this.labels = new Map(); this.partyLabels = []; (this as any)._keys = null; this.staticDirty = true; this.follow = true;
+    this.labels = new Map(); this.partyLabels = []; this.labelOf = new Map(); (this as any)._keys = null; this.staticDirty = true; this.follow = true;
     this.sIcons = new Map(); this.pvis = new Map(); this.clouds = [];
     const vis = worldVisuals(Object.values(S.settlements), `${S.seed}`);
     const key = 'map_' + S.seed;
@@ -286,7 +287,7 @@ export class WorldScene extends Phaser.Scene {
     for (const s of Object.values(S.settlements)) {
       const lbl = this.labels.get(s.id)!;
       lbl.setVisible(s.kind !== 'village' || z > 0.75);
-      lbl.setColor(s.owner === 'player' ? '#ffe28a' : '#fff8e6');
+      setTextColor(lbl, s.owner === 'player' ? '#ffe28a' : '#fff8e6');
       const ic = this.sIcons.get(s.id);
       if (ic) {
         const fname = this.settFrame(s);
@@ -510,9 +511,11 @@ export class WorldScene extends Phaser.Scene {
       const pr = 4 + Math.sin(timeMs / 200) * 1;
       fx.lineStyle(2, 0xffe9a0, 0.9); fx.strokeEllipse(ex, ey, pr * 2.4, pr * 1.4);
     }
-    let li = 0;
     const z = this.cameras.main.zoom;
     const showNames = z > 0.8;
+    const vw = this.cameras.main.worldView;
+    const usedLbl = this.usedLbl; usedLbl.clear();
+    const fsz = Math.round(12 / Math.max(0.8, Math.min(z, 1.6)));
     for (const p of S.parties) {
       if (p.inside) continue;
       if (!this.visible(p)) continue;
@@ -525,16 +528,27 @@ export class WorldScene extends Phaser.Scene {
       } else if (hostile(pp, p)) {
         g.lineStyle(1.3, 0xff4030, 0.85); g.strokeEllipse(p.x, p.y, 20, 9);
       }
-      if (li < this.partyLabels.length && (p.kind === 'lord' || p.kind === 'player' || p.kind === 'hero') && (showNames || p.kind === 'hero')) {
-        const t = this.partyLabels[li++];
-        t.setText(p.kind === 'player' ? S.hero.name : p.kind === 'hero' ? `${p.name}${p.busy ? ' ⚔' : ''}` : `${S.lords[p.lordId!]?.name ?? p.name}`);
-        t.setPosition(p.x, p.y - 27).setVisible(true);
-        if (p.kind === 'player' && GOD.on && GOD.aura) t.setText(`✦ ${S.hero.name} ✦`);
-        t.setColor(p.kind === 'player' ? '#ffe28a' : p.kind === 'hero' ? (hostile(pp, p) ? '#ff9a8a' : '#9fe0ff') : '#ffffff');
-        t.setFontSize(Math.round(12 / Math.max(0.8, Math.min(z, 1.6)) * 1.0));
+      if ((p.kind === 'lord' || p.kind === 'player' || p.kind === 'hero') && (showNames || p.kind === 'hero')
+        && p.x > vw.x - 60 && p.x < vw.right + 60 && p.y > vw.y - 20 && p.y < vw.bottom + 60) {
+        let t = this.labelOf.get(p.id);
+        if (!t) {
+          t = this.partyLabels.pop();
+          if (!t && this.labelOf.size < 80) t = this.add.text(0, 0, '', { fontFamily: FONT, fontSize: '12px', color: '#fff', stroke: '#000', strokeThickness: 3, resolution: 2 }).setOrigin(0.5, 1).setDepth(20);
+          if (t) this.labelOf.set(p.id, t);
+        }
+        if (t) {
+          usedLbl.add(p.id);
+          // 文字/颜色/字号只有变了才重绘（Phaser 每次 setColor 都会重画文字贴图，曾是大地图掉帧的元凶）
+          const txt = p.kind === 'player' ? (GOD.on && GOD.aura ? `✦ ${S.hero.name} ✦` : S.hero.name) : p.kind === 'hero' ? `${p.name}${p.busy ? ' ⚔' : ''}` : `${S.lords[p.lordId!]?.name ?? p.name}`;
+          if (t.text !== txt) t.setText(txt);
+          setTextColor(t, p.kind === 'player' ? '#ffe28a' : p.kind === 'hero' ? (hostile(pp, p) ? '#ff9a8a' : '#9fe0ff') : '#ffffff');
+          t.setFontSize(fsz); // 相同字号时 Phaser 不会重绘
+          t.setPosition(p.x, p.y - 27);
+          if (!t.visible) t.setVisible(true);
+        }
       }
     }
-    for (; li < this.partyLabels.length; li++) this.partyLabels[li].setVisible(false);
+    for (const [id, t] of this.labelOf) if (!usedLbl.has(id)) { t.setVisible(false); this.labelOf.delete(id); this.partyLabels.push(t); }
     // 追击目标
     if (nav.target?.kind === 'party') {
       const t = partyById(nav.target.id);
@@ -551,6 +565,7 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  usedLbl = new Set<number>();
   update(time: number, delta: number) {
     const dt = Math.min(delta, 100) / 1000;
     if (NETH.on) netFrame(dt);
@@ -593,12 +608,17 @@ export class WorldScene extends Phaser.Scene {
     this.lastScroll.x = cam.scrollX; this.lastScroll.y = cam.scrollY;
     music.weather(w.kind === 'rain' ? w.k : 0);
     const v = cam.worldView;
-    const dots: { x: number; y: number; c: string }[] = [];
-    for (const p of S.parties) if (!p.inside && p.kind !== 'player' && (p.kind === 'lord' || this.visible(p))) dots.push({ x: p.x, y: p.y, c: hostile(pp, p) ? '#ff5040' : FACTION[p.faction]?.css ?? '#ccc' });
-    minimap.update(v, pp, dots, nightK);
+    if (minimap.due()) {
+      const dots: { x: number; y: number; c: string }[] = [];
+      for (const p of S.parties) if (!p.inside && p.kind !== 'player' && (p.kind === 'lord' || this.visible(p))) dots.push({ x: p.x, y: p.y, c: hostile(pp, p) ? '#ff5040' : FACTION[p.faction]?.css ?? '#ccc' });
+      minimap.update(v, pp, dots, nightK);
+    }
     hud.update();
     worldAudioTick(isNight(), panelOpen());
   }
 }
+
+/** 只在颜色真的变了时才改（Phaser 的 setColor 无条件重绘整张文字贴图） */
+function setTextColor(t: Phaser.GameObjects.Text, c: string) { if ((t as any)._fillC !== c) { (t as any)._fillC = c; t.setColor(c); } }
 
 export function sceneOpenEncounter(p: Party, forced: boolean) { openEncounter(p, forced); }
