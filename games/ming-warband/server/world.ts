@@ -634,11 +634,14 @@ export function posPacket(heroesOnly = false): S2C {
     const x = Math.round(p.x * 10), y = Math.round(p.y * 10), f = p.busy ? 1 : 0;
     const key = (x * 40000 + y) * 2 + f;
     if (!full && lastPos.get(p.id) === key) continue;
-    lastPos.set(p.id, key);
-    a.push(p.id, x, y, f);
+    a.push(p.id, x, y, f, key);
   }
+  // 同时行军的玩家太多：玩家加密包作罢（退回 2.5 次/秒的常规包，省带宽）；这时不能记账，否则常规包会漏掉他们
+  if (heroesOnly && a.length > 5 * 120) a.length = 0;
+  const out: number[] = [];
+  for (let i = 0; i < a.length; i += 5) { lastPos.set(a[i], a[i + 4]); out.push(a[i], a[i + 1], a[i + 2], a[i + 3]); }
   if (full) for (const id of lastPos.keys()) if (!partyById(id)) lastPos.delete(id);
-  return heroesOnly ? { t: 'pos', time: S.time, a, full: false } : { t: 'pos', time: S.time, a };
+  return heroesOnly ? { t: 'pos', time: S.time, a: out, full: false } : { t: 'pos', time: S.time, a: out };
 }
 
 // ---------- GM 辅助 ----------

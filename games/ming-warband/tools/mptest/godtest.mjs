@@ -18,6 +18,8 @@ await sleep(900); G.chat('/天命 AAAA-BBBB-CCCC-DDDD');
 const bad = await G.waitFor(m => m.t === 'chat' && m.who === '系统' && /令牌不对/.test(m.text), 2500);
 check('错误令牌被拒绝', !!bad);
 check('认领成功', await claim(G, KEY.toLowerCase().replace(/-/g, ' ')), '（小写、空格分隔也认）');
+// 本测试验证“自动结算”路径下的天命规则（金身必胜、截击、新手保护…）；多人实时战斗另由 rttest / coretest 覆盖
+await G.gmReply('rtbattle off');
 check('收到天命状态（level 2）', G.gmLevel === 2 && G.god && G.god.on === false);
 await sleep(300);
 const leaked = [P1, P2, P3].some(c => c.log.some(m => m.t === 'chat' && /天命|AAAA|令牌/.test(m.text)));
