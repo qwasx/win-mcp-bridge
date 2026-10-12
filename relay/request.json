@@ -1,4 +1,6 @@
 {
-  "task": "none",
-  "_comment": "placeholder - relay/ask.py overwrites this file with a real request"
+  "id": "20261012-092247-237bc799",
+  "task": "list_tools",
+  "pubkey": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAlxtkYx6KH+rm1ehhXE8O\nhYMKBkinlXQJhb5jqZIo4ev8rGYqtB+99C6CBTO+obrHuT9MSpP4A7B1dLglrwQx\nWppDlHtZgDgzZr4ozkw3YSkpQeSR+Rmn+l2IxlLA6WRdltpYfSg4Vsb8IKMnJ5Gg\nkjmMHR/gGsGm5SV9hurKUhncoUUlImK6rZHvamotgXJBtj6ZV/DOAXH6OeLtl/j4\nxiMCXt17kzf1+B101vXE4rCehfLtEDZVyGgLxEUlAjqyZwu9SL01zmqmpkrV4k0f\noB/dSPeMvl4pzGjfLRk5atL8bDsRqLcjwr0qk6kUVSA2p3a4L97eOYtzIhdxx8H1\nXtlWn0hz1ZQ0OMBdofY9inRWTppPiMZFpTxNz7oEtbKRQfKhKoPmwyrEpPWpyNHu\nURJeFPoDRAuiFwdCCI1G79IoAuvgGK9ro5f5bEqcFXBn1V+cl9w1pCf6IDeQKNFc\nFIBFLpAG54O99DrxF3RkgBUQeaTCq69rn08lPPkks1jLAgMBAAE=\n-----END PUBLIC KEY-----\n",
+  "requested_at": "2026-10-12T09:22:48+0000"
 }
