@@ -12,6 +12,8 @@ import { NodeField, GatherNode } from './nodes';
 import { itemDef } from '../data/items';
 import * as C from './cultivation';
 import { talentById } from '../data/skills';
+import { Combat } from './combat';
+import { ARTS } from '../data/arts';
 import type { Hero, Msg } from './cultivation';
 
 export const DAYS_PER_SEC = 0.5;    // 现实 1 分钟 = 游戏 1 个月（30 天）
@@ -70,7 +72,8 @@ export class Game {
   revealT = new Map<number, number>(); // 迷雾格揭开时间（用于淡出）
   destination: { x: number; y: number } | null = null;
   cam = { x: 0, y: 0, zoom: 0.8, targetZoom: 0.8 };
-  input = { keys: new Set<string>(), joy: { x: 0, y: 0 }, run: false };
+  input = { keys: new Set<string>(), joy: { x: 0, y: 0 }, run: false, mouse: { x: 0, y: 0, t: -99, active: false } };
+  combat: Combat;
   paused = false;
   running = false;
   time = 0;
@@ -86,13 +89,14 @@ export class Game {
   private last = 0;
   private raf = 0;
   onOpenMap?: () => void;
-  onPanel?: (p: 'char' | 'bag' | 'alchemy' | 'save' | 'seclude', force?: boolean) => void;
+  onPanel?: (p: 'char' | 'bag' | 'alchemy' | 'save' | 'seclude' | 'skills', force?: boolean) => void;
   overview!: HTMLCanvasElement;     // 1000×700 全图缩略（小地图/世界地图共用）
   debugTeleport = false;            // 体验：世界地图点选瞬移
 
   constructor(terrain: Terrain) {
     this.terrain = terrain;
     this.nodes = new NodeField(terrain);
+    this.combat = new Combat(this);
     const start = this.startPos();
     const st = new CharState(start.x, start.y);
     this.player = { name: '韩立', x: start.x, y: start.y, facing: 1, moving: false, flying: false, walkT: 0, running: false, sitting: false, st, look: HANLI_LOOK };
@@ -123,6 +127,7 @@ export class Game {
     this.day = 60; this.clock = DAY_CYCLE * 0.3; this.explored.fill(0); this.revealAll = false; this.destination = null; this.debugTeleport = false;
     this.cam.x = this.player.x; this.cam.y = this.player.y; this.cam.zoom = this.cam.targetZoom = 0.8;
     this.currentRegionId = ''; this.gathering = null;
+    this.combat.reset();
     this.updateUI();
   }
 
@@ -185,6 +190,12 @@ export class Game {
       this.hero.stats = Object.assign(C.newHero().stats, this.hero.stats ?? {});
       this.nodes.fromSave(d.nodes);
       this.destination = null; this.currentRegionId = ''; this.gathering = null;
+      this.combat.reset();
+      // 第三步存档迁移
+      const nh = C.newHero();
+      if (!Array.isArray(this.hero.arts) || !this.hero.arts.length) this.hero.arts = nh.arts;
+      if (!Array.isArray(this.hero.hotbar) || this.hero.hotbar.length !== 9) this.hero.hotbar = nh.hotbar;
+      this.hero.equip = this.hero.equip ?? {}; this.hero.looted = this.hero.looted ?? []; this.hero.kills = this.hero.kills ?? 0;
       this.updateUI(true);
       return true;
     } catch (e) { console.warn(e); return false; }
@@ -325,6 +336,7 @@ export class Game {
         }
         else { mx = dx / d; my = dy / d; }
       }
+      if (!this.combat.canMove) { mx = 0; my = 0; }
       const len = Math.hypot(mx, my);
       const wantMove = len > 0.05;
       if (wantMove && p.sitting) this.stand();
@@ -336,7 +348,7 @@ export class Game {
         if (len > 1) { mx /= len; my /= len; }
         if (Math.abs(mx) > 0.15) p.facing = mx > 0 ? 1 : -1;
         const factor = this.isFlying ? 1 : this.terrain.walkFactor(p.x, p.y) || 1;
-        const sp = this.speed * factor;
+        const sp = this.speed * factor * this.combat.speedMul;
         const ox = p.x, oy = p.y;
         const nx = clamp(p.x + mx * sp * dt, 200, WORLD_W - 200), ny = clamp(p.y + my * sp * dt, 200, WORLD_H - 200);
         if (this.isFlying || this.terrain.walkFactor(nx, ny) > 0) { p.x = nx; p.y = ny; }
@@ -364,7 +376,10 @@ export class Game {
         else if (p.sitting) st.setAction('sit');
         else if (p.moving) st.setAction(p.running ? 'run' : 'walk');
         else st.setAction('idle');
+        const ov = this.combat.actionOverride();
+        if (ov) st.setAction(ov);
       }
+      this.combat.update(dt);
       // 采集
       if (this.gathering) {
         this.gathering.t += dt;
@@ -403,7 +418,7 @@ export class Game {
     this.cam.y += (p.y - st.lift * 0.5 - this.cam.y) * Math.min(1, dt * 6);
 
     this.regionTimer -= dt;
-    if (this.regionTimer <= 0) { this.regionTimer = 0.35; this.checkRegion(); }
+    if (this.regionTimer <= 0) { this.regionTimer = 0.35; this.checkRegion(); this.exploreCheck(this.nearbyLocation()); }
     this.uiTimer -= dt;
     if (this.uiTimer <= 0) { this.uiTimer = 0.12; this.updateUI(); }
     this.saveTimer += dt;
@@ -563,6 +578,79 @@ export class Game {
     }
   }
 
+  /** 战斗中倒下：损失一成修为与部分物品，在最近的城镇醒来 */
+  onPlayerDown() {
+    const h = this.hero, p = this.player;
+    const lostExp = Math.floor(C.need(h) * 0.1);
+    h.exp = Math.max(0, h.exp - lostExp);
+    const lost: string[] = [];
+    const ls = C.bagCount(h, 'mat_lingshi');
+    if (ls > 0) { const n = Math.ceil(ls * 0.1); C.removeItem(h, 'mat_lingshi', n); lost.push(`灵石 ${n}`); }
+    const pool = h.bag.filter((b) => b.id !== 'mat_lingshi' && itemDef(b.id).type !== 'artifact' && itemDef(b.id).type !== 'scroll');
+    for (let i = 0; i < 2 && pool.length; i++) {
+      const b = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
+      const n = Math.max(1, Math.floor(b.n * (0.3 + Math.random() * 0.3)));
+      C.removeItem(h, b.id, n, b.age ?? 0); lost.push(`${itemDef(b.id).name} ${n}`);
+    }
+    // 最近的城镇
+    let best: LocDef | null = null, bd = 1e12;
+    for (const l of LOCATIONS) {
+      if (l.type !== 'town' && l.type !== 'city') continue;
+      const d = Math.hypot(l.x * WORLD_SCALE - p.x, l.y * WORLD_SCALE - p.y);
+      if (d < bd && (this.terrain.isLand(p.x, p.y) || !l.island || true)) { bd = d; best = l; }
+    }
+    if (best) {
+      const z = this.terrain.locZones[LOCATIONS.indexOf(best)];
+      let tx = best.x * WORLD_SCALE, ty = best.y * WORLD_SCALE + (z ? z.ry * 0.9 : 300);
+      for (let r = 0; r < 1500 && this.terrain.walkFactor(tx, ty) <= 0; r += 60) ty += 60;
+      p.x = tx; p.y = ty; p.st = new CharState(tx, ty); this.cam.x = tx; this.cam.y = ty;
+    }
+    h.hp = 0.3; h.mp = 0.3; this.day += 3;
+    p.flying = false; p.sitting = false; this.destination = null; this.gathering = null;
+    this.combat.reset(); this.combat.fade = 1;
+    this.toast(`你身受重创，昏死过去……三日后在${best?.name ?? '荒野'}醒来。修为损失 ${lostExp}${lost.length ? '，遗失：' + lost.join('、') : ''}。`, 'warn');
+    audio.sfx('fail');
+    this.updateUI(true);
+  }
+
+  /** 参悟法术卷轴 */
+  learnScroll(itemId: string) {
+    const d = itemDef(itemId), h = this.hero;
+    const ALIAS: Record<string, string> = { leidian: 'zhangxin', lianqi: 'lianxi', dash: 'yufeng' };
+    const sid = d.scroll?.skill ? (ARTS[d.scroll.skill] ? d.scroll.skill : ALIAS[d.scroll.skill]) : undefined;
+    const s = sid ? ARTS[sid] : undefined;
+    if (!s) { this.toast('此卷所载功法，需入宗门后方可参修（第五步开放）。', 'warn'); return false; }
+    if (h.arts.some((a) => a.id === s.id)) { this.toast(`你早已习得${s.name}。`, 'warn'); return false; }
+    if (h.realm < s.realm) { this.toast(`${s.name}需${REALMS[s.realm].name}期方可参悟。`, 'warn'); return false; }
+    C.removeItem(h, itemId, 1);
+    h.arts.push({ id: s.id, xp: 0 });
+    const slot = h.hotbar.findIndex((x) => !x);
+    if (slot >= 0) h.hotbar[slot] = s.id;
+    this.toast(`参悟${s.name}，已然入门！${slot >= 0 ? `（已放入快捷栏 ${slot + 1}）` : '（按 K 打开法术书放入快捷栏）'}`, 'good');
+    audio.sfx('chime');
+    this.updateUI(true);
+    return true;
+  }
+
+  /** 探索洞府遗迹：首次抵达时得宝，并惊动守护 */
+  private exploreCheck(loc: LocDef | null) {
+    if (!loc || loc.type !== 'secret' || !loc.minor) return;
+    const h = this.hero;
+    if (h.looted.includes(loc.id)) return;
+    h.looted.push(loc.id);
+    const dz = loc.danger ?? 1;
+    const got: string[] = [];
+    const ls = Math.round((20 + Math.random() * 60) * (1 + dz) * (1 + dz * 0.5));
+    C.addItem(h, 'mat_lingshi', ls); got.push(`灵石 ${ls}`);
+    const sc = this.combat.randomScroll(Math.min(4, Math.floor(dz / 1.2) + 1));
+    if (sc) { C.addItem(h, sc, 1); got.push(itemDef(sc).name); }
+    if (Math.random() < 0.35 + dz * 0.1) { const pills = ['pill_juqi', 'pill_huiqi', 'pill_liaoshang']; const pid = pills[Math.floor(Math.random() * pills.length)]; C.addItem(h, pid, 1 + Math.floor(Math.random() * 2)); got.push(itemDef(pid).name); }
+    if (Math.random() < 0.12 * dz) { const arts = ['art_qingfeng', 'art_yinhui', 'art_wulong', 'art_guike', 'art_qingning', 'art_hongxian']; const aid = arts[Math.floor(Math.random() * Math.min(arts.length, 2 + dz * 1.5))]; C.addItem(h, aid, 1); got.push(itemDef(aid).name); }
+    this.toast(`探得${loc.name}：前人遗留的禁制已残破，得 ${got.join('、')}。`, 'good');
+    audio.sfx('chime');
+    if (Math.random() < 0.4 + dz * 0.15) { this.combat.spawnGuards(loc); this.toast('洞中守护的妖物被惊动了！', 'warn'); }
+  }
+
   nearbyLocation(): LocDef | null {
     const p = this.player;
     let best: LocDef | null = null, bd = 1e9;
@@ -663,7 +751,7 @@ export class Game {
       const t = e.target as HTMLElement;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
       const k = e.key.toLowerCase();
-      if (e.repeat && 'mfzecblpqr'.includes(k)) return;
+      if (e.repeat && 'mfzecblpqrk'.includes(k)) return;
       this.input.keys.add(k);
       if (k === 'm') this.onOpenMap?.();
       if (this.paused || this.hero.dead) return;
@@ -675,6 +763,8 @@ export class Game {
       if (k === 'l') this.onPanel?.('alchemy');
       if (k === 'p') this.onPanel?.('seclude');
       if (k === 'q') this.senseBurst();
+      if (k >= '1' && k <= '9' && k.length === 1) this.combat.castSlot(+k - 1);
+      if (k === 'k') this.onPanel?.('skills');
       if (k === 'r') this.toggleConceal();
       if (k === '=' || k === '+') this.zoomBy(1.2);
       if (k === '-') this.zoomBy(1 / 1.2);
@@ -696,6 +786,7 @@ export class Game {
       }
     };
     const pm = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') { const w = this.screenToWorld(e.clientX, e.clientY); const m = this.input.mouse; if (Math.hypot(w.x - m.x, w.y - m.y) > 3) { m.x = w.x; m.y = w.y; m.t = this.time; m.active = true; } }
       const pt = pointers.get(e.pointerId);
       if (!pt) return;
       pt.x = e.clientX; pt.y = e.clientY;
@@ -712,6 +803,9 @@ export class Game {
       if (pointers.size < 2) pinchStart = 0;
       if (pt && !moved && !wasPinch && e.button === 0 && !this.hero.dead) {
         const w = this.screenToWorld(e.clientX, e.clientY);
+        // 点击敌人：锁定
+        const foe = this.combat.enemies.find((q) => !q.dead && Math.hypot(q.x - w.x, q.y - 30 - w.y) < 70 && Math.hypot(q.x - this.player.x, q.y - this.player.y) < this.senseRadius);
+        if (foe) { this.combat.lock = foe; this.input.mouse.t = -99; return; }
         // 点击灵物：走过去并采集
         const n = this.nodes.nearest(w.x, w.y, 60, this.day);
         if (n && Math.hypot(n.x - this.player.x, n.y - this.player.y) < this.senseRadius) {
@@ -729,6 +823,8 @@ export class Game {
     this.canvas.addEventListener('pointermove', pm);
     this.canvas.addEventListener('pointerup', pu);
     this.canvas.addEventListener('pointercancel', pu);
+    const pl = () => { this.input.mouse.active = false; };
+    this.canvas.addEventListener('pointerleave', pl);
     this.unbind = () => {
       window.removeEventListener('keydown', kd);
       window.removeEventListener('keyup', ku);
@@ -738,6 +834,7 @@ export class Game {
       this.canvas.removeEventListener('pointermove', pm);
       this.canvas.removeEventListener('pointerup', pu);
       this.canvas.removeEventListener('pointercancel', pu);
+      this.canvas.removeEventListener('pointerleave', pl);
     };
   }
   pendingGather: GatherNode | null = null;

@@ -1,3 +1,4 @@
+import { ART_LIST } from './arts';
 // 物品：灵药、丹药、材料、符箓、功法、法器/法宝
 export type ItemType = 'herb' | 'pill' | 'material' | 'artifact' | 'talisman' | 'scroll' | 'misc';
 
@@ -157,6 +158,11 @@ const I: ItemDef[] = [
   { id: 'art_xutian', name: '虚天鼎', type: 'artifact', tier: 6, price: 999999, desc: '乱星海第一至宝，通天灵宝。放出青丝困敌，收入鼎中炼化。对残血敌人有奇效。', glyph: '鼎', art: { kind: 'cauldron', reqRealm: 4, sense: 300, pieces: 1, power: 10, mp: 300, cd: 18, color: '#40d0c0' } },
 ];
 
+// 法术卷轴（第三步）：每门法术一卷
+for (const a of ART_LIST) {
+  if (a.id === 'qijin') continue;
+  I.push({ id: 'scroll_art_' + a.id, name: `《${a.name}》`, type: 'scroll', tier: a.tier, price: [40, 300, 2500, 15000, 80000][a.tier], desc: `${['凡', '黄', '玄', '地', '天'][a.tier]}阶${a.school}法术卷轴，需${['凡人', '炼气', '筑基', '结丹', '元婴', '化神'][a.realm]}期修习。${a.desc}`, glyph: '术', scroll: { skill: a.id } });
+}
 export const ITEMS: Record<string, ItemDef> = Object.fromEntries(I.map((d) => [d.id, d]));
 export const ITEM_LIST = I;
 export function itemDef(id: string): ItemDef { return ITEMS[id] ?? { id, name: id, type: 'misc', tier: 0, price: 1, desc: '', glyph: '?' }; }

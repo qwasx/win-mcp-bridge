@@ -13,6 +13,7 @@ import { drawCharacter } from '../gfx/character';
 import { drawNode } from './nodes';
 import type { Drawable } from './life';
 import { SenseFx, senseMods } from './sense';
+import { collectCombat, drawCombatFx, drawCombatUI } from './combatfx';
 import { REALMS } from '../data/realms';
 
 const LOC_SEAL: Record<string, string> = { city: '城', town: '镇', sect: '宗', danger: '险', secret: '秘', isle: '岛' };
@@ -294,7 +295,7 @@ export class Renderer {
     // ---------- 5. 采集点（仅神识内可见）----------
     const p = game.player;
     this.modsT -= dt;
-    if (this.modsT <= 0) { this.modsT = 1; this.senseMods = senseMods(game.hero as any); this.sense.warm(game.hero.realm, this.senseMods); }
+    if (this.modsT <= 0) { this.modsT = 1; this.senseMods = senseMods({ ...game.hero, treasures: [...((game.hero as any).treasures ?? []), ...game.hero.bag.map((b) => b.id.replace(/^(art|mat)_/, '')), ...game.hero.arts.map((a) => a.id)] } as any); this.sense.warm(game.hero.realm, this.senseMods); }
     this.sense.hidden += ((game.concealed ? 1 : 0) - this.sense.hidden) * Math.min(1, dt * 3);
     this.sense.update(dt, game.senseRadius);
     const R = this.sense.dispR;
@@ -314,6 +315,7 @@ export class Renderer {
     game.life.drawShadows(ctx, t);
     ctx.restore();
     game.life.collectGround(list, view, t, dt);
+    collectCombat(game.combat, list, view, t, dt);
     list.push({ y: p.y, draw: () => this.drawPlayer(dt) });
 
     list.sort((a, b) => a.y - b.y);
@@ -387,6 +389,10 @@ export class Renderer {
       game.life.drawGlow(ctx, t, night);
     }
 
+    // 战斗特效（发光，夜里亦明亮）
+    this.world();
+    drawCombatFx(ctx, game.combat, t);
+
     // ---------- 9.5 神识之外：记忆水墨（褪色、留白，不见动静）----------
     if (!(game.revealAll && game.debugSeeAll)) {
       const sx = (W / 2 + (p.x - camX) * z) * dpr, sy = (H / 2 + (p.y - camY) * z) * dpr;
@@ -397,6 +403,9 @@ export class Renderer {
     // ---------- 10. 氛围层 ----------
     this.drawAtmosphere(left, top, right, bottom, dt);
     ctx.drawImage(this.atmo, this.atmoRect.x, this.atmoRect.y, this.atmoRect.w, this.atmoRect.h);
+
+    // 血条与伤害数字
+    drawCombatUI(ctx, game.combat, t, z);
 
     // ---------- 11. 名牌 ----------
     for (const l of visibleLocs) {
@@ -438,6 +447,15 @@ export class Renderer {
     const key = Math.floor(month / 3) + ':' + Math.ceil(W) + 'x' + Math.ceil(H);
     if (key !== this.overlayKey) { this.buildOverlay(month); this.overlayKey = key; }
     if (this.overlay) ctx.drawImage(this.overlay, 0, 0, W, H);
+    // 重伤时的血色暗角、倒下后的黑场
+    const hpk = game.hero.hp;
+    if (hpk < 0.35 && !game.hero.dead) {
+      const a = (0.35 - hpk) / 0.35 * (0.45 + 0.15 * Math.sin(t * 5));
+      const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
+      vg.addColorStop(0, 'rgba(120,10,10,0)'); vg.addColorStop(1, `rgba(120,10,10,${a})`);
+      ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+    }
+    if (game.combat.fade > 0) { ctx.fillStyle = `rgba(10,8,6,${Math.min(1, game.combat.fade * 1.4)})`; ctx.fillRect(0, 0, W, H); }
     this.stats.ms = performance.now() - t0;
   }
 

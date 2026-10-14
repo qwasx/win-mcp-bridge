@@ -690,7 +690,7 @@ export class Terrain {
     }
     return null;
   }
-  private demonNear(wx: number, wy: number) {
+  demonNear(wx: number, wy: number) {
     for (const z of this.locZones) if (DEMON_SECTS.includes(z.id) && Math.hypot(wx - z.x, wy - z.y) < 5200) return true;
     return false;
   }

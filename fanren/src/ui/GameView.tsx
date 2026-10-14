@@ -4,6 +4,7 @@ import { audio } from '../world/audio';
 import { REALMS } from '../data/realms';
 import { LOCATIONS, WORLD_SCALE, LOC_TYPE_NAME } from '../data/world';
 import { SettingsPanel, WorldMapPanel, makeFogCanvas, SEAL, SEAL_COLOR, loadAudio } from './Panels';
+import { Hotbar, SkillPanel } from './CombatUI';
 import { CharPanel, BagPanel, AlchemyPanel, SecludePanel, SavePanel, DeathScreen } from './CultPanels';
 
 const CN = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
@@ -102,7 +103,7 @@ function Joystick({ game }: { game: Game }) {
 // ---------- 主界面 ----------
 export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  type PanelId = '' | 'map' | 'settings' | 'char' | 'bag' | 'alchemy' | 'seclude' | 'save';
+  type PanelId = '' | 'map' | 'settings' | 'char' | 'bag' | 'alchemy' | 'seclude' | 'save' | 'skills';
   const [panel, setPanel] = useState<PanelId>('');
   const [showHelp, setShowHelp] = useState(() => { try { return !localStorage.getItem('fanren_help_seen'); } catch { return true; } });
 
@@ -171,7 +172,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
         </div>
 
         {/* 提示 */}
-        {showHelp && !isTouch && <div className="help-tip">WASD 移动 · Shift 疾行 · Z 打坐 · E 采集 · Q 神识外放 · R 敛息 · C 角色 · B 储物袋 · L 丹房 · P 闭关 · M 地图 · F 御剑（体验）</div>}
+        {showHelp && !isTouch && <div className="help-tip">WASD 移动 · Shift 疾行 · Z 打坐 · E 采集 · 1–9 施法（鼠标瞄准，否则自动锁定最近敌人）· K 法术书 · Q 神识外放 · R 敛息 · C 角色 · B 储物袋 · L 丹房 · P 闭关 · M 地图 · F 御剑（体验）</div>}
         {ui.sitting && <div className="sit-banner"><div className="sb-t">打坐修炼中</div><div className="sb-s">光阴 ×4 · 每日 +{ui.expRate.toFixed(1)} 修为 · {ui.place}{ui.bottleneck !== 'none' ? ' · 已至瓶颈' : ''}</div></div>}
         {ui.pendingTalent && panel === '' && <button className="talent-alert" onClick={() => setPanel('char')}>逆天改命机缘已至——点此选择</button>}
         {(ui.gather || ui.gatherP >= 0) && !ui.sitting && panel === '' && (
@@ -214,6 +215,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
           <div className="btn-grid">
             <button className={'round-btn small' + (ui.pendingTalent || ui.bottleneck !== 'none' ? ' glow' : '')} onClick={() => { audio.sfx('open'); setPanel('char'); }}>修<small>角色</small></button>
             <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('bag'); }}>袋<small>储物</small></button>
+            <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('skills'); }}>术<small>法术</small></button>
             <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('alchemy'); }}>丹<small>丹房</small></button>
             <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('seclude'); }}>关<small>闭关</small></button>
             <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('map'); }}>图<small>地图</small></button>
@@ -222,6 +224,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
         </div>
 
         {isTouch && <Joystick game={game} />}
+        {!ui.dead && <Hotbar game={game} touch={isTouch} />}
       </div>
 
       {panel === 'map' && <WorldMapPanel game={game} onClose={() => setPanel('')} />}
@@ -230,6 +233,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
       {panel === 'bag' && <BagPanel game={game} onClose={() => setPanel('')} />}
       {panel === 'alchemy' && <AlchemyPanel game={game} onClose={() => setPanel('')} />}
       {panel === 'seclude' && <SecludePanel game={game} onClose={() => setPanel('')} />}
+      {panel === 'skills' && <SkillPanel game={game} onClose={() => setPanel('')} />}
       {panel === 'save' && <SavePanel game={game} onClose={() => setPanel('')} />}
       {ui.dead && <DeathScreen game={game} onExit={onExit} />}
     </div>

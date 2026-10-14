@@ -131,7 +131,7 @@ export function BagPanel({ game, onClose }: { game: Game; onClose: () => void })
   return (
     <Panel title="储物袋" onClose={onClose} wide sub={<span>灵石 <b>{lingshi}</b>　·　掌天瓶 <b className="bottle">{'●'.repeat(h.bottle.drops)}{'○'.repeat(C.BOTTLE_MAX - h.bottle.drops)}</b></span>}>
       <div className="tabs">
-        {['all', 'pill', 'herb', 'material'].map((t) => <button key={t} className={tab === t ? 'on' : ''} onClick={() => { setTab(t); setSel(-1); }}>{t === 'all' ? '全部' : TYPE_NAME[t]}</button>)}
+        {['all', 'pill', 'herb', 'material', 'scroll', 'artifact'].map((t) => <button key={t} className={tab === t ? 'on' : ''} onClick={() => { setTab(t); setSel(-1); }}>{t === 'all' ? '全部' : TYPE_NAME[t]}</button>)}
       </div>
       <div className="bag-wrap">
         <div className="bag-grid">
@@ -154,6 +154,9 @@ export function BagPanel({ game, onClose }: { game: Game; onClose: () => void })
               {cd.type === 'herb' && <div className="hint">药龄越高，炼丹成功率越高；部分丹方要求百年以上药龄。</div>}
               <div className="bd-actions">
                 {cd.pill && <button className="ink-btn jade" onClick={() => { game.usePill(cur.id); if (!h.bag[sel] || h.bag[sel].id !== cur.id) setSel(-1); re(); }}>服用</button>}
+                {cd.type === 'scroll' && <button className="ink-btn jade" onClick={() => { if (game.learnScroll(cur.id)) setSel(-1); re(); }}>研读参悟</button>}
+                {cd.art && <button className="ink-btn" onClick={() => { const key = 'art:' + cur.id; if (!h.hotbar.includes(key)) { const k = h.hotbar.findIndex((x) => !x); h.hotbar[k >= 0 ? k : 8] = key; game.toast(`${cd.name}已放入快捷栏 ${(k >= 0 ? k : 8) + 1}`); } re(); }}>放入快捷栏</button>}
+                {cd.art && ['armor', 'shield', 'flight', 'wings'].includes(cd.art.kind) && <button className="ink-btn jade" onClick={() => { game.combat.castArtifact(cur.id); re(); }}>{Object.values(h.equip ?? {}).includes(cur.id) ? '收起' : '祭出'}</button>}
                 {cd.type === 'herb' && <button className="ink-btn" disabled={h.bottle.drops <= 0} onClick={() => { game.useBottle(cur); const ni = h.bag.findIndex((x) => x.id === cur.id && x.age === (cur.age ?? 0) + C.BOTTLE_YEARS); setSel(ni); re(); }}>掌天瓶催熟（+{C.BOTTLE_YEARS}年）</button>}
               </div>
             </>

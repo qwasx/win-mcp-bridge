@@ -75,7 +75,7 @@ export function TitleScreen({ onNew, onContinue, hasSave }: { onNew: () => void;
           <button className="menu-btn" onClick={() => { click(); setPanel('about'); }}>关　　于</button>
         </div>
       </div>
-      <div className="title-footer">同人作品 · 致敬忘语《凡人修仙传》 · 第一·二步：人界大地图 · 修炼与角色</div>
+      <div className="title-footer">同人作品 · 致敬忘语《凡人修仙传》 · 第一至三步：人界大地图 · 修炼与角色 · 战斗与法术</div>
 
       {panel === 'settings' && <SettingsPanel onClose={() => setPanel('')} />}
       {panel === 'confirm' && (

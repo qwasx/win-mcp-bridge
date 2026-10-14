@@ -157,7 +157,7 @@ button { font-family: inherit; }
 
 /* 底部：地点卡 */
 .loc-card {
-  position: absolute; left: 50%; bottom: calc(20px + var(--safe-b)); transform: translateX(-50%);
+  position: absolute; left: 50%; bottom: calc(92px + var(--safe-b)); transform: translateX(-50%);
   width: min(560px, calc(100vw - 200px)); padding: 16px 20px 14px; border-radius: 10px;
   background: linear-gradient(180deg, rgba(248, 242, 228, 0.97), rgba(236, 226, 202, 0.97));
   border: 1px solid rgba(90, 75, 50, 0.5); box-shadow: var(--shadow); animation: fadeUp 0.35s ease;
@@ -386,3 +386,48 @@ button.mini:disabled { opacity: 0.35; }
   .gather-tip { bottom: calc(150px + var(--safe-b)); }
   .recipe-list { flex-direction: row; flex-wrap: wrap; }
 }
+
+/* ---------------- 第三步：快捷栏 ---------------- */
+.hotbar { position: absolute; left: 14px; bottom: calc(16px + var(--safe-b)); display: flex; gap: 6px; padding: 6px; border-radius: 12px; background: rgba(28, 26, 22, 0.55); box-shadow: 0 6px 18px rgba(20, 15, 10, 0.35); }
+.hb-slot { --sc: #6a6458; width: 54px; height: 60px; border-radius: 8px; border: 1px solid rgba(226, 201, 138, 0.45); position: relative; overflow: hidden; cursor: pointer; padding: 0;
+  background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--sc) 55%, #2a2722), #1d1b17 80%); color: #f6ecd2; font-family: var(--title-font); display: flex; flex-direction: column; align-items: center; justify-content: center; touch-action: none; }
+.hb-slot.empty { background: rgba(40, 37, 32, 0.6); border-style: dashed; }
+.hb-slot.equipped { box-shadow: inset 0 0 0 2px #e8c860, 0 0 10px rgba(232, 200, 96, 0.6); }
+.hb-slot:active { transform: scale(0.94); }
+.hb-glyph { font-size: 26px; line-height: 1; text-shadow: 0 0 8px var(--sc), 0 1px 2px rgba(0, 0, 0, 0.8); }
+.hb-name { font-family: var(--body-font); font-size: 10px; margin-top: 3px; opacity: 0.85; white-space: nowrap; max-width: 52px; overflow: hidden; text-overflow: clip; }
+.hb-key { position: absolute; left: 4px; top: 2px; font-family: var(--body-font); font-size: 11px; color: #e8d6a6; opacity: 0.85; }
+.hb-cd { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: rgba(10, 8, 6, 0.68); pointer-events: none; }
+.hb-cdt { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--body-font); font-size: 16px; font-weight: bold; color: #fff; text-shadow: 0 1px 3px #000; pointer-events: none; }
+.hotbar.pad { left: auto; right: calc(14px + env(safe-area-inset-right, 0px)); bottom: calc(150px + var(--safe-b)); display: grid; grid-template-columns: repeat(3, 50px); gap: 6px; background: transparent; box-shadow: none; padding: 0; }
+.hotbar.pad .hb-slot { width: 50px; height: 50px; border-radius: 50%; }
+.hotbar.pad .hb-glyph { font-size: 22px; }
+@media (max-width: 1080px) { .hotbar:not(.pad) .hb-slot { width: 44px; height: 50px; } .hb-name { display: none; } }
+
+/* 法术书 */
+.skill-panel .school-filter { margin-left: auto; display: flex; gap: 2px; flex-wrap: wrap; }
+.skill-panel .school-filter button { padding: 2px 8px; font-weight: bold; }
+.skill-list { display: flex; flex-direction: column; gap: 4px; max-height: 56vh; overflow: auto; padding-right: 4px; }
+.skill-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; border: 1px solid transparent; background: rgba(255, 255, 255, 0.35); cursor: pointer; font-family: var(--body-font); text-align: left; }
+.skill-row.on { border-color: var(--ink); background: rgba(255, 250, 235, 0.9); }
+.sk-glyph { width: 32px; height: 32px; border-radius: 6px; color: #fff; font-family: var(--title-font); font-size: 20px; display: flex; align-items: center; justify-content: center; flex: none; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4); }
+.sk-name { flex: 1; font-size: 15px; }
+.sk-name small { margin-left: 8px; font-size: 11px; }
+.sk-prof { font-size: 11px; padding: 1px 8px; border-radius: 10px; background: rgba(60, 50, 40, 0.12); }
+.sk-prof.p1 { background: #d8e8c8; } .sk-prof.p2 { background: #c8d8f0; } .sk-prof.p3 { background: #f0d890; }
+.sk-slot { width: 20px; height: 20px; border-radius: 50%; background: var(--ink); color: var(--paper-3); font-size: 12px; display: flex; align-items: center; justify-content: center; }
+.prof-track { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 10px; }
+.prof-track .pt { padding: 6px; border-radius: 6px; background: rgba(60, 50, 40, 0.06); font-size: 11px; opacity: 0.55; }
+.prof-track .pt.on { opacity: 1; background: rgba(200, 160, 60, 0.18); }
+.prof-track .pt b { display: block; font-size: 13px; margin-bottom: 2px; }
+.prof-bar { position: relative; height: 16px; border-radius: 8px; background: rgba(60, 50, 40, 0.12); margin-top: 8px; overflow: hidden; }
+.prof-bar i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #c8a050, #f0d890); }
+.prof-bar span { position: relative; font-size: 11px; padding-left: 8px; line-height: 16px; }
+.hb-assign { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 6px; }
+.hba { position: relative; }
+.hba button { width: 100%; padding: 6px 4px; border-radius: 6px; border: 1px solid rgba(40, 35, 28, 0.3); background: rgba(255, 255, 255, 0.5); cursor: pointer; font-family: var(--body-font); display: flex; gap: 6px; align-items: center; font-size: 12px; }
+.hba button b { width: 18px; height: 18px; border-radius: 50%; background: var(--ink); color: var(--paper-3); font-size: 11px; display: flex; align-items: center; justify-content: center; flex: none; }
+.hba button span { overflow: hidden; white-space: nowrap; }
+.hba.cur button { background: rgba(240, 216, 144, 0.6); }
+.hba i { position: absolute; right: -4px; top: -6px; width: 16px; height: 16px; border-radius: 50%; background: #a8352a; color: #fff; font-style: normal; font-size: 12px; line-height: 15px; text-align: center; cursor: pointer; }
+@media (max-height: 520px) { .hotbar.pad { bottom: calc(110px + var(--safe-b)); grid-template-columns: repeat(3, 42px); gap: 4px; } .hotbar.pad .hb-slot { width: 42px; height: 42px; } }

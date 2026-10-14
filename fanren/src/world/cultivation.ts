@@ -3,6 +3,7 @@ import { REALMS, ROOTS, expNeed, levelOf, realmName, smallBottleneck, MAJOR_BREA
 import { GONGFA, TALENTS, talentById, TalentMod } from '../data/skills';
 import { itemDef } from '../data/items';
 import { RECIPES, Recipe } from '../data/recipes';
+import { START_ARTS, START_HOTBAR } from '../data/arts';
 
 export interface BagItem { id: string; n: number; age?: number }
 export interface Hero {
@@ -15,6 +16,12 @@ export interface Hero {
   pendingTalent: string[] | null;
   dead: boolean;
   stats: { meditateDays: number; gathered: number; pills: number; breaks: number; failed: number; alchemy: number };
+  // 第三步：法术与战斗
+  arts: { id: string; xp: number }[];
+  hotbar: (string | null)[];
+  equip: { armor?: string; shield?: string; flight?: string };
+  looted: string[];
+  kills: number;
 }
 
 export const TALENT_LEVELS = [4, 7, 10, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28];
@@ -29,6 +36,7 @@ export function newHero(): Hero {
     bag: [{ id: 'herb_huangjing', n: 3, age: 12 }, { id: 'pill_juqi', n: 1 }, { id: 'pill_huiqi', n: 2 }, { id: 'pill_liaoshang', n: 2 }, { id: 'mat_lingshi', n: 30 }],
     bottle: { drops: 1, charge: 0 }, pendingTalent: null, dead: false,
     stats: { meditateDays: 0, gathered: 0, pills: 0, breaks: 0, failed: 0, alchemy: 0 },
+    arts: START_ARTS.map((id) => ({ id, xp: 0 })), hotbar: [...START_HOTBAR], equip: {}, looted: [], kills: 0,
   };
 }
 
