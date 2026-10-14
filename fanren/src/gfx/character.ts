@@ -33,6 +33,12 @@ export interface Look {
   hand?: 'fan' | 'staff' | 'none';
   beard?: string;          // 胡须颜色（老者）
   swordColor?: string;     // 飞剑光色
+  // 第五步：红颜精细面容
+  lash?: boolean;          // 睫毛
+  huadian?: string;        // 花钿颜色
+  lip?: string;            // 唇色
+  eyeTint?: string;        // 瞳色
+  earring?: string;        // 耳坠
 }
 
 export const HANLI_LOOK: Look = {
@@ -966,6 +972,23 @@ export function drawCharacter(ctx: CanvasRenderingContext2D, look: Look, st: Cha
         g.beginPath(); g.moveTo(a.x, a.y - w0); g.quadraticCurveTo(b.x, b.y - w0 * 0.9, c.x, c.y - w1);
         g.quadraticCurveTo(b.x, b.y + w0 * 0.5, a.x, a.y + w0 * 0.6); g.closePath(); g.fill();
       }
+      // 花钿
+      if (look.huadian) {
+        const k = visN(0, 0.3, 1);
+        if (k > 0.1) {
+          const c = HP(0, 2.3, 5.08), r = 0.5 * detail;
+          g.fillStyle = rgba(look.huadian, 0.9 * Math.min(1, k * 1.5));
+          g.beginPath(); g.moveTo(c.x, c.y - r * 1.9); g.quadraticCurveTo(c.x + r, c.y - r * 0.2, c.x, c.y + r * 0.9); g.quadraticCurveTo(c.x - r, c.y - r * 0.2, c.x, c.y - r * 1.9); g.fill();
+        }
+      }
+      // 耳坠
+      if (look.earring) for (const sx of [1, -1]) {
+        const k = visN(sx, 0, 0); if (k < 0.05) continue;
+        const e0 = HP(sx * 5.05, -1.8, 0.4), sw = Math.sin((st?.t ?? 0) * 3 + sx) * 0.3 * detail;
+        g.strokeStyle = rgba(look.earring, 0.8); g.lineWidth = Math.max(0.3, 0.2 * detail);
+        g.beginPath(); g.moveTo(e0.x, e0.y); g.lineTo(e0.x + sw, e0.y + 2.2 * detail); g.stroke();
+        g.fillStyle = rgba(look.earring, 0.95); g.beginPath(); g.arc(e0.x + sw, e0.y + 2.5 * detail, 0.55 * detail, 0, Math.PI * 2); g.fill();
+      }
       // 眼
       for (const sx of [1, -1]) {
         const k = visN(sx * 0.4, 0, 0.92); if (k < 0.06) continue;
@@ -987,7 +1010,7 @@ export function drawCharacter(ctx: CanvasRenderingContext2D, look: Look, st: Cha
           // 虹膜（看向前方，随头部转动略偏）
           const ix = ctr.x + (inn.x - out.x) * 0.04, iy = ctr.y - 0.05 * detail, ir = 0.74 * detail;
           const ig = g.createRadialGradient(ix, iy - ir * 0.3, 0, ix, iy, ir);
-          ig.addColorStop(0, fem ? '#6a4632' : '#4a3426'); ig.addColorStop(0.7, fem ? '#2e1a12' : '#24170f'); ig.addColorStop(1, '#120a06');
+          ig.addColorStop(0, look.eyeTint ?? (fem ? '#6a4632' : '#4a3426')); ig.addColorStop(0.7, fem ? '#2e1a12' : '#24170f'); ig.addColorStop(1, '#120a06');
           g.fillStyle = ig; g.beginPath(); g.arc(ix, iy, ir, 0, Math.PI * 2); g.fill();
           g.fillStyle = '#080404'; g.beginPath(); g.arc(ix, iy, ir * 0.42, 0, Math.PI * 2); g.fill();
           g.fillStyle = 'rgba(255,255,255,0.95)'; g.beginPath(); g.arc(ix - ir * 0.35, iy - ir * 0.38, ir * 0.3, 0, Math.PI * 2); g.fill();
@@ -1007,6 +1030,16 @@ export function drawCharacter(ctx: CanvasRenderingContext2D, look: Look, st: Cha
         g.beginPath(); g.moveTo(inn.x, inn.y + 0.1 * detail); g.quadraticCurveTo(up.x, up.y, out.x, out.y);
         if (fem) g.lineTo(out.x + (out.x - inn.x) * 0.16, out.y - 0.55 * detail);
         g.stroke();
+        if (fem && look.lash && detail > 0.9) {
+          // 睫毛：眼尾三笔上挑
+          g.strokeStyle = `rgba(18,10,8,${0.85 * al})`; g.lineWidth = Math.max(0.3, 0.2 * detail);
+          for (let q = 0; q < 3; q++) {
+            const u = 0.72 + q * 0.13, bx = inn.x + (out.x - inn.x) * u, by = (inn.y + (up.y - inn.y) * 1.6 * (1 - u) * u * 2.2) + (out.y - inn.y) * u * 0.5 - 0.15 * detail;
+            const dl = Math.max(0.001, Math.hypot(out.x - inn.x, out.y - inn.y)), ddx = (out.x - inn.x) / dl;
+            const ox = ddx * (0.3 + q * 0.22) * detail, oy = -(0.32 + q * 0.1) * detail;
+            g.beginPath(); g.moveTo(bx, by); g.quadraticCurveTo(bx + ox * 0.3, by + oy * 0.7, bx + ox, by + oy); g.stroke();
+          }
+        }
         if (detail <= 1.3) { g.fillStyle = `rgba(22,14,10,${0.9 * al})`; g.beginPath(); g.arc(ctr.x, ctr.y + 0.1 * detail, 0.55 * detail, 0, Math.PI * 2); g.fill(); }
       }
       // 鼻
@@ -1027,7 +1060,7 @@ export function drawCharacter(ctx: CanvasRenderingContext2D, look: Look, st: Cha
           const al = Math.min(1, k * 2);
           const mc = HP(0, -4.15, 4.8), ml = HP(1.15 * (fem ? 0.82 : 1), -4.05, 4.45), mr = HP(-1.15 * (fem ? 0.82 : 1), -4.05, 4.45);
           if (fem) {
-            g.fillStyle = `rgba(200,74,86,${0.95 * al})`;
+            g.fillStyle = look.lip ? rgba(look.lip, 0.95 * al) : `rgba(200,74,86,${0.95 * al})`;
             g.beginPath(); g.moveTo(ml.x, ml.y);
             g.quadraticCurveTo((ml.x + mc.x) / 2, mc.y - 0.55 * detail, mc.x, mc.y - 0.25 * detail);
             g.quadraticCurveTo((mr.x + mc.x) / 2, mc.y - 0.55 * detail, mr.x, mr.y);

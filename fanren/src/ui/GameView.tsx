@@ -1,3 +1,4 @@
+import { ModalLayer } from './ModalLayer';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Game, UIState } from '../world/game';
 import { audio } from '../world/audio';
@@ -55,6 +56,12 @@ function Minimap({ game, onOpen }: { game: Game; onOpen: () => void }) {
       }
       // 神识圈 + 玩家
       const c = cv.width / 2;
+      for (const m of game.events.activeMarkers()) {
+        const dx = (m.x - mx) * k + c, dy = (m.y - my) * k + c;
+        const pr = (4 + 2 * Math.sin(performance.now() / 300)) * dpr;
+        g.strokeStyle = 'rgba(200,40,40,0.9)'; g.lineWidth = 2 * dpr; g.beginPath(); g.arc(Math.max(6, Math.min(cv.width - 6, dx)), Math.max(6, Math.min(cv.height - 6, dy)), pr + 4 * dpr, 0, Math.PI * 2); g.stroke();
+      }
+      for (const d of game.npcs.visibleDots()) { const dx = (d.x / WORLD_SCALE - mx) * k + c, dy = (d.y / WORLD_SCALE - my) * k + c; g.fillStyle = d.c; g.beginPath(); g.arc(dx, dy, 1.6 * dpr, 0, Math.PI * 2); g.fill(); }
       g.strokeStyle = 'rgba(47,140,120,0.85)'; g.lineWidth = 1.5 * dpr;
       g.beginPath(); g.arc(c, c, Math.max(4 * dpr, (game.senseRadius / WORLD_SCALE) * k), 0, Math.PI * 2); g.stroke();
       if (game.destination) {
@@ -114,7 +121,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
     game.onPanel = (id, force) => { audio.sfx('open'); setPanel((p) => (force ? id : p === id ? '' : id)); };
     const t = setTimeout(() => { setShowHelp(false); try { localStorage.setItem('fanren_help_seen', '1'); } catch { /* */ } }, 14000);
     const unload = () => game.save(0);
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setPanel((p) => (p ? '' : 'settings')); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { if (game.modal) { game.closeModal(); return; } setPanel((p) => (p ? '' : 'settings')); } };
     window.addEventListener('keydown', esc);
     window.addEventListener('beforeunload', unload);
     document.addEventListener('visibilitychange', unload);
@@ -172,7 +179,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
         </div>
 
         {/* 提示 */}
-        {showHelp && !isTouch && <div className="help-tip">WASD 移动 · Shift 疾行 · Z 打坐 · E 采集 · 1–9 施法（鼠标瞄准，否则自动锁定最近敌人）· K 法术书 · Q 神识外放 · R 敛息 · C 角色 · B 储物袋 · L 丹房 · P 闭关 · M 地图 · F 御剑（体验）</div>}
+        {showHelp && !isTouch && <div className="help-tip">WASD 移动 · Shift 疾行 · T 交谈 · G 进城 · H 红颜录 · J 大事记 · Z 打坐 · E 采集 · 1–9 施法（鼠标瞄准，否则自动锁定最近敌人）· K 法术书 · Q 神识外放 · R 敛息 · C 角色 · B 储物袋 · L 丹房 · P 闭关 · M 地图 · F 御剑（体验）</div>}
         {ui.sitting && <div className="sit-banner"><div className="sb-t">打坐修炼中</div><div className="sb-s">光阴 ×4 · 每日 +{ui.expRate.toFixed(1)} 修为 · {ui.place}{ui.bottleneck !== 'none' ? ' · 已至瓶颈' : ''}</div></div>}
         {ui.pendingTalent && panel === '' && <button className="talent-alert" onClick={() => setPanel('char')}>逆天改命机缘已至——点此选择</button>}
         {(ui.gather || ui.gatherP >= 0) && !ui.sitting && panel === '' && (
@@ -183,6 +190,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
         <div className="toasts">{normal.map((t) => <div key={t.id} className={'toast' + (t.kind === 'warn' ? ' warn' : '')}>{t.text}</div>)}</div>
         {region && <div key={region.id} className="region-banner"><div className="brush" /><div className="t">{region.text}</div></div>}
 
+        {ui.talk && panel === '' && !game.modal && <button className="talk-tip" onClick={() => game.interact()}><kbd>T</kbd> {ui.talk}</button>}
         {/* 地点卡 */}
         {loc && panel === '' && (
           <div className="loc-card" key={loc.id}>
@@ -193,7 +201,8 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
             </div>
             <div className="loc-desc">{loc.desc}</div>
             <div className="loc-actions">
-              <button className="ink-btn" disabled title="城镇、宗门与秘境将在第五、六步开放">进入<span className="later">（后续开放）</span></button>
+              {game.towns.canEnter(loc) ? <button className="ink-btn" onClick={() => { audio.sfx('open'); game.enterTown(); }}>进入<span className="later">（G）</span></button>
+                : <span className="hint">{loc.type === 'secret' ? '神识之内，或有机缘' : loc.type === 'danger' ? '凶险之地，量力而行' : ''}</span>}
             </div>
           </div>
         )}
@@ -219,6 +228,8 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
             <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('alchemy'); }}>丹<small>丹房</small></button>
             <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('seclude'); }}>关<small>闭关</small></button>
             <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('map'); }}>图<small>地图</small></button>
+            <button className="round-btn small" onClick={() => { audio.sfx('open'); game.openModal({ kind: 'hearts' }); }}>缘<small>红颜</small></button>
+            <button className="round-btn small" onClick={() => { audio.sfx('open'); game.openModal({ kind: 'chronicle' }); }}>记<small>大事</small></button>
             <button className="round-btn small" onClick={() => { click(); setPanel('settings'); }}>设<small>设置</small></button>
           </div>
         </div>
@@ -235,6 +246,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
       {panel === 'seclude' && <SecludePanel game={game} onClose={() => setPanel('')} />}
       {panel === 'skills' && <SkillPanel game={game} onClose={() => setPanel('')} />}
       {panel === 'save' && <SavePanel game={game} onClose={() => setPanel('')} />}
+      <ModalLayer game={game} />
       {ui.dead && <DeathScreen game={game} onExit={onExit} />}
     </div>
   );

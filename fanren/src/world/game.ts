@@ -2,7 +2,7 @@
 import { Terrain } from './terrain';
 import { Renderer } from './render';
 import { REALMS, realmName } from '../data/realms';
-import { LOCATIONS, LocDef, WORLD_SCALE, WORLD_W, WORLD_H, regionAt, Region } from '../data/world';
+import { LOCATIONS, LocDef, WORLD_SCALE, WORLD_W, WORLD_H, MACRO_W, regionAt, Region } from '../data/world';
 import { clamp } from '../core/rng';
 import { audio } from './audio';
 import { CharState, HANLI_LOOK, Look } from '../gfx/character';
@@ -15,6 +15,12 @@ import { talentById } from '../data/skills';
 import { Combat } from './combat';
 import { ARTS } from '../data/arts';
 import type { Hero, Msg } from './cultivation';
+import { NpcWorld } from './npc';
+import { Hearts } from './hearts';
+import { Towns } from './town';
+import { Events } from './events';
+import { WorldState, newWorldState } from './worldstate';
+import type { Modal, DNode, Shop } from './modal';
 
 export const DAYS_PER_SEC = 0.5;    // 现实 1 分钟 = 游戏 1 个月（30 天）
 export const MEDITATE_SPEED = 4;    // 打坐时光阴流速
@@ -49,6 +55,7 @@ export interface UIState {
   gather: { name: string; kind: string } | null; gatherP: number;
   weather: string; timeName: string; night: number;
   bottle: number; pendingTalent: boolean; dead: boolean; rootName: string;
+  talk: string | null;
 }
 
 export interface Toast { id: number; text: string; kind?: 'info' | 'warn' | 'region' | 'good' }
@@ -74,6 +81,14 @@ export class Game {
   cam = { x: 0, y: 0, zoom: 0.8, targetZoom: 0.8 };
   input = { keys: new Set<string>(), joy: { x: 0, y: 0 }, run: false, mouse: { x: 0, y: 0, t: -99, active: false } };
   combat: Combat;
+  ws: WorldState = newWorldState();
+  npcs!: NpcWorld;
+  hearts!: Hearts;
+  towns!: Towns;
+  events!: Events;
+  modal: Modal | null = null;
+  private modalStack: Modal[] = [];
+  modalListeners = new Set<() => void>();
   paused = false;
   running = false;
   time = 0;
@@ -97,6 +112,12 @@ export class Game {
     this.terrain = terrain;
     this.nodes = new NodeField(terrain);
     this.combat = new Combat(this);
+    this.npcs = new NpcWorld(this);
+    this.npcs.newWorld();
+    this.hearts = new Hearts(this);
+    this.towns = new Towns(this);
+    this.events = new Events(this);
+    this.hookCombat();
     const start = this.startPos();
     const st = new CharState(start.x, start.y);
     this.player = { name: '韩立', x: start.x, y: start.y, facing: 1, moving: false, flying: false, walkT: 0, running: false, sitting: false, st, look: HANLI_LOOK };
@@ -128,7 +149,69 @@ export class Game {
     this.cam.x = this.player.x; this.cam.y = this.player.y; this.cam.zoom = this.cam.targetZoom = 0.8;
     this.currentRegionId = ''; this.gathering = null;
     this.combat.reset();
+    this.ws = newWorldState();
+    this.npcs.newWorld();
+    this.modal = null; this.modalStack = []; this.emitModal();
     this.updateUI();
+  }
+
+  // ---------- 第四～六步：NPC、红颜、城镇、大事件 ----------
+  private hookCombat() {
+    const c = this.combat as any;
+    const prevKill = c.onKill, prevSpar = c.onSparEnd;
+    c.onKill = (e: any) => { prevKill?.(e); this.npcs.onEnemyKilled(e); this.towns.onKill(e.def.id); this.events.onKill(e); };
+    c.onSparEnd = (e: any, won: boolean) => { prevSpar?.(e, won); if (!this.events.onSpar(e, won)) this.npcs.onSpar(e, won); };
+  }
+  get halted() { return this.paused || !!this.modal; }
+  openModal(m: Modal) {
+    if (this.modal && (this.modal.kind === 'town' || this.modal.kind === 'hearts' || this.modal.kind === 'chronicle')) this.modalStack.push(this.modal);
+    this.modal = m; this.stand(); this.input.keys.clear(); this.emitModal();
+  }
+  openDialog(node: DNode) {
+    if (this.modal?.kind === 'dialog') { this.modal = { kind: 'dialog', node }; this.emitModal(); return; }
+    this.openModal({ kind: 'dialog', node });
+  }
+  openShop(shop: Shop) { if (this.modal?.kind === 'dialog') this.modal = null; this.openModal({ kind: 'shop', shop }); }
+  closeModal(all = false) {
+    if (all) this.modalStack = [];
+    this.modal = this.modalStack.pop() ?? null; this.emitModal(); this.updateUI(true);
+  }
+  emitModal() { this.modalListeners.forEach((f) => f()); }
+  subscribeModal(f: () => void) { this.modalListeners.add(f); return () => { this.modalListeners.delete(f); }; }
+  news(text: string, kind: 'canon' | 'rumor' | 'personal' = 'rumor') {
+    this.ws.news.push({ day: Math.floor(this.day), text, kind });
+    if (this.ws.news.length > 160) this.ws.news.splice(0, this.ws.news.length - 160);
+  }
+  /** 打听到某地：在地图上揭开周围 */
+  markKnown(l: LocDef) {
+    const cx = l.x * WORLD_SCALE, cy = l.y * WORLD_SCALE, r = 1600;
+    for (let y = Math.floor((cy - r) / FOG_CELL); y <= Math.floor((cy + r) / FOG_CELL); y++) for (let x = Math.floor((cx - r) / FOG_CELL); x <= Math.floor((cx + r) / FOG_CELL); x++) {
+      if (x < 0 || y < 0 || x >= FOG_W || y >= FOG_H) continue;
+      if (Math.hypot((x + 0.5) * FOG_CELL - cx, (y + 0.5) * FOG_CELL - cy) < r) this.explored[y * FOG_W + x] = 1;
+    }
+  }
+  /** T：与身旁的人交谈 / 查看奇遇 */
+  interact() {
+    const p = this.player;
+    const n = this.npcs.focus, e = this.events.focus;
+    const dn = n ? Math.hypot(n.st.x - p.x, n.st.y - p.y) : 1e9, de = e ? Math.hypot(e.x - p.x, e.y - p.y) : 1e9;
+    if (n && dn <= de) { this.npcs.interact(); return; }
+    if (e) { this.events.interact(e); return; }
+    const l = this.ui?.nearby;
+    if (l && this.towns.canEnter(l)) { this.enterTown(); return; }
+  }
+  enterTown() {
+    const l = this.nearbyLocation();
+    if (!l || !this.towns.canEnter(l)) { this.toast('附近没有可以进入的城镇或宗门。', 'warn'); return; }
+    this.towns.open(l);
+  }
+  private townZoom: number | null = null;
+  private townAutoZoom() {
+    const l = this.ui?.nearby;
+    const inTown = !!l && (l.type === 'city' || l.type === 'town' || l.type === 'sect') && !this.isFlying;
+    if (inTown && this.townZoom === null) { this.townZoom = this.cam.targetZoom; if (this.cam.targetZoom < 1.15) this.cam.targetZoom = 1.2; this.towns.onVisit(l!.id); }
+    else if (!inTown && this.townZoom !== null) { if (this.cam.targetZoom >= 1.15) this.cam.targetZoom = this.townZoom; this.townZoom = null; }
+    if (l && !inTown) this.towns.onVisit(l.id);
   }
 
   // ---------- 存档 ----------
@@ -158,9 +241,9 @@ export class Game {
       for (let i = 0; i < this.explored.length; i++) s += this.explored[i] ? '1' : '0';
       const p = this.player;
       const data = {
-        v: 2, time: Date.now(),
+        v: 2, ws: WORLD_SCALE, time: Date.now(),
         p: { x: p.x, y: p.y, flying: p.flying }, day: this.day, clock: this.clock, fog: s, zoom: this.cam.targetZoom, revealAll: this.revealAll,
-        hero: this.hero, nodes: this.nodes.toSave(),
+        hero: this.hero, nodes: this.nodes.toSave(), world: this.ws, npcs: this.npcs.toSave(),
         meta: { realm: realmName(this.hero.realm, this.hero.stage), year: Math.floor(this.day / 360) + 1, region: this.ui?.region ?? '', age: Math.floor(this.hero.age) },
       };
       localStorage.setItem(SLOT_KEYS[slot], JSON.stringify(data));
@@ -175,12 +258,21 @@ export class Game {
       if (!raw) return false;
       const d = JSON.parse(raw);
       const p = this.player;
-      p.x = d.p.x; p.y = d.p.y; p.flying = !!d.p.flying; p.sitting = false; p.moving = false;
+      // 地图比例变化（第三步 180 → 第四步 300）：坐标与迷雾按比例迁移
+      const ws0 = d.ws ?? (d.hero?.arts ? 180 : 100), wk = WORLD_SCALE / ws0;
+      p.x = d.p.x * wk; p.y = d.p.y * wk; p.flying = !!d.p.flying; p.sitting = false; p.moving = false;
       p.st = new CharState(p.x, p.y);
       this.day = d.day ?? 60;
       this.clock = d.clock ?? DAY_CYCLE * 0.3;
       this.explored.fill(0);
-      if (d.fog) for (let i = 0; i < Math.min(d.fog.length, this.explored.length); i++) this.explored[i] = d.fog[i] === '1' ? 1 : 0;
+      if (d.fog && wk === 1) for (let i = 0; i < Math.min(d.fog.length, this.explored.length); i++) this.explored[i] = d.fog[i] === '1' ? 1 : 0;
+      else if (d.fog) {
+        const ow = Math.ceil(MACRO_W * ws0 / FOG_CELL);
+        for (let i = 0; i < d.fog.length; i++) if (d.fog[i] === '1') {
+          const ox = (i % ow) * FOG_CELL * wk, oy = Math.floor(i / ow) * FOG_CELL * wk, os = FOG_CELL * wk;
+          for (let yy = Math.floor(oy / FOG_CELL); yy <= Math.floor((oy + os) / FOG_CELL); yy++) for (let xx = Math.floor(ox / FOG_CELL); xx <= Math.floor((ox + os) / FOG_CELL); xx++) if (xx < FOG_W && yy < FOG_H) this.explored[yy * FOG_W + xx] = 1;
+        }
+      }
       this.cam.x = p.x; this.cam.y = p.y;
       this.cam.zoom = this.cam.targetZoom = d.zoom ?? 0.8;
       this.revealAll = !!d.revealAll;
@@ -196,6 +288,11 @@ export class Game {
       if (!Array.isArray(this.hero.arts) || !this.hero.arts.length) this.hero.arts = nh.arts;
       if (!Array.isArray(this.hero.hotbar) || this.hero.hotbar.length !== 9) this.hero.hotbar = nh.hotbar;
       this.hero.equip = this.hero.equip ?? {}; this.hero.looted = this.hero.looted ?? []; this.hero.kills = this.hero.kills ?? 0;
+      // 第四步起：世界状态与 NPC
+      this.ws = Object.assign(newWorldState(), d.world ?? {});
+      this.npcs.fromSave(d.npcs, wk);
+      this.modal = null; this.modalStack = []; this.emitModal();
+      this.hearts.restore();
       this.updateUI(true);
       return true;
     } catch (e) { console.warn(e); return false; }
@@ -204,7 +301,11 @@ export class Game {
   static clearAll() { try { for (const k of SLOT_KEYS) localStorage.removeItem(k); localStorage.removeItem(LEGACY_KEY); } catch { /* */ } }
 
   // ---------- 派生数值 ----------
-  get stats() { return C.heroStats(this.hero); }
+  get stats() {
+    const s = C.heroStats(this.hero);
+    if (this.hearts) { s.atk = Math.round(s.atk * (1 + this.hearts.bonus('atk'))); s.def = Math.round(s.def * (1 + this.hearts.bonus('def'))); s.sense = Math.round(s.sense * (1 + this.hearts.bonus('sense'))); s.luck += this.hearts.bonus('luck'); }
+    return s;
+  }
   get sense() { return this.stats.sense; }
   /** 基础神识半径（世界像素） */
   get baseSenseRadius() {
@@ -314,10 +415,10 @@ export class Game {
   update(dt: number) {
     this.time += dt;
     this.terrain.frame++;
-    if (!this.paused && !this.hero.dead) this.updateSense(dt);
+    if (!this.halted && !this.hero.dead) this.updateSense(dt);
     const p = this.player, st = p.st, h = this.hero;
     this.cam.zoom += (this.cam.targetZoom - this.cam.zoom) * Math.min(1, dt * 10);
-    const active = !this.paused && !h.dead;
+    const active = !this.halted && !h.dead;
     if (active) {
       // 移动输入
       let mx = 0, my = 0;
@@ -380,6 +481,8 @@ export class Game {
         if (ov) st.setAction(ov);
       }
       this.combat.update(dt);
+      this.npcs.update(dt);
+      this.events.update(dt);
       // 采集
       if (this.gathering) {
         this.gathering.t += dt;
@@ -393,7 +496,10 @@ export class Game {
       this.day += days;
       const msgs: Msg[] = [];
       const hadTalent = !!h.pendingTalent;
+      const expB = this.hearts.bonus('exp'), e0 = h.exp;
       C.passDays(h, days, p.sitting, this.placeBonus().mult, msgs);
+      if (expB > 0 && h.exp > e0) h.exp += (h.exp - e0) * expB;
+      const rg = this.hearts.bonus('regen'); if (rg > 0 && !this.combat.inCombat) { h.hp = Math.min(1, h.hp + rg * 0.01 * dt); h.mp = Math.min(1, h.mp + rg * 0.01 * dt); }
       this.flushMsgs(msgs);
       if (!hadTalent && h.pendingTalent) { this.stand(); this.onPanel?.('char', true); }
       if (p.sitting && C.bottleneck(h) !== 'none' && !this.bnWarned) {
@@ -418,7 +524,7 @@ export class Game {
     this.cam.y += (p.y - st.lift * 0.5 - this.cam.y) * Math.min(1, dt * 6);
 
     this.regionTimer -= dt;
-    if (this.regionTimer <= 0) { this.regionTimer = 0.35; this.checkRegion(); this.exploreCheck(this.nearbyLocation()); }
+    if (this.regionTimer <= 0) { this.regionTimer = 0.35; this.checkRegion(); this.exploreCheck(this.nearbyLocation()); this.townAutoZoom(); }
     this.uiTimer -= dt;
     if (this.uiTimer <= 0) { this.uiTimer = 0.12; this.updateUI(); }
     this.saveTimer += dt;
@@ -698,6 +804,7 @@ export class Game {
       gather: gt ? { name: itemDef(gt.item).name, kind: gt.kind } : null, gatherP: this.gathering ? this.gathering.t / GATHER_TIME : -1,
       weather: WEATHER_NAME[this.weather.kind], timeName: this.timeName(), night: this.night,
       bottle: h.bottle.drops, pendingTalent: !!h.pendingTalent, dead: h.dead, rootName: C.rootDef(h).name,
+      talk: this.npcs?.focus ? `与${this.npcs.focus.d.met ? this.npcs.focus.d.name : '此人'}交谈` : this.events?.focus ? '查看' : null,
     };
     this.listeners.forEach((f) => f());
   }
@@ -751,7 +858,8 @@ export class Game {
       const t = e.target as HTMLElement;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
       const k = e.key.toLowerCase();
-      if (e.repeat && 'mfzecblpqrk'.includes(k)) return;
+      if (e.repeat && 'mfzecblpqrkthjg'.includes(k)) return;
+      if (this.modal) return;
       this.input.keys.add(k);
       if (k === 'm') this.onOpenMap?.();
       if (this.paused || this.hero.dead) return;
@@ -766,6 +874,10 @@ export class Game {
       if (k >= '1' && k <= '9' && k.length === 1) this.combat.castSlot(+k - 1);
       if (k === 'k') this.onPanel?.('skills');
       if (k === 'r') this.toggleConceal();
+      if (k === 't') this.interact();
+      if (k === 'g') this.enterTown();
+      if (k === 'h') this.openModal({ kind: 'hearts' });
+      if (k === 'j') this.openModal({ kind: 'chronicle' });
       if (k === '=' || k === '+') this.zoomBy(1.2);
       if (k === '-') this.zoomBy(1 / 1.2);
       if (k.startsWith('arrow') || k === ' ') e.preventDefault();

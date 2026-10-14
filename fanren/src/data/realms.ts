@@ -15,17 +15,17 @@ const L13 = ['一层', '二层', '三层', '四层', '五层', '六层', '七层
 const ST3 = ['初期', '中期', '后期'];
 
 export const REALMS: RealmDef[] = [
-  { id: 0, name: '凡人', stages: [''], hp: [60], mp: [10], atk: [6], def: [1], sense: [0], life: 70, speed: 100, fly: false, expDays: [30], color: '#8a8070' },
+  { id: 0, name: '凡人', stages: [''], hp: [60], mp: [10], atk: [6], def: [1], sense: [0], life: 70, speed: 130, fly: false, expDays: [30], color: '#8a8070' },
   {
     id: 1, name: '炼气', stages: L13,
     hp: L13.map((_, s) => 100 + 16 * s), mp: L13.map((_, s) => 60 + 12 * s), atk: L13.map((_, s) => 10 + 2.2 * s),
-    def: L13.map((_, s) => 3 + 0.7 * s), sense: L13.map((_, s) => 20 + 3 * s), life: 120, speed: 135, fly: false,
+    def: L13.map((_, s) => 3 + 0.7 * s), sense: L13.map((_, s) => 20 + 3 * s), life: 120, speed: 175, fly: false,
     expDays: L13.map((_, s) => 36 + 11 * s), color: '#6f8f6a',
   },
-  { id: 2, name: '筑基', stages: ST3, hp: [520, 680, 880], mp: [280, 350, 440], atk: [46, 60, 78], def: [15, 19, 24], sense: [80, 120, 170], life: 220, speed: 230, fly: true, expDays: [520, 760, 1100], color: '#4f7f8f' },
-  { id: 3, name: '结丹', stages: ST3, hp: [2300, 3000, 3900], mp: [1050, 1350, 1750], atk: [185, 235, 305], def: [55, 70, 90], sense: [300, 450, 650], life: 500, speed: 340, fly: true, expDays: [2200, 3100, 4400], color: '#b08a3a' },
-  { id: 4, name: '元婴', stages: ST3, hp: [9200, 12200, 16200], mp: [4100, 5400, 7100], atk: [720, 920, 1220], def: [200, 260, 340], sense: [1100, 1600, 2300], life: 1000, speed: 470, fly: true, expDays: [8800, 13000, 19000], color: '#8a4fa0' },
-  { id: 5, name: '化神', stages: ST3, hp: [37000, 49000, 65000], mp: [16500, 21500, 28500], atk: [2850, 3650, 4850], def: [800, 1050, 1350], sense: [4000, 6000, 8000], life: 2000, speed: 650, fly: true, expDays: [36000, 52000, 75000], color: '#c0392b' },
+  { id: 2, name: '筑基', stages: ST3, hp: [520, 680, 880], mp: [280, 350, 440], atk: [46, 60, 78], def: [15, 19, 24], sense: [80, 120, 170], life: 220, speed: 300, fly: true, expDays: [520, 760, 1100], color: '#4f7f8f' },
+  { id: 3, name: '结丹', stages: ST3, hp: [2300, 3000, 3900], mp: [1050, 1350, 1750], atk: [185, 235, 305], def: [55, 70, 90], sense: [300, 450, 650], life: 500, speed: 440, fly: true, expDays: [2200, 3100, 4400], color: '#b08a3a' },
+  { id: 4, name: '元婴', stages: ST3, hp: [9200, 12200, 16200], mp: [4100, 5400, 7100], atk: [720, 920, 1220], def: [200, 260, 340], sense: [1100, 1600, 2300], life: 1000, speed: 610, fly: true, expDays: [8800, 13000, 19000], color: '#8a4fa0' },
+  { id: 5, name: '化神', stages: ST3, hp: [37000, 49000, 65000], mp: [16500, 21500, 28500], atk: [2850, 3650, 4850], def: [800, 1050, 1350], sense: [4000, 6000, 8000], life: 2000, speed: 850, fly: true, expDays: [36000, 52000, 75000], color: '#c0392b' },
 ];
 
 export const EXP_PER_DAY = 10; // 基础修炼：每天 10 点修为

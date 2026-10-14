@@ -31,6 +31,9 @@ export class Enemy {
   name: string;
   hitFlash = 0; lastHitBy = 0;
   sea: boolean;
+  npcId?: string;      // 第四步：由人界 NPC 转化而来的敌人
+  spar?: boolean;      // 切磋：不致死
+  boss?: boolean;      // 事件首领
   constructor(def: EnemyDef, x: number, y: number, realm: number, stage: number, sea = false) {
     this.def = def; this.x = this.hx = x; this.y = this.hy = y;
     this.realm = realm; this.stage = stage; this.level = realm * 13 + stage;
@@ -119,6 +122,7 @@ export class Combat {
   }
   artLv(id: string) { const a = this.game.hero.arts.find((x) => x.id === id); const d = ARTS[id]; return a && d ? profLevel(d.tier, a.xp) : 0; }
   get canAct() { return !this.pst.stun && !this.pst.freeze && !this.pst.shock && !this.game.hero.dead; }
+  get inCombat() { const p = this.game.player; return this.enemies.some((e) => !e.dead && e.aggro && !e.spar && Math.abs(e.x - p.x) < 1100 && Math.abs(e.y - p.y) < 1100); }
   get canMove() { return this.canAct && !this.pst.root && !this.dash; }
   get speedMul() { return (this.pst.slow ? 0.5 : 1) * (1 + this.buffs.speed); }
 
@@ -465,7 +469,17 @@ export class Combat {
     if (combo) this.texts.push({ x: e.x, y: e.y - 120, s: combo + '！', color: '#ffcf6a', t: 0, big: true, vy: -40 });
     // 异状
     if (src.status && Math.random() < src.stCh) this.applyStatus(e.st, src.status, d, e, fx, fy);
+    if (e.spar && e.hp < e.maxHp * 0.15) { e.hp = e.maxHp * 0.15; e.dead = true; e.deathT = 0.9; if (this.lock === e) this.lock = null; this.onSparEnd?.(e, true); return; }
     if (e.hp <= 0) this.kill(e);
+  }
+  /** 第四/五步：外部钩子 */
+  onKill?: (e: Enemy) => void;
+  onSparEnd?: (e: Enemy, playerWon: boolean) => void;
+  /** 同伴 / 红颜出手：对敌人造成伤害（带简单特效） */
+  allyStrike(fromX: number, fromY: number, e: Enemy, dmg: number, color: string, realm: number) {
+    if (e.dead) return;
+    this.vfx.push({ kind: 'beam', x: fromX, y: fromY - 40, x2: e.x, y2: e.y - 30, r: 6, t: 0, dur: 0.35, color, seed: Math.random() * 1e6 });
+    this.hitEnemy(e, dmg, { realm, stCh: 0 }, fromX, fromY);
   }
 
   applyStatus(st: Statuses, sp: StatusSpec, dmg: number, e: Enemy | null, fx: number, fy: number) {
@@ -489,6 +503,7 @@ export class Combat {
     const g = this.game, h = g.hero;
     e.dead = true; e.deathT = 0;
     h.kills = (h.kills ?? 0) + 1;
+    this.onKill?.(e);
     if (this.lock === e) this.lock = null;
     // 修为
     const pl = h.realm * 13 + h.stage;
@@ -542,6 +557,7 @@ export class Combat {
       if (this.shield.amt <= 0) { this.vfx.push({ kind: 'flash', x: g.player.x, y: g.player.y - 50, r: 90, t: 0, dur: 0.35, color: this.shield.color }); this.shield = null; g.toast('护盾破碎！', 'warn'); }
       if (d <= 0) { this.texts.push({ x: g.player.x, y: g.player.y - 110, s: '抵', color: '#bde', t: 0, vy: -40 }); return; }
     }
+    if (srcEnemy?.spar && h.hp - d / ps.hp < 0.15) { h.hp = Math.max(h.hp, 0.15); srcEnemy.dead = true; srcEnemy.deathT = 0.9; if (this.lock === srcEnemy) this.lock = null; this.onSparEnd?.(srcEnemy, false); return; }
     h.hp -= d / ps.hp;
     this.hitT = 0.25; this.combatT = 0;
     this.texts.push({ x: g.player.x + rand(-10, 10), y: g.player.y - 110, s: '-' + d, color: '#ff6a5a', t: 0, vy: -60, big: d > ps.hp * 0.15 });
@@ -590,7 +606,7 @@ export class Combat {
     return c;
   }
 
-  private safeAt(x: number, y: number) {
+  safeAt(x: number, y: number) {
     const z = this.game.terrain.inLocZone(x, y, 300);
     if (!z) return false;
     const l = LOCATIONS.find((q) => q.id === z.id);

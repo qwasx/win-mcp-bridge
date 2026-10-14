@@ -32,6 +32,27 @@ const rgba = (c: [number, number, number], a: number) => `rgba(${c[0]},${c[1]},$
 
 function mk(w = TEX, h = TEX) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
 
+/** Mipmap：缩小绘制时选用最接近屏幕尺寸的预缩小纹理，避免细线在旋转时闪烁、爬行（“不丝滑”的主因） */
+const MIPS = new WeakMap<HTMLCanvasElement, HTMLCanvasElement[]>();
+function mip(img: HTMLCanvasElement, screenPx: number): HTMLCanvasElement {
+  let arr = MIPS.get(img);
+  if (!arr) { arr = [img]; MIPS.set(img, arr); }
+  let lv = 0;
+  while (lv < 5 && arr[lv].width * 0.5 >= screenPx * 1.15) {
+    if (!arr[lv + 1]) {
+      const src = arr[lv];
+      const c = mk(Math.max(8, src.width >> 1), Math.max(8, src.height >> 1));
+      const g = c.getContext('2d')!;
+      g.imageSmoothingEnabled = true; (g as any).imageSmoothingQuality = 'high';
+      g.drawImage(src, 0, 0, c.width, c.height);
+      arr[lv + 1] = c;
+    }
+    lv++;
+  }
+  return arr[lv];
+}
+const DPR = () => (typeof window !== 'undefined' ? Math.min(2, window.devicePixelRatio || 1) : 1);
+
 /** 干笔水墨圆环：许多段不规则弧线叠加 */
 function inkRing(col: [number, number, number], seed: number, rough = 1) {
   const c = mk(); const g = c.getContext('2d')!;
@@ -257,6 +278,7 @@ export class SenseFx {
   burst = 0;           // 神识外放（0–1）
   hidden = 0;          // 敛息（0–1）
   private arcs: { a: number; t: number; seed: number }[] = [];
+  private lastT = 0;
   private bugs: { a: number; r: number; s: number; ph: number }[] = [];
 
   private tex(tier: number): Tex {
@@ -290,6 +312,17 @@ export class SenseFx {
     return c;
   }
 
+  private motes = new Map<number, HTMLCanvasElement>();
+  private moteTex(tier: number) {
+    let c = this.motes.get(tier);
+    if (!c) {
+      c = mk(64, 64); const g = c.getContext('2d')!; const col = TIERS[tier].glow;
+      const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, rgba(col, 1)); gr.addColorStop(0.25, rgba(col, 0.55)); gr.addColorStop(1, rgba(col, 0));
+      g.fillStyle = gr; g.fillRect(0, 0, 64, 64); this.motes.set(tier, c);
+    }
+    return c;
+  }
   /** 预热：首帧前把当前境界纹理都生成好，避免卡顿 */
   warm(tier: number, mods: string[]) { this.tex(Math.min(tier, TIERS.length - 1)); for (const m of mods) if (m !== 'thunder' && m !== 'insect') this.mod(m, tier); }
 
@@ -326,6 +359,8 @@ export class SenseFx {
     const k = (R / TR);
     const breath = 1 + Math.sin(t * 0.9) * 0.004;
     const hideA = 1 - this.hidden * 0.6;
+    const dpr = DPR();
+    const dt = this.lastT ? Math.min(0.1, Math.max(0, t - this.lastT)) : 1 / 60; this.lastT = t;
     g.save();
     const drawTex = (img: HTMLCanvasElement, rot: number, scale: number, alpha: number, comp: GlobalCompositeOperation = 'source-over') => {
       if (alpha <= 0.003) return;
@@ -333,7 +368,8 @@ export class SenseFx {
       g.globalAlpha = alpha * hideA; g.globalCompositeOperation = comp;
       g.translate(x, y); g.rotate(rot);
       const s = k * scale * breath;
-      g.drawImage(img, -TEX / 2 * s, -TEX / 2 * s, TEX * s, TEX * s);
+      g.imageSmoothingEnabled = true; (g as any).imageSmoothingQuality = 'high';
+      g.drawImage(mip(img, TEX * s * z * dpr), -TEX / 2 * s, -TEX / 2 * s, TEX * s, TEX * s);
       g.restore();
     };
     // 1. 圈内淡光（极淡，不遮景）
@@ -344,11 +380,11 @@ export class SenseFx {
     if (T.stars) drawTex(T.stars, t * 0.01, 1, 0.22);
     if (T.yy) {
       const r = Math.min(R * 0.42, 420); g.save(); g.globalAlpha = 0.08 * hideA; g.translate(x, y); g.scale(1, 0.55); g.rotate(-t * 0.08);
-      g.drawImage(T.yy, -r, -r, r * 2, r * 2); g.restore();
+      g.drawImage(mip(T.yy, r * 2 * z * dpr), -r, -r, r * 2, r * 2); g.restore();
     }
     if (T.lotus) {
       const r = 70 + tier * 10; g.save(); g.globalAlpha = (0.22 + 0.06 * Math.sin(t * 1.7)) * hideA; g.globalCompositeOperation = 'lighter'; g.translate(x, y); g.scale(1, 0.5); g.rotate(t * 0.15);
-      g.drawImage(T.lotus, -r, -r, r * 2, r * 2); g.restore();
+      g.drawImage(mip(T.lotus, r * 2 * z * dpr), -r, -r, r * 2, r * 2); g.restore();
     }
     // 3. 涟漪：平滑扩散的光带
     for (let i = 0; i < S.ripples; i++) {
@@ -388,11 +424,10 @@ export class SenseFx {
         const px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr;
         const fl = 0.5 + 0.5 * Math.sin(t * 2.3 + i * 1.7);
         const s = (3 + fl * 3) / Math.max(0.4, z);
-        const gr = g.createRadialGradient(px, py, 0, px, py, s * 2.5);
-        gr.addColorStop(0, rgba(S.glow, 0.7 * fl * hideA)); gr.addColorStop(1, rgba(S.glow, 0));
-        g.fillStyle = gr; g.fillRect(px - s * 2.5, py - s * 2.5, s * 5, s * 5);
+        g.globalAlpha = 0.7 * fl * hideA;
+        g.drawImage(this.moteTex(tier), px - s * 2.5, py - s * 2.5, s * 5, s * 5);
       }
-      g.globalCompositeOperation = 'source-over';
+      g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1;
     }
     // 8. 噬金虫：金芒在圈内游走
     if (mods.includes('insect')) {
@@ -405,10 +440,10 @@ export class SenseFx {
     }
     // 9. 雷丝：沿圈闪烁的细电弧
     if (mods.includes('thunder')) {
-      if (Math.random() < 0.06) this.arcs.push({ a: Math.random() * TAU, t: 0, seed: Math.random() * 1e6 });
+      if (Math.random() < dt * 3.6) this.arcs.push({ a: Math.random() * TAU, t: 0, seed: Math.random() * 1e6 });
       g.lineCap = 'round';
       this.arcs = this.arcs.filter((ar) => {
-        ar.t += 1 / 60;
+        ar.t += dt;
         if (ar.t > 0.22) return false;
         const rnd = mulberry32(ar.seed | 0);
         const al = (1 - ar.t / 0.22);

@@ -316,6 +316,8 @@ export class Renderer {
     ctx.restore();
     game.life.collectGround(list, view, t, dt);
     collectCombat(game.combat, list, view, t, dt);
+    game.npcs.collect(list, view, t, dt);
+    game.events.collect(list, view, t, dt);
     list.push({ y: p.y, draw: () => this.drawPlayer(dt) });
 
     list.sort((a, b) => a.y - b.y);

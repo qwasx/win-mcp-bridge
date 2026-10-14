@@ -3,7 +3,7 @@
 // 布局参考原著及网络流传的《凡人修仙传》人界地图：
 //   北部大晋（人界第一大国）→ 中部天澜草原 → 西南天南（韩立故乡）→ 天南以西极西之地
 //   天南以东隔无边海为乱星海（内星海以天星城为中心，外星海妖兽横行）
-export const WORLD_SCALE = 180;   // 第三步起：地图面积扩大约 3.2 倍
+export const WORLD_SCALE = 300;   // 第四步起：地图边长为第二步的 3 倍（面积 ×9）
 export const MACRO_W = 1000;
 export const MACRO_H = 700;
 export const WORLD_W = MACRO_W * WORLD_SCALE;
@@ -192,9 +192,9 @@ export const LOCATIONS: LocDef[] = [
 import { mulberry32 } from '../core/rng';
 const SURN = ['李', '王', '张', '刘', '陈', '杨', '赵', '黄', '周', '吴', '徐', '孙', '马', '朱', '胡', '林', '郭', '何', '高', '罗', '郑', '梁', '谢', '宋', '唐', '许', '韩', '冯', '邓', '曹', '彭', '曾', '萧', '田', '董', '潘', '袁', '蔡', '蒋', '余', '叶', '程', '苏', '魏', '吕', '丁', '沈', '任', '姚', '卢'];
 const VSUF = ['家村', '家庄', '家集', '家坳', '家寨', '家湾', '家堡', '家店'];
-const VNAT = ['柳溪村', '杏花村', '桃源村', '石桥镇', '落霞村', '清水镇', '青石村', '白鹭洲', '野狐岭村', '芦花荡', '枫林渡', '风铃镇', '卧牛村', '鹤鸣村', '云水镇', '小河村', '老槐村', '望山村', '月牙村', '沙河集'];
-const CAVES = ['古修洞府', '无名洞府', '青云洞', '栖霞洞', '紫霄洞', '残阵遗迹', '上古战场', '坐化之地', '藏宝秘窟', '灵眼之泉', '断剑崖', '炼丹古洞', '落仙台', '玄冰洞'];
-const LAIRS = ['血狼谷', '黑风岭', '毒蛟潭', '铁甲蛇窟', '赤蜂林', '妖狐洞', '鬼哭林', '乱石坡', '阴风涧', '火蟾沼', '白骨岗', '豺狼原', '石魔窟', '瘴气林'];
+const VNAT = ['柳溪村', '杏花村', '桃源村', '石桥镇', '落霞村', '清水镇', '青石村', '白鹭洲', '野狐岭村', '芦花荡', '枫林渡', '风铃镇', '卧牛村', '鹤鸣村', '云水镇', '小河村', '老槐村', '望山村', '月牙村', '沙河集', '梨花坞', '竹溪村', '浣纱溪', '松风镇', '百花村', '落雁集', '蓬溪村', '烟柳镇', '黄泥岗', '双河镇', '古井村', '红叶村', '渔歌渡', '雁回镇', '茶山村', '翠屏村', '飞泉村', '牧野集', '霜叶村', '采莲渡'];
+const CAVES = ['古修洞府', '无名洞府', '青云洞', '栖霞洞', '紫霄洞', '残阵遗迹', '上古战场', '坐化之地', '藏宝秘窟', '灵眼之泉', '断剑崖', '炼丹古洞', '落仙台', '玄冰洞', '万灵古窟', '天机遗府', '星落坑', '散仙石室', '剑冢', '药王谷遗址', '古阵废墟', '归元洞', '幽泉秘境', '石林古阵', '千年古墓', '仙人棋盘', '紫竹幽谷', '云梦泽'];
+const LAIRS = ['血狼谷', '黑风岭', '毒蛟潭', '铁甲蛇窟', '赤蜂林', '妖狐洞', '鬼哭林', '乱石坡', '阴风涧', '火蟾沼', '白骨岗', '豺狼原', '石魔窟', '瘴气林', '金蜈岭', '黑熊坳', '狐仙坡', '血蝠洞', '腐骨沼', '虎啸涧', '蛇盘山', '野猿林', '毒雾谷', '尸鬼坟'];
 const LAIRS_COLD = ['冰狼原', '雪熊谷', '寒蛟渊', '霜鹰崖'];
 const LAIRS_DRY = ['沙蝎窟', '毒蜥坡', '黄沙鬼域', '风蚀石林'];
 const LAIRS_SEA = ['海妖礁', '鲛人滩', '巨蟹湾', '海蛇窟'];
@@ -211,9 +211,9 @@ function genMinor(): LocDef[] {
   const uname = (base: string) => { let n = base, k = 2; while (used.has(n)) n = base.replace(/(村|庄|集|坳|寨|湾|堡|店|镇|洲|荡|渡)$/, '') + ['东', '西', '南', '北', '上', '下'][k++ % 6] + base.slice(-1); used.add(n); return n; };
   // 村落（主大陆）
   let tries = 0, vi = 0;
-  while (out.filter((l) => l.type === 'town').length < 78 && tries++ < 6000) {
+  while (out.filter((l) => l.type === 'town').length < 150 && tries++ < 6000) {
     const x = 40 + rnd() * 740, y = 60 + rnd() * 600;
-    if (!pointInPoly(x, y, MAINLAND) || inLake(x, y) || !far(x, y, 15)) continue;
+    if (!pointInPoly(x, y, MAINLAND) || inLake(x, y) || !far(x, y, 11)) continue;
     if (cold(x, y) && rnd() < 0.7) continue;
     const nat = rnd() < 0.3;
     const name = uname(nat ? VNAT[vi++ % VNAT.length] : SURN[Math.floor(rnd() * SURN.length)] + VSUF[Math.floor(rnd() * VSUF.length)]);
@@ -221,17 +221,17 @@ function genMinor(): LocDef[] {
   }
   // 洞府 / 遗迹
   tries = 0; let ci = 0;
-  while (out.filter((l) => l.type === 'secret').length < 30 && tries++ < 6000) {
+  while (out.filter((l) => l.type === 'secret').length < 72 && tries++ < 6000) {
     const x = 40 + rnd() * 740, y = 50 + rnd() * 610;
-    if (!pointInPoly(x, y, MAINLAND) || inLake(x, y) || !far(x, y, 18)) continue;
+    if (!pointInPoly(x, y, MAINLAND) || inLake(x, y) || !far(x, y, 12)) continue;
     const name = uname(CAVES[ci++ % CAVES.length]);
     out.push({ id: 'c' + out.length, name, type: 'secret', x, y, minor: true, danger: 1 + Math.floor(rnd() * 3), desc: '前人留下的修炼之所或古迹，禁制残存，或有遗宝。' });
   }
   // 妖兽巢穴
   tries = 0; let li = 0;
-  while (out.filter((l) => l.type === 'danger').length < 40 && tries++ < 8000) {
+  while (out.filter((l) => l.type === 'danger').length < 95 && tries++ < 8000) {
     const x = 30 + rnd() * 760, y = 40 + rnd() * 630;
-    if (!pointInPoly(x, y, MAINLAND) || inLake(x, y) || !far(x, y, 16)) continue;
+    if (!pointInPoly(x, y, MAINLAND) || inLake(x, y) || !far(x, y, 11)) continue;
     const list = cold(x, y) ? LAIRS_COLD : dry(x, y) ? LAIRS_DRY : LAIRS;
     const name = uname(list[li++ % list.length]);
     const north = y < 260 ? 1 : 0;
@@ -239,9 +239,9 @@ function genMinor(): LocDef[] {
   }
   // 乱星海：小岛据点与海妖巢穴（落在现有岛屿附近，岛屿由地形按 island 半径生成）
   tries = 0;
-  while (out.filter((l) => l.type === 'isle').length < 16 && tries++ < 4000) {
+  while (out.filter((l) => l.type === 'isle').length < 34 && tries++ < 4000) {
     const x = 680 + rnd() * 300, y = 320 + rnd() * 360;
-    if (pointInPoly(x, y, MAINLAND) || !far(x, y, 22)) continue;
+    if (pointInPoly(x, y, MAINLAND) || !far(x, y, 15)) continue;
     const sea = rnd() < 0.35;
     const name = uname(sea ? LAIRS_SEA[Math.floor(rnd() * LAIRS_SEA.length)] : ['青螺岛', '碧波岛', '蛟龙屿', '落星岛', '珊瑚岛', '龟背岛', '望潮岛', '浮云岛', '金沙岛', '海市岛'][Math.floor(rnd() * 10)]);
     out.push({ id: 'i' + out.length, name, type: sea ? 'danger' : 'isle', x, y, minor: true, island: 4 + Math.floor(rnd() * 4), danger: sea ? 2 + Math.floor(rnd() * 3) : 0, desc: sea ? '海妖出没的礁岛。' : '乱星海中的小岛，散修在此结庐。' });
@@ -253,7 +253,7 @@ for (const l of LOCATIONS) if (l.danger === undefined) l.danger = l.type === 'da
 export const LOC_BY_ID = new Map(LOCATIONS.map((l) => [l.id, l] as const));
 
 // 随机小岛的生成区域（乱星海）
-export const ISLAND_FIELD = { x0: 660, y0: 300, x1: 995, y1: 695, count: 170 };
+export const ISLAND_FIELD = { x0: 660, y0: 300, x1: 995, y1: 695, count: 260 };
 
 export function pointInPoly(x: number, y: number, pts: P[]) {
   let inside = false;

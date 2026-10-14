@@ -116,6 +116,9 @@ const I: ItemDef[] = [
   { id: 'scroll_yuanci', name: '元磁神光', type: 'scroll', tier: 5, price: 80000, desc: '天星双圣秘传，五行法宝克星，可短暂禁锢敌人法宝。', glyph: '术', scroll: { skill: 'yuanci' } },
 
   // ---------- 法器（炼气/筑基）----------
+  { id: 'item_shengxian', name: '升仙令', type: 'misc', tier: 2, price: 0, desc: '黄枫谷等七派发放的入门信物，持之可直接拜入黄枫谷。原著中韩立便是凭升仙令入的黄枫谷。', glyph: '令' },
+  { id: 'art_jinfu', name: '金蚨子母刃', type: 'artifact', tier: 2, price: 2600, desc: '一母九子的成套飞刃，母刃一出，子刃随行，原著中韩立早年倚仗的法器之一。', glyph: '刃', art: { kind: 'needle', reqRealm: 1, sense: 6, pieces: 10, power: 0.5, mp: 2, cd: 1.2, element: 'gold', color: '#ffd878' } },
+  { id: 'art_fuguang', name: '符宝·伏光剑', type: 'artifact', tier: 3, price: 5200, desc: '结丹修士将本命法宝之力封入符纸而成的符宝，可驱使数十次，威力远胜寻常法器。', glyph: '符', art: { kind: 'arrow', reqRealm: 1, sense: 20, pieces: 1, power: 6, mp: 20, cd: 5, element: 'gold', color: '#e6f0ff' } },
   { id: 'art_qingfeng', name: '青锋剑', type: 'artifact', tier: 0, price: 120, desc: '最普通的飞剑法器。', glyph: '剑', art: { kind: 'sword', reqRealm: 1, sense: 10, pieces: 1, power: 1.0, mp: 2, cd: 1.1, color: '#9ab8a8' } },
   { id: 'art_yinhui', name: '银辉剑', type: 'artifact', tier: 1, price: 600, desc: '上品飞剑法器，银光凛凛。', glyph: '剑', art: { kind: 'sword', reqRealm: 1, sense: 12, pieces: 1, power: 1.5, mp: 3, cd: 1.0, color: '#d8e0e8' } },
   { id: 'art_wulong', name: '乌龙夺', type: 'artifact', tier: 1, price: 500, desc: '乌光如龙，专破护体灵光。', glyph: '器', art: { kind: 'arrow', reqRealm: 1, sense: 12, pieces: 1, power: 3.2, mp: 8, cd: 3.2, color: '#404850' } },
