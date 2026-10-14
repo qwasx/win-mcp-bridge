@@ -261,6 +261,11 @@ export function SavePanel({ game, onClose }: { game: Game; onClose: () => void }
           </div>
         ))}
       </div>
+      <div className="sec-title">存档码<small>复制到别处保存，或在另一台设备导入（离线“云存档”）</small></div>
+      <div className="bd-actions">
+        <button className="ink-btn small" onClick={() => { game.save(0); const raw = localStorage.getItem('fanren_save_auto') ?? ''; const code = btoa(unescape(encodeURIComponent(raw))); navigator.clipboard?.writeText(code).then(() => game.toast('存档码已复制到剪贴板。', 'good'), () => prompt('复制以下存档码：', code)); }}>导出存档码</button>
+        <button className="ink-btn small ghost" onClick={() => { const code = prompt('粘贴存档码：'); if (!code) return; try { const raw = decodeURIComponent(escape(atob(code.trim()))); JSON.parse(raw); localStorage.setItem('fanren_save_3', raw); if (game.load('fanren_save_3')) { game.toast('导入成功（已写入存档三）。', 'good'); onClose(); } } catch { game.toast('存档码无效。', 'warn'); } }}>导入存档码</button>
+      </div>
     </Panel>
   );
 }

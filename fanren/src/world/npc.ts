@@ -455,8 +455,9 @@ export class NpcWorld {
       const gap = this.power(d) - pl;
       if (g.combat.safeAt(p.x, p.y) || g.combat.safeAt(a.st.x, a.st.y)) continue;
       if (this.hostileTo(d) && d.realm > 0 && !d.beauty && !d.stay) {
+        const novice = g.day < 420 && g.hero.realm <= 1 && g.hero.stage < 4 && d.grudge <= 0;   // 新手保护：开局一年内劫修少见且不会碾压
         if (gap >= -2 || d.grudge > 0) {
-          if (Math.random() < 0.5) {
+          if (Math.random() < (novice ? (gap > 2 ? 0 : 0.15) : 0.5)) {
             a.act = 'approach';
             a.bubble = { text: d.grudge > 0 ? '冤家路窄！今日便了结旧账！' : d.faction === 'demon' ? '桀桀……送上门的血食。' : '道友，留下储物袋，饶你不死！', t: 3.5 };
             if (g.life.vis({ x: a.st.x, y: a.st.y }) > 0.2) g.toast(`神识中：${d.name}（${this.realmText(d)}）向你疾驰而来，来者不善！`, 'warn');

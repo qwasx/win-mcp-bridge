@@ -178,6 +178,25 @@ export class Game {
   }
   emitModal() { this.modalListeners.forEach((f) => f()); }
   subscribeModal(f: () => void) { this.modalListeners.add(f); return () => { this.modalListeners.delete(f); }; }
+  /** 新手提示：每条只出现一次 */
+  hint(id: string, text: string) {
+    if (this.ws.hints.includes(id)) return;
+    this.ws.hints.push(id); this.toast(text, 'good');
+  }
+  private hintTick() {
+    const p = this.player, h = this.hero;
+    if (this.npcs.focus) this.hint('talk', '提示：按 T（或点击下方按钮）与身旁之人交谈。');
+    const l = this.ui?.nearby;
+    if (l && this.towns.canEnter(l)) this.hint('town', `提示：按 G 进入${l.name}——坊市、酒楼、客栈、传送阵${l.type === 'sect' ? '、拜入宗门' : ''}。`);
+    if (this.events.enc.some((e) => e.seen)) this.hint('enc', '提示：奇遇只在神识之内显现。走近后按 T 查看。');
+    if (Object.values(this.ws.hearts).some((s) => s.met)) this.hint('hearts', '提示：按 H 打开红颜录，查看好感与故事线索。');
+    if (this.ws.news.length) this.hint('chron', '提示：按 J 打开大事记——原著大事件会按年份发生，你可以改变结局。');
+    if (this.combat.enemies.some((e) => !e.dead && e.aggro && Math.hypot(e.x - p.x, e.y - p.y) < this.senseRadius)) this.hint('fight', '提示：数字键 1–9 施法，鼠标指向即瞄准；不动鼠标时自动锁定最近敌人。');
+    if (this.gatherTarget) this.hint('gather', '提示：按 E 采集神识中的灵物。');
+    if (C.bottleneck(h) !== 'none') this.hint('bottle', '提示：修为已满，按 C 打开角色面板冲关。');
+    if (h.realm === 1 && h.stage >= 5 && !this.ws.sect) this.hint('sect', '提示：炼气五层后可拜入黄枫谷等大宗门；持升仙令可直接入黄枫谷。');
+    if (this.ws.flags.invasion) this.hint('inv', '魔道入侵越国！在越国斩杀魔修削弱攻势，再前往黄枫谷破敌。');
+  }
   news(text: string, kind: 'canon' | 'rumor' | 'personal' = 'rumor') {
     this.ws.news.push({ day: Math.floor(this.day), text, kind });
     if (this.ws.news.length > 160) this.ws.news.splice(0, this.ws.news.length - 160);
@@ -524,7 +543,7 @@ export class Game {
     this.cam.y += (p.y - st.lift * 0.5 - this.cam.y) * Math.min(1, dt * 6);
 
     this.regionTimer -= dt;
-    if (this.regionTimer <= 0) { this.regionTimer = 0.35; this.checkRegion(); this.exploreCheck(this.nearbyLocation()); this.townAutoZoom(); }
+    if (this.regionTimer <= 0) { this.regionTimer = 0.35; this.checkRegion(); this.exploreCheck(this.nearbyLocation()); this.townAutoZoom(); if (!this.halted) this.hintTick(); }
     this.uiTimer -= dt;
     if (this.uiTimer <= 0) { this.uiTimer = 0.12; this.updateUI(); }
     this.saveTimer += dt;
@@ -858,7 +877,7 @@ export class Game {
       const t = e.target as HTMLElement;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
       const k = e.key.toLowerCase();
-      if (e.repeat && 'mfzecblpqrkthjg'.includes(k)) return;
+      if (e.repeat && 'mfzecblpqrkthjg?'.includes(k)) return;
       if (this.modal) return;
       this.input.keys.add(k);
       if (k === 'm') this.onOpenMap?.();
@@ -878,6 +897,7 @@ export class Game {
       if (k === 'g') this.enterTown();
       if (k === 'h') this.openModal({ kind: 'hearts' });
       if (k === 'j') this.openModal({ kind: 'chronicle' });
+      if (k === '?' || k === 'f1' || k === '/') { e.preventDefault(); this.openModal({ kind: 'help' }); }
       if (k === '=' || k === '+') this.zoomBy(1.2);
       if (k === '-') this.zoomBy(1 / 1.2);
       if (k.startsWith('arrow') || k === ' ') e.preventDefault();

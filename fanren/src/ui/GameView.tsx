@@ -179,7 +179,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
         </div>
 
         {/* 提示 */}
-        {showHelp && !isTouch && <div className="help-tip">WASD 移动 · Shift 疾行 · T 交谈 · G 进城 · H 红颜录 · J 大事记 · Z 打坐 · E 采集 · 1–9 施法（鼠标瞄准，否则自动锁定最近敌人）· K 法术书 · Q 神识外放 · R 敛息 · C 角色 · B 储物袋 · L 丹房 · P 闭关 · M 地图 · F 御剑（体验）</div>}
+        {showHelp && !isTouch && <div className="help-tip">WASD 移动 · Shift 疾行 · T 交谈 · G 进城 · H 红颜录 · J 大事记 · ? 指南 · Z 打坐 · E 采集 · 1–9 施法（鼠标瞄准，否则自动锁定最近敌人）· K 法术书 · Q 神识外放 · R 敛息 · C 角色 · B 储物袋 · L 丹房 · P 闭关 · M 地图 · F 御剑（体验）</div>}
         {ui.sitting && <div className="sit-banner"><div className="sb-t">打坐修炼中</div><div className="sb-s">光阴 ×4 · 每日 +{ui.expRate.toFixed(1)} 修为 · {ui.place}{ui.bottleneck !== 'none' ? ' · 已至瓶颈' : ''}</div></div>}
         {ui.pendingTalent && panel === '' && <button className="talent-alert" onClick={() => setPanel('char')}>逆天改命机缘已至——点此选择</button>}
         {(ui.gather || ui.gatherP >= 0) && !ui.sitting && panel === '' && (
@@ -231,6 +231,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
             <button className="round-btn small" onClick={() => { audio.sfx('open'); game.openModal({ kind: 'hearts' }); }}>缘<small>红颜</small></button>
             <button className="round-btn small" onClick={() => { audio.sfx('open'); game.openModal({ kind: 'chronicle' }); }}>记<small>大事</small></button>
             <button className="round-btn small" onClick={() => { click(); setPanel('settings'); }}>设<small>设置</small></button>
+            <button className="round-btn small" onClick={() => { audio.sfx('open'); game.openModal({ kind: 'help' }); }}>？<small>指南</small></button>
           </div>
         </div>
 

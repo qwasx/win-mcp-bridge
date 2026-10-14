@@ -266,7 +266,7 @@ input[type=range] { accent-color: var(--jade); width: 150px; }
 /* ================= 第二步：修炼与角色 ================= */
 .bar.exp.full > div { background: linear-gradient(90deg, #b8802a, #f0c850); animation: pulse 1.6s ease-in-out infinite; }
 .toast.good { border-left-color: #e2c98a; }
-.btn-grid { display: grid; grid-template-columns: repeat(3, 46px); gap: 8px; }
+.btn-grid { display: grid; grid-template-columns: repeat(5, 46px); gap: 8px; }
 .round-btn.small small { font-size: 9px; margin-top: 1px; }
 .round-btn.glow { box-shadow: 0 0 0 2px #f0c850, 0 0 16px 4px rgba(240, 200, 80, 0.6); animation: pulse 1.6s ease-in-out infinite; }
 .sit-banner { position: absolute; left: 50%; bottom: calc(150px + var(--safe-b)); transform: translateX(-50%); text-align: center; pointer-events: none; animation: fadeIn 0.6s ease; }
@@ -380,7 +380,7 @@ button.mini:disabled { opacity: 0.35; }
   .char-big-portrait { display: none; }
   .bag-detail { border-left: none; padding-left: 0; border-top: 1px dashed rgba(60, 50, 40, 0.3); padding-top: 10px; }
   .tp-cards { grid-template-columns: 1fr; }
-  .btn-grid { grid-template-columns: repeat(3, 40px); gap: 6px; }
+  .btn-grid { grid-template-columns: repeat(4, 40px); gap: 6px; }
   .sit-banner { bottom: calc(190px + var(--safe-b)); }
   .sit-banner .sb-t { font-size: 22px; }
   .gather-tip { bottom: calc(150px + var(--safe-b)); }
@@ -433,7 +433,7 @@ button.mini:disabled { opacity: 0.35; }
 @media (max-height: 520px) { .hotbar.pad { bottom: calc(110px + var(--safe-b)); grid-template-columns: repeat(3, 42px); gap: 4px; } .hotbar.pad .hb-slot { width: 42px; height: 42px; } }
 
 /* ================= 第四～六步：对话 / 城镇 / 拍卖 / 红颜录 / 大事记 ================= */
-.talk-tip { position: absolute; left: 50%; bottom: calc(150px + var(--safe-b)); transform: translateX(-50%); padding: 8px 18px; border-radius: 20px; border: 1px solid rgba(255, 200, 220, 0.7); background: rgba(40, 24, 30, 0.85); color: #fbe9ef; font-family: var(--body-font); font-size: 15px; cursor: pointer; display: flex; align-items: center; gap: 8px; animation: fadeUp 0.25s ease; z-index: 3; }
+.talk-tip { position: absolute; left: 50%; bottom: calc(196px + var(--safe-b)); transform: translateX(-50%); padding: 8px 18px; border-radius: 20px; border: 1px solid rgba(255, 200, 220, 0.7); background: rgba(40, 24, 30, 0.85); color: #fbe9ef; font-family: var(--body-font); font-size: 15px; cursor: pointer; display: flex; align-items: center; gap: 8px; animation: fadeUp 0.25s ease; z-index: 3; }
 .talk-tip kbd { border: 1px solid #f0c0d0; border-radius: 4px; padding: 0 6px; font-size: 12px; }
 .dlg-mask { position: fixed; inset: 0; z-index: 55; display: flex; align-items: flex-end; justify-content: center; padding: 12px 12px calc(18px + var(--safe-b)); background: linear-gradient(180deg, rgba(10, 8, 6, 0) 40%, rgba(10, 8, 6, 0.55)); animation: fadeIn 0.2s ease; }
 .dlg { position: relative; width: min(980px, 97vw); min-height: 220px; display: flex; gap: 18px; padding: 18px 24px 18px 18px; border-radius: 8px; color: var(--ink);

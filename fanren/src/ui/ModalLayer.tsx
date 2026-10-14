@@ -27,6 +27,7 @@ export function ModalLayer({ game }: { game: Game }) {
   if (m.kind === 'auction') return <AuctionPanel game={game} loc={m.loc} />;
   if (m.kind === 'hearts') return <HeartsPanel game={game} />;
   if (m.kind === 'chronicle') return <ChroniclePanel game={game} />;
+  if (m.kind === 'help') return <HelpPanel game={game} />;
   return null;
 }
 
@@ -328,6 +329,34 @@ function ChroniclePanel({ game }: { game: Game }) {
         </div>
       </div>
       <div className="hint">修为：{REALMS[game.hero.realm].name}　·　图例：红色为进行中的大事件（小地图上会闪烁标出战场）</div>
+    </Scroll>
+  );
+}
+
+// ---------------------------------------------------------------- 帮助
+export const VERSION = 'v0.7 · 第一～七步';
+function HelpPanel({ game }: { game: Game }) {
+  const [tab, setTab] = useState(0);
+  const T = ['操作', '修炼', '战斗', '人界', '神识'];
+  const body = [
+    <div className="keys" key={0}>
+      <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / 方向键 / 点击地面 移动　·　<kbd>Shift</kbd> 疾行<br />
+      <kbd>T</kbd> 交谈 / 查看奇遇　·　<kbd>G</kbd> 进城 / 入宗门　·　<kbd>H</kbd> 红颜录　·　<kbd>J</kbd> 大事记<br />
+      <kbd>Z</kbd> 打坐　·　<kbd>E</kbd> 采集　·　<kbd>C</kbd> 角色 / 冲关　·　<kbd>B</kbd> 储物袋　·　<kbd>L</kbd> 丹房　·　<kbd>P</kbd> 闭关<br />
+      <kbd>1</kbd>–<kbd>9</kbd> 施法　·　<kbd>K</kbd> 法术书　·　<kbd>Q</kbd> 神识外放　·　<kbd>R</kbd> 敛息<br />
+      <kbd>M</kbd> 世界地图　·　滚轮 / <kbd>+</kbd><kbd>-</kbd> 缩放　·　<kbd>?</kbd> 本帮助　·　<kbd>Esc</kbd> 关闭 / 设置<br />
+      对话中可按数字键选择选项，空格跳过打字效果。<br />
+      手机：左下摇杆移动，右下 3×3 法诀盘施法，双指缩放；交谈、进城等以屏幕按钮操作。
+    </div>,
+    <div className="hd-intro" key={1}>打坐（Z）时光阴 ×4，修为随灵根、功法、所在地灵气增长。修为满后遇小瓶颈需服丹冲关，大境界圆满后在角色面板冲击下一境界（筑基需筑基丹）。<br />掌天瓶每七日凝一滴绿液，可将灵草催熟百年。高年份灵草提高炼丹成功率。<br />闭关（P）可一次度过数月至十年，但人界大事不会等你。</div>,
+    <div className="hd-intro" key={2}>9 格快捷栏，法术与法器任意摆放。法术分凡 / 黄 / 玄 / 地 / 天五品，熟练度初学 → 圆满会改变形态。<br />异状连携：冰冻 + 雷、定身 + 火、燃烧 + 风、中毒 + 火……<br />倒下不会坐化：损失一成修为与少量物品，在最近城镇醒来。越阶挑战有险，名牌颜色提示强弱。</div>,
+    <div className="hd-intro" key={3}>人界约 450 人各有境界、宗门、性格与目标，会修炼、衰老、陨落，也会彼此斗法——你可以旁观、相助或捡漏。劫修专挑弱者下手，声望决定正魔两道对你的态度。<br />城镇：坊市、丹药铺、法器阁、符箓斋、酒楼、客栈、传送阵、拍卖会。宗门：俸禄、任务、藏经阁、晋升。<br />红颜八位，各有故事线；结为道侣后可同行助战。<br />原著大事件按年份发生（升仙大会、血色禁地、燕家堡、魔道入侵、虚天殿、坠魔谷），提前一年在酒楼与大事记中传闻。</div>,
+    <div className="hd-intro" key={4}>只有神识圈内的东西才是“真实”的——圈外是褪色的记忆水墨，看不到任何动静。奇遇、敌人、行人都要靠神识发现。<br />神识随境界与功法增长；大衍决、养魂木等会改变神识的样貌与范围。Q 外放神识（范围 ×2），R 敛息（范围缩小，但不易被更强者察觉）。<br />被更强的神识扫过时，圈边泛红、画面轻震——那意味着有人注意到你了。</div>,
+  ];
+  return (
+    <Scroll title="修仙指南" sub={<span>{VERSION}</span>} onClose={() => game.closeModal()} wide>
+      <div className="tabs">{T.map((t, i) => <button key={i} className={tab === i ? 'on' : ''} onClick={() => setTab(i)}>{t}</button>)}</div>
+      {body[tab]}
     </Scroll>
   );
 }

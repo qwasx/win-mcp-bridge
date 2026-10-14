@@ -36,4 +36,5 @@ export type Modal =
   | { kind: 'auction'; loc: LocDef }
   | { kind: 'sect' }
   | { kind: 'hearts' }
-  | { kind: 'chronicle' };
+  | { kind: 'chronicle' }
+  | { kind: 'help' };
