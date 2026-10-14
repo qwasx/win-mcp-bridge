@@ -1,0 +1,37 @@
+# 凡人修仙传 · 2D 同人（第一 · 二步）
+
+全部地图元素均由代码实时绘制（无贴图）：人物骨骼动画、山川、树木、宗门城镇、飞禽走兽、天气昼夜。
+仅对话/面板头像使用 AI 立绘。
+
+## 运行
+```bash
+npm install
+npm run dev        # http://localhost:5173
+npm run build      # 输出 dist/，可直接双击 index.html 运行
+```
+
+## 操作
+| 键 | 功能 |
+|---|---|
+| WASD / 方向键 / 点击地面 | 移动（Shift 疾行） |
+| Z | 打坐（光阴 ×4，积累修为） |
+| E | 采集神识范围内的灵草 / 矿脉 / 灵泉（点击灵物也可走过去采） |
+| C | 角色面板：属性、灵根、功法、寿元、冲关、逆天改命 |
+| B | 储物袋：服用丹药、掌天瓶催熟灵草 |
+| L | 丹房：按丹方炼丹，药龄越高成丹率越高 |
+| P | 闭关：一月 / 一年 / 十年 / 直到瓶颈 |
+| M | 世界地图　·　F 御剑（体验）　·　Esc 设置（存档/读档、天气、时辰） |
+
+## 代码结构
+- `src/gfx/character.ts` 7 头身骨骼角色：分件绘制、布料/发带物理、8 方向平滑转身，动作 idle/walk/run/fly/sit/cast/hit/dodge/gather（第三步战斗复用）
+- `src/gfx/mountain.ts` 程序化水墨山：青绿/浅绛/雪山/魔域/丹霞/海岛/丘陵/喀斯特，多层远近、皴笔、山脚云雾、峭壁、瀑布、山径、亭台、峰顶积雪
+- `src/gfx/tree.ts` 12 种树（松、柳、竹、枫、黄枫、梅、桃、柏、雪松、枯树、椰树、阔叶），四季变化
+- `src/gfx/building.ts` 殿、檐、塔、牌坊、台阶、城墙组合出各宗门/城镇/村落/港口，护山大阵
+- `src/gfx/sprites.ts` 位图 LRU 缓存 + 每帧限时生成
+- `src/world/terrain.ts` 人界地形、山脉、林带、河流道路、地形明暗
+- `src/world/life.ts` 鸟群、仙鹤、鹿兔、蝴蝶、萤火、鱼跃、舟船、行人商队、御剑修士
+- `src/world/weather.ts` 晴/雨/雷雨/雪/雾/风沙
+- `src/world/cultivation.ts` 修为、瓶颈、突破、天赋、寿元、背包、掌天瓶、炼丹
+- `src/world/nodes.ts` 采集点
+- `src/world/render.ts` 分层渲染、Y 排序、倒影、昼夜灯火
+- `tools/` Node 截图工具（@napi-rs/canvas）：`npx tsx tools/shot-game.ts out.png qixuan 0.8`
