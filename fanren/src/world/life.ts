@@ -243,7 +243,7 @@ class Walker extends Ent {
     this.st = new CharState(x, y);
     this.look = randomLook(Math.random, role);
     this.speed = cart ? 55 : rand(55, 85);
-    this.scale = 0.86;
+    this.scale = 1.04;
     this.pick();
   }
   private pick() {
@@ -416,11 +416,12 @@ export class Life {
       }
       // 行人：城镇附近
       if (this.every('walker', dt, 1.2) && this.count('walker') < 14) {
-        for (const l of LOCATIONS) {
+        for (let li = 0; li < LOCATIONS.length; li++) {
+          const l = LOCATIONS[li];
           if (l.type !== 'city' && l.type !== 'town' && l.type !== 'sect') continue;
           const lx = l.x * WORLD_SCALE, ly = l.y * WORLD_SCALE;
           if (lx < view.left - 800 || lx > view.right + 800 || ly < view.top - 800 || ly > view.bottom + 800) continue;
-          const zone = T.locZones.find((z) => z.id === l.id);
+          const zone = T.locZones[li];
           const r = zone ? Math.min(zone.rx, zone.ry * 1.4) * 1.1 : 600;
           const roles: NpcRole[] = l.type === 'sect' ? ['cultivator', 'cultivator', 'female', 'elder'] : ['farmer', 'merchant', 'scholar', 'female', 'guard', 'elder', 'monk', 'cultivator'];
           const a = Math.random() * TAU, rr = Math.random() * r;
@@ -451,19 +452,33 @@ export class Life {
     this.ents = this.ents.filter((e) => !e.dead && Math.abs(e.x - p.x) < vw * 2 + 3000 && Math.abs(e.y - p.y) < vh * 2 + 3000);
   }
 
+  /** 神识范围：圈外的一切动静都不可见（由渲染器每帧设置） */
+  sense = { x: 0, y: 0, R: 1e9 };
+  /** 实体在神识中的可见度 0–1（边缘柔和淡入） */
+  vis(e: { x: number; y: number }) {
+    const d = Math.hypot(e.x - this.sense.x, e.y - this.sense.y);
+    return clamp((this.sense.R - d) / 110, 0, 1);
+  }
+  private withVis(g: G, e: Ent, f: () => void) {
+    const a = this.vis(e);
+    if (a <= 0.01) return;
+    if (a >= 0.99) { f(); return; }
+    const ga = g.globalAlpha; g.globalAlpha = ga * a; f(); g.globalAlpha = ga;
+  }
   collectGround(out: Drawable[], view: { left: number; top: number; right: number; bottom: number }, t: number, dt: number) {
     for (const e of this.ents) {
       if (!e.drawGround) continue;
       if (e.x < view.left - 200 || e.x > view.right + 200 || e.y < view.top - 100 || e.y > view.bottom + 200) continue;
-      out.push({ y: e.y, draw: (g) => e.drawGround!(g, t, dt) });
+      if (this.vis(e) <= 0.01) continue;
+      out.push({ y: e.y, draw: (g) => this.withVis(g, e, () => e.drawGround!(g, t, dt)) });
     }
   }
-  drawShadows(g: G, t: number) { for (const e of this.ents) e.drawShadow?.(g, t); }
-  drawSky(g: G, t: number) { for (const e of this.ents) e.drawSky?.(g, t); }
+  drawShadows(g: G, t: number) { for (const e of this.ents) if (e.drawShadow) this.withVis(g, e, () => e.drawShadow!(g, t)); }
+  drawSky(g: G, t: number) { for (const e of this.ents) if (e.drawSky) this.withVis(g, e, () => e.drawSky!(g, t)); }
   drawGlow(g: G, t: number, night: number) {
     if (night < 0.05) return;
     g.save(); g.globalCompositeOperation = 'lighter';
-    for (const e of this.ents) if (e instanceof Firefly) e.glow(g, t, night, this.glowImg ?? undefined);
+    for (const e of this.ents) if (e instanceof Firefly) this.withVis(g, e, () => (e as Firefly).glow(g, t, night, this.glowImg ?? undefined));
     g.restore();
   }
 }

@@ -846,7 +846,8 @@ export function layoutLocation(loc: LocDef): LocLayout {
     }
   } else if (t === 'town') {
     const fort = loc.id === 'yanling' || loc.id === 'yejia';
-    const W = 560, D = 420;
+    const vil = !!loc.minor;
+    const W = vil ? 400 : 560, D = vil ? 300 : 420;
     if (grass) {
       const n = 10 + Math.floor(rnd() * 6);
       ground('plaza', 0, 0, 160, 110, { col: '#c8bc90' });
@@ -871,7 +872,7 @@ export function layoutLocation(loc: LocDef): LocLayout {
         add('hall', 0, -D * 0.25, { w: 170, d: 80, h: 34, tiers: loc.id === 'yejia' ? 2 : 1, ph: 10, lit: true });
         block(0, -D * 0.25, 190, 80);
       }
-      const n = 10 + Math.floor(rnd() * 8);
+      const n = vil ? 5 + Math.floor(rnd() * 4) : 10 + Math.floor(rnd() * 8);
       const roofs = ['#4a4e54', '#5a5048', '#6a5a48'];
       let placed = 0, tries = 0;
       const occ: { x: number; y: number; w: number }[] = [];
@@ -882,7 +883,7 @@ export function layoutLocation(loc: LocDef): LocLayout {
         if (occ.some((o) => Math.abs(o.x - x) < (o.w + 70) / 2 + 6 && Math.abs(o.y - y) < 60)) continue;
         const w = 56 + rnd() * 30;
         occ.push({ x, y, w });
-        const thatch = !fort && rnd() < 0.45;
+        const thatch = !fort && rnd() < (vil ? 0.8 : 0.45);
         if (thatch) add('hut', x, y, { w, lit: rnd() < 0.6, roof: rnd() < 0.5 ? '#b89a5a' : '#a8905a' });
         else add('house', x, y, { w, d: 38, h: 22, roof: roofs[Math.floor(rnd() * roofs.length)], lit: rnd() < 0.6, gable: rnd() < 0.4, chimney: rnd() < 0.4 });
         block(x, y, w, 30);
@@ -892,10 +893,11 @@ export function layoutLocation(loc: LocDef): LocLayout {
         placed++;
       }
       add('well', 30, 40);
-      if (loc.id === 'tainan') for (let k = 0; k < 10; k++) add('stall', (k % 5 - 2) * 60, 30 + Math.floor(k / 5) * 60, { col: ['#c84a3a', '#3a6a8a', '#c8a03a', '#5a8a4a', '#8a4a8a'][k % 5] });
+      if (vil) { /* 村落无集市 */ }
+      else if (loc.id === 'tainan') for (let k = 0; k < 10; k++) add('stall', (k % 5 - 2) * 60, 30 + Math.floor(k / 5) * 60, { col: ['#c84a3a', '#3a6a8a', '#c8a03a', '#5a8a4a', '#8a4a8a'][k % 5] });
       else add('stall', -40, 30, { col: '#c8a03a' });
-      L.flags.push({ x: 60, y: 30, color: '#c83a2a' });
-      treeRing(0, 0, W * 0.62, D * 0.62, 10, ['broad', 'willow', 'peach', 'bamboo', 'pine']);
+      if (!vil) L.flags.push({ x: 60, y: 30, color: '#c83a2a' });
+      treeRing(0, 0, W * 0.62, D * 0.62, vil ? 6 : 10, ['broad', 'willow', 'peach', 'bamboo', 'pine']);
     }
     L.gw = W + 300; L.gh = D + 300;
   } else if (t === 'isle') {

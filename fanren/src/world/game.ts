@@ -43,7 +43,7 @@ export interface UIState {
   explored: number;
   // 第二步
   hp: number; mp: number; exp: number; need: number; bottleneck: 'none' | 'small' | 'major';
-  sitting: boolean; age: number; maxLife: number; expRate: number; place: string;
+  sitting: boolean; concealed: boolean; age: number; maxLife: number; expRate: number; place: string;
   gather: { name: string; kind: string } | null; gatherP: number;
   weather: string; timeName: string; night: number;
   bottle: number; pendingTalent: boolean; dead: boolean; rootName: string;
@@ -66,6 +66,8 @@ export class Game {
   clock = DAY_CYCLE * 0.3; // 昼夜时钟（现实秒），开局为上午
   explored = new Uint8Array(FOG_W * FOG_H);
   revealAll = false;
+  debugSeeAll = false;            // 调试：无视神识
+  revealT = new Map<number, number>(); // 迷雾格揭开时间（用于淡出）
   destination: { x: number; y: number } | null = null;
   cam = { x: 0, y: 0, zoom: 0.8, targetZoom: 0.8 };
   input = { keys: new Set<string>(), joy: { x: 0, y: 0 }, run: false };
@@ -193,9 +195,57 @@ export class Game {
   // ---------- 派生数值 ----------
   get stats() { return C.heroStats(this.hero); }
   get sense() { return this.stats.sense; }
-  get senseRadius() {
+  /** 基础神识半径（世界像素） */
+  get baseSenseRadius() {
     const s = this.sense;
-    return s <= 0 ? 380 : 450 + 55 * Math.sqrt(s);
+    let r = s <= 0 ? 380 : 450 + 55 * Math.sqrt(s);
+    if (this.hero.gongfa === 'dayan') r *= 1.35; // 大衍决：神识大增
+    return r;
+  }
+  get senseRadius() {
+    let r = this.baseSenseRadius;
+    if (this.senseBurstT > 0) r *= 2;
+    if (this.concealed) r *= 0.6;
+    return r;
+  }
+  // ---------- 神识秘术 ----------
+  senseBurstT = 0; senseBurstCd = 0; concealed = false; senseAlarm = 0; private scanTimer = 20;
+  /** 神识外放：半径 ×2，持续 6 秒，消耗三成法力，冷却 30 秒 */
+  senseBurst() {
+    if (this.senseBurstCd > 0) { this.toast(`神识外放尚需调息 ${Math.ceil(this.senseBurstCd)} 息。`, 'warn'); return; }
+    if (this.hero.mp < 0.3) { this.toast('法力不足，无法外放神识。', 'warn'); return; }
+    this.hero.mp -= 0.3; this.senseBurstT = 6; this.senseBurstCd = 30; this.concealed = false;
+    this.renderer.sense.burst = 1;
+    this.toast('神识如潮水般向四方铺开……'); audio.sfx('whoosh');
+    this.revealAround(false);
+    this.updateUI();
+  }
+  /** 敛息：收敛气息与神识，半径 ×0.6，不易被他人神识察觉 */
+  toggleConceal() {
+    this.concealed = !this.concealed;
+    if (this.concealed) this.senseBurstT = 0;
+    this.toast(this.concealed ? '运转敛气诀，收敛周身气息。神识随之内收。' : '散去敛气诀，神识重新外放。');
+    this.updateUI();
+  }
+  private updateSense(dt: number) {
+    if (this.senseBurstT > 0) { this.senseBurstT -= dt; if (this.senseBurstT <= 0) this.toast('外放的神识缓缓收回。'); }
+    if (this.senseBurstCd > 0) this.senseBurstCd -= dt;
+    this.senseAlarm = Math.max(0, this.senseAlarm - dt * 0.5);
+    // 险地：偶有更强神识扫过（敛息可避）
+    this.scanTimer -= dt;
+    if (this.scanTimer <= 0) {
+      this.scanTimer = 18 + Math.random() * 20;
+      const p = this.player;
+      let danger = 0;
+      for (const l of LOCATIONS) {
+        const d = Math.hypot(l.x * WORLD_SCALE - p.x, l.y * WORLD_SCALE - p.y);
+        if (d < 4000) danger = Math.max(danger, (l.danger ?? 0) - this.hero.realm + 1);
+      }
+      if (danger >= 2 && Math.random() < 0.25 + danger * 0.1) {
+        if (this.concealed && Math.random() < 0.8) { this.toast('一道陌生神识自远处扫过，所幸你气息内敛，未被察觉。'); }
+        else { this.senseAlarm = 1; this.renderer.sense.alarm = 1; this.toast('一股远胜于你的神识扫过此地，你被盯上了！', 'warn'); audio.sfx('fail'); }
+      }
+    }
   }
   get canFlyNative() { return REALMS[this.hero.realm].fly; }
   get isFlying() { return this.player.flying || this.canFlyNative; }
@@ -253,6 +303,7 @@ export class Game {
   update(dt: number) {
     this.time += dt;
     this.terrain.frame++;
+    if (!this.paused && !this.hero.dead) this.updateSense(dt);
     const p = this.player, st = p.st, h = this.hero;
     this.cam.zoom += (this.cam.targetZoom - this.cam.zoom) * Math.min(1, dt * 10);
     const active = !this.paused && !h.dead;
@@ -484,7 +535,11 @@ export class Game {
     const y0 = Math.max(0, Math.floor((p.y - r) / FOG_CELL)), y1 = Math.min(FOG_H - 1, Math.floor((p.y + r) / FOG_CELL));
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       const cx = (x + 0.5) * FOG_CELL, cy = (y + 0.5) * FOG_CELL;
-      if (Math.hypot(cx - p.x, cy - p.y) < r + FOG_CELL * 0.45 || force && Math.hypot(cx - p.x, cy - p.y) < r + FOG_CELL) this.explored[y * FOG_W + x] = 1;
+      if (Math.hypot(cx - p.x, cy - p.y) < r + FOG_CELL * 0.45 || force && Math.hypot(cx - p.x, cy - p.y) < r + FOG_CELL) {
+        const i = y * FOG_W + x;
+        if (!this.explored[i] && !force) this.revealT.set(i, this.time);
+        this.explored[i] = 1;
+      }
     }
   }
 
@@ -511,9 +566,12 @@ export class Game {
   nearbyLocation(): LocDef | null {
     const p = this.player;
     let best: LocDef | null = null, bd = 1e9;
-    for (const l of LOCATIONS) {
-      const z = this.terrain.locZones.find((q) => q.id === l.id);
-      const d = Math.hypot(l.x * WORLD_SCALE - p.x, l.y * WORLD_SCALE - p.y);
+    const zones = this.terrain.locZones;
+    for (let i = 0; i < LOCATIONS.length; i++) {
+      const l = LOCATIONS[i], z = zones[i];
+      const dx = l.x * WORLD_SCALE - p.x, dy = l.y * WORLD_SCALE - p.y;
+      if (Math.abs(dx) > 4000 || Math.abs(dy) > 4000) continue;
+      const d = Math.hypot(dx, dy);
       const r = z ? Math.max(z.rx, z.ry) * 1.25 + 200 : (l.type === 'city' || l.type === 'sect' ? 620 : 520);
       if (d < r && d < bd) { bd = d; best = l; }
     }
@@ -548,7 +606,7 @@ export class Game {
       zoom: this.cam.targetZoom, px: p.x, py: p.y,
       explored: ex / this.explored.length,
       hp: h.hp, mp: h.mp, exp: h.exp, need: C.need(h), bottleneck: C.bottleneck(h),
-      sitting: p.sitting, age: h.age, maxLife: C.maxLife(h), expRate: C.expPerDay(h, pl.mult), place: pl.name,
+      sitting: p.sitting, concealed: this.concealed, age: h.age, maxLife: C.maxLife(h), expRate: C.expPerDay(h, pl.mult), place: pl.name,
       gather: gt ? { name: itemDef(gt.item).name, kind: gt.kind } : null, gatherP: this.gathering ? this.gathering.t / GATHER_TIME : -1,
       weather: WEATHER_NAME[this.weather.kind], timeName: this.timeName(), night: this.night,
       bottle: h.bottle.drops, pendingTalent: !!h.pendingTalent, dead: h.dead, rootName: C.rootDef(h).name,
@@ -605,7 +663,7 @@ export class Game {
       const t = e.target as HTMLElement;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
       const k = e.key.toLowerCase();
-      if (e.repeat && 'mfzecblp'.includes(k)) return;
+      if (e.repeat && 'mfzecblpqr'.includes(k)) return;
       this.input.keys.add(k);
       if (k === 'm') this.onOpenMap?.();
       if (this.paused || this.hero.dead) return;
@@ -616,6 +674,8 @@ export class Game {
       if (k === 'b') this.onPanel?.('bag');
       if (k === 'l') this.onPanel?.('alchemy');
       if (k === 'p') this.onPanel?.('seclude');
+      if (k === 'q') this.senseBurst();
+      if (k === 'r') this.toggleConceal();
       if (k === '=' || k === '+') this.zoomBy(1.2);
       if (k === '-') this.zoomBy(1 / 1.2);
       if (k.startsWith('arrow') || k === ' ') e.preventDefault();

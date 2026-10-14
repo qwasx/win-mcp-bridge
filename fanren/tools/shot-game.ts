@@ -11,7 +11,7 @@ const { Game } = await import('../src/world/game');
 const { Renderer } = await import('../src/world/render');
 const { LOCATIONS, WORLD_SCALE } = await import('../src/data/world');
 const { sprites } = await import('../src/gfx/sprites');
-sprites.frameMs = 1e9;
+sprites.frameMs = 1e9; (sprites as any).unlimited = true;
 const t0 = Date.now();
 const terrain = new Terrain(); terrain.build();
 console.log('terrain', Date.now() - t0, 'ms');
@@ -25,6 +25,9 @@ const frames = Number(process.argv[5] || 3);
 const phase = Number(process.argv[6] ?? 0.5);
 const weather = process.argv[7] || 'clear';
 const day = Number(process.argv[8] ?? 120);
+if (process.env.REALM) { g.hero.realm = +process.env.REALM; (g.hero as any).stage = 0; }
+if (process.env.TREAS) (g.hero as any).treasures = process.env.TREAS.split(",");
+if (process.env.GONGFA) (g.hero as any).gongfa = process.env.GONGFA;
 g.teleport(x, y);
 g.cam.zoom = g.cam.targetZoom = zoom;
 g.day = day;
@@ -37,6 +40,9 @@ cv.getBoundingClientRect = () => ({ left: 0, top: 0, width: CW, height: CH });
 g.canvas = cv;
 g.renderer = new Renderer(g, cv);
 (g as any).paused = false;
+if (process.env.BURST) { g.senseBurstT = 99; g.renderer.sense.burst = 1; }
+if (process.env.CONCEAL) g.concealed = true;
+if (process.env.ALARM) { g.renderer.sense.alarm = 1.5; }
 const t1 = Date.now();
 for (let i = 0; i < frames; i++) {
   g.update(1 / 30);

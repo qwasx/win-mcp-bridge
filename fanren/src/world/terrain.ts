@@ -239,8 +239,8 @@ export class Terrain {
     const pairs = new Set<string>();
     this.roads = [];
     for (const a of nodes) {
-      const near = nodes.filter((b) => b !== a).map((b) => ({ b, d: Math.hypot(a.x - b.x, a.y - b.y) }))
-        .filter((o) => o.d < 95).sort((u, v) => u.d - v.d).slice(0, 3);
+      const near = nodes.filter((b) => b !== a && (a.minor || !b.minor)).map((b) => ({ b, d: Math.hypot(a.x - b.x, a.y - b.y) }))
+        .filter((o) => o.d < (a.minor ? 40 : 95)).sort((u, v) => u.d - v.d).slice(0, a.minor ? (a.type === 'town' ? 2 : 1) : 3);
       for (const { b, d } of near) {
         const key = a.id < b.id ? a.id + '|' + b.id : b.id + '|' + a.id;
         if (pairs.has(key)) continue;
@@ -779,14 +779,16 @@ export class Terrain {
       if (s.cold > 0.62) dens = 0.12 + s.forest * 0.5;
       if (nearW) dens += 0.25;
       if (s.elev > 0.6) dens *= 0.35;
+      dens *= 0.42;                                   // 第三步：野外树木大幅减少，留出开阔田野
+      if (this.inLocZone(gcx, gcy, 900)) dens *= 0.3; // 城镇宗门周边空旷
       if (h3 > dens) continue;
       const island = !pointInPoly(gcx / WORLD_SCALE, gcy / WORLD_SCALE, MAINLAND);
       const zone = this.inLocZone(gcx, gcy, 2600)?.id === 'huangfeng' ? 'ymaple' : undefined;
-      const R = (120 + h4 * 300 + s.forest * 260) * (s.arid > 0.6 ? 0.5 : 1);
+      const R = (90 + h4 * 230 + s.forest * 180) * (s.arid > 0.6 ? 0.5 : 1);
       const sp1 = pickSpecies(h4, { ...s, nearWater: nearW, island, zone });
       const sp2 = pickSpecies(hash2(gx, gy, 205), { ...s, nearWater: nearW, island, zone });
-      const spacing = s.forest > 0.5 ? 62 : 85;
-      const n = Math.min(90, Math.max(1, Math.round((Math.PI * R * R) / (spacing * spacing) * (0.45 + s.forest * 0.6))));
+      const spacing = s.forest > 0.5 ? 74 : 100;
+      const n = Math.min(42, Math.max(1, Math.round((Math.PI * R * R) / (spacing * spacing) * (0.45 + s.forest * 0.6))));
       const rnd = mulberry32((gx * 73856093) ^ (gy * 19349663) ^ 0x7777);
       for (let i = 0; i < n; i++) {
         const a = rnd() * Math.PI * 2, rr = Math.sqrt(rnd()) * R;
@@ -794,7 +796,7 @@ export class Terrain {
         const hv = rnd(), hs = rnd(), hf = rnd(), hp = rnd(), hsp = rnd();
         if (!inChunk(x, y)) continue;
         if (!this.isLand(x, y)) continue;
-        if (this.onRoad(x, y) || this.inLocZone(x, y, 60)) continue;
+        if (this.onRoad(x, y) || this.inLocZone(x, y, 260)) continue;
         const ss = this.sample(x, y);
         if (ss.elev > 0.62 && hsp < 0.8) continue;
         let sp: Species = hsp < 0.72 ? sp1 : sp2;

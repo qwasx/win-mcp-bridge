@@ -3,7 +3,7 @@
 import type { Game } from './game';
 import { FOG_CELL, FOG_W, FOG_H } from './game';
 import { CHUNK, Deco, TreeDeco, MtnDeco } from './terrain';
-import { LOCATIONS, LocDef, WORLD_SCALE, BIG_LABELS } from '../data/world';
+import { LOCATIONS, LocDef, WORLD_SCALE, WORLD_W, WORLD_H, BIG_LABELS } from '../data/world';
 import { hash2, clamp } from '../core/rng';
 import { sprites, resBucket, Spr } from '../gfx/sprites';
 import { makeTree, Season } from '../gfx/tree';
@@ -12,9 +12,12 @@ import { layoutLocation, renderPiece, renderGround, LOC_SCALE, LocLayout } from 
 import { drawCharacter } from '../gfx/character';
 import { drawNode } from './nodes';
 import type { Drawable } from './life';
+import { SenseFx, senseMods } from './sense';
+import { REALMS } from '../data/realms';
 
 const LOC_SEAL: Record<string, string> = { city: '城', town: '镇', sect: '宗', danger: '险', secret: '秘', isle: '岛' };
 const LOC_SEAL_COLOR: Record<string, string> = { city: '#9a3b2c', town: '#8a6a3a', sect: '#2f6b5e', danger: '#5a1f2a', secret: '#3a5a8a', isle: '#2f6a80' };
+export const PLAYER_SCALE = 1.12;
 export const TREE_K = 0.76; // 野外树木整体比例
 const SP_INDEX: Record<string, number> = { pine: 1, broad: 2, willow: 3, bamboo: 4, maple: 5, ymaple: 6, plum: 7, peach: 8, cypress: 9, snowpine: 10, dead: 11, palm: 12 };
 
@@ -41,6 +44,9 @@ export class Renderer {
   private lastCam = { x: 0, y: 0 };
   private Z = 1; private ox = 0; private oy = 0;
   stats = { decos: 0, trees: 0, mtns: 0, ms: 0 };
+  sense = new SenseFx();
+  senseMods: string[] = [];
+  private modsT = 0;
 
   constructor(game: Game, canvas: HTMLCanvasElement) {
     this.game = game; this.canvas = canvas;
@@ -62,7 +68,7 @@ export class Renderer {
     this.H = this.canvas.clientHeight || window.innerHeight;
     this.canvas.width = Math.round(this.W * this.dpr);
     this.canvas.height = Math.round(this.H * this.dpr);
-    if (this.atmo) { this.atmo.width = Math.ceil(this.W * Renderer.AS); this.atmo.height = Math.ceil(this.H * Renderer.AS); }
+    if (this.atmo) { this.atmo.width = Math.ceil(this.W * Renderer.AS) + 2; this.atmo.height = Math.ceil(this.H * Renderer.AS) + 2; }
     this.overlayKey = '';
   }
 
@@ -165,7 +171,7 @@ export class Renderer {
     const t0 = performance.now();
     const { ctx, game } = this;
     this.adapt(dt);
-    sprites.frameMs = game.time < 2 ? 28 : 7; // 开场预热：多生成一些位图
+    if (!sprites.unlimited) sprites.frameMs = game.time < 2 ? 28 : 7; // 开场预热：多生成一些位图
     sprites.beginFrame();
     const z = game.cam.zoom;
     const W = this.W, H = this.H, dpr = this.dpr;
@@ -179,7 +185,8 @@ export class Renderer {
     ctx.fillStyle = '#e9dfc6';
     ctx.fillRect(0, 0, W, H);
 
-    const camX = game.cam.x, camY = game.cam.y;
+    const sh = this.sense.alarm > 0.3 ? (this.sense.alarm - 0.3) * 5 / z : 0;
+    const camX = game.cam.x + (sh ? Math.sin(game.time * 47) * sh : 0), camY = game.cam.y + (sh ? Math.cos(game.time * 53) * sh : 0);
     const left = camX - W / 2 / z, top = camY - H / 2 / z, right = camX + W / 2 / z, bottom = camY + H / 2 / z;
     this.Z = z * dpr; this.ox = W * dpr / 2 - camX * this.Z; this.oy = H * dpr / 2 - camY * this.Z;
     this.world();
@@ -197,7 +204,7 @@ export class Renderer {
     order.sort((a, b) => a[2] - b[2]);
     let missing = 0;
     for (const [cx, cy] of order) {
-      if (cx < 0 || cy < 0 || cx * CHUNK > 100000 || cy * CHUNK > 70000) continue;
+      if (cx < 0 || cy < 0 || cx * CHUNK > WORLD_W || cy * CHUNK > WORLD_H) continue;
       let ch = T.getChunk(cx, cy, false);
       if (!ch && builds < maxBuilds) { ch = T.getChunk(cx, cy, true); builds++; }
       if (!ch) { missing++; continue; }
@@ -216,7 +223,7 @@ export class Renderer {
     const lodMax = z < 0.3 ? 0 : z < 0.45 ? 1 : 2;
     let nTrees = 0, nM = 0, nD = 0;
     for (let cy = cy0 - 1; cy <= cy1 + 2; cy++) for (let cx = cx0 - 1; cx <= cx1 + 1; cx++) {
-      if (cx < 0 || cy < 0 || cx * CHUNK > 100000 || cy * CHUNK > 70000) continue;
+      if (cx < 0 || cy < 0 || cx * CHUNK > WORLD_W || cy * CHUNK > WORLD_H) continue;
       const ds = T.getDecos(cx, cy);
       for (const d of ds) {
         const vis = !(d.x + d.w / 2 < left || d.x - d.w / 2 > right || d.y - d.h > bottom + 20 || d.y < top - 20);
@@ -285,7 +292,13 @@ export class Renderer {
     }
 
     // ---------- 5. 采集点（仅神识内可见）----------
-    const p = game.player, R = game.senseRadius;
+    const p = game.player;
+    this.modsT -= dt;
+    if (this.modsT <= 0) { this.modsT = 1; this.senseMods = senseMods(game.hero as any); this.sense.warm(game.hero.realm, this.senseMods); }
+    this.sense.hidden += ((game.concealed ? 1 : 0) - this.sense.hidden) * Math.min(1, dt * 3);
+    this.sense.update(dt, game.senseRadius);
+    const R = this.sense.dispR;
+    game.life.sense.x = p.x; game.life.sense.y = p.y; game.life.sense.R = game.revealAll && game.debugSeeAll ? 1e9 : R;
     for (const n of game.nodes.inRect(p.x - R, p.y - R, p.x + R, p.y + R)) {
       if (!game.nodes.available(n, game.day)) continue;
       const d = Math.hypot(n.x - p.x, n.y - p.y);
@@ -311,7 +324,7 @@ export class Renderer {
     this.drawPlayerGhost();
 
     // 炊烟
-    for (const l of visibleLocs) { const L = this.layout(l); for (const s of L.smoke) this.drawSmoke(l.x * WORLD_SCALE + s.x * LOC_SCALE, l.y * WORLD_SCALE + s.y * LOC_SCALE, t, hash2(s.x, s.y, 3)); }
+    for (const l of visibleLocs) { const L = this.layout(l); for (const s of L.smoke) if (Math.hypot(l.x * WORLD_SCALE + s.x * LOC_SCALE - p.x, l.y * WORLD_SCALE + s.y * LOC_SCALE - p.y) < R) this.drawSmoke(l.x * WORLD_SCALE + s.x * LOC_SCALE, l.y * WORLD_SCALE + s.y * LOC_SCALE, t, hash2(s.x, s.y, 3)); }
 
     // ---------- 7. 护山大阵 ----------
     for (const b of barriers) this.drawBarrier(b.L, b.x, b.y, t);
@@ -359,9 +372,11 @@ export class Renderer {
       for (const l of visibleLocs) {
         const L = this.layout(l), lx = l.x * WORLD_SCALE, ly = l.y * WORLD_SCALE;
         L.lights.forEach((li, i) => {
+          const vis = clamp((R - Math.hypot(lx + li.x * LOC_SCALE - p.x, ly + li.y * LOC_SCALE - p.y)) / 120, 0, 1);
+          if (vis <= 0) return;
           const fl = 0.85 + 0.15 * Math.sin(t * 7 + i * 1.7) * Math.sin(t * 3.1 + i);
           const rr = li.r * LOC_SCALE * 2.4 * fl;
-          ctx.globalAlpha = night * 0.75;
+          ctx.globalAlpha = night * 0.75 * vis;
           ctx.drawImage(this.glow, lx + li.x * LOC_SCALE - rr, ly + li.y * LOC_SCALE - rr * 0.8, rr * 2, rr * 1.6);
         });
       }
@@ -372,9 +387,16 @@ export class Renderer {
       game.life.drawGlow(ctx, t, night);
     }
 
+    // ---------- 9.5 神识之外：记忆水墨（褪色、留白，不见动静）----------
+    if (!(game.revealAll && game.debugSeeAll)) {
+      const sx = (W / 2 + (p.x - camX) * z) * dpr, sy = (H / 2 + (p.y - camY) * z) * dpr;
+      this.sense.drawMemory(ctx, sx, sy, R * z * dpr, this.canvas.width, this.canvas.height, this.lowered >= 1);
+      this.world();
+    }
+
     // ---------- 10. 氛围层 ----------
     this.drawAtmosphere(left, top, right, bottom, dt);
-    ctx.drawImage(this.atmo, left, top, right - left, bottom - top);
+    ctx.drawImage(this.atmo, this.atmoRect.x, this.atmoRect.y, this.atmoRect.w, this.atmoRect.h);
 
     // ---------- 11. 名牌 ----------
     for (const l of visibleLocs) {
@@ -640,13 +662,13 @@ export class Renderer {
       const a = st.yaw;
       this.particles.push({ x: p.x - Math.sin(a) * 30 + (Math.random() - 0.5) * 20, y: p.y - lift - Math.cos(a) * 10, vx: -Math.sin(a) * 40, vy: -Math.cos(a) * 20, life: 0, max: 0.6 + Math.random() * 0.5, size: 3 + Math.random() * 4, color: Math.random() < 0.5 ? '120,230,170' : '200,255,220' });
     }
-    drawCharacter(ctx, p.look, st, 0.92, dt);
+    drawCharacter(ctx, p.look, st, PLAYER_SCALE, dt);
   }
   private drawPlayerGhost() {
     const { ctx, game } = this;
     const p = game.player;
     ctx.save();
-    drawCharacter(ctx, p.look, p.st, 0.92, 0, { ghost: true, alpha: 0.28 });
+    drawCharacter(ctx, p.look, p.st, PLAYER_SCALE, 0, { ghost: true, alpha: 0.28 });
     ctx.restore();
   }
 
@@ -749,36 +771,24 @@ export class Renderer {
 
   private drawSense() {
     const { ctx, game } = this;
-    const p = game.player, R = game.senseRadius, z = game.cam.zoom, t = game.time;
-    ctx.save();
-    const ig = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
-    ig.addColorStop(0, 'rgba(160,230,210,0.0)'); ig.addColorStop(0.85, 'rgba(160,230,210,0.04)'); ig.addColorStop(1, 'rgba(120,210,190,0.10)');
-    ctx.fillStyle = ig; ctx.beginPath(); ctx.arc(p.x, p.y, R, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = 'rgba(60,130,115,0.5)'; ctx.lineWidth = 2.5 / z;
-    ctx.beginPath(); ctx.arc(p.x, p.y, R, 0, Math.PI * 2); ctx.stroke();
-    ctx.strokeStyle = 'rgba(70,150,130,0.6)'; ctx.lineWidth = 5 / z; ctx.lineCap = 'round';
-    for (let i = 0; i < 4; i++) {
-      const a = t * 0.25 + (i * Math.PI) / 2;
-      ctx.beginPath(); ctx.arc(p.x, p.y, R + 10 / z, a, a + 0.32); ctx.stroke();
-    }
-    const period = 4.5, ph = (t % period) / period;
-    ctx.strokeStyle = `rgba(110,200,180,${0.4 * (1 - ph)})`; ctx.lineWidth = (3 + 6 * (1 - ph)) / z;
-    ctx.beginPath(); ctx.arc(p.x, p.y, R * ph, 0, Math.PI * 2); ctx.stroke();
-    ctx.restore();
+    const p = game.player;
+    const tier = Math.min(5, game.hero.realm);
+    this.sense.draw(ctx, p.x, p.y, tier, this.senseMods, game.time, game.cam.zoom);
   }
 
+  atmoRect = { x: 0, y: 0, w: 0, h: 0 };
   private drawAtmosphere(left: number, top: number, right: number, bottom: number, dt: number) {
     const { game } = this;
     const a = this.atmoCtx, AW = this.atmo.width, AH = this.atmo.height;
-    const k = AW / (right - left);
+    const k = (AW - 2) / (right - left);
+    // 对齐到氛围层像素网格，避免低分辨率层随镜头移动而闪烁
+    left = Math.floor(left * k) / k; top = Math.floor(top * k) / k;
+    right = left + AW / k; bottom = top + AH / k;
+    this.atmoRect.x = left; this.atmoRect.y = top; this.atmoRect.w = AW / k; this.atmoRect.h = AH / k;
     a.setTransform(1, 0, 0, 1, 0, 0);
     a.clearRect(0, 0, AW, AH);
     a.setTransform(k, 0, 0, k, -left * k, -top * k);
     a.imageSmoothingEnabled = true;
-    const p = game.player, R = game.senseRadius;
-    const rg = a.createRadialGradient(p.x, p.y, R * 0.92, p.x, p.y, R * 1.6);
-    rg.addColorStop(0, 'rgba(30,36,34,0)'); rg.addColorStop(1, 'rgba(30,36,34,0.2)');
-    a.fillStyle = rg; a.fillRect(left, top, right - left, bottom - top);
     const fieldW = 9000, fieldH = 6000;
     const clouds: [number, number, number][] = [];
     const wind = 1 + game.weather.wind;
@@ -797,7 +807,15 @@ export class Renderer {
       const t = game.time;
       a.globalAlpha = 0.97;
       for (let fy = fy0; fy <= fy1; fy++) for (let fx = fx0; fx <= fx1; fx++) {
-        if (game.explored[fy * FOG_W + fx]) continue;
+        let fa = 0.97;
+        if (game.explored[fy * FOG_W + fx]) {
+          const rt = game.revealT.get(fy * FOG_W + fx);
+          if (rt === undefined) continue;
+          const k2 = (game.time - rt) / 1.8;
+          if (k2 >= 1) { game.revealT.delete(fy * FOG_W + fx); continue; }
+          fa = 0.97 * (1 - k2 * k2 * (3 - 2 * k2));
+        }
+        a.globalAlpha = fa;
         const h1 = hash2(fx, fy, 31), h2 = hash2(fx, fy, 32);
         const s = FOG_CELL * (2.0 + h1 * 0.5);
         const x = (fx + 0.5) * FOG_CELL + (h2 - 0.5) * 300 + Math.sin(t * 0.15 + h1 * 6) * 60;

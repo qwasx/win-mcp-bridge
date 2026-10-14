@@ -17,6 +17,7 @@ export class SpriteCache {
   budgetPx: number;
   private frameStart = 0; private builtThisFrame = 0;
   frameMs = 7;
+  unlimited = false;
   pending = 0;
 
   constructor(budgetPx = 26e6) { this.budgetPx = budgetPx; }

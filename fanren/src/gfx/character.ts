@@ -13,7 +13,9 @@ export interface Look {
   build: number;           // 肩宽倍率
   skin: string;
   hair: string;
-  hairStyle: 'bun' | 'crown' | 'ponytail' | 'long' | 'twin' | 'halfup' | 'bald';
+  hairStyle: 'bun' | 'crown' | 'ponytail' | 'long' | 'twin' | 'halfup' | 'updo' | 'bald';
+  bangs?: boolean;         // 刘海
+  pin?: 'gold' | 'jade' | 'flower'; // 发簪 / 步摇
   robe: string;            // 外袍
   inner: string;           // 内衫领口
   trim: string;            // 镶边
@@ -321,6 +323,24 @@ function solve(p: Pose, look: Look): Skel {
     }
   }
   return { pelvis, chest, neck, head, up, lSh, rSh, lEl, rEl, lWr, rWr, lHa, rHa, lHip, rHip, lKn, rKn, lAn, rAn, lToe, rToe, sw, hw, ww, td };
+}
+
+// 头部轮廓点（局部坐标）
+const HEAD_PTS: Record<string, [number, number, number][]> = {};
+function headPts(fem: boolean) {
+  const key = fem ? 'f' : 'm';
+  if (HEAD_PTS[key]) return HEAD_PTS[key];
+  const pts: [number, number, number][] = [];
+  for (const el of [-0.4, -0.15, 0.15, 0.45, 0.8, 1.15, 1.42]) for (let i = 0; i < 16; i++) {
+    const az = (i / 16) * Math.PI * 2;
+    pts.push([4.75 * 1.04 * Math.cos(el) * Math.sin(az), 1 + 5.8 * 1.04 * Math.sin(el), 5.3 * 1.04 * Math.cos(el) * Math.cos(az) - 0.3]);
+  }
+  pts.push([0, 7.05, -0.3]);
+  const jx = fem ? 0.9 : 1;
+  for (const sx of [1, -1]) pts.push([sx * 4.35 * jx, -1.6, 1.3], [sx * 3.95 * jx, -3.4, 1.7], [sx * 3.0 * jx, -5.0, 2.5], [sx * 1.55 * jx, -6.25, 3.45], [sx * 3.9, -2.8, -1.4], [sx * 2.6, -4.2, -2.3]);
+  pts.push([0, fem ? -6.6 : -6.8, 3.9], [0, -2.4, 5.55]);
+  HEAD_PTS[key] = pts;
+  return pts;
 }
 
 function convexHull(pts: { x: number; y: number }[]) {
@@ -740,147 +760,423 @@ export function drawCharacter(ctx: CanvasRenderingContext2D, look: Look, st: Cha
     parts.push({ z: a.z < torsoZ - 2.2 ? Math.min(a.z, torsoZ - 2.5) : torsoZ + 0.4 + (a.z - torsoZ) * 0.01, f: a.f });
   }
 
-  // 披帛（女修）
+  // 披帛（女修）：从背后绕过双臂，自肘弯垂落，随风飘曳
   if (look.shawl) {
-    const lS = P(add(sk.lSh, v(0, -2, -2))), rS = P(add(sk.rSh, v(0, -2, -2)));
-    const s1 = strand('shawlL', 7, 5, lS.x, lS.y, 2.8, 0.9), s2 = strand('shawlR', 7, 5, rS.x, rS.y, 2.8, 0.9);
+    const lE = P(add(sk.lEl, v(1.5, -1, -1))), rE = P(add(sk.rEl, v(-1.5, -1, -1)));
+    const s1 = strand('shawlL', 8, 4.2, lE.x, lE.y, 1.4, 0.75), s2 = strand('shawlR', 8, 4.2, rE.x, rE.y, 1.4, 0.75);
+    const lB = P(add(sk.lSh, v(-1, -3, -sk.td - 0.5))), rB = P(add(sk.rSh, v(1, -3, -sk.td - 0.5)));
+    const mid = P(add(sk.chest, v(0, -11, -sk.td - 2)));
     const zb = P(add(sk.chest, v(0, 0, -sk.td - 2))).z;
+    const col = rgba(look.shawl, 0.72), edge = rgba(shade(look.shawl, -0.35), 0.55);
     parts.push({ z: zb, f: () => {
-      g.strokeStyle = rgba(look.shawl!, 0.85); g.lineWidth = 2.4 * S;
-      g.beginPath(); g.moveTo(lS.x, lS.y); g.quadraticCurveTo((lS.x + rS.x) / 2, Math.max(lS.y, rS.y) + 6 * S, rS.x, rS.y); g.stroke();
+      // 背后的弧
+      g.strokeStyle = col; g.lineWidth = 2.2 * S;
+      g.beginPath(); g.moveTo(lE.x, lE.y); g.quadraticCurveTo(lB.x, lB.y, mid.x, mid.y); g.quadraticCurveTo(rB.x, rB.y, rE.x, rE.y); g.stroke();
     } });
-    parts.push({ z: torsoZ + 1.5, f: () => { ribbon(s1, 2.4, 2.0, rgba(look.shawl!, 0.88), false); ribbon(s2, 2.4, 2.0, rgba(look.shawl!, 0.88), false); } });
+    const flow = (s: Strand, ph: number) => {
+      // 带 S 形摆动的轻纱
+      const n = s.n; const L: [number, number][] = [], R: [number, number][] = [];
+      for (let i = 0; i < n; i++) {
+        const i0 = Math.max(0, i - 1), i1 = Math.min(n - 1, i + 1);
+        const dx = s.x[i1] - s.x[i0], dy = s.y[i1] - s.y[i0], d = Math.hypot(dx, dy) || 1;
+        const t = i / (n - 1);
+        const wob = Math.sin(t * 5 + st.t * 2.2 + ph) * 1.6 * S * t;
+        const w = (1.5 - 0.5 * t) * S * (0.6 + 0.4 * Math.abs(Math.cos(t * 4 + st.t * 1.7 + ph)));
+        const cx = s.x[i] - dy / d * wob, cy = s.y[i] + dx / d * wob;
+        L.push([cx - dy / d * w, cy + dx / d * w]); R.push([cx + dy / d * w, cy - dx / d * w]);
+      }
+      g.beginPath(); g.moveTo(L[0][0], L[0][1]);
+      for (let i = 1; i < n; i++) g.quadraticCurveTo(L[i - 1][0], L[i - 1][1], (L[i - 1][0] + L[i][0]) / 2, (L[i - 1][1] + L[i][1]) / 2);
+      g.lineTo(L[n - 1][0], L[n - 1][1]); g.lineTo(R[n - 1][0], R[n - 1][1]);
+      for (let i = n - 2; i >= 0; i--) g.quadraticCurveTo(R[i + 1][0], R[i + 1][1], (R[i + 1][0] + R[i][0]) / 2, (R[i + 1][1] + R[i][1]) / 2);
+      g.closePath(); g.fillStyle = col; g.fill(); g.strokeStyle = edge; g.lineWidth = Math.max(0.3, 0.3 * S); g.stroke();
+    };
+    const zl = (P(sk.lEl).z + P(sk.lWr).z) / 2 + 0.8, zr = (P(sk.rEl).z + P(sk.rWr).z) / 2 + 0.8;
+    parts.push({ z: zl, f: () => flow(s1, 0) });
+    parts.push({ z: zr, f: () => flow(s2, 1.7) });
   }
 
-  // ---------- 头部 ----------
-  const hairBackZ = P(add(sk.head, v(0, 0, -6))).z;
-  const longHair = look.hairStyle === 'long' || look.hairStyle === 'halfup' || look.hairStyle === 'twin' || (look.sex === 'f' && look.hairStyle !== 'bald');
-  if (longHair) {
-    const hb = P(add(sk.head, v(0, -1, -4.5)));
-    const s = strand('hairLong', 6, look.sex === 'f' ? 6.2 : 5.2, hb.x, hb.y, 1.6, 1.1);
+  // ---------- 头部（3D 头型 + 发际线投影 + 五官）----------
+  const fem = look.sex === 'f';
+  const hk = fem ? 0.93 : 1;
+  const hyaw = pose.headYaw, chy = Math.cos(hyaw), shy = Math.sin(hyaw);
+  const Yh = yaw + hyaw, cY = Math.cos(Yh), sY = Math.sin(Yh);
+  const HP = (x: number, y: number, z: number): P2 => {
+    x *= hk; y *= hk; z *= hk;
+    return P(add(sk.head, v(x * chy + z * shy, y, -x * shy + z * chy)));
+  };
+  const visN = (nx: number, ny: number, nz: number) => { const l = Math.hypot(nx, ny, nz) || 1; return (ny * SP + (-nx * sY + nz * cY) * CP) / l; };
+  const style = look.hairStyle;
+  const bald = style === 'bald';
+  const drape = fem ? style !== 'bald' && style !== 'updo' : style === 'long' || style === 'halfup';
+  const blink = pose.eyes > 0.5 && ((st.t * 0.9 + st.seed) % 4.3) < 0.13;
+  // 头部表面点（椭球颅骨，下部收窄到后颈）
+  const surf = (a: number, y: number, inf = 1) => {
+    const yy = Math.max(-2.2, Math.min(y, 6.75));
+    const f = Math.sqrt(Math.max(0.04, 1 - ((yy - 1) / 5.8) ** 2));
+    let rx = 4.75 * f * inf, rz = 5.3 * f * inf;
+    if (y < -2.2) { const k = Math.max(0.6, 1 + (y + 2.2) * 0.1); rx *= k; rz *= k; }
+    const x = Math.sin(a) * rx, z = Math.cos(a) * rz - 0.3;
+    return { x, y, z, n: visN(x / 22.6, (yy - 1) / 33.6, (z + 0.3) / 28.1) };
+  };
+  // 发际线高度（φ=0 正前方）
+  const hairline = (a: number) => {
+    const t = Math.abs(a);
+    let y = t < 0.9 ? 3.25 - t / 0.9 * 1.25 : t < 1.6 ? 2.0 - (t - 0.9) / 0.7 * 1.1 : 0.9 - (t - 1.6) / (Math.PI - 1.6) * 5.1;
+    if (drape && t > 1.15) y = Math.min(y, 2.0 - (t - 1.15) * 7);     // 披发盖住耳朵垂到肩后
+    if (fem && (style === 'long' || style === 'halfup') && t < 0.22) y += 0.55 * (1 - t / 0.22); // 中分发缝
+    if (look.bangs && t < 0.85) y = Math.min(y, 2.5);
+    return y;
+  };
+  // 头部轮廓点（局部坐标，按性别缓存）
+  const hullLocal = headPts(fem);
+  // ---- 背后长发 ----
+  let backHair: { s: Strand } | null = null;
+  if (drape) {
+    const nape = HP(0, -1.2, -4.4);
+    const L = fem ? (style === 'twin' ? 4.6 : 6.4) : 5.2;
+    backHair = { s: strand('hairLong', 6, L, nape.x, nape.y, 1.5, 1.05) };
     const zz = P(add(sk.chest, v(0, 0, -sk.td - 1))).z;
-    parts.push({ z: zz, f: () => ribbon(s, 10, 5, look.hair, true, { x: hb.x, y: hb.y - 3 * S }) });
+    parts.push({ z: zz, f: () => {
+      const s = backHair!.s;
+      const lt = HP(4.95, 1.4, -0.9), rt = HP(-4.95, 1.4, -0.9), top = HP(0, 7.2, -1.2);
+      const W0 = Math.max(Math.abs(lt.x - rt.x) / 2, 3.2 * S) * 0.98;
+      const xs = [nape.x, ...Array.from(s.x)], ys = [nape.y, ...Array.from(s.y)];
+      const m = xs.length; const Lp: [number, number][] = [], Rp: [number, number][] = [];
+      for (let i = 0; i < m; i++) {
+        const i0 = Math.max(0, i - 1), i1 = Math.min(m - 1, i + 1);
+        const dx = xs[i1] - xs[i0], dy = ys[i1] - ys[i0], d = Math.hypot(dx, dy) || 1;
+        const t = i / (m - 1);
+        const w = W0 * (1.02 - 0.5 * t * t) * (1 + 0.06 * Math.sin(t * 5 + st.t * 1.3));
+        Lp.push([xs[i] - dy / d * w, ys[i] + dx / d * w]); Rp.push([xs[i] + dy / d * w, ys[i] - dx / d * w]);
+      }
+      const path = () => {
+        g.beginPath();
+        g.moveTo(lt.x, lt.y);
+        g.quadraticCurveTo(Lp[0][0], (lt.y + Lp[0][1]) / 2, Lp[1][0], Lp[1][1]);
+        for (let i = 2; i < m; i++) g.quadraticCurveTo(Lp[i - 1][0], Lp[i - 1][1], (Lp[i - 1][0] + Lp[i][0]) / 2, (Lp[i - 1][1] + Lp[i][1]) / 2);
+        // 发梢：三缕分叉
+        const e = m - 1, ex = xs[e], ey = ys[e], ldx = Lp[e][0] - ex, ldy = Lp[e][1] - ey;
+        const dx = xs[e] - xs[e - 1], dy = ys[e] - ys[e - 1], dl = Math.hypot(dx, dy) || 1, fx = dx / dl, fy = dy / dl;
+        g.lineTo(Lp[e][0], Lp[e][1]);
+        g.lineTo(ex + ldx * 0.55 + fx * 3.2 * S, ey + ldy * 0.55 + fy * 3.2 * S);
+        g.lineTo(ex + ldx * 0.25, ey + ldy * 0.25);
+        g.lineTo(ex + fx * 4.2 * S, ey + fy * 4.2 * S);
+        g.lineTo(ex - ldx * 0.25, ey - ldy * 0.25);
+        g.lineTo(ex - ldx * 0.55 + fx * 2.6 * S, ey - ldy * 0.55 + fy * 2.6 * S);
+        g.lineTo(Rp[e][0], Rp[e][1]);
+        for (let i = m - 2; i >= 1; i--) g.quadraticCurveTo(Rp[i + 1][0], Rp[i + 1][1], (Rp[i + 1][0] + Rp[i][0]) / 2, (Rp[i + 1][1] + Rp[i][1]) / 2);
+        g.quadraticCurveTo(Rp[0][0], (rt.y + Rp[0][1]) / 2, rt.x, rt.y);
+        g.bezierCurveTo(rt.x, top.y - 1 * S, lt.x, top.y - 1 * S, lt.x, lt.y);
+        g.closePath();
+      };
+      path();
+      const gr = g.createLinearGradient(0, top.y, 0, ys[m - 1] + 4 * S);
+      gr.addColorStop(0, shade(look.hair, 0.1)); gr.addColorStop(0.5, look.hair); gr.addColorStop(1, shade(look.hair, -0.25));
+      g.fillStyle = gr; g.fill();
+      g.strokeStyle = ink; g.lineWidth = lw * 0.85; g.stroke();
+      // 发丝
+      g.save(); path(); g.clip();
+      g.lineWidth = Math.max(0.35, 0.32 * S);
+      for (let k = -3; k <= 3; k++) {
+        const f = k / 3.6;
+        g.strokeStyle = k % 2 ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.28)';
+        g.beginPath();
+        for (let i = 0; i < m; i++) {
+          const x = xs[i] + (Lp[i][0] - xs[i]) * f, y = ys[i] + (Lp[i][1] - ys[i]) * f;
+          if (i === 0) g.moveTo(lt.x + (rt.x - lt.x) * (0.5 - f / 2), top.y + 3 * S); else g.lineTo(x, y);
+        }
+        g.stroke();
+      }
+      g.restore();
+    } });
   }
-  // 发髻 + 发带
-  const bunPos = look.hairStyle === 'ponytail' ? add(sk.head, v(0, 5.5, -4)) : add(sk.head, v(0, 7.2, -1.2));
-  const bun = P(bunPos);
+  // ---- 发髻位置 ----
+  const bunL = style === 'ponytail' ? [0, 5.0, -4.7] : style === 'updo' ? [0, 7.6, -2.6] : style === 'halfup' ? [0, 5.6, -3.9] : [0, 6.9, -1.4];
+  const bun = HP(bunL[0], bunL[1], bunL[2]);
+  const hairBackZ = P(add(sk.head, v(0, 0, -6))).z;
   let ribbons: Strand[] = [];
-  if (look.ribbon && look.hairStyle !== 'bald') {
-    const r1 = strand('rib1', 6, 3.6, bun.x - 0.8 * S, bun.y + 1 * S, 2.6, 0.7);
-    const r2 = strand('rib2', 5, 3.6, bun.x + 0.8 * S, bun.y + 1 * S, 2.6, 0.7);
-    ribbons = [r1, r2];
+  if (look.ribbon && !bald) {
+    const rb = style === 'twin' ? [HP(3.9, 5.2, -1.4), HP(-3.9, 5.2, -1.4)] : [{ x: bun.x - 0.8 * S, y: bun.y + 1 * S }, { x: bun.x + 0.8 * S, y: bun.y + 1 * S }];
+    ribbons = [strand('rib1', 6, fem ? 4.2 : 3.6, rb[0].x, rb[0].y, 2.6, 0.7), strand('rib2', 5, fem ? 4.6 : 3.6, rb[1].x, rb[1].y, 2.6, 0.7)];
   }
   let ponytail: Strand | null = null;
-  if (look.hairStyle === 'ponytail') ponytail = strand('pony', 5, 4.6, bun.x, bun.y, 1.8, 1);
-  const sideLocks = look.hairStyle !== 'bald' ? [
-    strand('lockL', 3, 3.2, P(add(sk.head, v(4.6, 1.5, 2))).x, P(add(sk.head, v(4.6, 1.5, 2))).y, 1.5, 1),
-    strand('lockR', 3, 3.2, P(add(sk.head, v(-4.6, 1.5, 2))).x, P(add(sk.head, v(-4.6, 1.5, 2))).y, 1.5, 1),
-  ] : [];
-  if (ribbons.length) parts.push({ z: Math.min(hairBackZ, bun.z) - 0.5, f: () => { for (const r of ribbons) ribbon(r, 1.7, 1.2, look.ribbon!, true); } });
-  if (ponytail) parts.push({ z: bun.z - 0.6, f: () => ribbon(ponytail!, 4, 2, look.hair, true) });
+  if (style === 'ponytail') ponytail = strand('pony', 5, 4.8, bun.x, bun.y, 1.8, 1);
+  // 鬓发 / 垂在胸前的发缕
+  const lockA = HP(5.25, -0.6, 0.3), lockB = HP(-5.25, -0.6, 0.3);
+  const locks = drape ? [strand('lockL', 5, 3.4, lockA.x, lockA.y, 1.6, 1), strand('lockR', 5, 3.4, lockB.x, lockB.y, 1.6, 1)] : [];
+  // 步摇
+  const pinA = HP(2.6, 6.2, -1.8);
+  const tassel = look.pin === 'gold' || look.pin === 'jade' ? strand('tassel', 3, 1.6, pinA.x + 1.5 * S, pinA.y, 1.2, 1) : null;
+  if (ribbons.length) parts.push({ z: Math.min(hairBackZ, bun.z) - 0.5, f: () => { for (const r of ribbons) ribbon(r, 1.6, 1.0, look.ribbon!, true); } });
+  if (ponytail) parts.push({ z: bun.z - 0.6, f: () => ribbon(ponytail!, 4.2, 1.4, look.hair, true) });
+
+  const drawBun = (c: P2, rx: number, ry: number) => {
+    const gr = g.createRadialGradient(c.x - rx * 0.35, c.y - ry * 0.4, 0, c.x, c.y, rx * 1.2);
+    gr.addColorStop(0, shade(look.hair, 0.28)); gr.addColorStop(0.6, look.hair); gr.addColorStop(1, shade(look.hair, -0.2));
+    g.fillStyle = gr; g.beginPath(); g.ellipse(c.x, c.y, rx, ry, 0, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = ink; g.lineWidth = lw * 0.8; g.stroke();
+    g.strokeStyle = 'rgba(0,0,0,0.3)'; g.lineWidth = Math.max(0.35, 0.3 * S);
+    g.beginPath(); g.ellipse(c.x + rx * 0.1, c.y + ry * 0.05, rx * 0.62, ry * 0.55, 0.3, 0.4, 4.2); g.stroke();
+    g.strokeStyle = 'rgba(255,255,255,0.22)'; g.lineWidth = Math.max(0.4, 0.5 * S);
+    g.beginPath(); g.ellipse(c.x, c.y, rx * 0.7, ry * 0.6, 0, Math.PI * 1.1, Math.PI * 1.65); g.stroke();
+  };
 
   const headDraw = () => {
     // 颈
-    tube(P(add(sk.chest, sk.up, 4)), P(add(sk.head, v(0, -5, -0.5))), 2.4 * S, 2.2 * S, shade(look.skin, -0.08));
-    const H = hed;
-    const rx = 5.5 * S, ry = 6.9 * S;
-    const hy = yaw + pose.headYaw;
-    const fc = Math.cos(hy), fs = Math.sin(hy);
-    // 头（发色底；光头用肤色）
-    const bald = look.hairStyle === 'bald';
-    g.fillStyle = bald ? shade(look.skin, -0.06) : look.hair;
-    g.beginPath(); g.ellipse(H.x, H.y, rx, ry, 0, 0, Math.PI * 2); g.fill();
-    // 脸
-    if (fc > -0.45) {
-      g.save();
-      g.beginPath(); g.ellipse(H.x, H.y, rx, ry, 0, 0, Math.PI * 2); g.clip();
-      const fx = H.x + fs * rx * 0.62, fy = H.y + 1.6 * S;
-      const fw = rx * (0.62 + 0.3 * Math.max(0, fc)), fh = ry * 0.82;
-      g.fillStyle = look.skin;
-      g.beginPath(); g.ellipse(fx, fy, fw, fh, 0, 0, Math.PI * 2); g.fill();
-      // 侧光阴影
-      const gr = g.createLinearGradient(H.x - rx, 0, H.x + rx, 0);
-      gr.addColorStop(0, 'rgba(255,240,220,0.12)'); gr.addColorStop(0.6, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(90,50,30,0.22)');
-      g.fillStyle = gr; g.fillRect(H.x - rx, H.y - ry, rx * 2, ry * 2);
-      // 刘海 / 发际线
-      g.fillStyle = bald ? 'rgba(0,0,0,0)' : look.hair;
-      g.beginPath();
-      g.moveTo(H.x - rx * 1.1, H.y - ry * 0.15);
-      g.quadraticCurveTo(fx - fw * 0.4, H.y - ry * 0.55 + 1.2 * S, fx + fs * 1.5 * S, H.y - ry * 0.42);
-      g.quadraticCurveTo(fx + fw * 0.4, H.y - ry * 0.55 + 1.2 * S, H.x + rx * 1.1, H.y - ry * 0.15);
-      g.lineTo(H.x + rx * 1.1, H.y - ry * 1.1); g.lineTo(H.x - rx * 1.1, H.y - ry * 1.1); g.closePath(); g.fill();
-      g.restore();
-      // 五官
-      if (fc > 0.05) {
-        const eyeY = H.y + 0.9 * S;
-        for (const ex of [-1, 1]) {
-          const lx = 2.15 * ex; // 局部（左为+）
-          const X = lx * Math.cos(hy) + 4.9 * Math.sin(hy);
-          const Z = -lx * Math.sin(hy) + 4.9 * Math.cos(hy);
-          if (Z < 1.2) continue;
-          const px = H.x + X * S, k = Math.min(1, (Z - 1.2) / 2.5);
-          g.strokeStyle = `rgba(25,18,14,${0.9 * k})`;
-          g.lineWidth = Math.max(0.6, 0.9 * S);
-          if (pose.eyes > 0.5) {
-            g.beginPath(); g.moveTo(px - 1.1 * S, eyeY); g.quadraticCurveTo(px, eyeY - 0.7 * S, px + 1.1 * S, eyeY + 0.1 * S); g.stroke();
-            g.fillStyle = `rgba(25,18,14,${0.9 * k})`; g.beginPath(); g.arc(px, eyeY + 0.15 * S, 0.55 * S, 0, Math.PI * 2); g.fill();
-          } else {
-            g.beginPath(); g.moveTo(px - 1.1 * S, eyeY); g.quadraticCurveTo(px, eyeY + 0.7 * S, px + 1.1 * S, eyeY); g.stroke();
-          }
-          // 眉
-          g.lineWidth = Math.max(0.5, 0.8 * S);
-          g.beginPath(); g.moveTo(px - 1.3 * S, eyeY - 2.0 * S); g.quadraticCurveTo(px, eyeY - 2.6 * S, px + 1.3 * S, eyeY - 2.1 * S); g.stroke();
-        }
-        // 鼻与口
-        const nX = H.x + 5.2 * Math.sin(hy) * S;
-        g.strokeStyle = 'rgba(120,70,50,0.5)'; g.lineWidth = Math.max(0.5, 0.6 * S);
-        g.beginPath(); g.moveTo(nX, H.y + 2.4 * S); g.lineTo(nX + fs * 0.8 * S, H.y + 3.4 * S); g.stroke();
-        g.strokeStyle = look.sex === 'f' ? 'rgba(190,70,70,0.85)' : 'rgba(150,80,65,0.7)'; g.lineWidth = Math.max(0.5, 0.8 * S);
-        g.beginPath(); g.moveTo(nX - 1 * S * fc, H.y + 4.7 * S); g.lineTo(nX + 1 * S * fc, H.y + 4.7 * S); g.stroke();
-        if (look.beard) {
-          g.fillStyle = look.beard; g.beginPath(); g.moveTo(nX - 1.8 * S, H.y + 5.2 * S); g.quadraticCurveTo(nX, H.y + 12 * S, nX + 1.8 * S, H.y + 5.2 * S); g.fill();
-        }
-      }
-      // 耳
-      if (Math.abs(fs) > 0.3) {
-        const ex = H.x - Math.sign(fs) * rx * 0.62, ey = H.y + 1.2 * S;
-        g.fillStyle = shade(look.skin, -0.05); g.beginPath(); g.ellipse(ex, ey, 1.2 * S, 1.9 * S, 0, 0, Math.PI * 2); g.fill();
-      }
-    }
+    tube(P(add(sk.chest, sk.up, 4)), P(add(sk.head, v(0, -5.2, -0.6))), 2.2 * S * hk, 1.95 * S * hk, shade(look.skin, -0.1));
+    // 双髻（在头后）
+    const behindBuns = () => {
+      if (style === 'twin') for (const sx of [1, -1]) { const b = HP(sx * 3.7, 5.9, -1.1); if (b.z < hed.z) drawBun(b, 2.5 * S * hk, 2.3 * S * hk); }
+    };
+    if (bun.z < hed.z - 0.5 && (style === 'bun' || style === 'crown' || style === 'halfup' || style === 'updo')) drawBun(bun, (style === 'updo' ? 3.4 : 2.9) * S * hk, (style === 'updo' ? 3.0 : 2.5) * S * hk);
+    behindBuns();
     // 轮廓
-    g.strokeStyle = ink; g.lineWidth = lw;
-    g.beginPath(); g.ellipse(H.x, H.y, rx, ry, 0, 0, Math.PI * 2); g.stroke();
-    // 鬓发
-    for (const s of sideLocks) {
-      const fcv = Math.cos(yaw);
-      if (fcv > -0.3) ribbon(s, 1.6, 0.6, look.hair, false);
+    const hp = hullLocal.map(([x, y, z]) => HP(x, y, z));
+    const hull = convexHull(hp);
+    const sil = () => {
+      const n = hull.length; g.beginPath();
+      g.moveTo((hull[n - 1].x + hull[0].x) / 2, (hull[n - 1].y + hull[0].y) / 2);
+      for (let i = 0; i < n; i++) { const a = hull[i], b = hull[(i + 1) % n]; g.quadraticCurveTo(a.x, a.y, (a.x + b.x) / 2, (a.y + b.y) / 2); }
+      g.closePath();
+    };
+    let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+    for (const q of hull) { minX = Math.min(minX, q.x); maxX = Math.max(maxX, q.x); minY = Math.min(minY, q.y); maxY = Math.max(maxY, q.y); }
+    sil(); g.fillStyle = look.skin; g.fill();
+    g.save(); sil(); g.clip();
+    // 面部明暗（左上受光）
+    const lg = g.createLinearGradient(minX, minY, maxX, maxY);
+    lg.addColorStop(0, 'rgba(255,246,232,0.22)'); lg.addColorStop(0.55, 'rgba(255,255,255,0)'); lg.addColorStop(1, 'rgba(120,60,40,0.26)');
+    g.fillStyle = lg; g.fillRect(minX, minY, maxX - minX, maxY - minY);
+    const detail = S * hk;               // 屏幕上的头部尺度，用于细节 LOD
+    // ---- 五官 ----
+    const faceVis = visN(0, -0.1, 1);
+    if (faceVis > -0.25) {
+      // 腮红（女）
+      if (fem) for (const sx of [1, -1]) {
+        const c = HP(sx * 2.7, -2.3, 3.8), k = Math.max(0, visN(sx * 0.5, -0.2, 0.8));
+        if (k > 0.05) { const gr = g.createRadialGradient(c.x, c.y, 0, c.x, c.y, 2.2 * detail); gr.addColorStop(0, `rgba(236,120,128,${0.32 * k})`); gr.addColorStop(1, 'rgba(236,120,128,0)'); g.fillStyle = gr; g.fillRect(c.x - 3 * detail, c.y - 3 * detail, 6 * detail, 6 * detail); }
+      }
+      // 眉
+      for (const sx of [1, -1]) {
+        const k = visN(sx * 0.42, 0.15, 0.9); if (k < 0.08) continue;
+        const a = HP(sx * 0.7, fem ? 1.7 : 1.45, 4.95), b = HP(sx * (fem ? 2.0 : 1.9), fem ? 2.15 : 1.85, 4.78), c = HP(sx * 3.2, fem ? 1.6 : 2.0, 4.05);
+        const w0 = (fem ? 0.2 : 0.34) * detail, w1 = (fem ? 0.05 : 0.1) * detail;
+        g.fillStyle = rgba(shade(look.hair, fem ? 0.1 : -0.1), 0.9 * Math.min(1, k * 2));
+        g.beginPath(); g.moveTo(a.x, a.y - w0); g.quadraticCurveTo(b.x, b.y - w0 * 0.9, c.x, c.y - w1);
+        g.quadraticCurveTo(b.x, b.y + w0 * 0.5, a.x, a.y + w0 * 0.6); g.closePath(); g.fill();
+      }
+      // 眼
+      for (const sx of [1, -1]) {
+        const k = visN(sx * 0.4, 0, 0.92); if (k < 0.06) continue;
+        const al = Math.min(1, k * 2.2);
+        const inn = HP(sx * 0.82, -0.05, 4.88), out = HP(sx * 3.15, fem ? 0.42 : 0.15, 4.08);
+        const ctr = HP(sx * 1.95, 0.05, 4.75);
+        const open = (blink ? 0 : 1) * (fem ? 1.12 : 0.92);
+        const up = { x: ctr.x, y: ctr.y - 1.4 * open * detail }, lo = { x: ctr.x, y: ctr.y + 0.75 * open * detail };
+        if (pose.eyes < 0.5 || blink) {
+          g.strokeStyle = `rgba(30,20,16,${0.9 * al})`; g.lineWidth = Math.max(0.6, 0.55 * detail);
+          g.beginPath(); g.moveTo(inn.x, inn.y); g.quadraticCurveTo(ctr.x, ctr.y + 0.75 * detail, out.x, out.y); g.stroke();
+          continue;
+        }
+        if (detail > 1.3) {
+          // 眼白
+          g.save();
+          g.beginPath(); g.moveTo(inn.x, inn.y); g.quadraticCurveTo(up.x, up.y, out.x, out.y); g.quadraticCurveTo(lo.x, lo.y, inn.x, inn.y); g.closePath();
+          g.fillStyle = `rgba(250,246,238,${al})`; g.fill(); g.clip();
+          // 虹膜（看向前方，随头部转动略偏）
+          const ix = ctr.x + (inn.x - out.x) * 0.04, iy = ctr.y - 0.05 * detail, ir = 0.74 * detail;
+          const ig = g.createRadialGradient(ix, iy - ir * 0.3, 0, ix, iy, ir);
+          ig.addColorStop(0, fem ? '#6a4632' : '#4a3426'); ig.addColorStop(0.7, fem ? '#2e1a12' : '#24170f'); ig.addColorStop(1, '#120a06');
+          g.fillStyle = ig; g.beginPath(); g.arc(ix, iy, ir, 0, Math.PI * 2); g.fill();
+          g.fillStyle = '#080404'; g.beginPath(); g.arc(ix, iy, ir * 0.42, 0, Math.PI * 2); g.fill();
+          g.fillStyle = 'rgba(255,255,255,0.95)'; g.beginPath(); g.arc(ix - ir * 0.35, iy - ir * 0.38, ir * 0.3, 0, Math.PI * 2); g.fill();
+          g.fillStyle = 'rgba(255,255,255,0.55)'; g.beginPath(); g.arc(ix + ir * 0.35, iy + ir * 0.3, ir * 0.14, 0, Math.PI * 2); g.fill();
+          // 上眼睑阴影
+          g.fillStyle = 'rgba(60,30,20,0.22)'; g.fillRect(inn.x - 3 * detail, up.y - 1 * detail, 6 * detail, 1.05 * detail);
+          g.restore();
+          // 双眼皮
+          g.strokeStyle = `rgba(80,45,35,${0.4 * al})`; g.lineWidth = Math.max(0.3, 0.22 * detail);
+          g.beginPath(); g.moveTo(inn.x + (out.x - inn.x) * 0.2, inn.y - 0.55 * detail); g.quadraticCurveTo(up.x, up.y - 0.75 * detail, out.x, out.y - 0.4 * detail); g.stroke();
+          // 下眼睑
+          g.strokeStyle = `rgba(90,50,40,${0.35 * al})`; g.lineWidth = Math.max(0.3, 0.25 * detail);
+          g.beginPath(); g.moveTo(inn.x, inn.y); g.quadraticCurveTo(lo.x, lo.y, out.x, out.y); g.stroke();
+        }
+        // 上眼线（含眼尾上挑）
+        g.strokeStyle = `rgba(22,14,10,${0.95 * al})`; g.lineWidth = Math.max(0.55, (fem ? 0.62 : 0.55) * detail);
+        g.beginPath(); g.moveTo(inn.x, inn.y + 0.1 * detail); g.quadraticCurveTo(up.x, up.y, out.x, out.y);
+        if (fem) g.lineTo(out.x + (out.x - inn.x) * 0.16, out.y - 0.55 * detail);
+        g.stroke();
+        if (detail <= 1.3) { g.fillStyle = `rgba(22,14,10,${0.9 * al})`; g.beginPath(); g.arc(ctr.x, ctr.y + 0.1 * detail, 0.55 * detail, 0, Math.PI * 2); g.fill(); }
+      }
+      // 鼻
+      {
+        const k = faceVis;
+        if (k > 0.05) {
+          const top = HP(0, -0.7, 5.3), tip = HP(0, -2.35, 5.6), side = HP(0.65 * Math.sign(-sY || 1), -2.2, 5.1);
+          g.strokeStyle = `rgba(150,85,62,${0.42 * Math.min(1, k * 2)})`; g.lineWidth = Math.max(0.35, 0.32 * detail);
+          g.beginPath(); g.moveTo(top.x + (side.x - tip.x) * 0.5, top.y); g.quadraticCurveTo(side.x, (top.y + tip.y) / 2, tip.x + (side.x - tip.x) * 0.6, tip.y); g.stroke();
+          g.fillStyle = `rgba(150,80,60,${0.3 * Math.min(1, k * 2)})`;
+          g.beginPath(); g.ellipse(tip.x, tip.y + 0.35 * detail, 0.9 * detail, 0.3 * detail, 0, 0, Math.PI * 2); g.fill();
+        }
+      }
+      // 口
+      {
+        const k = visN(0, -0.3, 1);
+        if (k > 0.05) {
+          const al = Math.min(1, k * 2);
+          const mc = HP(0, -4.15, 4.8), ml = HP(1.15 * (fem ? 0.82 : 1), -4.05, 4.45), mr = HP(-1.15 * (fem ? 0.82 : 1), -4.05, 4.45);
+          if (fem) {
+            g.fillStyle = `rgba(200,74,86,${0.95 * al})`;
+            g.beginPath(); g.moveTo(ml.x, ml.y);
+            g.quadraticCurveTo((ml.x + mc.x) / 2, mc.y - 0.55 * detail, mc.x, mc.y - 0.25 * detail);
+            g.quadraticCurveTo((mr.x + mc.x) / 2, mc.y - 0.55 * detail, mr.x, mr.y);
+            g.quadraticCurveTo(mc.x, mc.y + 0.95 * detail, ml.x, ml.y); g.closePath(); g.fill();
+            g.strokeStyle = `rgba(120,30,40,${0.6 * al})`; g.lineWidth = Math.max(0.3, 0.22 * detail);
+            g.beginPath(); g.moveTo(ml.x, ml.y); g.quadraticCurveTo(mc.x, mc.y + 0.12 * detail, mr.x, mr.y); g.stroke();
+            if (detail > 1.3) { g.fillStyle = `rgba(255,220,220,${0.45 * al})`; g.beginPath(); g.ellipse(mc.x - 0.2 * detail, mc.y + 0.4 * detail, 0.35 * detail, 0.14 * detail, 0, 0, Math.PI * 2); g.fill(); }
+          } else {
+            g.strokeStyle = `rgba(130,70,55,${0.75 * al})`; g.lineWidth = Math.max(0.4, 0.38 * detail);
+            g.beginPath(); g.moveTo(ml.x, ml.y); g.quadraticCurveTo(mc.x, mc.y + 0.2 * detail, mr.x, mr.y); g.stroke();
+            g.strokeStyle = `rgba(130,70,55,${0.25 * al})`;
+            g.beginPath(); g.moveTo(ml.x * 0.6 + mc.x * 0.4, mc.y + 0.8 * detail); g.lineTo(mr.x * 0.6 + mc.x * 0.4, mc.y + 0.8 * detail); g.stroke();
+          }
+          if (look.beard) {
+            const ch = HP(0, -6.4, 3.8);
+            g.fillStyle = look.beard; g.beginPath(); g.moveTo(ml.x - 0.6 * detail, ml.y + 0.6 * detail); g.quadraticCurveTo(ch.x, ch.y + 7 * detail, mr.x + 0.6 * detail, mr.y + 0.6 * detail); g.quadraticCurveTo(ch.x, ch.y, ml.x - 0.6 * detail, ml.y + 0.6 * detail); g.fill();
+          }
+        }
+      }
     }
-    // 发髻
-    if (look.hairStyle === 'bun' || look.hairStyle === 'crown' || look.hairStyle === 'halfup') {
-      g.fillStyle = look.hair; g.beginPath(); g.ellipse(bun.x, bun.y, 3.2 * S, 2.8 * S, 0, 0, Math.PI * 2); g.fill();
-      g.strokeStyle = ink; g.lineWidth = lw * 0.9; g.stroke();
-      g.strokeStyle = 'rgba(255,255,255,0.18)'; g.lineWidth = lw * 0.7;
-      g.beginPath(); g.arc(bun.x - 0.6 * S, bun.y - 0.4 * S, 1.8 * S, Math.PI * 1.1, Math.PI * 1.7); g.stroke();
-      if (look.hairStyle === 'crown') {
-        g.fillStyle = '#d8c070'; g.beginPath(); g.moveTo(bun.x - 3 * S, bun.y + 1.4 * S); g.lineTo(bun.x - 2.4 * S, bun.y - 2.8 * S); g.lineTo(bun.x, bun.y - 1.6 * S); g.lineTo(bun.x + 2.4 * S, bun.y - 2.8 * S); g.lineTo(bun.x + 3 * S, bun.y + 1.4 * S); g.closePath(); g.fill();
-        g.strokeStyle = ink; g.lineWidth = lw * 0.6; g.stroke();
+    // ---- 头发（发际线以上区域）----
+    if (!bald) {
+      const N = 36; const pts: { x: number; y: number; n: number; a: number }[] = [];
+      for (let i = 0; i < N; i++) {
+        const a = -Math.PI + (i / N) * Math.PI * 2;
+        const s = surf(a, hairline(a), 1.06); const q = HP(s.x, s.y, s.z);
+        pts.push({ x: q.x, y: q.y, n: s.n, a });
       }
-      // 发簪
-      const ca = Math.cos(yaw);
-      g.strokeStyle = look.hairStyle === 'crown' ? '#e8e0c8' : '#8a6a42'; g.lineWidth = 0.9 * S;
-      g.beginPath(); g.moveTo(bun.x - 5 * S * Math.abs(ca) - 1.5 * S, bun.y + 0.4 * S); g.lineTo(bun.x + 5 * S * Math.abs(ca) + 1.5 * S, bun.y - 0.4 * S); g.stroke();
-    } else if (look.hairStyle === 'twin') {
-      for (const sx of [-1, 1]) {
-        const b = P(add(sk.head, v(sx * 4.4, 6, -1)));
-        g.fillStyle = look.hair; g.beginPath(); g.arc(b.x, b.y, 2.6 * S, 0, Math.PI * 2); g.fill(); g.strokeStyle = ink; g.lineWidth = lw * 0.8; g.stroke();
+      // 最长的连续可见段
+      let best = -1, bestLen = 0;
+      for (let i = 0; i < N; i++) {
+        if (pts[i].n <= 0 || pts[(i - 1 + N) % N].n > 0) continue;
+        let l = 0; while (l < N && pts[(i + l) % N].n > 0) l++;
+        if (l > bestLen) { bestLen = l; best = i; }
       }
-    } else if (look.hairStyle === 'ponytail') {
-      g.fillStyle = look.hair; g.beginPath(); g.arc(bun.x, bun.y, 2 * S, 0, Math.PI * 2); g.fill();
+      const cx = (minX + maxX) / 2, BIG = 60 * S;
+      g.beginPath();
+      if (best < 0) g.rect(minX - 2, minY - 2, maxX - minX + 4, maxY - minY + 4);
+      else {
+        const run = []; for (let l = 0; l < bestLen; l++) run.push(pts[(best + l) % N]);
+        const A = run[0], B = run[run.length - 1];
+        const sa = Math.sign(A.x - cx) || -1, sb = Math.sign(B.x - cx) || 1;
+        g.moveTo(A.x + sa * BIG, A.y); g.lineTo(A.x, A.y);
+        for (let i = 1; i < run.length; i++) g.quadraticCurveTo(run[i - 1].x, run[i - 1].y, (run[i - 1].x + run[i].x) / 2, (run[i - 1].y + run[i].y) / 2);
+        g.lineTo(B.x, B.y); g.lineTo(B.x + sb * BIG, B.y); g.lineTo(B.x + sb * BIG, minY - BIG); g.lineTo(A.x + sa * BIG, minY - BIG); g.closePath();
+      }
+      g.save(); g.clip();
+      const hg = g.createLinearGradient(minX, minY, maxX, maxY);
+      hg.addColorStop(0, shade(look.hair, 0.22)); hg.addColorStop(0.5, look.hair); hg.addColorStop(1, shade(look.hair, -0.25));
+      g.fillStyle = hg; g.fillRect(minX - 2, minY - 2, maxX - minX + 4, maxY - minY + 4);
+      // 发丝：从发旋到发际线
+      const crown = HP(0, 7.0, -0.8);
+      g.lineWidth = Math.max(0.3, 0.26 * S);
+      for (let i = 0; i < N; i += 2) {
+        const p = pts[i]; if (p.n < -0.2) continue;
+        const mid = surf(p.a, (hairline(p.a) + 6.5) / 2, 1.13); const mq = HP(mid.x, mid.y, mid.z);
+        g.strokeStyle = i % 4 ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.3)';
+        g.beginPath(); g.moveTo(crown.x, crown.y); g.quadraticCurveTo(mq.x, mq.y, p.x, p.y); g.stroke();
+      }
+      // 光泽环
+      g.strokeStyle = 'rgba(255,255,255,0.16)'; g.lineWidth = 1.3 * S; g.beginPath();
+      let started = false;
+      for (let i = 0; i <= 24; i++) {
+        const a = -Math.PI + (i / 24) * Math.PI * 2; const s = surf(a, 4.4, 1.07);
+        if (s.n <= 0.05) { started = false; continue; }
+        const q = HP(s.x, s.y, s.z); if (!started) { g.moveTo(q.x, q.y); started = true; } else g.lineTo(q.x, q.y);
+      }
+      g.stroke();
+      g.restore();
+      // 发际线柔化
+      g.restore(); g.save(); sil(); g.clip();
+      // 刘海 / 中分侧发
+      if (faceVis > 0) {
+        g.fillStyle = look.hair;
+        if (look.bangs) {
+          for (let i = -3; i <= 3; i++) {
+            const a0 = i * 0.2; const s0 = surf(a0 - 0.08, 3.4, 1.06), s1 = surf(a0 + 0.1, 3.4, 1.06), s2 = surf(a0 + 0.04 * Math.sign(i || 1), 1.75 + Math.abs(i) * 0.15, 1.08);
+            const q0 = HP(s0.x, s0.y, s0.z), q1 = HP(s1.x, s1.y, s1.z), q2 = HP(s2.x, s2.y, s2.z);
+            if (s2.n < 0) continue;
+            g.beginPath(); g.moveTo(q0.x, q0.y); g.quadraticCurveTo(q0.x, q2.y - 1 * S, q2.x, q2.y); g.quadraticCurveTo(q1.x, q2.y - 1.2 * S, q1.x, q1.y); g.closePath(); g.fill();
+          }
+        } else if (fem && (style === 'long' || style === 'halfup' || style === 'twin') && Math.abs(sY) < 0.35) {
+          for (const sx of [1, -1]) {
+            const s0 = surf(sx * 0.1, 3.7, 1.07), s1 = surf(sx * 0.55, 2.7, 1.08), s2 = surf(sx * 0.95, 0.3, 1.1), s3 = surf(sx * 1.2, 2.2, 1.07);
+            if (s2.n < 0.2 || s1.n < 0.2) continue;
+            const q0 = HP(s0.x, s0.y, s0.z), q1 = HP(s1.x, s1.y, s1.z), q2 = HP(s2.x, s2.y, s2.z), q3 = HP(s3.x, s3.y, s3.z);
+            g.beginPath(); g.moveTo(q0.x, q0.y); g.quadraticCurveTo(q1.x, q1.y + 0.6 * S, q2.x, q2.y); g.quadraticCurveTo(q3.x, q3.y, q0.x, q0.y - 0.5 * S); g.closePath(); g.fill();
+            g.strokeStyle = 'rgba(255,255,255,0.12)'; g.lineWidth = Math.max(0.3, 0.3 * S);
+            g.beginPath(); g.moveTo(q0.x, q0.y); g.quadraticCurveTo(q1.x, q1.y + 0.2 * S, q2.x, q2.y); g.stroke();
+          }
+        }
+      }
+    }
+    g.restore();
+    // 耳
+    if (!(drape && fem) && !bald || bald) {
+      for (const sx of [1, -1]) {
+        const k = visN(sx, 0, 0.35); if (k < 0.3) continue;
+        const e = HP(sx * 4.75, -0.7, -0.35), et = HP(sx * 4.9, 0.6, -0.6);
+        const ang = Math.atan2(et.y - e.y, et.x - e.x) + Math.PI / 2;
+        g.fillStyle = shade(look.skin, -0.04);
+        g.beginPath(); g.ellipse(e.x, e.y, 0.95 * S * hk * Math.min(1, k * 1.5), 1.75 * S * hk, ang, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = 'rgba(70,40,28,0.7)'; g.lineWidth = Math.max(0.35, 0.35 * S); g.stroke();
+        g.strokeStyle = 'rgba(150,80,60,0.45)'; g.beginPath(); g.ellipse(e.x, e.y, 0.45 * S * hk * Math.min(1, k * 1.5), 1.0 * S * hk, ang, -1, 1.6); g.stroke();
+      }
+    }
+    // 轮廓描边（毛笔：下巴略粗）
+    g.strokeStyle = ink; g.lineWidth = lw * 0.85; sil(); g.stroke();
+    // 胸前发缕 / 鬓发
+    for (let li = 0; li < locks.length; li++) {
+      const s = locks[li];
+      if (visN(li ? -1 : 1, 0, 0.9) < 0.45) continue;
+      ribbon(s, 0.75, 0.1, look.hair, false);
+    }
+    // 发髻（在头前或头顶）
+    if (bun.z >= hed.z - 0.5 && (style === 'bun' || style === 'crown' || style === 'halfup' || style === 'updo')) drawBun(bun, (style === 'updo' ? 3.4 : 2.9) * S * hk, (style === 'updo' ? 3.0 : 2.5) * S * hk);
+    if (style === 'twin') for (const sx of [1, -1]) { const b = HP(sx * 3.7, 5.9, -1.1); if (b.z >= hed.z) drawBun(b, 2.5 * S * hk, 2.3 * S * hk); }
+    if (style === 'ponytail') drawBun(bun, 1.6 * S, 1.5 * S);
+    if (style === 'crown') {
+      // 玉冠
+      const c = HP(0, 8.1, -1.2);
+      const w = 2.4 * S;
+      g.fillStyle = '#efeadc'; g.beginPath(); g.moveTo(c.x - w, c.y + 1.6 * S); g.lineTo(c.x - w * 0.8, c.y - 1.4 * S); g.quadraticCurveTo(c.x, c.y - 2.6 * S, c.x + w * 0.8, c.y - 1.4 * S); g.lineTo(c.x + w, c.y + 1.6 * S); g.closePath(); g.fill();
+      g.strokeStyle = ink; g.lineWidth = lw * 0.6; g.stroke();
+      g.fillStyle = 'rgba(120,170,140,0.6)'; g.beginPath(); g.arc(c.x, c.y - 0.2 * S, 0.7 * S, 0, Math.PI * 2); g.fill();
+    }
+    // 发簪
+    if (style === 'bun' || style === 'crown' || style === 'updo' || look.pin) {
+      const ca = Math.cos(Yh);
+      const pc = style === 'halfup' || style === 'twin' || style === 'long' ? pinA : bun;
+      g.strokeStyle = look.pin === 'gold' ? '#d8b050' : look.pin === 'jade' ? '#a8d8c0' : style === 'crown' ? '#e8e0c8' : '#8a6a42';
+      g.lineWidth = 0.8 * S;
+      g.beginPath(); g.moveTo(pc.x - 4.5 * S * Math.abs(ca) - 1.3 * S, pc.y + 0.4 * S); g.lineTo(pc.x + 4.5 * S * Math.abs(ca) + 1.3 * S, pc.y - 0.4 * S); g.stroke();
+      if (look.pin === 'flower') {
+        for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2; g.fillStyle = '#f0b8c8'; g.beginPath(); g.arc(pc.x + Math.cos(a) * 1.1 * S, pc.y + Math.sin(a) * 1.1 * S, 0.8 * S, 0, Math.PI * 2); g.fill(); }
+        g.fillStyle = '#f8e070'; g.beginPath(); g.arc(pc.x, pc.y, 0.5 * S, 0, Math.PI * 2); g.fill();
+      }
+      if (tassel) {
+        g.strokeStyle = look.pin === 'gold' ? 'rgba(216,176,80,0.9)' : 'rgba(168,216,192,0.9)'; g.lineWidth = 0.35 * S;
+        g.beginPath(); g.moveTo(tassel.x[0], tassel.y[0]); for (let i = 1; i < tassel.n; i++) g.lineTo(tassel.x[i], tassel.y[i]); g.stroke();
+        g.fillStyle = look.pin === 'gold' ? '#e8c060' : '#b8e8d0';
+        g.beginPath(); g.arc(tassel.x[tassel.n - 1], tassel.y[tassel.n - 1], 0.6 * S, 0, Math.PI * 2); g.fill();
+        g.fillStyle = '#e05060'; g.beginPath(); g.arc(tassel.x[1], tassel.y[1], 0.4 * S, 0, Math.PI * 2); g.fill();
+      }
     }
     // 斗笠
     if (look.hat === 'douli') {
-      const top = P(add(sk.head, v(0, 9, 0)));
-      const brim = P(add(sk.head, v(0, 4.2, 0)));
+      const top = HP(0, 10, 0);
+      const brim = HP(0, 5.0, 0);
       g.fillStyle = '#c8a76a';
       g.beginPath(); g.ellipse(brim.x, brim.y, 14 * S, 14 * S * SP * 1.3, 0, 0, Math.PI * 2); g.fill(); g.strokeStyle = ink; g.lineWidth = lw; g.stroke();
       g.beginPath(); g.moveTo(brim.x - 13 * S, brim.y); g.quadraticCurveTo(top.x, top.y - 6 * S, brim.x + 13 * S, brim.y); g.closePath();
@@ -967,7 +1263,9 @@ export function randomLook(rnd: () => number, role?: NpcRole): Look {
     base.hairStyle = 'crown';
   } else if (r === 'female') {
     base.sex = 'f'; base.height *= 0.94; base.build = 0.9; base.robe = pick(FROBES); base.trim = shade(base.robe, -0.35);
-    base.hairStyle = pick(['halfup', 'twin', 'long', 'halfup']); base.ribbon = rnd() < 0.6 ? pick(['#c03040', '#f0f0f0', '#5070a0', '#e0a0b0']) : undefined;
+    base.hairStyle = pick(['halfup', 'twin', 'long', 'halfup', 'updo']); base.ribbon = rnd() < 0.6 ? pick(['#c03040', '#f0f0f0', '#5070a0', '#e0a0b0']) : undefined;
+    base.bangs = base.hairStyle === 'twin' ? rnd() < 0.7 : rnd() < 0.2;
+    base.pin = pick<Look['pin']>(['gold', 'jade', 'flower', undefined, 'gold']);
     base.shawl = rnd() < 0.75 ? pick(['#f4e8f0', '#e0b0c0', '#b0d0e8', '#f8f0d8', '#c8e0c0']) : undefined;
     base.waist = 'jade'; base.inner = '#f6f0e8'; base.pants = shade(base.robe, -0.2); base.boots = '#5a4040';
   } else if (r === 'elder') {

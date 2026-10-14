@@ -171,7 +171,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
         </div>
 
         {/* 提示 */}
-        {showHelp && !isTouch && <div className="help-tip">WASD 移动 · Shift 疾行 · Z 打坐 · E 采集 · C 角色 · B 储物袋 · L 丹房 · P 闭关 · M 地图 · F 御剑（体验）</div>}
+        {showHelp && !isTouch && <div className="help-tip">WASD 移动 · Shift 疾行 · Z 打坐 · E 采集 · Q 神识外放 · R 敛息 · C 角色 · B 储物袋 · L 丹房 · P 闭关 · M 地图 · F 御剑（体验）</div>}
         {ui.sitting && <div className="sit-banner"><div className="sb-t">打坐修炼中</div><div className="sb-s">光阴 ×4 · 每日 +{ui.expRate.toFixed(1)} 修为 · {ui.place}{ui.bottleneck !== 'none' ? ' · 已至瓶颈' : ''}</div></div>}
         {ui.pendingTalent && panel === '' && <button className="talent-alert" onClick={() => setPanel('char')}>逆天改命机缘已至——点此选择</button>}
         {(ui.gather || ui.gatherP >= 0) && !ui.sitting && panel === '' && (
@@ -207,6 +207,10 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
             <button className={'round-btn' + (game.player.flying ? ' active' : '')} onClick={() => game.toggleFly()}>剑<small>{game.player.flying ? '落地' : '御剑'}</small></button>
           )}
           <button className={'round-btn' + (ui.sitting ? ' active' : '')} onClick={() => game.toggleSit()}>坐<small>{ui.sitting ? '起身' : '打坐'}</small></button>
+          <div className="zoom-col">
+            <button className={'round-btn small' + (game.senseBurstT > 0 ? ' active' : '')} onClick={() => game.senseBurst()}>识<small>外放</small></button>
+            <button className={'round-btn small' + (ui.concealed ? ' active' : '')} onClick={() => game.toggleConceal()}>敛<small>敛息</small></button>
+          </div>
           <div className="btn-grid">
             <button className={'round-btn small' + (ui.pendingTalent || ui.bottleneck !== 'none' ? ' glow' : '')} onClick={() => { audio.sfx('open'); setPanel('char'); }}>修<small>角色</small></button>
             <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('bag'); }}>袋<small>储物</small></button>
