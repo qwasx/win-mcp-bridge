@@ -19,7 +19,7 @@ export interface Hero {
   // 第三步：法术与战斗
   arts: { id: string; xp: number }[];
   hotbar: (string | null)[];
-  equip: { armor?: string; shield?: string; flight?: string };
+  equip: { armor?: string; shield?: string; flight?: string; boots?: string };
   looted: string[];
   kills: number;
 }
@@ -35,7 +35,7 @@ export function newHero(): Hero {
     hp: 1, mp: 1, lifeBonus: 0, senseBonus: 0, lifeLost: 0,
     // 初入黄枫谷：掌天瓶（已凝一滴绿液）、墨大夫遗下的符箓与丹药、几块灵石
     bag: [{ id: 'item_bottle', n: 1 }, { id: 'herb_huangjing', n: 3, age: 12 }, { id: 'pill_juqi', n: 2 }, { id: 'pill_huiqi', n: 3 }, { id: 'pill_liaoshang', n: 3 },
-      { id: 'tal_fire', n: 6 }, { id: 'tal_jingang', n: 3 }, { id: 'tal_ice', n: 2 }, { id: 'tal_escape', n: 1 }, { id: 'mat_lingshi', n: 120 }],
+      { id: 'tal_fire', n: 6 }, { id: 'tal_jingang', n: 3 }, { id: 'tal_ice', n: 2 }, { id: 'tal_escape', n: 1 }, { id: 'mat_lingshi', n: 120 }, { id: 'art_qingfeng', n: 1 }],
     bottle: { drops: 1, charge: 0, owned: true }, pendingTalent: null, dead: false,
     stats: { meditateDays: 0, gathered: 0, pills: 0, breaks: 0, failed: 0, alchemy: 0 },
     arts: START_ARTS.map((id) => ({ id, xp: 0 })), hotbar: [...START_HOTBAR], equip: {}, looted: [], kills: 0,
@@ -78,7 +78,10 @@ export function bottleneck(h: Hero): 'none' | 'small' | 'major' {
 }
 
 export function bagCount(h: Hero, id: string, minAge = 0) { let n = 0; for (const b of h.bag) if (b.id === id && (b.age ?? 0) >= minAge) n += b.n; return n; }
+/** 物品入袋监听（界面用：获宝提示） */
+export const itemListeners: ((id: string, n: number) => void)[] = [];
 export function addItem(h: Hero, id: string, n: number, age?: number) {
+  for (const f of itemListeners) f(id, n);
   const a = age !== undefined ? Math.round(age) : undefined;
   const ex = h.bag.find((b) => b.id === id && b.age === a);
   if (ex) ex.n += n; else h.bag.push({ id, n, age: a });

@@ -5,6 +5,7 @@ import { ARTS, ART_LIST, SCHOOL_COLOR, SCHOOL_NAME, TIER_NAME, TIER_COLOR, PROF_
 import { itemDef } from '../data/items';
 import { REALMS } from '../data/realms';
 import { audio } from '../world/audio';
+import { ItemGlyph } from './ItemIcon';
 
 function slotInfo(id: string | null | undefined): { glyph: string; name: string; color: string; tier: number } | null {
   if (!id) return null;
@@ -52,7 +53,7 @@ export function Hotbar({ game, touch }: { game: Game; touch: boolean }) {
             title={inf ? `${inf.name}（${i + 1}）` : '空（按 K 放置法术）'}
             onPointerDown={(e) => { e.stopPropagation(); audio.unlock(); if (inf) game.combat.castSlot(i); else game.onPanel?.('skills', true); }}
             style={inf ? { ['--sc' as any]: inf.color } : undefined}>
-            {inf && <span className="hb-glyph">{inf.glyph}</span>}
+            {inf && (id!.startsWith('art:') || id!.startsWith('tal:')) ? <ItemGlyph id={id!.slice(4)} className="hb-glyph" /> : inf && <span className="hb-glyph">{inf.glyph}</span>}
             {inf && !touch && <span className="hb-name">{inf.name}</span>}
             {id?.startsWith('tal:') && <span className="hb-count">{talCount(game, id.slice(4))}</span>}
             <div className="hb-cd" ref={(el) => (cdRefs.current[i] = el)} />
@@ -124,7 +125,7 @@ export function SkillPanel({ game, onClose }: { game: Game; onClose: () => void 
                 const d = itemDef(id), key = 'art:' + id;
                 return (
                   <button key={id} className={'skill-row' + (sel === key ? ' on' : '')} onClick={() => { setSel(key); audio.sfx('click'); }}>
-                    <span className="sk-glyph" style={{ background: '#8a6a30' }}>{d.glyph}</span>
+                    <ItemGlyph id={id} className="sk-glyph" style={{ background: '#8a6a30' }} />
                     <span className="sk-name">{d.name}<small>{['凡器', '法器', '上品法器', '顶阶法器', '法宝', '古宝', '通天灵宝'][d.tier] ?? ''}</small></span>
                     {Object.values(h.equip ?? {}).includes(id) && <span className="sk-prof p2">已祭出</span>}
                     {h.hotbar.includes(key) && <span className="sk-slot">{h.hotbar.indexOf(key) + 1}</span>}
@@ -162,7 +163,7 @@ export function SkillPanel({ game, onClose }: { game: Game; onClose: () => void 
                   <div className="bd-name" style={{ color: '#8a6a30' }}>{it.name}</div>
                   <div className="bd-desc">{it.desc}</div>
                   <div className="bd-type">驱使法力 {it.art.mp} · 冷却 {it.art.cd}s{it.art.power ? ` · 威力 ×${it.art.power}` : ''}</div>
-                  {(['armor', 'shield', 'flight', 'wings'] as string[]).includes(it.art.kind) && <button className="ink-btn jade" onClick={() => { game.combat.castArtifact(sel.slice(4)); re(); }}>{Object.values(h.equip ?? {}).includes(sel.slice(4)) ? '收起' : '祭出护身'}</button>}
+                  {(['armor', 'shield', 'flight', 'wings', 'boots'] as string[]).includes(it.art.kind) && <button className="ink-btn jade" onClick={() => { game.combat.castArtifact(sel.slice(4)); re(); }}>{Object.values(h.equip ?? {}).includes(sel.slice(4)) ? '收起' : '祭出护身'}</button>}
                 </>
               )}
               {it && it.tal && (

@@ -9,6 +9,7 @@ import { LOCATIONS, WORLD_SCALE, LOC_TYPE_NAME } from '../data/world';
 import { SettingsPanel, WorldMapPanel, makeFogCanvas, SEAL, SEAL_COLOR, loadAudio } from './Panels';
 import { Hotbar, SkillPanel } from './CombatUI';
 import { CharPanel, BagPanel, AlchemyPanel, SecludePanel, SavePanel, DeathScreen } from './CultPanels';
+import { GainOverlay } from './GainOverlay';
 
 const CN = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
 export function cnNum(n: number): string {
@@ -289,6 +290,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
       {panel === 'skills' && <SkillPanel game={game} onClose={() => setPanel('')} />}
       {panel === 'save' && <SavePanel game={game} onClose={() => setPanel('')} />}
       <ModalLayer game={game} />
+      <GainOverlay />
       {ui.dead && <DeathScreen game={game} onExit={onExit} />}
     </div>
   );

@@ -7,6 +7,8 @@ import { drawCharacter } from '../gfx/character';
 import { itemDef, TIER_COLORS } from '../data/items';
 import { mulberry32 } from '../core/rng';
 import { QUHUN_LOOK } from '../data/storylooks';
+import { artLook } from '../data/artlooks';
+import { drawArt } from '../gfx/artifact';
 
 type G = CanvasRenderingContext2D;
 const TAU = Math.PI * 2;
@@ -42,6 +44,14 @@ export function collectCombat(c: Combat, out: Drawable[], view: { left: number; 
     const a = enemyVis(c, l);
     if (a <= 0.01) continue;
     out.push({ y: l.y, draw: (g) => drawLoot(g, l, t, a) });
+  }
+  c.acts.collect(out);
+  if (c.shield?.art) {   // 法器盾：实体悬浮
+    const s = c.shield, sp = c.shieldPos(), L = artLook(s.art!), k = s.amt / s.max;
+    out.push({ y: sp.front ? sp.y + 20 : sp.y - 40, draw: (g) => {
+      g.save(); g.fillStyle = 'rgba(20,16,10,0.16)'; g.beginPath(); g.ellipse(sp.x, sp.y + 4, 16, 5, 0, 0, TAU); g.fill(); g.restore();
+      drawArt(g, L, sp.x, sp.y - sp.h, 52 + c.blockT * 10, Math.cos(c.shieldAng) * 0.25 + Math.sin(t * 1.6) * 0.04, 0.55 + 0.45 * k);
+    } });
   }
   if (c.decoy) {
     const d = c.decoy, p = c.game.player;
@@ -390,7 +400,7 @@ export function drawCombatFx(g: G, c: Combat, t: number) {
     }
   }
   // 护盾
-  if (c.shield) {
+  if (c.shield && !c.shield.art) {
     const s = c.shield, k = s.amt / s.max;
     g.save(); g.translate(p.x, p.y - 50);
     const gr = g.createRadialGradient(0, 0, 40, 0, 0, 72);

@@ -4,7 +4,7 @@ export type ItemType = 'herb' | 'pill' | 'material' | 'artifact' | 'talisman' | 
 
 export type ArtKind =
   | 'sword' | 'needle' | 'ring' | 'mirror' | 'slam' | 'arrow' | 'bell' | 'bind'
-  | 'flame' | 'banner' | 'cauldron' | 'shield' | 'armor' | 'wings' | 'flight';
+  | 'flame' | 'banner' | 'cauldron' | 'shield' | 'armor' | 'wings' | 'flight' | 'boots';
 
 export interface ArtSpec {
   kind: ArtKind;
@@ -24,7 +24,7 @@ export interface ArtSpec {
 }
 
 export interface PillEffect { exp?: number; expPct?: number; hp?: number; mp?: number; life?: number; sense?: number; root?: number; favor?: number }
-export interface TalSpec { kind: 'fire' | 'thunder' | 'ice' | 'shield' | 'escape' | 'revive' | 'fubao'; power: number; color: string }
+export interface TalSpec { kind: 'fire' | 'thunder' | 'ice' | 'shield' | 'escape' | 'revive' | 'fubao' | 'bomb'; power: number; color: string }
 
 export interface ItemDef {
   id: string; name: string; type: ItemType; tier: number; price: number; desc: string;
@@ -126,6 +126,11 @@ const I: ItemDef[] = [
   { id: 'item_shengxian', name: '升仙令', type: 'misc', tier: 2, price: 0, desc: '黄枫谷等七派发放的入门信物，持之可直接拜入黄枫谷。原著中韩立便是凭升仙令入的黄枫谷。', glyph: '令' },
   { id: 'art_jinfu', name: '金蚨子母刃', type: 'artifact', tier: 2, price: 2600, desc: '一母九子的成套飞刃，母刃一出，子刃随行，原著中韩立早年倚仗的法器之一。', glyph: '刃', art: { kind: 'needle', reqRealm: 1, sense: 6, pieces: 10, power: 0.5, mp: 2, cd: 1.2, element: 'gold', color: '#ffd878' } },
   { id: 'art_fuguang', name: '符宝·伏光剑', type: 'artifact', tier: 3, price: 5200, desc: '结丹修士将本命法宝之力封入符纸而成的符宝，可驱使数十次，威力远胜寻常法器。', glyph: '符', art: { kind: 'arrow', reqRealm: 1, sense: 20, pieces: 1, power: 6, mp: 20, cd: 5, element: 'gold', color: '#e6f0ff' } },
+  // —— 第十三步：原著中韩立炼气期的几件法器
+  { id: 'art_jinguangzhuan', name: '金光砖', type: 'artifact', tier: 1, price: 900, desc: '方方正正的砖形法器，祭出后迎风暴涨、金光大放，自天砸落，势大力沉。原著中韩立炼气期的得力法器之一。', glyph: '砖', art: { kind: 'slam', reqRealm: 1, sense: 14, pieces: 1, power: 3.4, mp: 12, cd: 4, element: 'gold', color: '#e8c050' } },
+  { id: 'art_xuantie', name: '玄铁飞天盾', type: 'artifact', tier: 1, price: 750, desc: '玄铁打造的盾形法器，祭出后悬于身侧，自行迎挡来袭之敌。原著中韩立在血色禁地前后所用。', glyph: '盾', art: { kind: 'shield', reqRealm: 1, sense: 12, pieces: 1, power: 0, mp: 0, cd: 0, absorb: 0.7, color: '#4a4e58' } },
+  { id: 'art_tayun', name: '踏云靴', type: 'artifact', tier: 1, price: 850, desc: '靴帮绣着云纹的法器，催动后足下生云，脚程大增（陆行速度+25%）。原著中韩立斩杀封岳所得。', glyph: '靴', art: { kind: 'boots', reqRealm: 1, sense: 0, pieces: 1, power: 0, mp: 0, cd: 0, mapSpeed: 1.25, color: '#5a5048' } },
+  { id: 'tal_tianleizi', name: '天雷子', type: 'talisman', tier: 2, price: 450, desc: '以雷属性灵材炼成的一次性雷珠，掷出后轰然炸开，雷光四溢，对魔物尤甚。韩立早年屡屡凭它反败为胜。', glyph: '雷', tal: { kind: 'bomb', power: 7.5, color: '#a8b8ff' }, stack: true },
   { id: 'art_qingfeng', name: '青锋剑', type: 'artifact', tier: 0, price: 120, desc: '最普通的飞剑法器。', glyph: '剑', art: { kind: 'sword', reqRealm: 1, sense: 10, pieces: 1, power: 1.0, mp: 2, cd: 1.1, color: '#9ab8a8' } },
   { id: 'art_yinhui', name: '银辉剑', type: 'artifact', tier: 1, price: 600, desc: '上品飞剑法器，银光凛凛。', glyph: '剑', art: { kind: 'sword', reqRealm: 1, sense: 12, pieces: 1, power: 1.5, mp: 3, cd: 1.0, color: '#d8e0e8' } },
   { id: 'art_wulong', name: '乌龙夺', type: 'artifact', tier: 1, price: 500, desc: '乌光如龙，专破护体灵光。', glyph: '器', art: { kind: 'arrow', reqRealm: 1, sense: 12, pieces: 1, power: 3.2, mp: 8, cd: 3.2, color: '#404850' } },
@@ -133,7 +138,7 @@ const I: ItemDef[] = [
   { id: 'art_guike', name: '龟壳盾', type: 'artifact', tier: 1, price: 450, desc: '防御法器，抵挡伤害。', glyph: '盾', art: { kind: 'shield', reqRealm: 1, sense: 10, pieces: 1, power: 0, mp: 0, cd: 0, absorb: 0.6, color: '#7a8a5a' } },
   { id: 'art_qingjiao', name: '青蛟旗', type: 'artifact', tier: 2, price: 1500, desc: '旗中封有蛟魂，可召出青蛟助战。', glyph: '旗', art: { kind: 'banner', reqRealm: 1, sense: 18, pieces: 1, power: 0.9, mp: 15, cd: 9, color: '#3aa080' } },
   { id: 'art_qingning', name: '青凝镜', type: 'artifact', tier: 1, price: 700, desc: '射出青色光柱。', glyph: '镜', art: { kind: 'mirror', reqRealm: 1, sense: 12, pieces: 1, power: 2.0, mp: 6, cd: 2.6, color: '#70c0b0' } },
-  { id: 'art_shenfeng', name: '神风舟', type: 'artifact', tier: 2, price: 2500, desc: '飞行法器，炼气期也可驾驭飞渡，大地图速度+40%，可渡海。', glyph: '舟', art: { kind: 'flight', reqRealm: 1, sense: 0, pieces: 1, power: 0, mp: 0, cd: 0, mapSpeed: 1.4, color: '#a0c8e0' } },
+  { id: 'art_shenfeng', name: '神风舟', type: 'artifact', tier: 2, price: 2500, desc: '墨蛟鳍所制的飞行法器，炼气期也可驾驭飞渡：祭出后按 F 乘舟而起，飞行速度+40%，可渡海。', glyph: '舟', art: { kind: 'flight', reqRealm: 1, sense: 0, pieces: 1, power: 0, mp: 0, cd: 0, mapSpeed: 1.4, color: '#a0c8e0' } },
   { id: 'art_jianfu', name: '剑符（符宝）', type: 'artifact', tier: 2, price: 4000, desc: '结丹修士封入一缕剑气的符宝，威力极大。', glyph: '符', art: { kind: 'arrow', reqRealm: 1, sense: 15, pieces: 1, power: 7, mp: 25, cd: 6, color: '#c0e0ff' } },
 
   // ---------- 法宝 ----------

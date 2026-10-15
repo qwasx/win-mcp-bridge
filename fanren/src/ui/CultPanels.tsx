@@ -8,6 +8,7 @@ import { itemDef } from '../data/items';
 import { RECIPES } from '../data/recipes';
 import { talentById } from '../data/skills';
 import { audio } from '../world/audio';
+import { ItemGlyph } from './ItemIcon';
 
 const TYPE_NAME: Record<string, string> = { pill: '丹药', herb: '灵草', material: '材料', talisman: '符箓', scroll: '功法', artifact: '法宝', misc: '杂物' };
 const TIER_COLOR = ['#5a544a', '#2f6b5e', '#2b5a8a', '#7a3a9a', '#b8802a', '#a8352a', '#d04a20'];
@@ -137,7 +138,7 @@ export function BagPanel({ game, onClose }: { game: Game; onClose: () => void })
         <div className="bag-grid">
           {items.map(({ b, i, d }) => (
             <button key={i} className={'slot' + (sel === i ? ' on' : '')} onClick={() => { setSel(i); audio.sfx('click'); }} title={d.name}>
-              <span className="glyph" style={{ color: TIER_COLOR[d.tier] ?? '#333' }}>{d.glyph}</span>
+              <ItemGlyph id={d.id} className="glyph" style={{ color: TIER_COLOR[d.tier] ?? '#333' }} />
               <span className="nm">{d.name}</span>
               {b.age !== undefined && <span className="age">{b.age}年</span>}
               <span className="cnt">{b.n}</span>
@@ -156,7 +157,7 @@ export function BagPanel({ game, onClose }: { game: Game; onClose: () => void })
                 {cd.pill && <button className="ink-btn jade" onClick={() => { game.usePill(cur.id); if (!h.bag[sel] || h.bag[sel].id !== cur.id) setSel(-1); re(); }}>服用</button>}
                 {cd.type === 'scroll' && <button className="ink-btn jade" onClick={() => { if (game.learnScroll(cur.id)) setSel(-1); re(); }}>研读参悟</button>}
                 {cd.art && <button className="ink-btn" onClick={() => { const key = 'art:' + cur.id; if (!h.hotbar.includes(key)) { const k = h.hotbar.findIndex((x) => !x); h.hotbar[k >= 0 ? k : 8] = key; game.toast(`${cd.name}已放入快捷栏 ${(k >= 0 ? k : 8) + 1}`); } re(); }}>放入快捷栏</button>}
-                {cd.art && ['armor', 'shield', 'flight', 'wings'].includes(cd.art.kind) && <button className="ink-btn jade" onClick={() => { game.combat.castArtifact(cur.id); re(); }}>{Object.values(h.equip ?? {}).includes(cur.id) ? '收起' : '祭出'}</button>}
+                {cd.art && ['armor', 'shield', 'flight', 'wings', 'boots'].includes(cd.art.kind) && <button className="ink-btn jade" onClick={() => { game.combat.castArtifact(cur.id); re(); }}>{Object.values(h.equip ?? {}).includes(cur.id) ? '收起' : '祭出'}</button>}
                 {cd.type === 'talisman' && cd.tal?.kind !== 'revive' && <button className="ink-btn" onClick={() => { const key = 'tal:' + cur.id; if (!h.hotbar.includes(key)) { const k = h.hotbar.findIndex((x) => !x); h.hotbar[k >= 0 ? k : 8] = key; game.toast(`${cd.name}已放入快捷栏 ${(k >= 0 ? k : 8) + 1}`); } re(); }}>放入快捷栏</button>}
                 {cd.type === 'herb' && h.bottle.owned !== false && <button className="ink-btn" disabled={h.bottle.drops <= 0} onClick={() => { game.useBottle(cur); const ni = h.bag.findIndex((x) => x.id === cur.id && x.age === (cur.age ?? 0) + C.BOTTLE_YEARS); setSel(ni); re(); }}>掌天瓶催熟（+{C.BOTTLE_YEARS}年）</button>}
               </div>

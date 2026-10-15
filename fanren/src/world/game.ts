@@ -397,11 +397,14 @@ export class Game {
   get canFlyNative() { return REALMS[this.hero.realm].fly; }
   /** 是否正在飞行（筑基后可随时起落，不再强制凌空） */
   get isFlying() { return this.player.flying; }
+  /** 祭出的遁具 / 靴子带来的速度倍率 */
+  equipSpeed(kind: 'flight' | 'boots') { const id = this.hero.equip?.[kind]; return (id && itemDef(id).art?.mapSpeed) || 1; }
   get speed() {
     const base = REALMS[this.hero.realm].speed * (1 + C.mod(this.hero, 'mapSpeed'));
-    if (this.player.flying && !this.canFlyNative) return 420; // 体验御剑
-    if (this.isFlying) return base * 1.8;
-    return this.player.running ? base * 1.6 : base;
+    const fl = this.equipSpeed('flight');
+    if (this.player.flying && !this.canFlyNative) return this.hero.equip?.flight ? Math.max(420, base * 1.8 * fl) : 420; // 体验御剑 / 炼气乘舟
+    if (this.isFlying) return base * 1.8 * fl;
+    return (this.player.running ? base * 1.6 : base) * this.equipSpeed('boots');
   }
   get season() { const m = Math.floor(this.day / 30) % 12; return m < 3 ? 0 : m < 6 ? 1 : m < 9 ? 2 : 3; }
   /** 日光 0（子夜）–1（正午） */
@@ -430,6 +433,10 @@ export class Game {
     if (shake > 0) this.trauma = Math.min(1, this.trauma + shake);
   }
 
+  /** 调试/自动化：固定帧步长（0 = 实时）与帧计数 */
+  debugFixedDt = 0; frameNo = 0; debugCamDX = 0;
+  /** 调试：直接给物品（走 addItem，触发获宝提示） */
+  debugGive(id: string, n = 1) { C.addItem(this.hero, id, n); }
   /** 调试/自动化：在玩家周围刷怪 */
   debugSpawn(ids: string[], realm = this.hero.realm, stage = 3, dist = 320) {
     ids.forEach((id, i) => {
@@ -458,8 +465,9 @@ export class Game {
     this.last = performance.now();
     const loop = (t: number) => {
       if (!this.running) return;
-      const rdt = Math.max(0, Math.min(0.1, (t - this.last) / 1000));
-      this.last = t;
+      // 自动化截图：固定步长，逐帧可控
+      const rdt = this.debugFixedDt > 0 ? this.debugFixedDt : Math.max(0, Math.min(0.1, (t - this.last) / 1000));
+      this.last = t; this.frameNo++;
       // 顿帧：命中瞬间时间几近停滞
       let dt = rdt;
       if (this.hitStop > 0) { this.hitStop -= rdt; dt = rdt * 0.05; }
@@ -596,7 +604,7 @@ export class Game {
       this.life.update(dt, this, v, this.night, this.season, this.weather.kind);
     }
     // 相机跟随
-    this.cam.x += (p.x - this.cam.x) * Math.min(1, dt * 6);
+    this.cam.x += (p.x + this.debugCamDX - this.cam.x) * Math.min(1, dt * 6);
     this.cam.y += (p.y - st.lift * 0.5 - this.cam.y) * Math.min(1, dt * 6);
 
     this.regionTimer -= dt;
@@ -830,7 +838,7 @@ export class Game {
     const sc = this.combat.randomScroll(Math.min(4, Math.floor(dz / 1.2) + 1));
     if (sc) { C.addItem(h, sc, 1); got.push(itemDef(sc).name); }
     if (Math.random() < 0.35 + dz * 0.1) { const pills = ['pill_juqi', 'pill_huiqi', 'pill_liaoshang']; const pid = pills[Math.floor(Math.random() * pills.length)]; C.addItem(h, pid, 1 + Math.floor(Math.random() * 2)); got.push(itemDef(pid).name); }
-    if (Math.random() < 0.12 * dz) { const arts = ['art_qingfeng', 'art_yinhui', 'art_wulong', 'art_guike', 'art_qingning', 'art_hongxian']; const aid = arts[Math.floor(Math.random() * Math.min(arts.length, 2 + dz * 1.5))]; C.addItem(h, aid, 1); got.push(itemDef(aid).name); }
+    if (Math.random() < 0.12 * dz) { const arts = ['art_qingfeng', 'art_jinguangzhuan', 'art_yinhui', 'art_xuantie', 'art_wulong', 'art_tayun', 'art_guike', 'art_qingning', 'art_hongxian']; const aid = arts[Math.floor(Math.random() * Math.min(arts.length, 2 + dz * 1.5))]; C.addItem(h, aid, 1); got.push(itemDef(aid).name); }
     this.toast(`探得${loc.name}：前人遗留的禁制已残破，得 ${got.join('、')}。`, 'good');
     audio.sfx('chime');
     if (Math.random() < 0.4 + dz * 0.15) { this.combat.spawnGuards(loc); this.toast('洞中守护的妖物被惊动了！', 'warn'); }
@@ -911,7 +919,8 @@ export class Game {
       return;
     }
     const native = this.canFlyNative;
-    this.toast(this.player.flying ? (native ? '祭起法器，御剑而起。（F 落地）' : '（体验模式）御剑而起，可自由飞越山海。') : '按下遁光，落地步行。');
+    const fid = this.hero.equip?.flight, fname = fid ? itemDef(fid).name : '';
+    this.toast(this.player.flying ? (fid === 'art_fenglei' ? '风雷翅一展，雷光缭绕，化作一道雷遁。（F 落地）' : fid ? `祭出${fname}，乘风而起。（F 落地）` : native ? '祭起法器，御剑而起。（F 落地）' : '（体验模式）御剑而起，可自由飞越山海。') : '按下遁光，落地步行。');
     audio.sfx(this.player.flying ? 'whoosh' : 'land');
     this.updateUI();
   }

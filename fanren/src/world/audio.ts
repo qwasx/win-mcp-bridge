@@ -135,9 +135,31 @@ class AudioEngine {
     this.timer = window.setTimeout(() => this.schedule(), 8 * beat * 1000 - 50);
   }
 
-  sfx(kind: 'click' | 'whoosh' | 'land' | 'open' | 'chime' | 'thunder' | 'break' | 'fail' | 'gather') {
+  sfx(kind: 'click' | 'whoosh' | 'land' | 'open' | 'chime' | 'thunder' | 'break' | 'fail' | 'gather' | 'sword' | 'boom' | 'bell' | 'clang' | 'fire' | 'gain') {
     if (!this.ctx) return;
     const c = this.ctx, t = c.currentTime;
+    // 法器音效（纯合成）
+    if (kind === 'sword') { // 剑鸣：高频金属泛音 + 气流
+      [1568, 2349, 3136].forEach((f, i) => { const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 1.04, t + 0.4); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.06 / (i + 1), t + 0.01); g.gain.exponentialRampToValueAtTime(0.0008, t + 0.55); o.connect(g); g.connect(this.sfxBus); o.start(t); o.stop(t + 0.6); });
+      const n = this.noiseSrc(0.4), bp = c.createBiquadFilter(), g = c.createGain(); bp.type = 'bandpass'; bp.Q.value = 2; bp.frequency.setValueAtTime(1800, t); bp.frequency.exponentialRampToValueAtTime(5000, t + 0.25);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.18, t + 0.03); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3); n.connect(bp); bp.connect(g); g.connect(this.sfxBus); n.start(t); n.stop(t + 0.4); return;
+    }
+    if (kind === 'boom') { // 砸地：低频冲击 + 碎石噪声
+      const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(32, t + 0.5);
+      g.gain.setValueAtTime(0.9, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.7); o.connect(g); g.connect(this.sfxBus); o.start(t); o.stop(t + 0.75);
+      const n = this.noiseSrc(1.2), lp = c.createBiquadFilter(), g2 = c.createGain(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(2200, t); lp.frequency.exponentialRampToValueAtTime(120, t + 1);
+      g2.gain.setValueAtTime(0.5, t); g2.gain.exponentialRampToValueAtTime(0.001, t + 1.1); n.connect(lp); lp.connect(g2); g2.connect(this.sfxBus); n.start(t); n.stop(t + 1.2); return;
+    }
+    if (kind === 'bell') { // 古钟：非谐泛音，长尾
+      [[196, 0.3], [392 * 1.01, 0.16], [588 * 0.98, 0.1], [784 * 1.03, 0.07], [1180, 0.04]].forEach(([f, v]) => { const o = c.createOscillator(), g = c.createGain(); o.type = 'sine'; o.frequency.value = f; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0005, t + 2.6); o.connect(g); g.connect(this.sfxBus); o.start(t); o.stop(t + 2.7); });
+      return;
+    }
+    if (kind === 'clang') { [880, 1320 * 1.02, 2093].forEach((f, i) => this.pluckSfx(f, t, 0.3 / (i + 1), 0.5)); return; }
+    if (kind === 'fire') {
+      const n = this.noiseSrc(0.6), bp = c.createBiquadFilter(), g = c.createGain(); bp.type = 'lowpass'; bp.frequency.setValueAtTime(700, t);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.16, t + 0.05); g.gain.exponentialRampToValueAtTime(0.001, t + 0.45); n.connect(bp); bp.connect(g); g.connect(this.sfxBus); n.start(t); n.stop(t + 0.5); return;
+    }
+    if (kind === 'gain') { [523, 659, 784, 1046, 1318, 1568].forEach((f, i) => this.pluckSfx(f, t + i * 0.07, 0.3, 2.6)); this.sfx('bell'); return; }
     if (kind === 'gather') { this.pluckSfx(660, t, 0.25, 0.6); this.pluckSfx(990, t + 0.1, 0.2, 0.8); return; }
     if (kind === 'break') { [523, 659, 784, 1046, 1318].forEach((f, i) => this.pluckSfx(f, t + i * 0.09, 0.35, 2.2)); return; }
     if (kind === 'fail') { [392, 330, 262, 196].forEach((f, i) => this.pluckSfx(f, t + i * 0.12, 0.3, 1.2)); return; }

@@ -118,7 +118,7 @@ export class FxSys {
   }
   ground(cell: number, x: number, y: number, r: number, rot: number, c: RGB, a: number, add = 1, squash = 0.5) {
     // 地面贴花：先旋转再压扁（透视）——用两次变换近似：压扁的旋转贴图
-    this.B.quad(cell, x, y, r * 2, r * 2 * squash, rot, c[0], c[1], c[2], a, add);
+    this.B.groundQuad(cell, x, y, r, rot, c[0], c[1], c[2], a, add, squash);
   }
   sprite(cell: number, x: number, y: number, w: number, h: number, rot: number, c: RGB, a: number, add = 1) { this.B.quad(cell, x, y, w, h, rot, c[0], c[1], c[2], a, add); }
 
@@ -174,16 +174,16 @@ export class FxSys {
     this.emit({ x, y, life, s0: r * 1.6, s1: r * 2.2, c: mixc(c, WHITE, 0.4), a: 0.75, cell: C.Core });
     this.emit({ x, y, life: life * 1.6, s0: r * 2.4, s1: r * 3.6, c, a: 0.32, cell: C.Glow });
   }
-  shockRing(x: number, y: number, r: number, c: RGB, life = 0.4, squash = 0.55) {
+  shockRing(x: number, y: number, r: number, c: RGB, life = 0.4, squash = 0.55, alpha = 1) {
     // 用“椭圆环”粒子：S0->S1 扩张；粒子系统不支持非等比，故用竖向压扁的单帧图元在 update 里画——这里改为多段环粒子近似
-    this.ringFx.push({ x, y, r, c, t: 0, life, squash });
+    this.ringFx.push({ x, y, r, c, t: 0, life, squash, alpha });
   }
-  ringFx: { x: number; y: number; r: number; c: RGB; t: number; life: number; squash: number }[] = [];
+  ringFx: { x: number; y: number; r: number; c: RGB; t: number; life: number; squash: number; alpha?: number }[] = [];
   drawRings(dt: number) {
     for (const g of this.ringFx) {
       g.t += dt; const u = Math.min(1, g.t / g.life);
       const rr = g.r * (0.2 + 0.8 * (1 - Math.pow(1 - u, 3)));
-      const a = Math.pow(1 - u, 1.4);
+      const a = Math.pow(1 - u, 1.4) * (g.alpha ?? 1) * (g.alpha !== undefined ? Math.min(1, u * 6) : 1);
       this.ring(g.x, g.y, rr, g.c, a * 0.9, g.squash, true);
       this.ring(g.x, g.y, rr * 0.97, WHITE, a * 0.5, g.squash, false);
     }
@@ -196,7 +196,7 @@ export class FxSys {
     this.flash(x, y, 18 + p * 10 + (crit ? 14 : 0), c, crit ? 0.2 : 0.13);
     this.sparks(x, y, c, Math.round(6 + p * 5 + (crit ? 10 : 0)), 280 + p * 80, 0.4, 3 + p, dir, dir === undefined ? TAU : 1.6);
     if (p >= 0.8 || crit) this.ink(x, y + 6, 40 + p * 18, 0.35 + (crit ? 0.15 : 0));
-    if (crit || p >= 1.5) { this.shockRing(x, y + 20, 70 + p * 30, c, 0.35); this.emit({ x, y, life: 0.22, s0: 60 + p * 30, s1: 120 + p * 40, c: WHITE, a: 0.9, cell: C.Star, rot: Math.random() }); }
+    if (crit || p >= 1.5) { this.shockRing(x, y + 20, 70 + p * 30, c, 0.35, 0.55, 0.55); this.emit({ x, y, life: 0.2, s0: 40 + p * 20, s1: 80 + p * 26, c: WHITE, a: 0.7, cell: C.Star, rot: Math.random() }); }
   }
   /** 爆炸：火球、雷爆等 */
   explode(x: number, y: number, r: number, c: RGB, opts: { smoke?: boolean; shock?: boolean; debris?: boolean } = {}) {

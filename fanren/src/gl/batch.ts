@@ -41,13 +41,13 @@ export class Batch {
   }
 
   /** 屏幕空间旋转四边形（CSS 像素）。col 为 0..1 RGB */
-  quadS(cell: number, x: number, y: number, w: number, h: number, rot: number, r: number, g: number, b: number, a: number, add: number, uv?: [number, number, number, number]) {
+  quadS(cell: number, x: number, y: number, w: number, h: number, rot: number, r: number, g: number, b: number, a: number, add: number, uv?: [number, number, number, number], sq = 1) {
     if (a <= 0.002 || w < 0.05 || h < 0.05) return;
     if (x + w + h < -50 || y + w + h < -50 || x - w - h > this.hw * 2 + 50 || y - w - h > this.hh * 2 + 50) return;
     if (!this.grow(6)) return;
     const [u0, v0, u1, v1] = uv ?? cellUV(cell);
     const c = Math.cos(rot), s = Math.sin(rot), hw = w / 2, hh = h / 2;
-    const ax = c * hw, ay = s * hw, bx = -s * hh, by = c * hh;
+    const ax = c * hw, ay = s * hw * sq, bx = -s * hh, by = c * hh * sq;   // sq：旋转后再纵向压扁（地面透视）
     const pr = r * a, pg = g * a, pb = b * a, pa = a * (1 - add);
     const x0 = x - ax - bx, y0 = y - ay - by; // 左上
     const x1 = x + ax - bx, y1 = y + ay - by; // 右上
@@ -61,9 +61,13 @@ export class Batch {
   quad(cell: number, x: number, y: number, w: number, h: number, rot: number, r: number, g: number, b: number, a: number, add: number) {
     this.quadS(cell, this.sx(x), this.sy(y), w * this.z, h * this.z, rot, r, g, b, a, add);
   }
+  /** 地面贴花：贴图先在地面上旋转，再按透视压扁 */
+  groundQuad(cell: number, x: number, y: number, r: number, rot: number, cr: number, cg: number, cb: number, a: number, add: number, squash: number) {
+    this.quadS(cell, this.sx(x), this.sy(y), r * 2 * this.z, r * 2 * this.z, rot, cr, cg, cb, a, add, undefined, squash);
+  }
   /** 整张纹理（神识圈等）世界坐标 */
   texQuad(x: number, y: number, size: number, rot: number, a: number, add: number, tint: [number, number, number] = [1, 1, 1], sy = 1) {
-    this.quadS(-1, this.sx(x), this.sy(y), size * this.z, size * this.z * sy, rot, tint[0], tint[1], tint[2], a, add, [0, 0, 1, 1]);
+    this.quadS(-1, this.sx(x), this.sy(y), size * this.z, size * this.z, rot, tint[0], tint[1], tint[2], a, add, [0, 0, 1, 1], sy);
   }
 
   /** 折线条带（世界坐标）。w(i) 返回世界宽度，al(i) 返回该点透明度 */

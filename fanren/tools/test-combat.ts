@@ -38,6 +38,21 @@ for (const a of ART_LIST) {
   if (g.combat.enemies.filter((e) => !e.dead).length < 2) spawn();
   if (g.hero.dead) { console.log('hero dead?'); break; }
 }
+// 1b) 每件法器出手一次（第十三步：实体 + 光效），带渲染
+{
+  const { ITEM_LIST } = await import('../src/data/items');
+  const tA = Date.now(); let n = 0;
+  // 注：node 画布在高境界神识半径下会崩溃，故保持原境界（威力按境界衰减）
+  for (const it of ITEM_LIST) {
+    if (!it.art || ['armor', 'shield', 'flight', 'wings', 'boots'].includes(it.art.kind as string)) continue;
+    g.hero.bag.push({ id: it.id, n: 1 }); g.hero.mp = 1; g.hero.hp = 1; (g.combat as any).cds.clear();
+    if (process.env.DBG) console.log("art", it.id);
+    try { g.combat.castArtifact(it.id); n++; for (let i = 0; i < 75; i++) { g.update(1 / 30); if (i % 15 === 0 && process.env.BODY) { const out: any[] = []; g.combat.acts.collect(out); const cx: any = cv.getContext('2d'); out.forEach((d, j) => { console.log(' body', i, j); d.draw(cx); }); } if (i % 15 === 0 && !process.env.NOR) g.renderer.render(1 / 30); } } catch (e) { errs++; console.log('ERR art', it.id, e); }
+    if (g.combat.enemies.filter((e) => !e.dead).length < 3) spawn();
+  }
+  g.hero.realm = realm;
+  console.log('artifacts cast', n, Date.now() - tA, 'ms; acts left', g.combat.acts.list.length);
+}
 console.log('all arts cast', Date.now() - t0, 'ms errs', errs, 'kills', g.hero.kills, 'loot', g.combat.loot.length, 'exp', Math.round(g.hero.exp));
 // 2) 敌人攻击玩家：站着挨打直到倒下
 g.combat.reset(); g.hero.mp = 1; g.hero.hp = 1;

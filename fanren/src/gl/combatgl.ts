@@ -19,9 +19,16 @@ export interface FxEvent { k: 'hit' | 'kill' | 'phit' | 'cast' | 'block' | 'dodg
 export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
   const p = c.game.player;
   // ---- 事件（命中/击杀/受伤）
+  // 同一帧多次命中同一处（剑阵、飞针）：只完整播放前几次，其余减弱，避免叠加过曝
+  const hitSeen: [number, number, number][] = [];
   for (const ev of c.fxq) {
     const cc = col(ev.color ?? '255,236,200');
-    if (ev.k === 'hit') F.hit(ev.x, ev.y, cc, ev.power ?? 1, ev.crit, ev.dir);
+    if (ev.k === 'hit') {
+      const near = hitSeen.find((h) => Math.abs(h[0] - ev.x) < 50 && Math.abs(h[1] - ev.y) < 50);
+      if (near) { near[2]++; if (near[2] > 2) { F.sparks(ev.x, ev.y, cc, 4, 300, 0.3, 2.5, ev.dir, 1.6); continue; } }
+      else hitSeen.push([ev.x, ev.y, 1]);
+      F.hit(ev.x, ev.y, cc, Math.min(ev.power ?? 1, near ? 1 : 3), ev.crit && !near, ev.dir);
+    }
     else if (ev.k === 'kill') {
       F.explode(ev.x, ev.y, 46, cc, { smoke: true, shock: true });
       F.ink(ev.x, ev.y + 30, 120, 0.45);
@@ -30,9 +37,9 @@ export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
       F.flash(ev.x, ev.y, ev.big ? 50 : 30, [1, 0.25, 0.2], 0.15);
       F.sparks(ev.x, ev.y, [1, 0.35, 0.3], ev.big ? 16 : 8, 300, 0.35, 3);
       F.ink(ev.x, ev.y + 10, ev.big ? 90 : 60, 0.4, [0.35, 0.03, 0.03]);
-    } else if (ev.k === 'block') { F.flash(ev.x, ev.y, 34, cc, 0.12); F.shockRing(ev.x, ev.y, 60, cc, 0.3, 0.9); }
+    } else if (ev.k === 'block') { F.flash(ev.x, ev.y, 34, cc, 0.12); F.shockRing(ev.x, ev.y, 60, cc, 0.3, 0.9, 0.6); }
     else if (ev.k === 'dodge') { for (let i = 0; i < 10; i++) F.emit({ x: ev.x + rnd(-14, 14), y: ev.y - rnd(10, 90), vx: rnd(-40, 40), vy: rnd(-20, 10), life: rnd(0.3, 0.55), s0: rnd(16, 30), s1: 4, c: [0.75, 0.9, 1], a: 0.5, cell: C.Wisp, rot: 0 }); }
-    else if (ev.k === 'cast') { F.flash(ev.x, ev.y, 26, cc, 0.18); F.shockRing(ev.x, ev.y + 40, 70, cc, 0.35); }
+    else if (ev.k === 'cast') { const k = ev.power ?? 1; F.flash(ev.x, ev.y, 22 * k, cc, 0.16); F.shockRing(ev.x, ev.y + 40 * k, 70 * (0.6 + 0.4 * k), cc, 0.35, 0.55, 0.5); }
   }
   c.fxq.length = 0;
 
@@ -71,6 +78,8 @@ export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
     if (!pr._seen) { pr._seen = 1; const cc = col(pr.color); if (pr.fac === 'p') F.flash(pr.x, pr.y, 16 * (pr.size ?? 1), cc, 0.12); }
     drawProj(F, pr, t, dt);
   }
+  // ---- 法器出手（第十三步）
+  c.acts.drawGL(F, t, dt);
   // ---- 噬金虫
   for (const s of c.summons) if (s.kind === 'bugs' && s.dots) {
     for (const d of s.dots) { const a = d.a + t * d.s; const x = s.x + Math.cos(a) * d.r, y = s.y - 40 + Math.sin(a * 1.3) * d.r * 0.6; F.glow(x, y, 6, [1, 0.85, 0.35], 0.9, C.Dot); F.glow(x, y, 12, [1, 0.75, 0.3], 0.35); }
@@ -90,7 +99,12 @@ export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
     }
   }
   // ---- 护盾
-  if (c.shield) {
+  if (c.shield?.art) {   // 法器盾：身前一面灵光盾影，挡格时迸开六角纹
+    const s = c.shield, k = s.amt / s.max, cc = col(s.color), sp = c.shieldPos(), y = sp.y - sp.h;
+    F.glow(sp.x, y, 44 + c.blockT * 30, cc, 0.18 + 0.12 * k + c.blockT * 0.35);
+    F.sprite(C.RingSoft, p.x, p.y - 50, 128, 150, 0, cc, 0.08 + 0.06 * k + c.blockT * 0.3);
+    if (c.blockT > 0.7) F.sprite(C.Seal, sp.x, y, 60, 60, t, cc, (c.blockT - 0.7) * 2.4);
+  } else if (c.shield) {
     const s = c.shield, k = s.amt / s.max, cc = col(s.color);
     const pul = 0.85 + 0.15 * Math.sin(t * 4);
     F.sprite(C.RingSoft, p.x, p.y - 50, 140, 166, 0, cc, (0.45 + 0.35 * k) * pul);

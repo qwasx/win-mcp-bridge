@@ -2,6 +2,8 @@
 // 所有角色共用同一套骨骼与动作，外观（发型/服饰/颜色/配饰）由 Look 参数决定。
 import { shade, rgba } from '../core/canvas';
 import { headTex, headTexReady, type HeadView } from './headTex';
+import { drawArt } from './artifact';
+import { artLook } from '../data/artlooks';
 
 export type Action = 'idle' | 'walk' | 'run' | 'fly' | 'sit' | 'cast' | 'hit' | 'dodge' | 'gather';
 export const ACTION_NAMES: Record<Action, string> = {
@@ -370,7 +372,7 @@ type P2 = { x: number; y: number; z: number };
 // 头部贴图的尺寸/锚点（相对代码头）
 const HEAD_NECK_UP = 3.2, HEAD_TOP_Y = 9.6, HEAD_TEX_K = 1.08, HEAD_NECK_SINK = 0.06;
 
-export interface DrawOpts { alpha?: number; ghost?: boolean; glow?: number; preview?: boolean }
+export interface DrawOpts { alpha?: number; ghost?: boolean; glow?: number; preview?: boolean; /** 遁具法器 id（飞行时脚下/背后） */ mount?: string }
 
 export function drawCharacter(ctx: CanvasRenderingContext2D, look: Look, st: CharState, scale: number, dt: number, opts: DrawOpts = {}) {
   // 1. 姿态
@@ -466,7 +468,12 @@ export function drawCharacter(ctx: CanvasRenderingContext2D, look: Look, st: Cha
 
   // ---------- 飞剑 ----------
   if (flying) {
-    parts.push({ z: -999, f: () => drawSwordUnderFeet(g, bx, by, yaw, S, st.t, look.swordColor || '#7ff0c0') });
+    const L = opts.mount ? artLook(opts.mount) : null;
+    if (L && L.shape === 'boat') parts.push({ z: -999, f: () => drawBoatUnderFeet(g, bx, by, yaw, S, st.t, opts.mount!) });
+    else if (L && (L.shape === 'wings' || L.shape === 'cloak')) {
+      const back = Math.cos(yaw) > 0;   // 面朝镜头 → 翅/披风在身后
+      parts.push({ z: back ? -998 : 999, f: () => drawBackMount(g, che.x, che.y, yaw, S, st.t, opts.mount!) });
+    } else parts.push({ z: -999, f: () => drawSwordUnderFeet(g, bx, by, yaw, S, st.t, look.swordColor || '#7ff0c0') });
   }
   if (opts.glow && opts.glow > 0) {
     parts.push({ z: -1000, f: () => {
@@ -1252,6 +1259,57 @@ export function drawCharacter(ctx: CanvasRenderingContext2D, look: Look, st: Cha
   for (const p of parts) p.f();
   g.restore();
   return { headX: hed.x, headY: hed.y, handX: P(sk.rHa).x, handY: P(sk.rHa).y, lHandX: P(sk.lHa).x, lHandY: P(sk.lHa).y, front };
+}
+
+// 脚下飞舟（神风舟等）：侧视造型按朝向斜投影，舷下风纹灵光
+function headingAxis(yaw: number) {
+  const dx = Math.sin(yaw), dz = Math.cos(yaw);
+  let ex = dx, ey = dz * 0.32;
+  if (Math.abs(ex) < 0.55) ex = (ex < 0 ? -1 : 1) * 0.55;   // 正对/背对镜头时仍留一点侧面
+  return [ex, ey] as const;
+}
+export function drawBoatUnderFeet(g: CanvasRenderingContext2D, x: number, y: number, yaw: number, S: number, t: number, id: string) {
+  const L = artLook(id), [ex, ey] = headingAxis(yaw), bob = Math.sin(t * 2.2) * 1.5 * S;
+  g.save();
+  g.globalCompositeOperation = 'lighter';
+  const gr = g.createRadialGradient(x, y + 8 * S, 0, x, y + 8 * S, 60 * S);
+  gr.addColorStop(0, `rgba(${L.glow},0.32)`); gr.addColorStop(1, `rgba(${L.glow},0)`);
+  g.fillStyle = gr; g.beginPath(); g.ellipse(x, y + 8 * S, 60 * S, 18 * S, 0, 0, Math.PI * 2); g.fill();
+  g.globalCompositeOperation = 'source-over';
+  g.translate(x, y + 9 * S + bob);
+  g.transform(ex, ey, 0, 1, 0, 0);
+  drawArt(g, L, -6 * S, 0, 118 * S, Math.sin(t * 1.7) * 0.03);
+  g.restore();
+}
+// 背后遁具：风雷翅（扇动 + 雷纹）/ 血色披风（随风飘摆）
+export function drawBackMount(g: CanvasRenderingContext2D, x: number, y: number, yaw: number, S: number, t: number, id: string) {
+  const L = artLook(id), side = Math.abs(Math.sin(yaw));
+  g.save();
+  if (L.shape === 'wings') {
+    const flap = Math.sin(t * 7);
+    g.translate(x, y - 4 * S);
+    g.globalCompositeOperation = 'lighter';
+    const gr = g.createRadialGradient(0, 0, 0, 0, 0, 70 * S);
+    gr.addColorStop(0, `rgba(${L.glow},${0.28 + 0.1 * flap})`); gr.addColorStop(1, `rgba(${L.glow},0)`);
+    g.fillStyle = gr; g.beginPath(); g.ellipse(0, 0, 80 * S * (1 - side * 0.55), 50 * S, 0, 0, Math.PI * 2); g.fill();
+    g.globalCompositeOperation = 'source-over';
+    g.scale((1 - side * 0.6) * (0.9 + 0.12 * flap), 0.9 - 0.08 * flap);
+    drawArt(g, L, 0, -6 * S, 132 * S);
+    // 翅缘雷丝
+    g.globalCompositeOperation = 'lighter'; g.strokeStyle = `rgba(${L.glow},0.8)`; g.lineWidth = 1.2 * S;
+    const seed = Math.floor(t * 18);
+    for (const s of [-1, 1]) { g.beginPath(); let px = s * 20 * S, py = -14 * S; g.moveTo(px, py); for (let i = 0; i < 4; i++) { px += s * 9 * S; py += (((seed * 7 + i * 13 + (s > 0 ? 5 : 0)) % 9) - 5) * 1.6 * S; g.lineTo(px, py); } g.stroke(); }
+  } else {
+    const sway = Math.sin(t * 3.1) * 0.08;
+    g.translate(x, y - 10 * S); g.rotate(sway + Math.sin(yaw) * -0.25);
+    g.scale(1 - side * 0.35, 1.15);
+    drawArt(g, L, 0, 30 * S, 72 * S);
+    g.globalCompositeOperation = 'lighter';
+    const gr = g.createRadialGradient(0, 40 * S, 0, 0, 40 * S, 60 * S);
+    gr.addColorStop(0, `rgba(${L.glow},0.18)`); gr.addColorStop(1, `rgba(${L.glow},0)`);
+    g.fillStyle = gr; g.beginPath(); g.arc(0, 40 * S, 60 * S, 0, Math.PI * 2); g.fill();
+  }
+  g.restore();
 }
 
 // 脚下飞剑

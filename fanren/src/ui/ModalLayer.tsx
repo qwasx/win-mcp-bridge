@@ -11,6 +11,7 @@ import { CharState, drawCharacter, Look } from '../gfx/character';
 import { SECT_RANKS, repName } from '../world/worldstate';
 import * as C from '../world/cultivation';
 import { audio } from '../world/audio';
+import { ItemGlyph } from './ItemIcon';
 
 const TIER_COLOR = ['#5a544a', '#2f6b5e', '#2b5a8a', '#7a3a9a', '#b8802a', '#a8352a', '#d04a20'];
 const TYPE_NAME: Record<string, string> = { pill: '丹药', herb: '灵草', material: '材料', talisman: '符箓', scroll: '功法', artifact: '法宝', misc: '杂物' };
@@ -132,7 +133,7 @@ function ShopPanel({ game, shop }: { game: Game; shop: Shop }) {
           const d = itemDef(s.id);
           return (
             <div key={s.id + i} className="shop-row">
-              <span className="glyph" style={{ color: TIER_COLOR[d.tier] }}>{d.glyph}</span>
+              <ItemGlyph id={d.id} className="glyph" style={{ color: TIER_COLOR[d.tier] }} />
               <div className="sr-main"><div className="sr-name" style={{ color: TIER_COLOR[d.tier] }}>{d.name}{s.age !== undefined && <small> {s.age}年</small>}<small className="sr-type">{TYPE_NAME[d.type]}</small></div><div className="sr-desc">{d.desc}</div></div>
               <div className="sr-buy"><div className="sr-price">{s.price} {unit}</div><small>余 {s.n}</small>
                 <button className="ink-btn small" disabled={money < s.price} onClick={() => { if (game.towns.buy(shop, s)) audio.sfx('chime'); re(); }}>购买</button></div>
@@ -145,7 +146,7 @@ function ShopPanel({ game, shop }: { game: Game; shop: Shop }) {
           const p = Math.max(1, Math.round(d.price * shop.sellRate * (d.type === 'herb' ? 1 + Math.min(2, (b.age ?? 0) / 100) : 1)));
           return (
             <div key={b.id + i + (b.age ?? '')} className="shop-row">
-              <span className="glyph" style={{ color: TIER_COLOR[d.tier] }}>{d.glyph}</span>
+              <ItemGlyph id={d.id} className="glyph" style={{ color: TIER_COLOR[d.tier] }} />
               <div className="sr-main"><div className="sr-name" style={{ color: TIER_COLOR[d.tier] }}>{d.name}{b.age !== undefined && <small> {b.age}年</small>}<small className="sr-type">持有 {b.n}</small></div><div className="sr-desc">{d.desc}</div></div>
               <div className="sr-buy"><div className="sr-price">{p} 灵石</div>
                 <button className="ink-btn small ghost" onClick={() => { game.towns.sell(shop, b.id, b.age); click(); re(); }}>卖出</button></div>
@@ -241,7 +242,7 @@ function AuctionPanel({ game, loc }: { game: Game; loc: LocDef }) {
         <div className="auc-lots">
           {lots.map((l, i) => { const d = itemDef(l.id); return (
             <button key={i} className={'auc-lot' + (i === cur ? ' on' : '') + (l.done ? ' ' + l.done : '')} onClick={() => { if (!l.done) { setCur(i); setLead(null); } }}>
-              <span className="glyph" style={{ color: TIER_COLOR[d.tier] }}>{d.glyph}</span><span>{d.name}</span><small>{l.done === 'won' ? '已拍得' : l.done === 'lost' ? `归${l.who}` : `底价 ${l.base}`}</small>
+              <ItemGlyph id={d.id} className="glyph" style={{ color: TIER_COLOR[d.tier] }} /><span>{d.name}</span><small>{l.done === 'won' ? '已拍得' : l.done === 'lost' ? `归${l.who}` : `底价 ${l.base}`}</small>
             </button>); })}
         </div>
         <div className="auc-main">
@@ -334,7 +335,7 @@ function ChroniclePanel({ game }: { game: Game }) {
 }
 
 // ---------------------------------------------------------------- 帮助
-export const VERSION = 'v0.12.2 · 韩立手绘头像';
+export const VERSION = 'v0.13 · 法器与特效';
 function HelpPanel({ game }: { game: Game }) {
   const [tab, setTab] = useState(0);
   const T = ['操作', '修炼', '战斗', '人界', '神识'];

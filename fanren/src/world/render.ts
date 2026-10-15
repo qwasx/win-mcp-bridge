@@ -11,6 +11,7 @@ import { makeTree, Season } from '../gfx/tree';
 import { makeMountain } from '../gfx/mountain';
 import { layoutLocation, renderPiece, renderGround, LOC_SCALE, LocLayout } from '../gfx/building';
 import { drawCharacter } from '../gfx/character';
+import { artLook } from '../data/artlooks';
 import { drawNode } from './nodes';
 import type { Drawable } from './life';
 import { SenseFx, senseMods } from './sense';
@@ -1084,11 +1085,17 @@ export class Renderer {
       ctx.beginPath(); ctx.arc(p.x, p.y - 120, 14, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); ctx.stroke();
     }
     ctx.restore();
+    const eq = game.hero.equip ?? {}, mount = p.flying ? eq.flight : undefined;
+    const mg = mount ? artLook(mount).glow : '120,230,170';
     if (st.action === 'fly' && p.moving && Math.random() < 0.8) {
       const a = st.yaw;
-      this.particles.push({ x: p.x - Math.sin(a) * 30 + (Math.random() - 0.5) * 20, y: p.y - lift - Math.cos(a) * 10, vx: -Math.sin(a) * 40, vy: -Math.cos(a) * 20, life: 0, max: 0.6 + Math.random() * 0.5, size: 3 + Math.random() * 4, color: Math.random() < 0.5 ? '120,230,170' : '200,255,220' });
+      this.particles.push({ x: p.x - Math.sin(a) * 30 + (Math.random() - 0.5) * 20, y: p.y - lift - Math.cos(a) * 10, vx: -Math.sin(a) * 40, vy: -Math.cos(a) * 20, life: 0, max: 0.6 + Math.random() * 0.5, size: 3 + Math.random() * 4, color: Math.random() < 0.5 ? mg : '220,240,255' });
     }
-    drawCharacter(ctx, p.look, st, PLAYER_SCALE, dt);
+    // 踏云靴：足下生云
+    if (!p.flying && eq.boots && p.moving && Math.random() < (p.running ? 0.9 : 0.45)) {
+      this.particles.push({ x: p.x + (Math.random() - 0.5) * 26, y: p.y + 2, vx: -Math.sin(st.yaw) * 30 + (Math.random() - 0.5) * 20, vy: -6 - Math.random() * 10, life: 0, max: 0.5 + Math.random() * 0.4, size: 5 + Math.random() * 5, color: '245,248,255' });
+    }
+    drawCharacter(ctx, p.look, st, PLAYER_SCALE, dt, { mount });
   }
   private drawPlayerGhost() {
     const { ctx, game } = this;

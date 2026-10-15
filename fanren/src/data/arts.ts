@@ -171,7 +171,7 @@ export function artById(id: string): ArtSkill | undefined { return ARTS[id]; }
 /** 开局所学 */
 // 开局（炼气五层、初入黄枫谷）：几门基础法术 + 罗烟步（战斗闪身）+ 御风诀（赶路）
 export const START_ARTS = ['qijin', 'huodan', 'fengren', 'luoyan', 'yufeng', 'huichun', 'waifang', 'lianxi'];
-export const START_HOTBAR: (string | null)[] = ['qijin', 'huodan', 'fengren', 'luoyan', 'yufeng', 'huichun', 'waifang', 'lianxi', null];
+export const START_HOTBAR: (string | null)[] = ['qijin', 'huodan', 'fengren', 'luoyan', 'yufeng', 'huichun', 'waifang', 'lianxi', 'art:art_qingfeng'];
 
 /** 熟练度等级 */
 export function profLevel(tier: number, xp: number) { const n = profNeed(tier); return xp >= n[3] ? 3 : xp >= n[2] ? 2 : xp >= n[1] ? 1 : 0; }

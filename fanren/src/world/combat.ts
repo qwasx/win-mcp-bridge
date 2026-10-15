@@ -10,6 +10,7 @@ import { clamp } from '../core/rng';
 import { CharState, randomLook, Look } from '../gfx/character';
 import { audio } from './audio';
 import type { FxEvent } from '../gl/combatgl';
+import { ArtActs, lookOf } from './artacts';
 
 /** 各系命中光色 */
 const SCHOOL_COL: Partial<Record<School, string>> = { 火: '255,140,60', 冰: '150,220,255', 雷: '170,190,255', 风: '200,255,230', 土: '220,180,110', 木: '150,230,110', 剑: '210,255,240', 体: '255,220,160', 御: '255,210,120', 魔: '230,60,80', 识: '210,170,255', 阵: '255,230,140', 身: '200,240,255', 符: '255,210,110' };
@@ -102,7 +103,14 @@ export class Combat {
   // 玩家状态
   pst: Statuses = {};
   buffs: { atk: number; def: number; speed: number; regen: number; stealth: number; decoy: number; until: Record<string, number> } = { atk: 0, def: 0, speed: 0, regen: 0, stealth: 0, decoy: 0, until: {} };
-  shield: { amt: number; max: number; t: number; reflect: number; status?: StatusSpec; fx: Fx; color: string } | null = null;
+  shield: { amt: number; max: number; t: number; reflect: number; status?: StatusSpec; fx: Fx; color: string; art?: string } | null = null;
+  /** 盾形法器格挡闪光（0–1）与来袭方向 */
+  blockT = 0; blockDir = 0; shieldCd = 0; shieldAng = 0;
+  /** 法器盾的悬浮位置（玩家身前，挡格时转向来袭方向） */
+  shieldPos() {
+    const p = this.game.player, t = this.game.time;
+    return { x: p.x + Math.cos(this.shieldAng) * 46, y: p.y + Math.sin(this.shieldAng) * 16, h: 62 + Math.sin(t * 2.4) * 4 - this.blockT * 6, front: Math.sin(this.shieldAng) > -0.2 };
+  }
   orbit: { t: number; n: number; r: number; dmg: number; color: string; hitT: Map<number, number>; lv: number } | null = null;
   heal: { t: number; rate: number; mp: number } | null = null;
   dash: { t: number; dur: number; vx: number; vy: number; dmg: number; hit: Set<number>; invuln: boolean; color: string } | null = null;
@@ -119,11 +127,13 @@ export class Combat {
   pressure = 0;
   private pressWarnT = 0;
 
-  constructor(game: Game) { this.game = game; }
+  /** 第十三步：法器出手（实体 + 光效） */
+  acts: ArtActs;
+  constructor(game: Game) { this.game = game; this.acts = new ArtActs(this); }
 
   reset() {
     this.enemies = []; this.projs = []; this.fields = []; this.vfx = []; this.texts = []; this.loot = []; this.summons = []; this.strikes = []; this.sparks = [];
-    this.cds.clear(); this.pst = {}; this.shield = null; this.orbit = null; this.heal = null; this.dash = null; this.decoy = null;
+    this.cds.clear(); this.pst = {}; this.shield = null; this.orbit = null; this.heal = null; this.dash = null; this.decoy = null; this.acts?.reset();
     this.buffs = { atk: 0, def: 0, speed: 0, regen: 0, stealth: 0, decoy: 0, until: {} };
   }
 
@@ -419,6 +429,16 @@ export class Combat {
       case 'thunder': fake.cast = 'strike'; fake.fx = 'lightning'; fake.radius = 120; fake.count = 1; fake.range = 640; fake.status = { k: 'shock', dur: 1, ch: 0.6 }; fake.vsEvil = 2; break;
       case 'fubao': fake.cast = 'beam'; fake.fx = 'bigsword'; fake.radius = 64; fake.range = 640; fake.status = { k: 'knock', dur: 0.4, ch: 1 }; fake.school = '剑'; break;
       case 'shield': fake.cast = 'shield'; fake.fx = 'gold'; fake.power = tal.power; fake.dur = 12; break;
+      case 'bomb': {
+        C.removeItem(h, itemId, 1); this.setCd(key, 1); this.castT = 0.3; this.combatT = 0;
+        if (g.player.sitting) g.stand();
+        const a = this.aim(560); p.st.faceToward(a.dx, a.dy, false);
+        const L = lookOf(itemId);
+        this.acts.bomb({ itemId, art: { kind: 'slam', reqRealm: 0, sense: 0, pieces: 1, power: tal.power, mp: 0, cd: 1, color: tal.color }, L, cc: hexToRgb01(L.glow), dmg: atk * tal.power,
+          src: { realm: h.realm, status: { k: 'shock', dur: 1.2, ch: 0.7 }, stCh: 0.7, school: '符', evil: 2, skill: key }, pieces: 1, ax: a.x, ay: a.y, target: a.target });
+        audio.sfx('whoosh');
+        return;
+      }
       case 'escape': {
         C.removeItem(h, itemId, 1); this.setCd(key, 2);
         let fx = 0, fy = 0; for (const e of this.enemies) if (!e.dead && e.aggro) { fx += p.x - e.x; fy += p.y - e.y; }
@@ -450,11 +470,14 @@ export class Combat {
     if (!art) return;
     if (C.bagCount(h, itemId) <= 0) { g.toast(`储物袋中已无${d.name}。`, 'warn'); return; }
     if (!this.canAct) return;
-    if (art.kind === 'armor' || art.kind === 'shield' || art.kind === 'flight' || art.kind === 'wings') {
-      const slot = art.kind === 'armor' ? 'armor' : art.kind === 'shield' ? 'shield' : 'flight';
+    if (art.kind === 'armor' || art.kind === 'shield' || art.kind === 'flight' || art.kind === 'wings' || art.kind === 'boots') {
+      const slot = art.kind === 'armor' ? 'armor' : art.kind === 'shield' ? 'shield' : art.kind === 'boots' ? 'boots' : 'flight';
       (h.equip as any)[slot] = (h.equip as any)[slot] === itemId ? undefined : itemId;
       g.toast((h.equip as any)[slot] ? `祭出${d.name}护身。` : `收起${d.name}。`);
-      if (art.kind === 'shield' && (h.equip as any)[slot]) { const amt = this.pStats.hp * (art.absorb ?? 0.5); this.shield = { amt, max: amt, t: 9999, reflect: 0, fx: 'gold', color: '220,200,140' }; }
+      if (art.kind === 'shield' && (h.equip as any)[slot] && this.shieldCd <= 0) { const amt = this.pStats.hp * (art.absorb ?? 0.5); this.shield = { amt, max: amt, t: 9999, reflect: 0, fx: 'gold', color: lookOf(itemId).glow, art: itemId }; }
+      if (art.kind === 'shield' && !(h.equip as any)[slot] && this.shield?.art === itemId) this.shield = null;
+      this.fxq.push({ k: 'cast', x: g.player.x, y: g.player.y - 30, color: lookOf(itemId).glow, power: 0.6 });
+      audio.sfx((h.equip as any)[slot] ? 'chime' : 'land');
       return;
     }
     const key = 'art:' + itemId;
@@ -490,6 +513,14 @@ export class Combat {
     }
     const a = this.aim(fake.range);
     g.player.st.faceToward(a.dx, a.dy, false);
+    // 第十三步：法器以实体出手
+    const L = lookOf(itemId);
+    const handled = this.acts.spawn({
+      itemId, art, L, cc: hexToRgb01(L.glow), dmg: ps.atk * art.power * 1.3 * weak,
+      src: { realm: h.realm, status, stCh: status?.ch ?? 0, school: sch, evil: fake.vsEvil, skill: key },
+      pieces: art.kind === 'needle' || art.kind === 'sword' ? pieces : 1, ax: a.x, ay: a.y, target: a.target,
+    }, fake.dur ?? 15);
+    if (handled) { if (art.kind !== 'flame') this.fxq.push({ k: 'cast', x: g.player.x, y: g.player.y - 30, color: L.glow, power: 0.5 }); return; }
     this.exec(fake, 0, a, ps.atk, h.realm);
     audio.sfx('whoosh');
   }
@@ -528,7 +559,7 @@ export class Combat {
     e.hp -= d; e.anim.hit = 1; e.aggro = true; e.lastHitBy = this.game.time;
     this.combatT = 0;
     // 打击感：白闪、击退、顿帧、震屏、粒子
-    e.hitFlash = 0.12;
+    e.hitFlash = Math.max(e.hitFlash, 0.12);
     const kdx = e.x - fx, kdy = e.y - fy, kd = Math.hypot(kdx, kdy) || 1;
     const frac = d / e.maxHp;
     const kb = (gap > 0 ? 40 : 90 + Math.min(260, frac * 900)) * (e.def.hp >= 1.8 ? 0.35 : 1);
@@ -623,11 +654,17 @@ export class Combat {
     d = Math.max(1, Math.round(d));
     if (this.shield) {
       const ab = Math.min(this.shield.amt, d);
+      if (this.shield.art) { this.blockT = 1; this.blockDir = Math.atan2(fy - g.player.y, fx - g.player.x); this.fxq.push({ k: 'block', x: g.player.x + Math.cos(this.blockDir) * 44, y: g.player.y - 56 + Math.sin(this.blockDir) * 18, color: this.shield.color }); audio.sfx('clang'); }
       this.shield.amt -= ab; d -= ab;
       if (srcEnemy && this.shield.reflect && Math.hypot(srcEnemy.x - g.player.x, srcEnemy.y - g.player.y) < 140) {
         this.hitEnemy(srcEnemy, ab * this.shield.reflect + 1, { realm: h.realm, status: this.shield.status, stCh: this.shield.status?.ch ?? 0, school: '冰' }, g.player.x, g.player.y);
       }
-      if (this.shield.amt <= 0) { this.vfx.push({ kind: 'flash', x: g.player.x, y: g.player.y - 50, r: 90, t: 0, dur: 0.35, color: this.shield.color }); this.shield = null; g.toast('护盾破碎！', 'warn'); }
+      if (this.shield.amt <= 0) {
+        const sid = this.shield.art;
+        this.vfx.push({ kind: 'flash', x: g.player.x, y: g.player.y - 50, r: 90, t: 0, dur: 0.35, color: this.shield.color }); this.shield = null;
+        if (sid) { this.shieldCd = 15; this.fxq.push({ k: 'kill', x: g.player.x + Math.cos(this.blockDir) * 44, y: g.player.y - 56, color: '200,200,210' }); g.toast(`${itemDef(sid).name}被击得灵光尽失，倒飞而回——需调息十五息方能再挡。`, 'warn'); }
+        else g.toast('护盾破碎！', 'warn');
+      }
       if (d <= 0) { this.texts.push({ x: g.player.x, y: g.player.y - 110, s: '抵', color: '#bde', t: 0, vy: -40 }); return; }
     }
     if (srcEnemy?.spar && h.hp - d / ps.hp < 0.15) { h.hp = Math.max(h.hp, 0.15); srcEnemy.dead = true; srcEnemy.deathT = 0.9; if (this.lock === srcEnemy) this.lock = null; this.onSparEnd?.(srcEnemy, false); return; }
@@ -770,6 +807,16 @@ export class Combat {
     h.mp = Math.min(1, h.mp + (ooc ? 0.035 : 0.008) * dt);
     if (this.heal) { this.heal.t -= dt; h.hp = Math.min(1, h.hp + this.heal.rate * dt); h.mp = Math.min(1, h.mp + this.heal.mp * dt); if (Math.random() < dt * 8) this.sparks.push({ x: p.x + rand(-30, 30), y: p.y - rand(0, 80), vx: 0, vy: -40, t: 0, max: 1, size: 3, color: '150,230,120' }); if (this.heal.t <= 0) this.heal = null; }
     if (this.shield) { this.shield.t -= dt; if (this.shield.t <= 0) this.shield = null; }
+    this.blockT = Math.max(0, this.blockT - dt * 3);
+    if (this.shield?.art) {   // 法器盾绕身缓移：平时守在面朝一侧，挡格时转向来袭方向
+      const st = this.game.player.st, want = this.blockT > 0.05 ? this.blockDir : Math.atan2(Math.cos(st.yaw) * 0.6 + 0.25, Math.sin(st.yaw));
+      let d = want - this.shieldAng; d = Math.atan2(Math.sin(d), Math.cos(d));
+      this.shieldAng += d * Math.min(1, dt * (this.blockT > 0.05 ? 22 : 5));
+    }
+    // 盾形法器：脱战后灵光渐复
+    if (this.shieldCd > 0) this.shieldCd -= dt;
+    else if (h.equip.shield && !this.shield) { const sa = itemDef(h.equip.shield).art; if (sa) { const amt = this.pStats.hp * (sa.absorb ?? 0.5); this.shield = { amt, max: amt, t: 9999, reflect: 0, fx: 'gold', color: lookOf(h.equip.shield).glow, art: h.equip.shield }; } }
+    if (this.shield?.art && this.combatT > 4) this.shield.amt = Math.min(this.shield.max, this.shield.amt + this.shield.max * 0.08 * dt);
     if (this.decoy) { this.decoy.t -= dt; if (this.decoy.t <= 0) this.decoy = null; }
     // 冲刺
     if (this.dash) {
@@ -798,6 +845,7 @@ export class Combat {
     this.updateProjs(dt);
     this.updateFields(dt);
     this.updateSummons(dt);
+    this.acts.update(dt);
     // 天降打击
     this.strikes = this.strikes.filter((s) => {
       s.t -= dt;
@@ -1046,3 +1094,5 @@ export function hexToRgb(hex: string) {
   const n = parseInt(h.length === 3 ? h.split('').map((c) => c + c).join('') : h, 16);
   return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
 }
+/** "r,g,b" → [0..1]³ */
+export function hexToRgb01(s: string): [number, number, number] { const p = s.split(',').map(Number); return [p[0] / 255, p[1] / 255, p[2] / 255]; }
