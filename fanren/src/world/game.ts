@@ -14,7 +14,7 @@ import * as C from './cultivation';
 import { talentById } from '../data/skills';
 import { Combat, Enemy } from './combat';
 import { ENEMY_LIST } from '../data/enemies';
-import { ARTS } from '../data/arts';
+import { ARTS, profLevel } from '../data/arts';
 import type { Hero, Msg } from './cultivation';
 import { NpcWorld } from './npc';
 import { Hearts } from './hearts';
@@ -357,15 +357,27 @@ export class Game {
   }
   // ---------- 神识秘术 ----------
   senseBurstT = 0; senseBurstCd = 0; concealed = false; senseAlarm = 0; private scanTimer = 20;
-  /** 神识外放：半径 ×2，持续 6 秒，消耗三成法力，冷却 30 秒 */
+  /** 神识外放（持续型）：Q 开 / 再按 Q 收。半径 ×2；起手耗一成法力，之后持续耗蓝（外放期间法力不回），法力将尽时自动收回 */
   senseBurst() {
-    if (this.senseBurstCd > 0) { this.toast(`神识外放尚需调息 ${Math.ceil(this.senseBurstCd)} 息。`, 'warn'); return; }
-    if (this.hero.mp < 0.3) { this.toast('法力不足，无法外放神识。', 'warn'); return; }
-    this.hero.mp -= 0.3; this.senseBurstT = 6; this.senseBurstCd = 30; this.concealed = false;
-    this.renderer.sense.burst = 1;
-    this.toast('神识如潮水般向四方铺开……'); audio.sfx('whoosh');
+    if (this.senseBurstT > 0) { this.endSenseBurst('收回外放的神识。'); return; }
+    if (this.senseBurstCd > 0) { this.toast(`神识刚收回，尚需调息 ${Math.ceil(this.senseBurstCd)} 息。`, 'warn'); return; }
+    if (this.hero.mp < 0.15) { this.toast('法力不足，无法外放神识。', 'warn'); return; }
+    this.hero.mp -= 0.1; this.senseBurstT = 1e9; this.concealed = false; this.senseWaveT = 0;
+    if (this.renderer) this.renderer.sense.burst = 1;
+    this.toast(`神识如潮水般向四方铺开……（持续耗法力，约可维持 ${Math.round((this.hero.mp - 0.03) / this.senseDrain())} 息；再按 Q 收回）`); audio.sfx('whoosh');
     this.revealAround(false);
     this.updateUI();
+  }
+  senseWaveT = 0;
+  /** 外放每秒耗法力：境界越高、外放越熟练越省 */
+  senseDrain() {
+    const a = this.hero.arts.find((x) => x.id === 'waifang'), lv = a ? profLevel(0, a.xp ?? 0) : 0;
+    return 0.022 / (1 + Math.max(0, this.hero.realm - 1) * 0.3) * (1 - lv * 0.15);
+  }
+  endSenseBurst(msg: string) {
+    if (this.senseBurstT <= 0) return;
+    this.senseBurstT = 0; this.senseBurstCd = 3;
+    this.toast(msg); this.updateUI();
   }
   /** 敛息：收敛气息与神识，半径 ×0.6，不易被他人神识察觉 */
   toggleConceal() {
@@ -375,7 +387,13 @@ export class Game {
     this.updateUI();
   }
   private updateSense(dt: number) {
-    if (this.senseBurstT > 0) { this.senseBurstT -= dt; if (this.senseBurstT <= 0) this.toast('外放的神识缓缓收回。'); }
+    if (this.senseBurstT > 0) {
+      const h = this.hero;
+      h.mp = Math.max(0, h.mp - this.senseDrain() * dt);
+      // 外放中每隔数息再荡出一圈神识涟漪
+      this.senseWaveT += dt; if (this.senseWaveT > 4) { this.senseWaveT = 0; if (this.renderer) this.renderer.sense.burst = Math.max(this.renderer.sense.burst, 0.45); this.revealAround(false); }
+      if (h.mp <= 0.03) this.endSenseBurst('法力不支，外放的神识被迫收回。');
+    }
     if (this.senseBurstCd > 0) this.senseBurstCd -= dt;
     this.senseAlarm = Math.max(0, this.senseAlarm - dt * 0.5);
     // 险地：偶有更强神识扫过（敛息可避）
@@ -581,7 +599,9 @@ export class Game {
       const msgs: Msg[] = [];
       const hadTalent = !!h.pendingTalent;
       const expB = this.hearts.bonus('exp'), e0 = h.exp;
+      const mp0 = h.mp;
       C.passDays(h, days, p.sitting, this.placeBonus().mult, msgs);
+      if (this.senseBurstT > 0) h.mp = Math.min(h.mp, mp0);   // 神识外放期间法力不回
       if (expB > 0 && h.exp > e0) h.exp += (h.exp - e0) * expB;
       const rg = this.hearts.bonus('regen'); if (rg > 0 && !this.combat.inCombat) { h.hp = Math.min(1, h.hp + rg * 0.01 * dt); h.mp = Math.min(1, h.mp + rg * 0.01 * dt); }
       this.flushMsgs(msgs);

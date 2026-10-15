@@ -804,7 +804,7 @@ export class Combat {
     const ooc = this.combatT > 6;
     const regen = (ooc ? 0.025 : 0.003) + this.buffs.regen;
     h.hp = Math.min(1, h.hp + regen * dt);
-    h.mp = Math.min(1, h.mp + (ooc ? 0.035 : 0.008) * dt);
+    if (!(g.senseBurstT > 0)) h.mp = Math.min(1, h.mp + (ooc ? 0.035 : 0.008) * dt);   // 神识外放期间法力不回
     if (this.heal) { this.heal.t -= dt; h.hp = Math.min(1, h.hp + this.heal.rate * dt); h.mp = Math.min(1, h.mp + this.heal.mp * dt); if (Math.random() < dt * 8) this.sparks.push({ x: p.x + rand(-30, 30), y: p.y - rand(0, 80), vx: 0, vy: -40, t: 0, max: 1, size: 3, color: '150,230,120' }); if (this.heal.t <= 0) this.heal = null; }
     if (this.shield) { this.shield.t -= dt; if (this.shield.t <= 0) this.shield = null; }
     this.blockT = Math.max(0, this.blockT - dt * 3);

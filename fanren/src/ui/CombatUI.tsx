@@ -27,7 +27,7 @@ export function Hotbar({ game, touch }: { game: Game; touch: boolean }) {
     let raf = 0, sig = '';
     const loop = () => {
       const h = game.hero;
-      const s = h.hotbar.join('|') + h.arts.length + h.hotbar.map((id) => id?.startsWith('tal:') ? talCount(game, id.slice(4)) : '').join(',');
+      const s = h.hotbar.join('|') + h.arts.length + (game.senseBurstT > 0 ? 'W' : '') + (game.concealed ? 'C' : '') + h.hotbar.map((id) => id?.startsWith('tal:') ? talCount(game, id.slice(4)) : '').join(',');
       if (s !== sig) { sig = s; force((x) => x + 1); }
       h.hotbar.forEach((id, i) => {
         const el = cdRefs.current[i], tx = txtRefs.current[i];
@@ -47,7 +47,7 @@ export function Hotbar({ game, touch }: { game: Game; touch: boolean }) {
     <div className={'hotbar' + (touch ? ' pad' : '')}>
       {h.hotbar.map((id, i) => {
         const inf = slotInfo(id);
-        const equipped = id?.startsWith('art:') && Object.values(h.equip ?? {}).includes(id.slice(4));
+        const equipped = (id?.startsWith('art:') && Object.values(h.equip ?? {}).includes(id.slice(4))) || (id === 'waifang' && game.senseBurstT > 0) || (id === 'lianxi' && game.concealed);
         return (
           <button key={i} className={'hb-slot' + (inf ? '' : ' empty') + (equipped ? ' equipped' : '')}
             title={inf ? `${inf.name}（${i + 1}）` : '空（按 K 放置法术）'}

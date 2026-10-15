@@ -52,6 +52,20 @@ g.combat.castSlot(yi);
 tick(2);
 check('御风诀加速', g.combat.speedMul > before, `${before.toFixed(2)} → ${g.combat.speedMul.toFixed(2)}`);
 
+// 神识外放：持续耗蓝、外放期间不回蓝、再按收回、法力将尽自动收回
+h.mp = 1; g.senseBurst();
+const r2 = g.senseRadius;
+tick(300, 1 / 30);   // 10 秒
+const mp10 = h.mp;
+check('神识外放持续（10 秒后仍在）', g.senseBurstT > 0, `耗蓝 ${((0.9 - mp10) * 100).toFixed(1)}% / 10s`);
+check('外放期间持续耗蓝', mp10 < 0.9 - 0.05 && mp10 > 0.5, mp10.toFixed(3));
+g.senseBurst();
+check('再按收回', !(g.senseBurstT > 0));
+tick(120, 1 / 30);
+h.mp = 0.2; g.senseBurst(); tick(110, 1 / 30);
+check('法力将尽自动收回', !(g.senseBurstT > 0) && h.mp < 0.15, h.mp.toFixed(3));
+void r2;
+
 // 旧存档停在序章：读档后剧情直接结束
 g.ws.flags.story = { step: 'c1_mo2', f: { herbs: 1 } };
 h.bottle.owned = false; h.bottle.drops = 0; C.removeItem(h, 'item_bottle', 1);
