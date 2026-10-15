@@ -38,7 +38,8 @@ export function realmName(realm: number, stage: number) {
 }
 
 export function expNeed(realm: number, stage: number) {
-  return Math.round(REALMS[realm].expDays[stage] * EXP_PER_DAY);
+  const R = REALMS[Math.max(0, Math.min(REALMS.length - 1, realm))];
+  return Math.round(R.expDays[Math.max(0, Math.min(R.expDays.length - 1, stage))] * EXP_PER_DAY);
 }
 
 // 全局等级（用于比较强弱）：炼气1-13，筑基14-16 ……

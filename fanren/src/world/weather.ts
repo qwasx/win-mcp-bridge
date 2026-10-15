@@ -8,6 +8,8 @@ export class Weather {
   kind: WeatherKind = 'clear';
   next: WeatherKind = 'clear';
   k = 0;           // 当前天气强度 0–1（渐入渐出）
+  /** WebGL 模式：整屏填色（沙尘、雾、闪电白光）交给后期着色器 */
+  noFills = false;
   timer = 25;
   flash = 0; flashCd = 6;
   wind = 0.4;      // 风力（影响树摆、雨斜）
@@ -85,11 +87,11 @@ export class Weather {
           if (d.x > W + 20 || d.y > H + 20 || d.y < -20 || d.x < -40) Object.assign(d, this.spawn(W, H, false), { x: -10 });
           g.fillRect(d.x, d.y, d.l * 0.6, 1.4);
         }
-        g.fillStyle = `rgba(196,160,110,${0.28 * k})`; g.fillRect(0, 0, W, H);
+        if (!this.noFills) { g.fillStyle = `rgba(196,160,110,${0.28 * k})`; g.fillRect(0, 0, W, H); }
       }
       g.restore();
     }
-    if (kind === 'fog') {
+    if (kind === 'fog' && !this.noFills) {
       const t = performance.now() / 1000;
       g.save();
       for (let i = 0; i < 4; i++) {
@@ -102,7 +104,7 @@ export class Weather {
       g.restore();
     }
     if (this.flash > 0) {
-      g.fillStyle = `rgba(235,240,255,${this.flash * 0.55})`; g.fillRect(0, 0, W, H);
+      if (!this.noFills) { g.fillStyle = `rgba(235,240,255,${this.flash * 0.55})`; g.fillRect(0, 0, W, H); }
       if (this.flash > 0.85) {
         // 闪电
         g.strokeStyle = 'rgba(255,255,255,0.9)'; g.lineWidth = 2.2;

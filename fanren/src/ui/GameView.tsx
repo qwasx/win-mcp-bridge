@@ -107,6 +107,19 @@ function Joystick({ game }: { game: Game }) {
   );
 }
 
+// ---------- 性能监视（F3）----------
+function PerfHud({ game }: { game: Game }) {
+  const [, f] = useState(0);
+  useEffect(() => { const t = setInterval(() => f((x) => x + 1), 500); return () => clearInterval(t); }, []);
+  if (!game.showPerf) return null;
+  const p = game.perf, r = game.renderer;
+  return <div className="perf-hud">
+    {p.fps.toFixed(0)} fps · 逻辑 {p.updMs.toFixed(1)}ms · 绘制 {p.renMs.toFixed(1)}ms<br />
+    {r?.stage ? `WebGL · ${r.stage.W}×${r.stage.H} · ${r.stage.drawCalls} 次绘制 · 粒子 ${r.fx?.count ?? 0}` : 'Canvas2D'} · 世界层 ×{r?.dpr.toFixed(2)} · 画质 {['低', '中', '高'][r?.tier ?? 2]}<br />
+    树 {r?.stats.trees} · 草 {r?.stats.grass} · 敌 {game.combat.enemies.length} · NPC {game.npcs?.list.length ?? 0}
+  </div>;
+}
+
 // ---------- 主界面 ----------
 export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -152,6 +165,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
   return (
     <div className={"game-root" + (isTouch ? " touch" : "")}>
       <canvas ref={canvasRef} className="game-canvas" />
+      <PerfHud game={game} />
       <div className="hud">
         {/* 人物卡 */}
         <div className="char-card">
@@ -179,7 +193,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
         </div>
 
         {/* 提示 */}
-        {showHelp && !isTouch && <div className="help-tip">WASD 移动 · Shift 疾行 · T 交谈 · G 进城 · H 红颜录 · J 大事记 · ? 指南 · Z 打坐 · E 采集 · 1–9 施法（鼠标瞄准，否则自动锁定最近敌人）· K 法术书 · Q 神识外放 · R 敛息 · C 角色 · B 储物袋 · L 丹房 · P 闭关 · M 地图 · F 御剑（体验）</div>}
+        {showHelp && !isTouch && <div className="help-tip">WASD 移动 · Shift 疾行 · 空格 闪避 · T 交谈 · G 进城 · H 红颜录 · J 大事记 · ? 指南 · Z 打坐 · E 采集 · 1–9 施法（鼠标瞄准，否则自动锁定最近敌人）· K 法术书 · Q 神识外放 · R 敛息 · C 角色 · B 储物袋 · L 丹房 · P 闭关 · M 地图 · F 御剑（体验）</div>}
         {ui.sitting && <div className="sit-banner"><div className="sb-t">打坐修炼中</div><div className="sb-s">光阴 ×4 · 每日 +{ui.expRate.toFixed(1)} 修为 · {ui.place}{ui.bottleneck !== 'none' ? ' · 已至瓶颈' : ''}</div></div>}
         {ui.pendingTalent && panel === '' && <button className="talent-alert" onClick={() => setPanel('char')}>逆天改命机缘已至——点此选择</button>}
         {(ui.gather || ui.gatherP >= 0) && !ui.sitting && panel === '' && (

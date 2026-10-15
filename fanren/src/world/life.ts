@@ -475,6 +475,15 @@ export class Life {
   }
   drawShadows(g: G, t: number) { for (const e of this.ents) if (e.drawShadow) this.withVis(g, e, () => e.drawShadow!(g, t)); }
   drawSky(g: G, t: number) { for (const e of this.ents) if (e.drawSky) this.withVis(g, e, () => e.drawSky!(g, t)); }
+  /** WebGL：萤火作为发光点输出 */
+  collectGlow(night: number, out: (x: number, y: number, r: number, a: number) => void) {
+    if (night < 0.05) return;
+    for (const e of this.ents) if (e instanceof Firefly) {
+      const v = this.vis(e); if (v <= 0.01) continue;
+      const f = e as any; const a = night * (0.5 + 0.5 * Math.sin(f.t * 3 + f.bx)) * v;
+      if (a >= 0.05) out(e.x, e.y, 10, a);
+    }
+  }
   drawGlow(g: G, t: number, night: number) {
     if (night < 0.05) return;
     g.save(); g.globalCompositeOperation = 'lighter';

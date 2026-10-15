@@ -9,6 +9,17 @@ import * as C from './cultivation';
 import { clamp } from '../core/rng';
 import { CharState, randomLook, Look } from '../gfx/character';
 import { audio } from './audio';
+import type { FxEvent } from '../gl/combatgl';
+
+/** 各系命中光色 */
+const SCHOOL_COL: Partial<Record<School, string>> = { 火: '255,140,60', 冰: '150,220,255', 雷: '170,190,255', 风: '200,255,230', 土: '220,180,110', 木: '150,230,110', 剑: '210,255,240', 体: '255,220,160', 御: '255,210,120', 魔: '230,60,80', 识: '210,170,255', 阵: '255,230,140', 身: '200,240,255', 符: '255,210,110' };
+/**
+ * 境界压制（凡人修仙传：越一大境界几乎不可战胜）
+ * gap = 对方大境界 - 我方大境界
+ * 打高境界：每高一境，伤害只剩 6%；被高境界打：每高一境，承伤 ×3.2
+ */
+export function realmDealK(gap: number, talisman = false) { if (gap > 0) return Math.pow(talisman ? 0.3 : 0.06, gap); if (gap < 0) return 1 + 0.6 * -gap; return 1; }
+export function realmTakeK(gap: number) { if (gap > 0) return Math.pow(3.2, gap); if (gap < 0) return Math.pow(0.35, -gap); return 1; }
 
 const TAU = Math.PI * 2;
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -101,6 +112,12 @@ export class Combat {
   private spawnT = 2;
   private dangerCache = { x: -1e9, y: -1e9, d: 0, zone: '' as string, region: '' };
   fade = 0;
+  /** 渲染特效事件队列（WebGL 层消费） */
+  fxq: FxEvent[] = [];
+  dodgeCd = 0;
+  /** 威压：附近敌对高境界者带来的压制（0 无；1 = 高一大境界） */
+  pressure = 0;
+  private pressWarnT = 0;
 
   constructor(game: Game) { this.game = game; }
 
@@ -124,7 +141,7 @@ export class Combat {
   get canAct() { return !this.pst.stun && !this.pst.freeze && !this.pst.shock && !this.game.hero.dead; }
   get inCombat() { const p = this.game.player; return this.enemies.some((e) => !e.dead && e.aggro && !e.spar && Math.abs(e.x - p.x) < 1100 && Math.abs(e.y - p.y) < 1100); }
   get canMove() { return this.canAct && !this.pst.root && !this.dash; }
-  get speedMul() { return (this.pst.slow ? 0.5 : 1) * (1 + this.buffs.speed); }
+  get speedMul() { return (this.pst.slow ? 0.5 : 1) * (1 + this.buffs.speed) * (1 - 0.22 * Math.min(2, this.pressure)); }
 
   // ------------------------------------------------------------ 瞄准
   aim(range: number): { x: number; y: number; dx: number; dy: number; target: Enemy | null } {
@@ -458,13 +475,23 @@ export class Combat {
     d = Math.max(d * 0.15, d - def * 0.8);
     if (st.shock) d *= 1.2;
     const gap = e.realm - src.realm;
-    if (gap > 0) d *= Math.pow(0.55, gap); else if (gap < 0) d *= 1 + 0.3 * -gap;
+    d *= realmDealK(gap, src.school === '符');
     if (src.evil && e.def.evil) d *= src.evil;
     const crit = Math.random() < 0.1;
     if (crit) d *= 1.6;
     d = Math.max(1, Math.round(d));
     e.hp -= d; e.anim.hit = 1; e.aggro = true; e.lastHitBy = this.game.time;
     this.combatT = 0;
+    // 打击感：白闪、击退、顿帧、震屏、粒子
+    e.hitFlash = 0.12;
+    const kdx = e.x - fx, kdy = e.y - fy, kd = Math.hypot(kdx, kdy) || 1;
+    const frac = d / e.maxHp;
+    const kb = (gap > 0 ? 40 : 90 + Math.min(260, frac * 900)) * (e.def.hp >= 1.8 ? 0.35 : 1);
+    e.kx += kdx / kd * kb; e.ky += kdy / kd * kb * 0.7;
+    const power = Math.min(3, 0.6 + frac * 6 + (crit ? 0.8 : 0));
+    this.fxq.push({ k: 'hit', x: e.x + rand(-8, 8), y: e.y - (e.anim.flying ? 75 : e.def.kind === 'human' ? 62 : 36), color: SCHOOL_COL[src.school as School] ?? '255,236,200', power, crit, dir: Math.atan2(kdy, kdx) });
+    this.game.juice(crit ? 0.055 : frac > 0.25 ? 0.04 : 0, crit ? 0.22 : 0.06 + Math.min(0.2, frac));
+    if (gap > 0 && Math.random() < 0.3) this.texts.push({ x: e.x, y: e.y - 140, s: '境界压制', color: '#c0a8ff', t: 0, vy: -30 });
     this.texts.push({ x: e.x + rand(-14, 14), y: e.y - 80, s: String(d), color: crit ? '#ffd040' : combo ? '#ff9a5a' : '#fff4e0', t: 0, big: crit || !!combo, vy: -70 });
     if (combo) this.texts.push({ x: e.x, y: e.y - 120, s: combo + '！', color: '#ffcf6a', t: 0, big: true, vy: -40 });
     // 异状
@@ -520,6 +547,8 @@ export class Combat {
       if (sk) this.dropLoot(e.x, e.y, sk, 1);
     }
     this.burstShards(e.x, e.y - 30, e.def.evil ? '160,120,220' : '255,240,200');
+    this.fxq.push({ k: 'kill', x: e.x, y: e.y - 40, color: e.def.evil ? '200,80,200' : '255,226,170' });
+    this.game.juice(0.09, 0.35);
   }
 
   randomScroll(maxTier: number): string | null {
@@ -540,11 +569,10 @@ export class Combat {
   /** 敌人命中玩家 */
   hitPlayer(raw: number, srcRealm: number, status: StatusSpec | undefined, fx: number, fy: number, srcEnemy?: Enemy) {
     const g = this.game, h = g.hero;
-    if (h.dead || this.invulnT > 0 || (this.dash && this.dash.invuln)) { this.texts.push({ x: g.player.x, y: g.player.y - 110, s: '闪', color: '#cfe', t: 0, vy: -40 }); return; }
+    if (h.dead || this.invulnT > 0 || (this.dash && this.dash.invuln)) { this.texts.push({ x: g.player.x, y: g.player.y - 110, s: '闪', color: '#cfe', t: 0, vy: -40 }); this.fxq.push({ k: 'dodge', x: g.player.x, y: g.player.y }); return; }
     const ps = this.pStats;
     let d = Math.max(raw * 0.15, raw - ps.def * 0.8);
-    const gap = h.realm - srcRealm;
-    if (gap > 0) d *= Math.pow(0.55, gap); else if (gap < 0) d *= 1 + 0.35 * -gap;
+    d *= realmTakeK(srcRealm - h.realm);
     if (this.orbit) d *= 0.8;
     if (h.equip.armor) d *= 0.95;
     d = Math.max(1, Math.round(d));
@@ -560,7 +588,11 @@ export class Combat {
     if (srcEnemy?.spar && h.hp - d / ps.hp < 0.15) { h.hp = Math.max(h.hp, 0.15); srcEnemy.dead = true; srcEnemy.deathT = 0.9; if (this.lock === srcEnemy) this.lock = null; this.onSparEnd?.(srcEnemy, false); return; }
     h.hp -= d / ps.hp;
     this.hitT = 0.25; this.combatT = 0;
-    this.texts.push({ x: g.player.x + rand(-10, 10), y: g.player.y - 110, s: '-' + d, color: '#ff6a5a', t: 0, vy: -60, big: d > ps.hp * 0.15 });
+    const big = d > ps.hp * 0.15;
+    this.texts.push({ x: g.player.x + rand(-10, 10), y: g.player.y - 110, s: '-' + d, color: '#ff6a5a', t: 0, vy: -60, big });
+    this.fxq.push({ k: 'phit', x: g.player.x, y: g.player.y - 60, big });
+    g.juice(big ? 0.07 : 0.025, big ? 0.45 : 0.2);
+    g.hurtFlash = Math.max(g.hurtFlash, big ? 1 : 0.5);
     if (status && Math.random() < status.ch) {
       if (status.k === 'knock') { const dx = g.player.x - fx, dy = g.player.y - fy, dd = Math.hypot(dx, dy) || 1; g.player.x += dx / dd * 50; g.player.y += dy / dd * 30; }
       else this.applyStatus(this.pst, status, d, null, fx, fy);
@@ -669,6 +701,13 @@ export class Combat {
     this.castT = Math.max(0, this.castT - dt); this.hitT = Math.max(0, this.hitT - dt); this.invulnT = Math.max(0, this.invulnT - dt);
     this.combatT += dt;
     this.fade = Math.max(0, this.fade - dt * 0.6);
+    this.dodgeCd = Math.max(0, this.dodgeCd - dt);
+    // 威压：附近已察觉你的高境界敌人
+    let pr = 0;
+    for (const e of this.enemies) if (!e.dead && e.aggro && e.realm > h.realm && Math.hypot(e.x - p.x, e.y - p.y) < 700) pr = Math.max(pr, e.realm - h.realm);
+    this.pressure += (pr - this.pressure) * Math.min(1, dt * 3);
+    this.pressWarnT -= dt;
+    if (pr > 0 && this.pressWarnT <= 0) { this.pressWarnT = 25; g.toast(`一股${['', '远胜于你', '如山岳般', '令人窒息'][Math.min(3, pr)]}的威压笼罩而来——对方修为高出一个大境界以上，硬拼必死，速逃！`, 'warn'); }
     for (const [k, v] of this.cds) if (v > 0) this.cds.set(k, v - dt);
     // 增益过期
     for (const k of ['atk', 'def', 'speed', 'regen'] as const) if (this.buffs.until[k] && t > this.buffs.until[k]) { this.buffs[k] = 0; delete this.buffs.until[k]; }
@@ -761,6 +800,7 @@ export class Combat {
       if (e.dead) continue;
       e.anim.t += dt;
       e.anim.hit = Math.max(0, e.anim.hit - dt * 4);
+      e.hitFlash = Math.max(0, e.hitFlash - dt);
       this.tickStatuses(e.st, dt, (d) => { e.hp -= d; if (Math.random() < dt * 2) this.texts.push({ x: e.x + rand(-10, 10), y: e.y - 70, s: String(Math.max(1, Math.round(d * 0.5 / dt * 0.5))), color: e.st.poison ? '#9ad060' : '#ff9a50', t: 0, vy: -40 }); });
       if (e.hp <= 0) { this.kill(e); continue; }
       const frozen = !!(e.st.freeze || e.st.stun || e.st.shock);
@@ -924,6 +964,26 @@ export class Combat {
   }
 
   /** 战斗中的动作覆盖 */
+  /** 闪避（空格）：短距冲刺，带无敌帧 */
+  dodge() {
+    const g = this.game, p = g.player, h = g.hero;
+    if (h.dead || this.dash || this.dodgeCd > 0 || g.isFlying) return false;
+    let dx = 0, dy = 0;
+    const k = g.input.keys;
+    if (k.has('a') || k.has('arrowleft')) dx -= 1; if (k.has('d') || k.has('arrowright')) dx += 1;
+    if (k.has('w') || k.has('arrowup')) dy -= 1; if (k.has('s') || k.has('arrowdown')) dy += 1;
+    if (!dx && !dy && g.destination) { dx = g.destination.x - p.x; dy = g.destination.y - p.y; }
+    if (!dx && !dy) { const e = this.lock && !this.lock.dead ? this.lock : this.nearest(p.x, p.y, 600, new Set()); if (e) { dx = p.x - e.x; dy = p.y - e.y; } else { dx = Math.sin(p.st.yaw); dy = Math.cos(p.st.yaw); } }
+    const L = Math.hypot(dx, dy) || 1; dx /= L; dy /= L;
+    const dur = 0.2, dist = 190;
+    this.dash = { t: 0, dur, vx: dx * dist / dur, vy: dy * dist / dur * 0.8, dmg: 0, hit: new Set(), invuln: true, color: '200,235,255' };
+    this.invulnT = Math.max(this.invulnT, 0.28);
+    this.dodgeCd = 0.85;
+    this.fxq.push({ k: 'dodge', x: p.x, y: p.y });
+    audio.sfx('whoosh');
+    return true;
+  }
+
   actionOverride(): 'cast' | 'hit' | 'dodge' | null {
     if (this.dash) return 'dodge';
     if (this.pst.freeze || this.pst.stun) return 'hit';

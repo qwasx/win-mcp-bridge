@@ -40,6 +40,14 @@ export function SettingsPanel({ onClose, game, onExit, onSaves }: { onClose: () 
           <div className="set-row"><div>音效音量</div>
             <input type="range" min={0} max={1} step={0.05} value={audio.sfxVol} onChange={(e) => { audio.setSfxVol(+e.target.value); audio.sfx('chime'); saveAudio(); re(); }} /></div>
           {game && <>
+            <div className="set-row"><div>画质<small>{game.renderer?.stage ? 'WebGL 特效渲染' : '兼容模式（Canvas2D）'}{game.renderer?.fixedQuality ? '' : ' · 自动'}</small></div>
+              <select className="ink-select" value={game.renderer?.fixedQuality ? String(game.renderer.tier) : 'auto'} onChange={(e) => { const v = e.target.value; if (v === 'auto') { game.renderer.fixedQuality = false; } else game.renderer.setQuality(+v); try { localStorage.setItem('fanren.quality', v); } catch { /* */ } re(); }}>
+                <option value="auto">自动</option><option value="2">高（泛光 · 全分辨率）</option><option value="1">中</option><option value="0">低（省电 · 老手机）</option>
+              </select></div>
+            <div className="set-row"><div>WebGL 特效<small>关闭则使用兼容渲染（需重新进入游戏生效）</small></div>
+              <button className={'switch' + (game.renderer?.stage ? ' on' : '')} onClick={() => { click(); try { localStorage.setItem('fanren.gl', game.renderer?.stage ? '0' : '1'); } catch { /* */ } game.toast('已保存，返回标题再进入游戏即可生效。'); re(); }} /></div>
+            <div className="set-row"><div>性能监视<small>显示帧率与耗时（快捷键 F3）</small></div>
+              <button className={'switch' + (game.showPerf ? ' on' : '')} onClick={() => { click(); game.showPerf = !game.showPerf; re(); }} /></div>
             {onSaves && <div className="set-row"><div>存档 / 读档<small>一个自动存档 + 三个手动存档位</small></div><button className="ink-btn" onClick={() => { click(); onSaves(); }}>打开</button></div>}
             <div className="set-row"><div>天气（体验）<small>强制指定天气，便于预览</small></div>
               <select className="ink-select" value={game.weather.forced ?? ''} onChange={(e) => { game.setWeather((e.target.value || null) as any); re(); }}>
@@ -57,7 +65,7 @@ export function SettingsPanel({ onClose, game, onExit, onSaves }: { onClose: () 
           <div className="set-row" style={{ display: 'block' }}>
             <div style={{ marginBottom: 6 }}>操作说明</div>
             <div className="keys">
-              电脑：<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / 方向键 移动　·　<kbd>Shift</kbd> 疾行　·　鼠标点击地面 前往<br />
+              电脑：<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / 方向键 移动　·　<kbd>Shift</kbd> 疾行　·　<kbd>空格</kbd> 闪避　·　鼠标点击地面 前往　·　<kbd>F3</kbd> 性能<br />
               <kbd>Z</kbd> 打坐　·　<kbd>E</kbd> 采集（神识内的灵草/矿脉/灵泉）　·　<kbd>C</kbd> 角色/冲关　·　<kbd>B</kbd> 储物袋<br />
               <kbd>L</kbd> 丹房　·　<kbd>P</kbd> 闭关　·　滚轮 / <kbd>+</kbd><kbd>-</kbd> 缩放　·　<kbd>M</kbd> 世界地图　·　<kbd>F</kbd> 御剑（体验）<br />
               手机：左下摇杆移动　·　点击地面前往　·　点击灵物走过去采集　·　双指缩放

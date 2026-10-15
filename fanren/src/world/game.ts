@@ -12,7 +12,8 @@ import { NodeField, GatherNode } from './nodes';
 import { itemDef } from '../data/items';
 import * as C from './cultivation';
 import { talentById } from '../data/skills';
-import { Combat } from './combat';
+import { Combat, Enemy } from './combat';
+import { ENEMY_LIST } from '../data/enemies';
 import { ARTS } from '../data/arts';
 import type { Hero, Msg } from './cultivation';
 import { NpcWorld } from './npc';
@@ -406,10 +407,37 @@ export class Game {
     return { mult, name };
   }
 
+  // ---------- 打击感 ----------
+  hitStop = 0; trauma = 0; hurtFlash = 0;
+  showPerf = false;
+  perf = { frames: 0, acc: 0, upd: 0, ren: 0, fps: 0, updMs: 0, renMs: 0 };
+  /** 顿帧（秒）与震屏（0..1 创伤值，叠加） */
+  juice(stop: number, shake: number) {
+    if (stop > 0) this.hitStop = Math.max(this.hitStop, Math.min(0.12, stop));
+    if (shake > 0) this.trauma = Math.min(1, this.trauma + shake);
+  }
+
+  /** 调试/自动化：在玩家周围刷怪 */
+  debugSpawn(ids: string[], realm = this.hero.realm, stage = 3, dist = 320) {
+    ids.forEach((id, i) => {
+      const def = ENEMY_LIST.find((d) => d.id === id); if (!def) return;
+      const a = i / ids.length * Math.PI * 2;
+      const e = new Enemy(def, this.player.x + Math.cos(a) * dist, this.player.y + Math.sin(a) * dist * 0.6, realm, stage);
+      this.combat.enemies.push(e);
+    });
+  }
+  /** 调试：习得并施放 */
+  debugCast(id: string) {
+    if (!this.hero.arts.some((a) => a.id === id)) this.hero.arts.push({ id, xp: 0 });
+    (this.combat as any).cds.delete(id); this.hero.mp = 1;
+    this.combat.cast(id);
+  }
+
   // ---------- 生命周期 ----------
   attach(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
     this.renderer = new Renderer(this, canvas);
+    try { const q = localStorage.getItem('fanren.quality'); if (q && q !== 'auto') this.renderer.setQuality(+q); } catch { /* */ }
     this.bindInput();
     this.revealAround(true);
     this.updateUI(true);
@@ -417,10 +445,20 @@ export class Game {
     this.last = performance.now();
     const loop = (t: number) => {
       if (!this.running) return;
-      const dt = Math.max(0, Math.min(0.1, (t - this.last) / 1000));
+      const rdt = Math.max(0, Math.min(0.1, (t - this.last) / 1000));
       this.last = t;
+      // 顿帧：命中瞬间时间几近停滞
+      let dt = rdt;
+      if (this.hitStop > 0) { this.hitStop -= rdt; dt = rdt * 0.05; }
+      this.trauma = Math.max(0, this.trauma - rdt * 1.8);
+      this.hurtFlash = Math.max(0, this.hurtFlash - rdt * 2.2);
+      const u0 = performance.now();
       this.update(dt);
+      const u1 = performance.now();
       this.renderer.render(dt);
+      const u2 = performance.now();
+      const pf = this.perf; pf.frames++; pf.acc += rdt; pf.upd += u1 - u0; pf.ren += u2 - u1;
+      if (pf.acc >= 0.5) { pf.fps = pf.frames / pf.acc; pf.updMs = pf.upd / pf.frames; pf.renMs = pf.ren / pf.frames; pf.frames = 0; pf.acc = 0; pf.upd = 0; pf.ren = 0; }
       this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);
@@ -430,6 +468,7 @@ export class Game {
     this.running = false;
     cancelAnimationFrame(this.raf);
     this.unbind?.();
+    this.renderer?.dispose();
     this.save(0);
   }
 
@@ -904,6 +943,8 @@ export class Game {
       if (k === '?' || k === 'f1' || k === '/') { e.preventDefault(); this.openModal({ kind: 'help' }); }
       if (k === '=' || k === '+') this.zoomBy(1.2);
       if (k === '-') this.zoomBy(1 / 1.2);
+      if (k === ' ') this.combat.dodge();
+      if (k === 'f3') { e.preventDefault(); this.showPerf = !this.showPerf; }
       if (k.startsWith('arrow') || k === ' ') e.preventDefault();
     };
     const ku = (e: KeyboardEvent) => this.input.keys.delete(e.key.toLowerCase());

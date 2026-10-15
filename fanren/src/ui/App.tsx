@@ -32,6 +32,8 @@ export function App() {
     progressListeners.add(f);
     // 让标题动画先跑起来，再在后台生成世界
     const t = setTimeout(() => ensureGame(), 900);
+    // 调试 / 自动化测试：?auto=new 直接进入新游戏
+    if (new URLSearchParams(location.search).get('auto') === 'new') { mode.current = 'new'; enterGame(); }
     return () => { progressListeners.delete(f); clearTimeout(t); };
   }, []);
 

@@ -16,6 +16,10 @@ import type { Drawable } from './life';
 import { SenseFx, senseMods } from './sense';
 import { collectCombat, drawCombatFx, drawCombatUI } from './combatfx';
 import { REALMS } from '../data/realms';
+import { GLStage, PostParams } from '../gl/stage';
+import { FxSys } from '../gl/fx';
+import { drawCombatGL } from '../gl/combatgl';
+import { TIERS } from './sense';
 
 const LOC_SEAL: Record<string, string> = { city: '城', town: '镇', sect: '宗', danger: '险', secret: '秘', isle: '岛' };
 const LOC_SEAL_COLOR: Record<string, string> = { city: '#9a3b2c', town: '#8a6a3a', sect: '#2f6b5e', danger: '#5a1f2a', secret: '#3a5a8a', isle: '#2f6a80' };
@@ -50,9 +54,34 @@ export class Renderer {
   senseMods: string[] = [];
   private modsT = 0;
 
+  /** WebGL 合成层（不可用时为 null，回退纯 Canvas2D） */
+  stage: GLStage | null = null;
+  fx: FxSys | null = null;
+  /** 页面上的画布（GL 模式下作为透明 UI 层：名牌、血条、伤害数字） */
+  domCanvas: HTMLCanvasElement;
+  uiCtx: CanvasRenderingContext2D;
+  /** 画质：2 高 / 1 中 / 0 低 */
+  tier = 2;
+
   constructor(game: Game, canvas: HTMLCanvasElement) {
-    this.game = game; this.canvas = canvas;
-    this.ctx = canvas.getContext('2d', { alpha: false })!;
+    this.game = game;
+    this.domCanvas = canvas;
+    const q = typeof location !== 'undefined' ? location.search : '';
+    let wantGL = !/[?&]gl=0/.test(q);
+    try { if (localStorage.getItem('fanren.gl') === '0' && !/[?&]gl=1/.test(q)) wantGL = false; } catch { /* */ }
+    this.stage = wantGL ? GLStage.create() : null;
+    if (this.stage) {
+      this.canvas = document.createElement('canvas');
+      this.ctx = this.canvas.getContext('2d', { alpha: false })!;
+      this.uiCtx = canvas.getContext('2d')!;
+      const gc = this.stage.canvas; gc.className = 'game-gl';
+      canvas.parentElement?.insertBefore(gc, canvas);
+      this.fx = new FxSys(this.stage.batch);
+    } else {
+      this.canvas = canvas;
+      this.ctx = canvas.getContext('2d', { alpha: false })!;
+      this.uiCtx = this.ctx;
+    }
     this.cloud = this.makeCloud();
     this.cloudShadow = this.makeCloudShadow();
     this.glow = this.makeGlow();
@@ -63,13 +92,26 @@ export class Renderer {
     window.addEventListener('resize', () => this.resize());
   }
 
+  dispose() {
+    if (this.stage) { this.stage.canvas.remove(); this.stage.gl.getExtension('WEBGL_lose_context')?.loseContext(); this.stage = null; }
+  }
+
   resize() {
     const isMobile = Math.min(window.innerWidth, window.innerHeight) < 600;
-    this.dpr = Math.min(window.devicePixelRatio || 1, isMobile ? 1.75 : 2, this.maxDpr ?? 2);
-    this.W = this.canvas.clientWidth || window.innerWidth;
-    this.H = this.canvas.clientHeight || window.innerHeight;
+    this.dpr = Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2, this.maxDpr ?? 2);
+    const el = this.domCanvas;
+    this.W = el.clientWidth || window.innerWidth;
+    this.H = el.clientHeight || window.innerHeight;
     this.canvas.width = Math.round(this.W * this.dpr);
     this.canvas.height = Math.round(this.H * this.dpr);
+    if (this.stage) {
+      // UI 层与 GL 输出用设备像素比（文字清晰），世界层可按画质降采样
+      const ud = Math.min(window.devicePixelRatio || 1, 2);
+      this.domCanvas.width = Math.round(this.W * ud); this.domCanvas.height = Math.round(this.H * ud);
+      this.uiDpr = ud;
+      this.stage.resize(this.W * Math.min(ud, this.dpr * 1.25), this.H * Math.min(ud, this.dpr * 1.25));
+      this.stage.bloomOn = this.tier >= 1;
+    }
     if (this.atmo) { this.atmo.width = Math.ceil(this.W * Renderer.AS) + 2; this.atmo.height = Math.ceil(this.H * Renderer.AS) + 2; }
     this.overlayKey = '';
   }
@@ -147,15 +189,32 @@ export class Renderer {
     return c;
   }
 
+  uiDpr = 1;
   private perfT = 0; private perfN = 0; private perfAcc = 0; private lowered = 0;
+  /** 自适应画质：持续掉帧则逐级降低世界层分辨率，再关泛光、减粒子 */
   private adapt(dt: number) {
-    if (this.lowered >= 2 || dt <= 0) return;
+    if (this.lowered >= 3 || dt <= 0 || this.fixedQuality) return;
     this.perfT += dt; this.perfN++; this.perfAcc += dt;
     if (this.perfT > 4) {
       const avg = this.perfAcc / this.perfN;
-      if (avg > 1 / 36 && this.dpr > 1.01) { this.lowered++; this.maxDpr = this.lowered === 1 ? 1.5 : 1; this.resize(); }
+      if (avg > 1 / 40) {
+        this.lowered++;
+        this.maxDpr = this.lowered === 1 ? 1.5 : this.lowered === 2 ? 1.15 : 1;
+        if (this.lowered >= 3) { this.tier = 0; if (this.fx) this.fx.quality = 0.5; }
+        else if (this.lowered >= 2) this.tier = 1;
+        this.resize();
+      }
       this.perfT = 0; this.perfN = 0; this.perfAcc = 0;
     }
+  }
+  fixedQuality = false;
+  /** 手动画质：0 低 1 中 2 高 */
+  setQuality(q: number) {
+    this.fixedQuality = true; this.tier = q;
+    this.maxDpr = q >= 2 ? 2 : q === 1 ? 1.4 : 1;
+    if (this.fx) this.fx.quality = q === 0 ? 0.5 : 1;
+    this.lowered = 2 - q;
+    this.resize();
   }
   maxDpr = 2;
 
@@ -258,7 +317,10 @@ export class Renderer {
     sprites.beginFrame();
     const z = game.cam.zoom;
     const W = this.W, H = this.H, dpr = this.dpr;
-    if (this.canvas.clientWidth !== W || this.canvas.clientHeight !== H) this.resize();
+    if (this.domCanvas.clientWidth !== W || this.domCanvas.clientHeight !== H) this.resize();
+    const GL = !!this.stage && !this.stage.lost;
+    const ui = GL ? this.uiCtx : ctx;
+    if (GL) { ui.setTransform(1, 0, 0, 1, 0, 0); ui.clearRect(0, 0, this.domCanvas.width, this.domCanvas.height); }
     const t = game.time;
     const season = game.season as Season;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -268,8 +330,11 @@ export class Renderer {
     ctx.fillStyle = '#e9dfc6';
     ctx.fillRect(0, 0, W, H);
 
-    const sh = this.sense.alarm > 0.3 ? (this.sense.alarm - 0.3) * 5 / z : 0;
-    const camX = game.cam.x + (sh ? Math.sin(game.time * 47) * sh : 0), camY = game.cam.y + (sh ? Math.cos(game.time * 53) * sh : 0);
+    const sh = (this.sense.alarm > 0.3 ? (this.sense.alarm - 0.3) * 5 : 0) / z;
+    // 震屏：创伤值平方 × 平滑噪声（随时间连续，不抖成白噪）
+    const tr = game.trauma, tk = tr * tr * 15 / z, rt = performance.now() / 1000;
+    const camX = game.cam.x + (sh ? Math.sin(game.time * 47) * sh : 0) + (tk ? (Math.sin(rt * 41.3) + Math.sin(rt * 67.1) * 0.5) * tk : 0);
+    const camY = game.cam.y + (sh ? Math.cos(game.time * 53) * sh : 0) + (tk ? (Math.cos(rt * 37.7) + Math.sin(rt * 59.3) * 0.5) * tk : 0);
     const left = camX - W / 2 / z, top = camY - H / 2 / z, right = camX + W / 2 / z, bottom = camY + H / 2 / z;
     this.Z = z * dpr; this.ox = W * dpr / 2 - camX * this.Z; this.oy = H * dpr / 2 - camY * this.Z;
     this.world();
@@ -444,22 +509,26 @@ export class Renderer {
     const night = game.night, light = game.light;
     const dusk = clamp(1 - Math.abs(light - 0.52) / 0.2, 0, 1) * (1 - night) * 0.7;
     const gloom = game.weather.gloom + game.weather.flash * -0.3;
+    let mulR = 255, mulG = 255, mulB = 255;
     if (night > 0.01 || dusk > 0.01 || gloom > 0.01) {
       let r = 255, g = 255, bb = 255;
       r += (255 - r) * dusk; g += (200 - g) * dusk; bb += (160 - bb) * dusk;
       r += (70 - r) * night * 0.85; g += (80 - g) * night * 0.85; bb += (130 - bb) * night * 0.85;
       const gl = clamp(gloom, 0, 0.6);
       r += (150 - r) * gl; g += (156 - g) * gl; bb += (168 - bb) * gl;
+      mulR = r; mulG = g; mulB = bb;
+    }
+    if (!GL && (night > 0.01 || dusk > 0.01 || gloom > 0.01)) {
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalCompositeOperation = 'multiply';
-      ctx.fillStyle = `rgb(${r | 0},${g | 0},${bb | 0})`;
+      ctx.fillStyle = `rgb(${mulR | 0},${mulG | 0},${mulB | 0})`;
       ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
       ctx.restore();
     }
     // 调色：白昼略增反差与暖意（避免发灰），晨昏金色柔光
-    {
-      const dayK = (1 - night) * (1 - clamp(gloom, 0, 1));
+    const dayK = (1 - night) * (1 - clamp(gloom, 0, 1));
+    if (!GL) {
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalCompositeOperation = 'soft-light';
@@ -477,7 +546,35 @@ export class Renderer {
       ctx.restore();
     }
     // 灯火
-    if (night > 0.05) {
+    const F = this.fx;
+    if (GL && F) {
+      // WebGL 批次：神识圈（最底）→ 灯火 → 战斗特效 → 粒子
+      const B = this.stage!.batch;
+      B.reset(camX, camY, z, W, H, this.stage!.atlas);
+      F.update(dt);
+      if (!(game.revealAll && game.debugSeeAll)) this.sense.drawGL(F, this.stage!, p.x, p.y, Math.min(5, game.hero.realm), this.senseMods, game.time, z);
+      if (night > 0.05) {
+        for (const l of visibleLocs) {
+          const L = this.layout(l), lx = l.x * WORLD_SCALE, ly = l.y * WORLD_SCALE;
+          L.lights.forEach((li, i) => {
+            const vis = clamp((R - Math.hypot(lx + li.x * LOC_SCALE - p.x, ly + li.y * LOC_SCALE - p.y)) / 120, 0, 1);
+            if (vis <= 0) return;
+            const fl = 0.85 + 0.15 * Math.sin(t * 7 + i * 1.7) * Math.sin(t * 3.1 + i);
+            const rr = li.r * LOC_SCALE * 2.4 * fl;
+            B.quad(0, lx + li.x * LOC_SCALE, ly + li.y * LOC_SCALE, rr * 2, rr * 1.6, 0, 1, 0.72, 0.4, night * 0.6 * vis, 1);
+            B.quad(1, lx + li.x * LOC_SCALE, ly + li.y * LOC_SCALE, rr * 0.35, rr * 0.3, 0, 1, 0.85, 0.6, night * 0.8 * vis, 1);
+          });
+        }
+        B.quad(0, p.x, p.y - 50, 320, 240, 0, 1, 0.8, 0.55, night * 0.22, 1);
+        game.life.collectGlow(night, (x, y, r, a) => { B.quad(0, x, y, r * 2.6, r * 2.6, 0, 0.85, 1, 0.55, a, 1); B.quad(26, x, y, r * 0.5, r * 0.5, 0, 1, 1, 0.8, a, 1); });
+      }
+      drawCombatGL(F, game.combat, t, dt);
+      F.drawRings(dt);
+      F.drawParticles();
+    } else {
+      game.combat.fxq.length = 0;
+    }
+    if (!GL && night > 0.05) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       for (const l of visibleLocs) {
@@ -500,10 +597,10 @@ export class Renderer {
 
     // 战斗特效（发光，夜里亦明亮）
     this.world();
-    drawCombatFx(ctx, game.combat, t);
+    if (!GL) drawCombatFx(ctx, game.combat, t);
 
     // ---------- 9.5 神识之外：记忆水墨（褪色、留白，不见动静）----------
-    if (!(game.revealAll && game.debugSeeAll)) {
+    if (!GL && !(game.revealAll && game.debugSeeAll)) {
       const sx = (W / 2 + (p.x - camX) * z) * dpr, sy = (H / 2 + (p.y - camY) * z) * dpr;
       this.sense.drawMemory(ctx, sx, sy, R * z * dpr, this.canvas.width, this.canvas.height, this.lowered >= 1);
       this.world();
@@ -511,10 +608,17 @@ export class Renderer {
 
     // ---------- 10. 氛围层 ----------
     this.drawAtmosphere(left, top, right, bottom, dt);
-    ctx.drawImage(this.atmo, this.atmoRect.x, this.atmoRect.y, this.atmoRect.w, this.atmoRect.h);
+    if (!GL) ctx.drawImage(this.atmo, this.atmoRect.x, this.atmoRect.y, this.atmoRect.w, this.atmoRect.h);
 
+    // —— 以下为 UI 层（GL 模式下画在透明画布上，不受调色、记忆水墨影响）
+    const sceneCtx = this.ctx, sceneZ = this.Z, sceneOx = this.ox, sceneOy = this.oy, sceneDpr = this.dpr;
+    if (GL) {
+      this.ctx = ui; this.dpr = this.uiDpr;
+      this.Z = z * this.uiDpr; this.ox = W * this.uiDpr / 2 - camX * this.Z; this.oy = H * this.uiDpr / 2 - camY * this.Z;
+      this.world();
+    }
     // 血条与伤害数字
-    drawCombatUI(ctx, game.combat, t, z);
+    drawCombatUI(this.ctx, game.combat, t, z);
 
     // ---------- 11. 名牌 ----------
     for (const l of visibleLocs) {
@@ -533,24 +637,33 @@ export class Renderer {
     }
 
     // ---------- 12. 神识 ----------
-    this.drawSense();
+    if (!GL) this.drawSense();
 
     // ---------- 13. 屏幕空间：天气、大区域名、纸纹 ----------
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const cdx = dt > 0 ? (camX - this.lastCam.x) / dt * z : 0, cdy = dt > 0 ? (camY - this.lastCam.y) / dt * z : 0;
     this.lastCam.x = camX; this.lastCam.y = camY;
-    game.weather.draw(ctx, W, H, dt, clamp(cdx, -800, 800), clamp(cdy, -800, 800));
+    // 雨雪画在世界层（GL 模式下整屏雾/闪电的填色交给着色器）
+    sceneCtx.setTransform(sceneDpr, 0, 0, sceneDpr, 0, 0);
+    game.weather.noFills = GL;
+    game.weather.draw(sceneCtx, W, H, dt, clamp(cdx, -800, 800), clamp(cdy, -800, 800));
+    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     if (z < 0.6) {
       const a = clamp((0.6 - z) / 0.3, 0, 1) * 0.55;
-      ctx.globalAlpha = a;
+      this.ctx.globalAlpha = a;
       for (const b of BIG_LABELS) {
         const sx = W / 2 + (b.at[0] * WORLD_SCALE - camX) * z, sy = H / 2 + (b.at[1] * WORLD_SCALE - camY) * z;
         if (sx < -400 || sx > W + 400 || sy < -200 || sy > H + 200) continue;
         const spr = this.bigLabel(b.name, Math.round(b.size * 16 + 18));
         const w = spr.width / dpr, h = spr.height / dpr;
-        ctx.drawImage(spr, sx - w / 2, sy - h / 2, w, h);
+        this.ctx.drawImage(spr, sx - w / 2, sy - h / 2, w, h);
       }
-      ctx.globalAlpha = 1;
+      this.ctx.globalAlpha = 1;
+    }
+    if (GL) {
+      this.ctx = sceneCtx; this.Z = sceneZ; this.ox = sceneOx; this.oy = sceneOy; this.dpr = sceneDpr;
+      this.postGL(camX, camY, z, W, H, night, dusk, gloom, dayK, [mulR, mulG, mulB], R);
+      this.stats.ms = performance.now() - t0;
+      return;
     }
     const month = Math.floor(game.day / 30) % 12;
     const key = Math.floor(month / 3) + ':' + Math.ceil(W) + 'x' + Math.ceil(H);
@@ -566,6 +679,37 @@ export class Renderer {
     }
     if (game.combat.fade > 0) { ctx.fillStyle = `rgba(10,8,6,${Math.min(1, game.combat.fade * 1.4)})`; ctx.fillRect(0, 0, W, H); }
     this.stats.ms = performance.now() - t0;
+  }
+
+  // ---------------------------------------------------------------- WebGL 后期
+  private postGL(camX: number, camY: number, z: number, W: number, H: number, night: number, dusk: number, gloom: number, dayK: number, mul: number[], R: number) {
+    const game = this.game, p = game.player, st = this.stage!, F = this.fx!;
+    const wt = game.weather;
+    const month = Math.floor(game.day / 30) % 12;
+    const tint: [number, number, number, number] = month < 3 ? [0.7, 0.86, 0.67, 0.05] : month < 6 ? [1, 0.9, 0.63, 0.05] : month < 9 ? [0.9, 0.59, 0.31, 0.07] : [0.78, 0.84, 0.94, 0.12];
+    const tierS = TIERS[Math.min(5, game.hero.realm)];
+    const sx = W / 2 + (p.x - camX) * z, sy = H / 2 + (p.y - camY) * z;
+    const hpk = game.hero.hp;
+    const hurt = (hpk < 0.35 && !game.hero.dead ? (0.35 - hpk) / 0.35 * (0.45 + 0.15 * Math.sin(game.time * 5)) : 0) + game.hurtFlash * 0.35;
+    const k = wt.k;
+    const fog: [number, number, number, number] = wt.kind === 'sand' ? [0.77, 0.63, 0.43, 0.28 * k] : wt.kind === 'fog' ? [0.9, 0.91, 0.89, 0.18 * k] : [0, 0, 0, 0];
+    const P: PostParams = {
+      t: game.time,
+      mul: [mul[0] / 255, mul[1] / 255, mul[2] / 255],
+      warm: dayK > 0.05 ? 0.22 * dayK * (1 - dusk) : 0,
+      dusk: dusk > 0.03 ? dusk : 0,
+      sense: { x: sx, y: sy, R: R * z, on: !(game.revealAll && game.debugSeeAll), ink: tierS.ink.map((v) => v / 255) as [number, number, number], glow: tierS.glow.map((v) => v / 255) as [number, number, number], hide: this.sense.hidden, alarm: this.sense.alarm },
+      atmo: { canvas: this.atmo, x: W / 2 + (this.atmoRect.x - camX) * z, y: H / 2 + (this.atmoRect.y - camY) * z, w: this.atmoRect.w * z, h: this.atmoRect.h * z },
+      fog, fogBands: wt.kind === 'fog' ? k : 0,
+      flash: [0.92, 0.94, 1, wt.flash * 0.55],
+      tint,
+      vig: 1, hurt: Math.min(0.8, hurt), fade: Math.min(1, game.combat.fade * 1.4),
+      aberr: game.trauma > 0.25 ? (game.trauma - 0.25) * 1.2 : 0,
+      bloom: 0.9, grain: 1,
+      shocks: F.shocks.map((s) => ({ x: W / 2 + (s.x - camX) * z, y: H / 2 + (s.y - camY) * z, r: s.r * z, amp: s.amp * Math.min(1.5, z * 1.2) })),
+      sat: 0,
+    };
+    st.frame(this.canvas, W, H, st.W / W, P);
   }
 
   // ---------------------------------------------------------------- 水

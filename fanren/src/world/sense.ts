@@ -1,6 +1,9 @@
 // 神识：按境界分级的水墨神识特效 + 法宝/功法修饰 + 圈外“记忆水墨”
 // 设计要点：所有动画都由连续时间驱动（无跳变）；纹理预渲染后旋转/缩放绘制，保证丝滑。
 import { mulberry32 } from '../core/rng';
+import type { FxSys } from '../gl/fx';
+import type { GLStage } from '../gl/stage';
+import { C as CELL } from '../gl/atlas';
 
 type G = CanvasRenderingContext2D;
 const TAU = Math.PI * 2;
@@ -465,6 +468,86 @@ export class SenseFx {
       g.beginPath(); g.arc(x, y, R * (1 + 0.01 * Math.sin(t * 30)), 0, TAU); g.stroke();
     }
     g.restore();
+  }
+
+  /** WebGL 版神识圈：纹理带 mipmap，由 GPU 旋转缩放，绝对丝滑；圈外记忆水墨在后期着色器里完成 */
+  drawGL(F: FxSys, S: GLStage, x: number, y: number, tierIn: number, mods: string[], t: number, z: number) {
+    const tier = Math.max(0, Math.min(TIERS.length - 1, tierIn));
+    const St = TIERS[tier], T = this.tex(tier);
+    const B = F.B;
+    const R = this.dispR, k = R / TR;
+    const breath = 1 + Math.sin(t * 0.9) * 0.004;
+    const hideA = 1 - this.hidden * 0.6;
+    const dt = this.lastT ? Math.min(0.1, Math.max(0, t - this.lastT)) : 1 / 60; this.lastT = t;
+    const glow: [number, number, number] = [St.glow[0] / 255, St.glow[1] / 255, St.glow[2] / 255];
+    const tex = (img: HTMLCanvasElement, rot: number, scale: number, alpha: number, add = 0) => {
+      if (alpha <= 0.003) return;
+      B.tex(S.uploadStatic(img));
+      B.texQuad(x, y, TEX * k * scale * breath, rot, alpha * hideA, add);
+    };
+    // 高阶底纹
+    if (T.stars) tex(T.stars, t * 0.01, 1, 0.22);
+    if (T.yy) { const r = Math.min(R * 0.42, 420); B.tex(S.uploadStatic(T.yy)); B.texQuad(x, y, r * 2, -t * 0.08, 0.08 * hideA, 0, [1, 1, 1], 0.55); }
+    if (T.lotus) { const r = 70 + tier * 10; B.tex(S.uploadStatic(T.lotus)); B.texQuad(x, y, r * 2, t * 0.15, (0.22 + 0.06 * Math.sin(t * 1.7)) * hideA, 1, [1, 1, 1], 0.5); }
+    // 水墨圆环（两层反向缓转）
+    tex(T.ring, t * 0.035, 1, 0.85);
+    tex(T.ring2, -t * 0.09 + 1.3, 1.0, 0.9);
+    if (T.cloud) tex(T.cloud, -t * 0.04, 1, 0.55 + 0.12 * Math.sin(t * 1.1));
+    if (T.rune) tex(T.rune, -t * 0.05, 1, 0.55 + 0.1 * Math.sin(t * 1.3), 0.4);
+    if (T.rune2) tex(T.rune2, t * 0.07, 1, 0.22);
+    for (const m of mods) {
+      if (m === 'thunder' || m === 'insect') continue;
+      const c = this.mod(m, tier);
+      if (m === 'dayan') tex(c, t * 0.04, 1, 0.42, 0.3);
+      else if (m === 'wood') tex(c, -t * 0.012, 1.0, 0.75);
+      else if (m === 'demon') { tex(c, t * 0.05, 1.02, 0.6); tex(c, -t * 0.03, 0.97, 0.3); }
+      else tex(c, t * 0.03, 1, 0.5, 0.5);
+    }
+    B.tex(S.atlas);
+    // 涟漪：柔光环平滑扩散
+    for (let i = 0; i < St.ripples; i++) {
+      const ph = ((t + i * St.period / St.ripples) % St.period) / St.period;
+      const e = 1 - Math.pow(1 - ph, 2.2);
+      const rr = R * e, a = Math.pow(1 - ph, 1.6) * Math.min(1, ph * 6) * 0.42;
+      if (rr < 8 || a < 0.005) continue;
+      const band = 30 / Math.max(0.35, z) + R * 0.035;
+      F.circle(x, y, rr, band, glow, a * 0.45 * hideA, 1, 96);
+      F.circle(x, y, rr, band * 0.14, [1, 1, 1], a * 0.18 * hideA, 1, 96);
+    }
+    if (this.burst > 0.01) { const u = 1 - this.burst; const rr = R * (0.3 + u * 0.75); F.circle(x, y, rr, 60 / Math.max(0.35, z), glow, this.burst * 0.7, 1, 96); F.circle(x, y, rr, 8 / Math.max(0.35, z), [1, 1, 1], this.burst * 0.6, 1, 96); }
+    // 光点沿圈游走
+    for (let i = 0; i < St.motes; i++) {
+      const sp = 0.08 + (i % 5) * 0.025;
+      const a = t * sp * (i % 2 ? 1 : -1) + i * 2.399;
+      const rr = R * (0.94 + 0.05 * Math.sin(t * 0.7 + i * 1.3));
+      const fl = 0.5 + 0.5 * Math.sin(t * 2.3 + i * 1.7);
+      const s = (3 + fl * 3) / Math.max(0.4, z);
+      B.quad(CELL.Glow, x + Math.cos(a) * rr, y + Math.sin(a) * rr, s * 5, s * 5, 0, glow[0], glow[1], glow[2], 0.8 * fl * hideA, 1);
+      B.quad(CELL.Dot, x + Math.cos(a) * rr, y + Math.sin(a) * rr, s * 1.2, s * 1.2, 0, 1, 1, 1, 0.9 * fl * hideA, 1);
+    }
+    // 噬金虫：金芒游走（带拖影）
+    if (mods.includes('insect')) {
+      if (this.bugs.length === 0) for (let i = 0; i < 26; i++) this.bugs.push({ a: Math.random() * TAU, r: 0.3 + Math.random() * 0.65, s: 0.2 + Math.random() * 0.5, ph: Math.random() * 10 });
+      const zz = 1 / Math.max(0.5, z);
+      for (const b of this.bugs) {
+        const a = b.a + t * b.s, rr = R * (b.r + 0.06 * Math.sin(t * 1.3 + b.ph));
+        const bx = x + Math.cos(a) * rr, by = y + Math.sin(a) * rr * 0.92;
+        B.quad(CELL.Streak, bx, by, 16 * zz, 4 * zz, a + Math.PI / 2, 1, 0.85, 0.35, 0.6, 1);
+        B.quad(CELL.Dot, bx, by, 6 * zz, 6 * zz, 0, 1, 0.9, 0.45, 1, 1);
+      }
+    }
+    // 雷丝：沿圈闪烁的金色电弧
+    if (mods.includes('thunder')) {
+      if (Math.random() < dt * 3.6) this.arcs.push({ a: Math.random() * TAU, t: 0, seed: Math.random() * 1e6 });
+      this.arcs = this.arcs.filter((ar) => {
+        ar.t += dt;
+        if (ar.t > 0.22) return false;
+        const al = 1 - ar.t / 0.22;
+        const a0 = ar.a, a1 = ar.a + 0.25;
+        F.bolt(x + Math.cos(a0) * R, y + Math.sin(a0) * R, x + Math.cos(a1) * R, y + Math.sin(a1) * R, ar.seed + Math.floor(ar.t * 40), 22, 2.2 / Math.max(0.4, z), [1, 0.88, 0.5], 0.95 * al, 8, false);
+        return true;
+      });
+    }
   }
 }
 
