@@ -1,5 +1,6 @@
 // 活的世界：飞鸟、仙鹤、鹿、兔、蝴蝶、鱼跃、行人、商队、御剑修士、舟船、萤火
 import type { Game } from './game';
+import { bldTex } from '../gfx/bldTex';
 import { CharState, drawCharacter, drawSwordUnderFeet, randomLook, Look, NpcRole } from '../gfx/character';
 import { LOCATIONS, WORLD_SCALE } from '../data/world';
 import { clamp } from '../core/rng';
@@ -216,6 +217,14 @@ class Boat extends Ent {
     for (let k = 1; k <= 3; k++) { g.beginPath(); g.moveTo(x - d * w * 0.4, y); g.quadraticCurveTo(x - d * (w * 0.5 + k * 18), y - k * 6, x - d * (w * 0.5 + k * 30), y - k * 9); g.stroke(); g.beginPath(); g.moveTo(x - d * w * 0.4, y); g.quadraticCurveTo(x - d * (w * 0.5 + k * 18), y + k * 6, x - d * (w * 0.5 + k * 30), y + k * 9); g.stroke(); }
     // 倒影
     g.fillStyle = 'rgba(40,50,50,0.18)'; g.beginPath(); g.ellipse(x, y + 6, w * 0.5, 7, 0, 0, TAU); g.fill();
+    // 帆船用贴图（国风淡彩），随波轻摇；小舟仍为代码绘制
+    const im = this.sail ? bldTex('boat') : null;
+    if (im) {
+      const bw = w * 1.15, bh = bw * im.height / im.width, rock = Math.sin(t * 1.2 + w) * 0.025;
+      g.save(); g.translate(x, y + 4); g.rotate(rock); if (d < 0) g.scale(-1, 1);
+      g.drawImage(im, -bw / 2, -bh, bw, bh); g.restore();
+      return;
+    }
     g.beginPath(); g.moveTo(x - w / 2, y - 10); g.quadraticCurveTo(x - w / 2 + 6, y, x - w / 4, y); g.lineTo(x + w / 4, y); g.quadraticCurveTo(x + w / 2 - 6, y, x + w / 2, y - 10); g.closePath();
     g.fillStyle = '#6a4a30'; g.fill(); g.strokeStyle = 'rgba(30,20,10,0.8)'; g.lineWidth = 1.2; g.stroke();
     if (this.sail) {

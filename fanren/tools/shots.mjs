@@ -19,7 +19,7 @@ p.on('pageerror', (e) => console.log('[pageerror] ' + e.message));
 p.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') console.log('[' + m.type() + '] ' + m.text()); });
 await p.goto(flag('url', 'http://localhost:4173/?auto=new'), { waitUntil: 'load' });
 await p.waitForFunction(() => !!window.__game && window.__game.renderer, { timeout: 90000 });
-await p.evaluate(() => { const g = window.__game; g.story.skipAll(); g.modal = null; g.emitModal(); g.revealAll = true; g.debugSeeAll = true; });
+await p.evaluate(() => { const g = window.__game; g.story.skipAll(); g.story.openT = -1; g.modal = null; g.emitModal(); g.revealAll = true; g.debugSeeAll = true; });
 let i = 0;
 for (const spec of pos.slice(1)) {
   let [x, y, z, season, hour] = spec.replace(/^c/, '').split(',').map(Number);

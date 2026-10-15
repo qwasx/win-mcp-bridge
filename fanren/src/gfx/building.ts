@@ -537,6 +537,67 @@ function texFor(pc: Piece, pal: Pal): [string, number, boolean, string, number?]
     case 'house': { const two = (pc.seed >>> 3) % 3 === 0; return [two ? 'house_b' : 'house_a', ((p.w ?? 70) + 8) * (two ? 1.0 : 1.12), flip, houseFilter(pal)]; }
     case 'hut': return ['hut', ((p.w ?? 54) + 8) * 1.1, flip, 'none'];
     case 'yurt': return ['yurt', (p.w ?? 70) * 1.08, flip, 'none'];
+    case 'stall': return ['stall', ((p.w ?? 46) + 6) * 1.2, flip, 'none'];
+    case 'tower': return ['tower', 64, false, 'none'];
+    case 'ding': return ['ding', 30, false, 'none'];
+    case 'stele': return ['stele', 21, false, 'none'];
+    case 'well': return ['well', 32, flip, 'none'];
+    case 'lantern': return ['lantern', 15, false, 'none'];
+    case 'boat': return ['boat', (p.w ?? 80) * 1.15, false, 'none'];
+  }
+  return null;
+}
+
+/** 贴图缩小：大倍率时先降一半，避免锯齿闪烁 */
+function texSrc(im: HTMLImageElement, targetW: number): [CanvasImageSource, number, number] {
+  if (im.width <= targetW * 2.2) return [im, im.width, im.height];
+  const mid = makeCanvas(Math.ceil(targetW * 2), Math.ceil(targetW * 2 * im.height / im.width));
+  const mg = mid.getContext('2d')!; mg.imageSmoothingQuality = 'high'; mg.drawImage(im, 0, 0, mid.width, mid.height);
+  return [mid, mid.width, mid.height];
+}
+
+/** 城墙（横）：城墙段贴图沿长度平铺，有城门时叠城门楼；石狮成对镜像 */
+function renderTexSpecial(pc: Piece, res: number): Sprite | null {
+  const p = pc.p;
+  if (pc.kind === 'wallH') {
+    const wall = bldTex('wall'); if (!wall) return null;
+    const gate = p.gate ? bldTex('citygate') : null; if (p.gate && !gate) return null;
+    const L = p.len, h = (p.h ?? 46) + 8;
+    const tileW = h * wall.width / wall.height;
+    const gw = gate ? 160 : 0, gh = gate ? gw * gate.height / gate.width : 0;
+    const hw = L / 2 + 6, up = Math.max(h, gh) + 6, down = 4;
+    const W = hw * 2, H = up + down;
+    const c = makeCanvas(Math.max(1, Math.ceil(W * res)), Math.max(1, Math.ceil(H * res)));
+    const g = c.getContext('2d')!;
+    g.scale(res, res); g.translate(hw, up);
+    g.imageSmoothingQuality = 'high';
+    const [src, sw, sh] = texSrc(wall, tileW * res);
+    // 每段起点随机错开，避免整齐重复
+    const off = ((pc.seed >>> 4) % 1000) / 1000 * tileW;
+    g.save(); g.beginPath(); g.rect(-L / 2, -h - 2, L, h + 4); g.clip();
+    for (let x = -L / 2 - off; x < L / 2; x += tileW - 1) g.drawImage(src, 0, 0, sw, sh, x, -h, tileW, h);
+    g.restore();
+    // 两端收口
+    g.fillStyle = 'rgba(34,28,22,0.35)'; g.fillRect(-L / 2, -h + 6, 1.2, h - 6); g.fillRect(L / 2 - 1.2, -h + 6, 1.2, h - 6);
+    if (gate) { const [gs, gsw, gsh] = texSrc(gate, gw * res); g.drawImage(gs, 0, 0, gsw, gsh, -gw / 2, -gh + 2, gw, gh); }
+    return { canvas: c as HTMLCanvasElement, w: W, h: H, ax: hw, ay: up };
+  }
+  if (pc.kind === 'lion') {
+    const im = bldTex('lion'); if (!im) return null;
+    const gap = p.gap ?? 40, lw = 22, lh = lw * im.height / im.width;
+    const hw = gap + lw / 2 + 4, up = lh + 4, down = 4;
+    const W = hw * 2, H = up + down;
+    const c = makeCanvas(Math.max(1, Math.ceil(W * res)), Math.max(1, Math.ceil(H * res)));
+    const g = c.getContext('2d')!;
+    g.scale(res, res); g.translate(hw, up);
+    g.imageSmoothingQuality = 'high';
+    const [src, sw, sh] = texSrc(im, lw * res);
+    for (const sx of [-1, 1]) {
+      g.fillStyle = 'rgba(40,36,26,0.16)'; g.beginPath(); g.ellipse(sx * gap, -1, lw * 0.55, 4, 0, 0, Math.PI * 2); g.fill();
+      g.save(); g.translate(sx * gap, 0); if (sx > 0) g.scale(-1, 1);   // 左狮朝右、右狮朝左，相对而立
+      g.drawImage(src, 0, 0, sw, sh, -lw / 2, -lh + 1, lw, lh); g.restore();
+    }
+    return { canvas: c as HTMLCanvasElement, w: W, h: H, ax: hw, ay: up };
   }
   return null;
 }
@@ -550,19 +611,12 @@ function renderTexPiece(pc: Piece, pal: Pal, res: number): Sprite | null {
   const c = makeCanvas(Math.max(1, Math.ceil(W * res)), Math.max(1, Math.ceil(H * res)));
   const g = c.getContext('2d')!;
   g.scale(res, res); g.translate(hw, up);
-  // 柔和投影
-  g.fillStyle = 'rgba(40,36,26,0.16)';
+  // 柔和投影（船在水上，用水色淡影）
+  g.fillStyle = pc.kind === 'boat' ? 'rgba(30,50,60,0.2)' : 'rgba(40,36,26,0.16)';
   g.beginPath(); g.ellipse(tw * 0.06, -1, tw * 0.5, Math.min(14, tw * 0.09), 0, 0, Math.PI * 2); g.fill();
   g.imageSmoothingEnabled = true; (g as CanvasRenderingContext2D).imageSmoothingQuality = 'high';
   if (t[3] !== 'none') g.filter = t[3];
-  // 大幅缩小时分两步，避免锯齿闪烁
-  let src: CanvasImageSource = im, sw = im.width, sh = im.height;
-  const target = tw * res;
-  if (sw > target * 2.2) {
-    const mid = makeCanvas(Math.ceil(target * 2), Math.ceil(target * 2 * sh / sw));
-    const mg = mid.getContext('2d')!; mg.imageSmoothingQuality = 'high'; mg.drawImage(im, 0, 0, mid.width, mid.height);
-    src = mid; sw = mid.width; sh = mid.height;
-  }
+  const [src, sw, sh] = texSrc(im, tw * res);
   if (t[2]) { g.scale(-1, 1); }
   g.drawImage(src, 0, 0, sw, sh, -tw / 2, -th + 2, tw, th);
   g.filter = 'none';
@@ -574,7 +628,7 @@ export function renderPiece(pc: Piece, pal: Pal, res: number, season: Season = 1
     const t = makeTree(pc.p.sp, season, pc.seed, res);
     return { canvas: t.canvas, w: t.w, h: t.h, ax: t.ax, ay: t.ay };
   }
-  const tex = renderTexPiece(pc, pal, res);
+  const tex = renderTexSpecial(pc, res) ?? renderTexPiece(pc, pal, res);
   if (tex) return tex;
   const [hw, up, down] = (BOUNDS[pc.kind] ?? (() => [60, 80, 4]))(pc.p);
   const W = hw * 2, H = up + down;
