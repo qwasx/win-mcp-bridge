@@ -1,5 +1,5 @@
 // 人界地形：宏观栅格 + 分块水墨渲染
-import { fbm, hash2, valueNoise, mulberry32, clamp } from '../core/rng';
+import { fbm, hash2, valueNoise, mulberry32, clamp, hashU, pnoise } from '../core/rng';
 import {
   MACRO_W, MACRO_H, WORLD_SCALE, MAINLAND, LAKES, RANGES, RIVERS, ARID_ZONES, COLD_ZONES, FOREST_ZONES,
   LOCATIONS, ISLAND_FIELD, pointInPoly, P,
@@ -221,6 +221,7 @@ export class Terrain {
 
     // ---------- 6. 道路（连接相邻城镇宗门的官道/小径）----------
     this.buildRoads(g);
+    this.buildSegs();
 
     // ---------- 7. 河流栅格（近水判定：柳树、芦苇、鱼跃）----------
     g.setTransform(1, 0, 0, 1, 0, 0);
@@ -272,6 +273,61 @@ export class Terrain {
     for (let i = 0; i < W * H; i++) this.roadMask[i] = raw[i * 4] > 60 ? 1 : 0;
   }
 
+  /** 世界坐标线段（Catmull-Rom 细分到 ~150px，GPU 地表与 CPU 判定共用）：
+   *  每段 8 个数 [ax,ay,bx,by, 宽, 累计长, 标记, 0]；河：标记=河号；路：标记=1 官道 */
+  rivSegW = new Float32Array(0); roadSegW = new Float32Array(0);
+  private buildSegs() {
+    const S = WORLD_SCALE;
+    const resample = (pts: P[]) => {
+      const out: number[] = [];
+      const at = (i: number) => pts[Math.max(0, Math.min(pts.length - 1, i))];
+      for (let i = 0; i < pts.length - 1; i++) {
+        const p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2);
+        const len = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) * S;
+        const n = Math.max(1, Math.ceil(len / 150));
+        for (let k = 0; k < n; k++) {
+          const t = k / n, t2 = t * t, t3 = t2 * t;
+          const x = 0.5 * (2 * p1[0] + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3);
+          const y = 0.5 * (2 * p1[1] + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
+          out.push(x * S, y * S);
+        }
+      }
+      const l = pts[pts.length - 1]; out.push(l[0] * S, l[1] * S);
+      return out;
+    };
+    const riv: number[] = [];
+    this.rivers.forEach((rv, ri) => {
+      const p = resample(rv.pts);
+      let tot = 0; for (let i = 2; i < p.length; i += 2) tot += Math.hypot(p[i] - p[i - 2], p[i + 1] - p[i - 1]);
+      let acc = 0;
+      for (let i = 2; i < p.length; i += 2) {
+        const L = Math.hypot(p[i] - p[i - 2], p[i + 1] - p[i - 1]);
+        // 源头窄、入海宽
+        const w = 110 * rv.w * (0.55 + 0.45 * Math.min(1, (acc + L / 2) / tot));
+        riv.push(p[i - 2], p[i - 1], p[i], p[i + 1], w, acc, ri, 0);
+        acc += L;
+      }
+    });
+    const road: number[] = [];
+    for (const r of this.roads) {
+      const p = resample(r.pts);
+      for (let i = 2; i < p.length; i += 2) road.push(p[i - 2], p[i - 1], p[i], p[i + 1], r.major ? 40 : 24, 0, r.major ? 1 : 0, 0);
+    }
+    this.rivSegW = new Float32Array(riv); this.roadSegW = new Float32Array(road);
+  }
+
+  private _gl: { W: number; H: number; scale: number; a: Float32Array; b: Float32Array } | null = null;
+  /** GPU 地表所需的宏观图（陆地/海拔/干旱/寒冷 + 森林/水深），只打包一次 */
+  glData() {
+    if (this._gl) return this._gl;
+    const N = this.W * this.H, a = new Float32Array(N * 4), b = new Float32Array(N * 4);
+    for (let i = 0; i < N; i++) {
+      a[i * 4] = this.land[i]; a[i * 4 + 1] = this.elev[i]; a[i * 4 + 2] = this.arid[i]; a[i * 4 + 3] = this.cold[i];
+      b[i * 4] = this.forest[i]; b[i * 4 + 1] = this.depth[i];
+    }
+    return (this._gl = { W: this.W, H: this.H, scale: WORLD_SCALE, a, b });
+  }
+
   private roadSegs: Map<string, number[]> | null = null;
   /** 精确：距道路中线 < pad（世界像素） */
   nearRoad(wx: number, wy: number, pad: number) {
@@ -279,10 +335,10 @@ export class Terrain {
     const RC = 600;
     if (!this.roadSegs) {
       const m = new Map<string, number[]>();
-      for (const r of this.roads) {
-        const w = r.major ? 17 : 11;
-        for (let k = 0; k < r.pts.length - 1; k++) {
-          const ax = r.pts[k][0] * WORLD_SCALE, ay = r.pts[k][1] * WORLD_SCALE, bx = r.pts[k + 1][0] * WORLD_SCALE, by = r.pts[k + 1][1] * WORLD_SCALE;
+      const R = this.roadSegW;
+      {
+        for (let q = 0; q < R.length; q += 8) {
+          const ax = R[q], ay = R[q + 1], bx = R[q + 2], by = R[q + 3], w = R[q + 4] / 2;
           for (let gy = Math.floor((Math.min(ay, by) - 60) / RC); gy <= Math.floor((Math.max(ay, by) + 60) / RC); gy++)
             for (let gx = Math.floor((Math.min(ax, bx) - 60) / RC); gx <= Math.floor((Math.max(ax, bx) + 60) / RC); gx++) {
               const key = gx + ',' + gy; let a = m.get(key); if (!a) m.set(key, (a = [])); a.push(ax, ay, bx, by, w);
@@ -432,11 +488,11 @@ export class Terrain {
 
   /** 底图上画出来的海岸线所用的陆地值（0.5 为岸） */
   visLand(wx: number, wy: number) {
-    return this.bil(this.land, wx / WORLD_SCALE, wy / WORLD_SCALE) + (valueNoise(wx / 150, wy / 150, 9) - 0.5) * 0.12;
+    return this.bil(this.land, wx / WORLD_SCALE, wy / WORLD_SCALE) + (pnoise(wx / 150, wy / 150, 9) - 0.5) * 0.12;
   }
   isLand(wx: number, wy: number) {
     const x = wx / WORLD_SCALE, y = wy / WORLD_SCALE;
-    const l = this.bil(this.land, x, y) + (valueNoise(wx / 140, wy / 140, 9) - 0.5) * 0.12;
+    const l = this.bil(this.land, x, y) + (pnoise(wx / 150, wy / 150, 9) - 0.5) * 0.12;
     return l > 0.5;
   }
 
@@ -457,7 +513,7 @@ export class Terrain {
     const x = wx / WORLD_SCALE, y = wy / WORLD_SCALE;
     const land = this.bil(this.land, x, y);
     const n1 = fbm(wx / 1400, wy / 1400, 3, 3);
-    const n2 = valueNoise(wx / 150, wy / 150, 9);
+    const n2 = pnoise(wx / 150, wy / 150, 9);
     const L = land + (n2 - 0.5) * 0.12;
     let r: number, g: number, b: number;
     if (L < 0.5) {
@@ -693,7 +749,7 @@ export class Terrain {
       const i = Math.floor((u - (j % 2 ? cw * 0.4 : 0)) / cw);
       const fx = i * cw + (j % 2 ? cw * 0.4 : 0), fy = j * chh;
       const dd = Math.hypot(fx + cw / 2, (fy + chh / 2) * 1.2);
-      const h = hash2(i + l.x * 7, j + l.y * 13, 5);
+      const h = hashU(i + ((l.x * 7) | 0), j + ((l.y * 13) | 0), 5);
       if (dd > RR * (0.55 + 0.45 * h) || dd < 620 || h < 0.12) continue;
       return true;
     }
@@ -717,7 +773,7 @@ export class Terrain {
         const fx = i * cw + (j % 2 ? cw * 0.4 : 0), fy = j * chh;
         const cxm = fx + cw / 2, cym = fy + chh / 2;
         const dd = Math.hypot(cxm, cym * 1.2);
-        const h = hash2(i + l.x * 7, j + l.y * 13, 5);
+        const h = hashU(i + ((l.x * 7) | 0), j + ((l.y * 13) | 0), 5);
         if (dd > RR * (0.55 + 0.45 * h) || dd < 620) continue;
         const wx = lx + cxm * ca - cym * sa, wy = ly + cxm * sa + cym * ca;
         if (wx < ox - 400 || wx > ox + CHUNK + 400 || wy < oy - 400 || wy > oy + CHUNK + 400) continue;

@@ -17,6 +17,7 @@ import { SenseFx, senseMods } from './sense';
 import { collectCombat, drawCombatFx, drawCombatUI } from './combatfx';
 import { REALMS } from '../data/realms';
 import { GLStage, PostParams } from '../gl/stage';
+import { MAX_SEG, MAX_TOWN, type GroundParams } from '../gl/ground';
 import { FxSys } from '../gl/fx';
 import { drawCombatGL } from '../gl/combatgl';
 import { TIERS } from './sense';
@@ -72,7 +73,9 @@ export class Renderer {
     this.stage = wantGL ? GLStage.create() : null;
     if (this.stage) {
       this.canvas = document.createElement('canvas');
-      this.ctx = this.canvas.getContext('2d', { alpha: false })!;
+      // 透明：底下是 GPU 地表（gl/ground.ts），Canvas 只画地表之上的东西
+      this.ctx = this.canvas.getContext('2d', { alpha: true })!;
+      this.groundWanted = !/[?&]ground=0/.test(q);
       this.uiCtx = canvas.getContext('2d')!;
       const gc = this.stage.canvas; gc.className = 'game-gl';
       canvas.parentElement?.insertBefore(gc, canvas);
@@ -230,9 +233,11 @@ export class Renderer {
     let n = 0;
     for (let cy = Math.floor((top - 10) / CHUNK); cy <= Math.floor((bottom + 60) / CHUNK); cy++) for (let cx = Math.floor((left - 40) / CHUNK); cx <= Math.floor((right + 40) / CHUNK); cx++) {
       if (cx < 0 || cy < 0 || cx * CHUNK > WORLD_W || cy * CHUNK > WORLD_H) continue;
-      if (!T.getChunk(cx, cy, false)) continue;
+      if (!this.groundOn && !T.getChunk(cx, cy, false)) continue;
       for (const c of T.getGrass(cx, cy)) {
         if (c.lod > lod) continue;
+        // GPU 地表已有细密的手绘草丛：位图草只留较高、较显眼的几种，作为会摇、会分开的前景
+        if (this.groundOn && (c.kind === 'sprig' || ((c.kind === 'tuft' || c.kind === 'clover') && c.ph > 1.6) || c.lod > 1)) continue;
         if (c.x < left - 40 || c.x > right + 40 || c.y < top - 5 || c.y > bottom + 60) continue;
         const sp = grassSprite(c.kind, c.v, season, res);
         const dx = c.x - px, dy = c.y - py;
@@ -327,8 +332,12 @@ export class Renderer {
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = this.quality;
-    ctx.fillStyle = '#e9dfc6';
-    ctx.fillRect(0, 0, W, H);
+    const T0 = game.terrain;
+    if (GL && this.groundWanted && !this.groundSet && T0.land) { this.stage!.setTerrain(T0.glData()); this.groundSet = true; }
+    const GROUND = GL && this.groundWanted && this.stage!.groundReady;
+    this.groundOn = GROUND;
+    if (GROUND) ctx.clearRect(0, 0, W, H);
+    else { ctx.fillStyle = '#e9dfc6'; ctx.fillRect(0, 0, W, H); }
 
     const sh = (this.sense.alarm > 0.3 ? (this.sense.alarm - 0.3) * 5 : 0) / z;
     // 震屏：创伤值平方 × 平滑噪声（随时间连续，不抖成白噪）
@@ -341,9 +350,10 @@ export class Renderer {
     const T = game.terrain;
     T.season = season;
 
-    // ---------- 1. 底图分块 ----------
+    // ---------- 1. 底图分块（GPU 地表开启时跳过）----------
     const cx0 = Math.floor(left / CHUNK), cx1 = Math.floor(right / CHUNK);
     const cy0 = Math.floor(top / CHUNK), cy1 = Math.floor(bottom / CHUNK);
+    if (!GROUND) {
     let builds = 0;
     const maxBuilds = this.pendingBuilds > 0 ? 3 : 5;
     const order: [number, number, number][] = [];
@@ -361,9 +371,10 @@ export class Renderer {
       if (inView) ctx.drawImage(ch.canvas, cx * CHUNK - 0.6, cy * CHUNK - 0.6, CHUNK + 1.2, CHUNK + 1.2);
     }
     this.pendingBuilds = missing;
+    } else this.pendingBuilds = 0;
 
-    // ---------- 2. 水波 ----------
-    if (z >= 0.35) this.drawWater(left, top, right, bottom, t);
+    // ---------- 2. 水波（GPU 地表自带流水、浪花、粼光）----------
+    if (z >= 0.35 && !GROUND) this.drawWater(left, top, right, bottom, t);
     // ---------- 2b. 草丛 ----------
     if (z >= 0.42) this.drawGrass(left, top, right, bottom, t, season, z);
 
@@ -683,6 +694,41 @@ export class Renderer {
     this.stats.ms = performance.now() - t0;
   }
 
+  // ---------------------------------------------------------------- GPU 地表参数
+  private groundWanted = false; private groundSet = false; groundOn = false;
+  private gSeg = new Float32Array(MAX_SEG * 16);
+  private gTown = new Float32Array(MAX_TOWN * 4); private gTownS = new Int32Array(MAX_TOWN * 4);
+  private groundParams(camX: number, camY: number, z: number, W: number, H: number): GroundParams {
+    const game = this.game, T = game.terrain, seg = this.gSeg, ROW = MAX_SEG * 4;
+    const hw = W / 2 / z + 60, hh = H / 2 / z + 60;
+    const cull = (A: Float32Array, row: number, pad: number) => {
+      let n = 0;
+      for (let q = 0; q < A.length && n < MAX_SEG; q += 8) {
+        const ax = A[q] - camX, ay = A[q + 1] - camY, bx = A[q + 2] - camX, by = A[q + 3] - camY, m = A[q + 4] + pad;
+        if ((ax > bx ? ax : bx) < -hw - m || (ax < bx ? ax : bx) > hw + m || (ay > by ? ay : by) < -hh - m || (ay < by ? ay : by) > hh + m) continue;
+        const o = row * ROW + n * 4, o2 = o + ROW;
+        seg[o] = ax; seg[o + 1] = ay; seg[o + 2] = bx; seg[o + 3] = by;
+        seg[o2] = A[q + 4]; seg[o2 + 1] = A[q + 5]; seg[o2 + 2] = A[q + 6]; seg[o2 + 3] = 0;
+        n++;
+      }
+      return n;
+    };
+    const nRiv = cull(T.rivSegW, 0, 340), nRoad = cull(T.roadSegW, 2, 200);
+    let nTown = 0;
+    for (const l of LOCATIONS) {
+      if (nTown >= MAX_TOWN) break;
+      if (l.type !== 'city' && l.type !== 'town') continue;
+      const RR = l.type === 'city' ? 2700 : 1800;
+      const lx = l.x * WORLD_SCALE - camX, ly = l.y * WORLD_SCALE - camY;
+      if (Math.abs(lx) > hw + RR + 400 || Math.abs(ly) > hh + RR + 400) continue;
+      const o = nTown * 4;
+      this.gTown[o] = lx; this.gTown[o + 1] = ly; this.gTown[o + 2] = RR; this.gTown[o + 3] = (hash2(l.x, l.y, 77) - 0.5) * 0.7;
+      this.gTownS[o] = (l.x * 7) | 0; this.gTownS[o + 1] = (l.y * 13) | 0;
+      nTown++;
+    }
+    return { camX, camY, zoom: z, cssW: W, cssH: H, t: game.time, season: game.season, seg, nRiv, nRoad, town: this.gTown, townS: this.gTownS, nTown };
+  }
+
   // ---------------------------------------------------------------- WebGL 后期
   private postGL(camX: number, camY: number, z: number, W: number, H: number, night: number, dusk: number, gloom: number, dayK: number, mul: number[], R: number) {
     const game = this.game, p = game.player, st = this.stage!, F = this.fx!;
@@ -712,6 +758,7 @@ export class Renderer {
       bloom: 0.9, grain: 1,
       shocks: F.shocks.map((s) => ({ x: W / 2 + (s.x - camX) * z, y: H / 2 + (s.y - camY) * z, r: s.r * z, amp: s.amp * Math.min(1.5, z * 1.2) })),
       sat: 0,
+      ground: this.groundOn ? this.groundParams(camX, camY, z, W, H) : null,
     };
     st.frame(this.canvas, W, H, st.W / W, P);
   }

@@ -334,7 +334,7 @@ function ChroniclePanel({ game }: { game: Game }) {
 }
 
 // ---------------------------------------------------------------- 帮助
-export const VERSION = 'v0.10 · 主线序章';
+export const VERSION = 'v0.11 · 地表重绘';
 function HelpPanel({ game }: { game: Game }) {
   const [tab, setTab] = useState(0);
   const T = ['操作', '修炼', '战斗', '人界', '神识'];

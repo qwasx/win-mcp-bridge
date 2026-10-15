@@ -62,3 +62,20 @@ export const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b
 export const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 export const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by);
 export function uid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); }
+
+/** 可移植整数哈希（Math.imul，GLSL uint 可逐位复刻：地表着色器与 CPU 判定完全一致） */
+export function hashU(x: number, y: number, seed = 0) {
+  let h = (Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263) + Math.imul(seed | 0, -2048144777)) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+}
+/** 可移植值噪声（与 gl/ground.ts 的 pnoise 一致） */
+export function pnoise(x: number, y: number, seed = 0) {
+  const xi = Math.floor(x), yi = Math.floor(y);
+  const xf = x - xi, yf = y - yi;
+  const a = hashU(xi, yi, seed), b = hashU(xi + 1, yi, seed);
+  const c = hashU(xi, yi + 1, seed), d = hashU(xi + 1, yi + 1, seed);
+  const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}

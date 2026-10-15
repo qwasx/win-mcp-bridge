@@ -5,6 +5,7 @@
 // 旧版需要 8~10 次全屏 Canvas2D 合成，现在合为一次着色器，移动端也能流畅。
 import { Batch, FLOATS } from './batch';
 import { buildAtlas } from './atlas';
+import { Ground, type GroundParams, type GroundTerrain } from './ground';
 
 const VS_SPRITE = `#version 300 es
 layout(location=0) in vec2 aPos; layout(location=1) in vec2 aUv; layout(location=2) in vec4 aCol;
@@ -28,7 +29,7 @@ void main(){ vec4 c=texture(uTex,vUv)*0.2270270270;
 
 const FS_POST = `#version 300 es
 precision highp float;
-uniform sampler2D uScene, uFx, uB1, uB2, uAtmo, uNoise;
+uniform sampler2D uScene, uFx, uB1, uB2, uAtmo, uNoise, uGround; uniform float uGroundOn;
 uniform vec2 uRes; uniform float uDpr; uniform float uT;
 uniform vec4 uShock[6]; uniform int uNShock;
 uniform vec3 uMul; uniform float uWarm; uniform float uDusk;
@@ -51,7 +52,14 @@ void main(){
     float w=s.z*0.18+18.0*uDpr; float k=exp(-pow((L-s.z)/w,2.0)); q-=d/L*k*s.w; }
   vec2 uv = q/uRes;
   vec3 c;
-  if(uAberr>0.001){ vec2 off=(uv-0.5)*uAberr*0.012; c=vec3(texture(uScene,uv+off).r, texture(uScene,uv).g, texture(uScene,uv-off).b); }
+  if(uGroundOn>0.5){
+    // GPU 地表在下，Canvas 世界层（预乘 alpha）叠在上面
+    if(uAberr>0.001){ vec2 off=(uv-0.5)*uAberr*0.012; vec4 a=texture(uScene,uv+off), b=texture(uScene,uv), d=texture(uScene,uv-off);
+      vec3 g0=texture(uGround,uv+off).rgb, g1=texture(uGround,uv).rgb, g2=texture(uGround,uv-off).rgb;
+      c=vec3(a.r+g0.r*(1.0-a.a), b.g+g1.g*(1.0-b.a), d.b+g2.b*(1.0-d.a)); }
+    else { vec4 sc=texture(uScene,uv); c=sc.rgb+texture(uGround,uv).rgb*(1.0-sc.a); }
+  }
+  else if(uAberr>0.001){ vec2 off=(uv-0.5)*uAberr*0.012; c=vec3(texture(uScene,uv+off).r, texture(uScene,uv).g, texture(uScene,uv-off).b); }
   else c=texture(uScene,uv).rgb;
   // —— 昼夜调色
   c *= uMul;
@@ -142,6 +150,7 @@ export interface PostParams {
   vig: number; hurt: number; fade: number; aberr: number; bloom: number; grain: number;
   shocks: { x: number; y: number; r: number; amp: number }[];
   sat: number; // 1 = 圈外也不褪色（调试全图）
+  ground?: GroundParams | null;
 }
 
 export class GLStage {
@@ -160,6 +169,7 @@ export class GLStage {
   lost = false;
   bloomOn = true;
   private texCache = new WeakMap<HTMLCanvasElement, WebGLTexture>();
+  ground: Ground | null = null; private gT: Target | null = null; private groundData: GroundTerrain | null = null;
   drawCalls = 0;
   private vboSize = 0;
 
@@ -177,7 +187,7 @@ export class GLStage {
     this.half = !!gl.getExtension('EXT_color_buffer_float') || !!gl.getExtension('EXT_color_buffer_half_float');
     this.init();
     canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.lost = true; });
-    canvas.addEventListener('webglcontextrestored', () => { this.texCache = new WeakMap(); this.fx = null; this.sceneW = 0; this.atmoW = 0; this.init(); this.lost = false; });
+    canvas.addEventListener('webglcontextrestored', () => { this.texCache = new WeakMap(); this.fx = null; this.gT = null; this.sceneW = 0; this.atmoW = 0; this.init(); this.lost = false; });
   }
 
   private init() {
@@ -202,7 +212,12 @@ export class GLStage {
     this.atmoTex = this.newTex(gl.LINEAR);
     this.atlas = this.uploadStatic(buildAtlas(), true);
     this.noiseTex = this.makeNoise();
+    try { this.ground = new Ground(gl); if (this.groundData) this.ground.setTerrain(this.groundData); }
+    catch (e) { console.warn('GPU 地表不可用，回退分块底图', e); this.ground = null; }
   }
+  /** 交给 GPU 地表的宏观地形（只需一次） */
+  setTerrain(T: GroundTerrain) { this.groundData = T; this.ground?.setTerrain(T); }
+  get groundReady() { return !!this.ground && this.ground.ready && !this.lost; }
 
   /** 可平铺的值噪声（三通道不同频率），供纸纹、墨丝、雾使用 */
   private makeNoise() {
@@ -284,7 +299,8 @@ export class GLStage {
     if (this.canvas.height !== h) this.canvas.height = h;
     if (this.fx && this.fx.w === w && this.fx.h === h) return;
     this.W = w; this.H = h;
-    for (const t of [this.fx, this.h1, this.q1, this.q2, this.e1, this.e2]) this.free(t);
+    for (const t of [this.fx, this.h1, this.q1, this.q2, this.e1, this.e2, this.gT]) this.free(t);
+    this.gT = null;
     this.fx = this.target(w, h, true);
     this.h1 = this.target(Math.ceil(w / 2), Math.ceil(h / 2), true);
     this.q1 = this.target(Math.ceil(w / 4), Math.ceil(h / 4), true);
@@ -323,7 +339,15 @@ export class GLStage {
     const gl = this.gl;
     this.drawCalls = 0;
     gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
-    this.upload(this.sceneTex, scene, false, true);
+    const groundOn = !!P.ground && this.groundReady;
+    if (groundOn) {
+      if (!this.gT || this.gT.w !== this.W || this.gT.h !== this.H) { this.free(this.gT); this.gT = this.target(this.W, this.H, false); }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.gT.fb);
+      gl.viewport(0, 0, this.W, this.H);
+      this.ground!.draw(P.ground!, this.W, this.H, this.emptyVao);
+      this.drawCalls++;
+    }
+    this.upload(this.sceneTex, scene, groundOn, true);
     if (P.atmo) this.upload(this.atmoTex, P.atmo.canvas, true, false);
 
     // 1) 特效批次 -> fx 帧缓冲
@@ -371,6 +395,7 @@ export class GLStage {
     this.bindTex(3, this.e1!.tex); gl.uniform1i(pp.u('uB2'), 3);
     this.bindTex(4, this.atmoTex); gl.uniform1i(pp.u('uAtmo'), 4);
     this.bindTex(5, this.noiseTex); gl.uniform1i(pp.u('uNoise'), 5);
+    this.bindTex(6, groundOn ? this.gT!.tex : this.noiseTex); gl.uniform1i(pp.u('uGround'), 6); gl.uniform1f(pp.u('uGroundOn'), groundOn ? 1 : 0);
     gl.uniform2f(pp.u('uRes'), this.W, this.H);
     gl.uniform1f(pp.u('uDpr'), dpr);
     gl.uniform1f(pp.u('uT'), P.t % 10000);
