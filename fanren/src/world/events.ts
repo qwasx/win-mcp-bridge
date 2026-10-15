@@ -239,6 +239,7 @@ export class Events {
     const key = this.keyOf(ev, this.cycleOf(ev)); const st = g.ws.events[key] ?? (g.ws.events[key] = { state: 'active' });
     st.state = 'done'; st.result = win ? 'win' : 'lose';
     this.active = null;
+    if (win && ev.special !== 'shengxian') g.pursuit.maybe(`${ev.name}中满载而归，早有人在暗处盯着`, 0.3, 1);
     if (ev.special === 'shengxian') { if (!rewardText) { C.addItem(g.hero, 'item_shengxian', 1); g.openDialog({ speaker: ev.name, text: `三战三胜！台下一片哗然。\n\n${ev.win}\n\n（获得升仙令）`, options: [{ label: '好', act: () => null }] }); } g.news('韩立在太南小会夺得升仙令。', 'personal'); return; }
     const rw = ev.reward(g);
     ev.onWin?.(g);
@@ -421,6 +422,7 @@ export class Events {
           const got = [pool[Math.floor(Math.random() * pool.length)], pool[Math.floor(Math.random() * pool.length)]];
           for (const it of got) C.addItem(h, it.id, 1);
           C.addItem(h, 'mat_lingshi', 50 * tier * tier);
+          g.pursuit.maybe('破禁时宝光冲霄，引来了觊觎之人', 0.22 + tier * 0.06, Math.random() < 0.7 ? 1 : 0);
           return close(`禁制如水波般荡开。石室中一具枯骨盘膝而坐，身前摆着几件遗物。\n\n获得：${got.map((it) => it.name).join('、')}、灵石 ${50 * tier * tier}`, '古修遗府');
         }
         h.hp = Math.max(0.05, h.hp - 0.3);

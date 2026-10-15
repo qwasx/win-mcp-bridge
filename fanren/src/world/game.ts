@@ -11,6 +11,7 @@ import { Weather, WEATHER_NAME, WeatherKind } from './weather';
 import { NodeField, GatherNode } from './nodes';
 import { itemDef } from '../data/items';
 import * as C from './cultivation';
+import { PursuitSys } from './pursuit';
 import { talentById } from '../data/skills';
 import { Combat, Enemy } from './combat';
 import { ENEMY_LIST } from '../data/enemies';
@@ -41,6 +42,8 @@ export interface PlayerState {
   facing: 1 | -1; moving: boolean; flying: boolean; walkT: number;
   running: boolean; sitting: boolean;
   st: CharState; look: Look;
+  /** 飞行中催动遁光（Shift） */
+  boosting?: boolean;
 }
 
 export interface UIState {
@@ -83,6 +86,12 @@ export class Game {
   cam = { x: 0, y: 0, zoom: 0.8, targetZoom: 0.8 };
   input = { keys: new Set<string>(), joy: { x: 0, y: 0 }, run: false, mouse: { x: 0, y: 0, t: -99, active: false } };
   combat: Combat;
+  /** 第十四步：追杀 */
+  pursuit: PursuitSys;
+  /** 高空：0 地面 – 1 高空疾遁（镜头拉远、云层掠过） */
+  alt = 0;
+  private boostSfxT = 0;
+  private roamPursuitT = 60;
   ws: WorldState = newWorldState();
   npcs!: NpcWorld;
   hearts!: Hearts;
@@ -115,6 +124,7 @@ export class Game {
     this.terrain = terrain;
     this.nodes = new NodeField(terrain);
     this.combat = new Combat(this);
+    this.pursuit = new PursuitSys(this);
     this.npcs = new NpcWorld(this);
     this.npcs.newWorld();
     this.hearts = new Hearts(this);
@@ -154,7 +164,7 @@ export class Game {
     this.day = 60; this.clock = DAY_CYCLE * 0.3; this.explored.fill(0); this.revealAll = false; this.destination = null; this.debugTeleport = false;
     this.cam.x = this.player.x; this.cam.y = this.player.y; this.cam.zoom = this.cam.targetZoom = 0.8;
     this.currentRegionId = ''; this.gathering = null;
-    this.combat.reset();
+    this.combat.reset(); this.pursuit?.reset();
     this.ws = newWorldState();
     this.npcs.newWorld();
     this.modal = null; this.modalStack = []; this.emitModal();
@@ -316,7 +326,7 @@ export class Game {
       this.hero.stats = Object.assign(C.newHero().stats, this.hero.stats ?? {});
       this.nodes.fromSave(d.nodes);
       this.destination = null; this.currentRegionId = ''; this.gathering = null;
-      this.combat.reset();
+      this.combat.reset(); this.pursuit?.reset();
       // 第三步存档迁移
       const nh = C.newHero();
       if (!Array.isArray(this.hero.arts) || !this.hero.arts.length) this.hero.arts = nh.arts;
@@ -408,7 +418,7 @@ export class Game {
       }
       if (danger >= 2 && Math.random() < 0.25 + danger * 0.1) {
         if (this.concealed && Math.random() < 0.8) { this.toast('一道陌生神识自远处扫过，所幸你气息内敛，未被察觉。'); }
-        else { this.senseAlarm = 1; this.renderer.sense.alarm = 1; this.toast('一股远胜于你的神识扫过此地，你被盯上了！', 'warn'); audio.sfx('fail'); }
+        else { this.senseAlarm = 1; if (this.renderer) this.renderer.sense.alarm = 1; this.toast('一股远胜于你的神识扫过此地，你被盯上了！', 'warn'); audio.sfx('fail'); }
       }
     }
   }
@@ -420,10 +430,18 @@ export class Game {
   get speed() {
     const base = REALMS[this.hero.realm].speed * (1 + C.mod(this.hero, 'mapSpeed'));
     const fl = this.equipSpeed('flight');
-    if (this.player.flying && !this.canFlyNative) return this.hero.equip?.flight ? Math.max(420, base * 1.8 * fl) : 420; // 体验御剑 / 炼气乘舟
-    if (this.isFlying) return base * 1.8 * fl;
+    if (this.player.flying && !this.canFlyNative) return (this.hero.equip?.flight ? Math.max(420, base * 1.8 * fl) : 420) * this.boostMul; // 体验御剑 / 炼气乘舟
+    if (this.isFlying) return base * 1.8 * fl * this.boostMul;
     return (this.player.running ? base * 1.6 : base) * this.equipSpeed('boots');
   }
+  /** 遁光类别：风雷翅 → 雷遁；血色披风 → 血光遁；其余 → 催动遁光 */
+  get boostKind(): 'thunder' | 'blood' | 'light' {
+    const f = this.hero.equip?.flight;
+    return f === 'art_fenglei' ? 'thunder' : f === 'art_xuepifeng' ? 'blood' : 'light';
+  }
+  get boostMul() { if (!this.player.boosting) return 1; const k = this.boostKind; return k === 'thunder' ? 1.8 : k === 'blood' ? 1.7 : 1.55; }
+  /** 催动遁光每秒耗法力 */
+  get boostDrain() { const k = this.boostKind; return (k === 'thunder' ? 0.045 : k === 'blood' ? 0.032 : 0.026) / (1 + Math.max(0, this.hero.realm - 2) * 0.2); }
   get season() { const m = Math.floor(this.day / 30) % 12; return m < 3 ? 0 : m < 6 ? 1 : m < 9 ? 2 : 3; }
   /** 日光 0（子夜）–1（正午） */
   get light() { return 0.5 - 0.5 * Math.cos(2 * Math.PI * this.dayPhase); }
@@ -453,6 +471,30 @@ export class Game {
 
   /** 调试/自动化：固定帧步长（0 = 实时）与帧计数 */
   debugFixedDt = 0; frameNo = 0; debugCamDX = 0;
+  /** 追杀的触发：拍卖后尾随、险地游荡被盯上 */
+  private pursuitTriggers(dt: number) {
+    const h = this.hero, p = this.player, f = this.ws.flags;
+    if (h.realm < 1 || this.pursuit.active || this.day < 63) return;
+    const inZone = !!this.terrain.inLocZone(p.x, p.y, 600);
+    // 拍卖会上露了富：出城后被尾随
+    if (f.auctionMark !== undefined && !inZone) {
+      const ago = this.day - (f.auctionMark as number);
+      delete f.auctionMark;
+      if (ago < 20) { this.pursuit.cd = 0; this.pursuit.schedule({ reason: '拍卖会上露了富，出城不久便被人尾随', gap: Math.random() < 0.6 ? 1 : 0, delay: 4 + Math.random() * 6 }); }
+    }
+    // 险地游荡：身怀重宝时偶尔被更强者盯上
+    this.roamPursuitT -= dt;
+    if (this.roamPursuitT <= 0) {
+      this.roamPursuitT = 45 + Math.random() * 30;
+      if (inZone) return;
+      const d = this.combat.dangerAt(p.x, p.y).d;
+      const wealth = h.bag.reduce((s, b) => s + (itemDef(b.id).type === 'artifact' ? itemDef(b.id).price : 0), 0);
+      const ch = Math.min(0.12, 0.012 * d + (wealth > 20000 ? 0.03 : 0));
+      if (Math.random() < ch) this.pursuit.schedule({ reason: d >= 2 ? '在险地被一道强横的神识扫中' : '身上宝光外泄，被过路修士盯上', gap: d >= 2.5 && Math.random() < 0.3 ? 1 : Math.random() < 0.7 ? 1 : 0, delay: 1 });
+    }
+  }
+  /** 调试：立刻被追杀 */
+  debugPursuit(gap = 1) { this.pursuit.cd = 0; this.pursuit.reset(); this.pursuit.cd = 0; return this.pursuit.start({ reason: '调试', gap }); }
   /** 调试：直接给物品（走 addItem，触发获宝提示） */
   debugGive(id: string, n = 1) { C.addItem(this.hero, id, n); }
   /** 调试/自动化：在玩家周围刷怪 */
@@ -518,7 +560,11 @@ export class Game {
     this.terrain.frame++;
     if (!this.halted && !this.hero.dead) this.updateSense(dt);
     const p = this.player, st = p.st, h = this.hero;
-    this.cam.zoom += (this.cam.targetZoom - this.cam.zoom) * Math.min(1, dt * 10);
+    // 高空：飞行时缓缓升高，疾遁时更高——镜头随之拉远
+    const altT = this.player.flying ? (this.player.boosting ? 1 : this.player.moving ? 0.5 : 0.3) : 0;
+    this.alt += (altT - this.alt) * Math.min(1, dt * (altT > this.alt ? 0.7 : 1.6));
+    const zT = Math.max(0.22, this.cam.targetZoom * (1 - 0.3 * this.alt));
+    this.cam.zoom += (zT - this.cam.zoom) * Math.min(1, dt * (Math.abs(zT - this.cam.targetZoom) > 0.01 ? 3 : 10));
     const active = !this.halted && !h.dead;
     if (active) {
       // 移动输入
@@ -544,6 +590,13 @@ export class Game {
       if (wantMove && p.sitting) this.stand();
       if (wantMove && this.gathering) { this.gathering = null; }
       p.running = (k.has('shift') || this.input.run) && !this.isFlying;
+      const wantBoost = (k.has('shift') || this.input.run) && this.isFlying && wantMove;
+      if (wantBoost && !p.boosting && h.mp > 0.06) { p.boosting = true; audio.sfx(this.boostKind === 'thunder' ? 'thunder' : 'whoosh'); }
+      else if (!wantBoost || h.mp <= 0.01) { if (p.boosting && h.mp <= 0.01) this.toast('法力枯竭，遁光一黯。', 'warn'); p.boosting = false; }
+      if (p.boosting) {
+        h.mp = Math.max(0, h.mp - this.boostDrain * dt);
+        this.boostSfxT -= dt; if (this.boostSfxT <= 0 && this.boostKind === 'thunder') { this.boostSfxT = 0.9 + Math.random() * 0.6; audio.sfx('thunder'); }
+      }
       p.moving = wantMove;
       let vx = 0, vy = 0;
       if (p.moving) {
@@ -571,7 +624,7 @@ export class Game {
       // 动作状态机
       st.x = p.x; st.y = p.y; st.vx = vx; st.vy = vy; st.speed = Math.hypot(vx, vy);
       st.windX = this.weather.wind * 30; st.windY = 0;
-      if (this.isFlying) { st.setAction('fly'); st.lift += (46 - st.lift) * Math.min(1, dt * 4); }
+      if (this.isFlying) { st.setAction('fly'); st.lift += (46 + this.alt * 34 - st.lift) * Math.min(1, dt * 4); }
       else {
         st.lift += (0 - st.lift) * Math.min(1, dt * 6);
         if (this.gathering) st.setAction('gather');
@@ -582,6 +635,8 @@ export class Game {
         if (ov) st.setAction(ov);
       }
       this.combat.update(dt);
+      this.pursuit.update(dt);
+      this.pursuitTriggers(dt);
       this.npcs.update(dt);
       this.events.update(dt);
       this.story.update(dt);
@@ -601,7 +656,7 @@ export class Game {
       const expB = this.hearts.bonus('exp'), e0 = h.exp;
       const mp0 = h.mp;
       C.passDays(h, days, p.sitting, this.placeBonus().mult, msgs);
-      if (this.senseBurstT > 0) h.mp = Math.min(h.mp, mp0);   // 神识外放期间法力不回
+      if (this.senseBurstT > 0 || p.boosting) h.mp = Math.min(h.mp, mp0);   // 神识外放 / 催动遁光期间法力不回
       if (expB > 0 && h.exp > e0) h.exp += (h.exp - e0) * expB;
       const rg = this.hearts.bonus('regen'); if (rg > 0 && !this.combat.inCombat) { h.hp = Math.min(1, h.hp + rg * 0.01 * dt); h.mp = Math.min(1, h.mp + rg * 0.01 * dt); }
       this.flushMsgs(msgs);
@@ -820,7 +875,7 @@ export class Game {
     }
     h.hp = 0.3; h.mp = 0.3; this.day += 3;
     p.flying = false; p.sitting = false; this.destination = null; this.gathering = null;
-    this.combat.reset(); this.combat.fade = 1;
+    this.combat.reset(); this.pursuit?.reset(); this.combat.fade = 1;
     this.toast(`你身受重创，昏死过去……三日后在${best?.name ?? '荒野'}醒来。修为损失 ${lostExp}${lost.length ? '，遗失：' + lost.join('、') : ''}。`, 'warn');
     audio.sfx('fail');
     this.updateUI(true);

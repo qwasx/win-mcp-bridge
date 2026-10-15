@@ -14,10 +14,69 @@ const SMOKE: RGB = [0.13, 0.11, 0.1];
 /** 每秒发射 rate 个：返回本帧数量（带随机余数） */
 const nEmit = (rate: number, dt: number) => { const f = rate * dt; return Math.floor(f) + (Math.random() < f % 1 ? 1 : 0); };
 
-export interface FxEvent { k: 'hit' | 'kill' | 'phit' | 'cast' | 'block' | 'dodge'; x: number; y: number; color?: string; power?: number; crit?: boolean; dir?: number; big?: boolean }
+export interface FxEvent { k: 'hit' | 'kill' | 'phit' | 'cast' | 'block' | 'dodge' | 'xueying'; x: number; y: number; x2?: number; y2?: number; color?: string; power?: number; crit?: boolean; dir?: number; big?: boolean }
+
+const boostTrail: [number, number][] = [];
+/** 飞行疾遁：遁光拖尾（雷遁电蛇 / 血光遁血雾 / 寻常遁光）+ 掠过的风线 */
+function drawBoost(F: FxSys, c: Combat, dt: number) {
+  const g = c.game, pl = g.player, lift = pl.st.lift;
+  const hx = pl.x, hy = pl.y - lift - 6;   // 遁光自脚下飞剑/法器处拖出
+  const kind = g.boostKind;
+  const Lmax = 170 + 0.16 * g.speed;
+  // 按距离采样，限制总长：慢时短而柔，快时长而直
+  const T = boostTrail;
+  if (pl.boosting) {
+    const last = T[T.length - 1];
+    if (!last || Math.hypot(hx - last[0], hy - last[1]) > 7) T.push([hx, hy]); else { last[0] = hx; last[1] = hy; }
+  } else if (T.length) T.splice(0, Math.max(1, Math.ceil(T.length * dt * 6)));
+  let L = 0;
+  for (let i = T.length - 1; i > 0; i--) { L += Math.hypot(T[i][0] - T[i - 1][0], T[i][1] - T[i - 1][1]); if (L > Lmax) { T.splice(0, i - 1); break; } }
+  if (T.length > 64) T.splice(0, T.length - 64);
+  if (T.length < 2) return;
+  const fade = pl.boosting ? 1 : Math.min(1, T.length / 10);
+  const a0 = T[0], a1 = T[T.length - 1];
+  const dx = a1[0] - a0[0], dy = a1[1] - a0[1], DL = Math.hypot(dx, dy) || 1, ux = dx / DL, uy = dy / DL;
+  const tm = g.time;
+  if (kind === 'thunder') {
+    const col: RGB = [0.56, 0.66, 1], VI: RGB = [0.72, 0.6, 1];
+    F.trail(T, 90, VI, 0.16 * fade, C.Glow, 1, 0.6);
+    F.trail(T, 30, col, 0.3 * fade, C.Beam, 1, 1);
+    // 雷光：沿轨迹的折线电弧，每帧换形（闪烁），不再是实心光柱
+    const nb = pl.boosting ? 2 : 1;
+    for (let b = 0; b < nb; b++) {
+      const j = Math.floor(Math.random() * Math.max(1, T.length * 0.5)), p0 = T[j];
+      F.bolt(p0[0], p0[1], hx, hy, Math.floor(tm * 40) * 7 + b * 131, 10 + 12 * Math.random(), 1.1, col, 0.75 * fade, 10, b === 0);
+    }
+    if (!pl.boosting) return;
+    F.glow(hx, hy - 20, 70, col, 0.28); F.glow(hx, hy - 20, 26, WHITE, 0.35);
+    if (Math.random() < dt * 7) { const a = rnd(0, TAU); F.bolt(hx, hy - 30, hx + Math.cos(a) * rnd(50, 110), hy - 30 + Math.sin(a) * rnd(30, 80), Math.random() * 1e6, 10, 0.9, VI, 0.8, 6, false); }
+    if (Math.random() < dt * 26) F.emit({ x: hx + rnd(-24, 24), y: hy - rnd(0, 60), vx: -ux * 420 + rnd(-90, 90), vy: -uy * 420 + rnd(-90, 90), life: 0.2, s0: 2.6, s1: 0.8, c: WHITE, stretch: 3, cell: C.Glow });
+  } else if (kind === 'blood') {
+    const col: RGB = [0.9, 0.08, 0.14], DK: RGB = [0.28, 0.02, 0.04];
+    F.trail(T, 64, DK, 0.22 * fade, C.Glow, 0, 0.7);     // 暗红血雾底（非叠加，避免发白）
+    F.trail(T, 40, col, 0.34 * fade, C.Glow, 1, 0.8);
+    F.trail(T, 10, [1, 0.55, 0.5], 0.3 * fade, C.Beam, 1, 1);
+    if (!pl.boosting) return;
+    F.glow(hx, hy - 30, 60, col, 0.26);
+    if (Math.random() < dt * 34) F.emit({ x: hx + rnd(-18, 18), y: hy - rnd(0, 60), vx: -ux * 180 + rnd(-40, 40), vy: -uy * 180 + rnd(-40, 20), life: rnd(0.45, 0.9), s0: rnd(16, 28), s1: 4, c: col, a: 0.4, drag: 2, cell: C.Wisp, rot: Math.random() * 6 });
+    if (Math.random() < dt * 10) F.emit({ x: hx + rnd(-10, 10), y: hy - rnd(10, 50), vx: -ux * 60, vy: -uy * 60 + 40, life: 0.8, s0: 3, s1: 1.5, c: col, a: 0.9, grav: 160, cell: C.Glow });
+  } else {
+    const col: RGB = [0.6, 1, 0.86];
+    F.trail(T, 70, col, 0.14 * fade, C.Glow, 1, 0.5);
+    F.trail(T, 46, col, 0.3 * fade, C.Beam, 1, 1);
+    F.trail(T, 9, WHITE, 0.42 * fade, C.Beam, 1, 1);
+    if (!pl.boosting) return;
+    F.glow(hx, hy, 46, col, 0.26);
+    if (Math.random() < dt * 22) F.emit({ x: hx + rnd(-18, 18), y: hy - rnd(-6, 40), vx: -ux * 150 + rnd(-20, 20), vy: -uy * 150 + rnd(-20, 20), life: rnd(0.35, 0.6), s0: 4.5, s1: 1, c: col, a: 0.7, cell: C.Glow });
+  }
+  // 风线：掠过的细长气流，越高越密
+  const n = Math.round(dt * (36 + 56 * g.alt) + Math.random() * 0.6);
+  for (let i = 0; i < n; i++) { const ox = rnd(-560, 560), oy = rnd(-340, 340); F.emit({ x: hx + ox + ux * 300, y: hy + oy + uy * 300, vx: -ux * 2000, vy: -uy * 2000, life: 0.2, s0: 2, s1: 1, c: WHITE, a: 0.28, stretch: 6, cell: C.Glow }); }
+}
 
 export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
   const p = c.game.player;
+  drawBoost(F, c, dt);
   // ---- 事件（命中/击杀/受伤）
   // 同一帧多次命中同一处（剑阵、飞针）：只完整播放前几次，其余减弱，避免叠加过曝
   const hitSeen: [number, number, number][] = [];
@@ -39,6 +98,25 @@ export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
       F.ink(ev.x, ev.y + 10, ev.big ? 90 : 60, 0.4, [0.35, 0.03, 0.03]);
     } else if (ev.k === 'block') { F.flash(ev.x, ev.y, 34, cc, 0.12); F.shockRing(ev.x, ev.y, 60, cc, 0.3, 0.9, 0.6); }
     else if (ev.k === 'dodge') { for (let i = 0; i < 10; i++) F.emit({ x: ev.x + rnd(-14, 14), y: ev.y - rnd(10, 90), vx: rnd(-40, 40), vy: rnd(-20, 10), life: rnd(0.3, 0.55), s0: rnd(16, 30), s1: 4, c: [0.75, 0.9, 1], a: 0.5, cell: C.Wisp, rot: 0 }); }
+    else if (ev.k === 'xueying') {
+      // 血影遁：原地一团血雾炸开，沿途血影残像，落点血光收拢
+      const x2 = ev.x2 ?? ev.x, y2 = ev.y2 ?? ev.y, big = !!ev.big, BL: RGB = [0.86, 0.06, 0.12], DK: RGB = [0.3, 0.02, 0.04];
+      F.flash(ev.x, ev.y - 50, big ? 50 : 34, BL, 0.25); F.shockRing(ev.x, ev.y, big ? 220 : 140, BL, 0.5, 0.55, 0.5);
+      F.smoke(ev.x, ev.y - 30, big ? 18 : 10, DK, 0.9, 50, 120);
+      for (let i = 0; i < (big ? 40 : 22); i++) { const a = Math.random() * TAU, v = rnd(80, 380); F.emit({ x: ev.x, y: ev.y - 50, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6 - 40, life: rnd(0.4, 0.9), s0: rnd(6, 12), s1: 2, c: BL, drag: 2.5, grav: 120, cell: C.Glow, a: 0.8 }); }
+      // 沿途：血雾长痕（暗红底 + 血光拉丝），越靠近落点越新、越浓
+      const PL = Math.hypot(x2 - ev.x, y2 - ev.y) || 1, ux = (x2 - ev.x) / PL, uy = (y2 - ev.y) / PL;
+      const n = Math.min(70, Math.max(8, Math.round(PL / (big ? 55 : 45))));
+      for (let i = 1; i < n; i++) {
+        const u = i / n, side = rnd(-26, 26), x = ev.x + (x2 - ev.x) * u - uy * side, y = ev.y + (y2 - ev.y) * u - 50 + ux * side, age = 0.45 + u * 0.55;
+        F.emit({ x, y, vx: rnd(-20, 20), vy: rnd(-30, -5), life: rnd(0.8, 1.3) * age, s0: rnd(70, 100), s1: rnd(150, 210), c: DK, a: 0.36, add: 0, drag: 1.5, cell: C.Smoke, rot: Math.random() * TAU });
+        F.emit({ x, y, life: rnd(0.4, 0.7) * age, s0: 90, s1: 60, c: BL, a: 0.16, cell: C.Glow });
+        F.emit({ x, y, vx: ux * 160, vy: uy * 160, life: rnd(0.35, 0.6) * age, s0: rnd(10, 16), s1: 3, c: BL, a: 0.55, drag: 3, stretch: 5, cell: C.Glow });
+        if (i % 3 === 0) F.emit({ x, y: y + rnd(-14, 14), life: 0.45 * age, s0: 46, s1: 14, c: BL, a: 0.35, cell: C.Wisp, rot: Math.atan2(uy, ux) });
+      }
+      F.flash(x2, y2 - 50, big ? 40 : 28, BL, 0.3); F.shockRing(x2, y2, big ? 160 : 100, BL, 0.4, 0.55, 0.5);
+      for (let i = 0; i < 18; i++) { const a = i / 18 * TAU; F.emit({ x: x2 + Math.cos(a) * 120, y: y2 - 50 + Math.sin(a) * 60, vx: -Math.cos(a) * 300, vy: -Math.sin(a) * 150, life: 0.4, s0: 8, s1: 2, c: BL, cell: C.Glow, a: 0.8 }); }
+    }
     else if (ev.k === 'cast') { const k = ev.power ?? 1; F.flash(ev.x, ev.y, 22 * k, cc, 0.16); F.shockRing(ev.x, ev.y + 40 * k, 70 * (0.6 + 0.4 * k), cc, 0.35, 0.55, 0.5); }
   }
   c.fxq.length = 0;

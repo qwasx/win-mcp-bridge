@@ -360,16 +360,45 @@ export class Combat {
       }
       case 'blink': {
         const g = this.game, T = g.terrain;
-        const dist = Math.min(s.range * (1 + lv * 0.1), s.id === 'xuedun' || s.id === 'tudun' ? s.range : Math.hypot(a.x - p.x, a.y - p.y) + 40);
+        const escape = s.id === 'xuedun' || s.id === 'tudun' || s.id === 'xueyingdun';
+        if (escape) {
+          // 遁走类：朝移动方向；站定时背离追兵/最近的敌人；都没有则朝面向——绝不朝敌人身上撞
+          const sv = Math.hypot(p.st.vx, p.st.vy);
+          let ex = 0, ey = 0;
+          if (sv > 20) { ex = p.st.vx / sv; ey = p.st.vy / sv; }
+          else {
+            let th: { x: number; y: number } | null = g.pursuit?.cur?.e ?? null, bd = 1e9;
+            if (!th) for (const e of this.enemies) { if (e.dead || !isFinite(e.x + e.y)) continue; const d = Math.hypot(e.x - p.x, e.y - p.y); if (d < bd) { bd = d; th = e; } }
+            if (th) { const d = Math.hypot(p.x - th.x, p.y - th.y) || 1; ex = (p.x - th.x) / d; ey = (p.y - th.y) / d; }
+            else { ex = Math.sin(p.st.yaw); ey = Math.cos(p.st.yaw); }
+          }
+          if (!isFinite(ex + ey) || Math.hypot(ex, ey) < 0.5) { const yw = isFinite(p.st.yaw) ? p.st.yaw : 0; ex = Math.sin(yw); ey = Math.cos(yw); }
+          a.dx = ex; a.dy = ey;
+        }
+        const dist = Math.min(s.range * (1 + lv * 0.1), escape ? s.range * (1 + lv * 0.1) : Math.hypot(a.x - p.x, a.y - p.y) + 40);
         let tx = p.x + a.dx * dist, ty = p.y + a.dy * dist;
-        // 找可落脚点
-        for (let k = 0; k < 10 && !(g.isFlying || T.walkFactor(tx, ty) > 0); k++) { tx -= a.dx * dist * 0.1; ty -= a.dy * dist * 0.1; }
+        // 找可落脚点：先左右偏转，再逐步缩短（遁走类最少也遁出四成）
+        const okAt = (x: number, y: number) => g.isFlying || T.walkFactor(x, y) > 0;
+        if (!okAt(tx, ty)) {
+          let found = false;
+          for (let k = 1; k <= 10 && !found; k++) {
+            const sh = 1 - k * (escape ? 0.06 : 0.1);
+            for (const da of escape ? [0, 0.35, -0.35, 0.7, -0.7] : [0]) {
+              const c = Math.cos(da), sn = Math.sin(da), dx = a.dx * c - a.dy * sn, dy = a.dx * sn + a.dy * c;
+              const x = p.x + dx * dist * sh, y = p.y + dy * dist * sh;
+              if (okAt(x, y)) { tx = x; ty = y; found = true; break; }
+            }
+          }
+          if (!found) { tx = p.x; ty = p.y; }
+        }
         this.vfx.push({ kind: 'blinkfx', x: p.x, y: p.y, r: 60, t: 0, dur: 0.5, color: s.color });
-        if (s.fx === 'lightning' || s.fx === 'blood') this.vfx.push({ kind: s.fx === 'blood' ? 'beam' : 'chain', x: p.x, y: p.y - 40, x2: tx, y2: ty - 40, r: 10, t: 0, dur: 0.3, color: s.color, fx: s.fx, seed: Math.random() * 1e6, w: 3 });
+        if ((s.fx === 'lightning' || s.fx === 'blood') && s.id !== 'xueyingdun') this.vfx.push({ kind: s.fx === 'blood' ? 'beam' : 'chain', x: p.x, y: p.y - 40, x2: tx, y2: ty - 40, r: 10, t: 0, dur: 0.3, color: s.color, fx: s.fx, seed: Math.random() * 1e6, w: 3 });
+        const ox = p.x, oy = p.y;
         p.x = tx; p.y = ty; g.cam.x += (tx - g.cam.x) * 0.5; g.cam.y += (ty - g.cam.y) * 0.5;
         this.vfx.push({ kind: 'blinkfx', x: tx, y: ty, r: 70, t: 0, dur: 0.5, color: s.color });
         if (radius > 0 && s.power > 0) { this.vfx.push({ kind: 'ring', x: tx, y: ty, r: radius, t: 0, dur: 0.45, color: s.color, fx: s.fx }); this.aoe(tx, ty, radius, dmg, base); }
-        if (s.id === 'tudun' || s.id === 'xuedun') { this.buffs.until.stealth = g.time + (s.id === 'tudun' ? 3 : 2) + lv; for (const e of this.enemies) e.aggro = false; }
+        if (s.id === 'tudun' || s.id === 'xuedun' || s.id === 'xueyingdun') { this.buffs.until.stealth = g.time + (s.id === 'tudun' ? 3 : s.id === 'xueyingdun' ? 4 : 2) + lv; for (const e of this.enemies) e.aggro = false; }
+        if (s.id === 'xueyingdun' || s.id === 'xuedun' || s.id === 'xueying') { this.fxq.push({ k: 'xueying', x: ox, y: oy, x2: p.x, y2: p.y, big: s.id === 'xueyingdun' }); this.game.juice(0.04, 0.35); audio.sfx('boom'); }
         this.invulnT = 0.3;
         break;
       }
@@ -441,7 +470,7 @@ export class Combat {
       }
       case 'escape': {
         C.removeItem(h, itemId, 1); this.setCd(key, 2);
-        let fx = 0, fy = 0; for (const e of this.enemies) if (!e.dead && e.aggro) { fx += p.x - e.x; fy += p.y - e.y; }
+        let fx = 0, fy = 0; for (const e of this.enemies) if (!e.dead && (e.aggro || e === g.pursuit?.cur?.e)) { fx += p.x - e.x; fy += p.y - e.y; }
         const L = Math.hypot(fx, fy) || 1; let tx = p.x + fx / L * 700, ty = p.y + fy / L * 500;
         for (let k = 0; k < 12 && g.terrain.walkFactor(tx, ty) <= 0; k++) { tx = (tx + p.x) / 2; ty = (ty + p.y) / 2; }
         this.vfx.push({ kind: 'blinkfx', x: p.x, y: p.y, r: 70, t: 0, dur: 0.6, color });
@@ -608,6 +637,8 @@ export class Combat {
     h.kills = (h.kills ?? 0) + 1;
     this.onKill?.(e);
     if (this.lock === e) this.lock = null;
+    // 斩杀魔修：血气未散，偶尔引来其同门长老
+    if (e.def.kind === 'human' && e.def.evil && !e.boss && !e.spar && Math.random() < 0.07) g.pursuit?.schedule({ reason: `斩了${e.name}，血气未散，引来了其同门`, gap: e.realm >= h.realm ? 1 : 0, faction: Math.random() < 0.5 ? 'guiling' : 'tiansha' });
     // 修为
     const pl = h.realm * 13 + h.stage;
     const gapK = e.level >= pl ? 1 + (e.level - pl) * 0.25 : Math.max(0.1, 1 - (pl - e.level) * 0.15);
@@ -804,7 +835,7 @@ export class Combat {
     const ooc = this.combatT > 6;
     const regen = (ooc ? 0.025 : 0.003) + this.buffs.regen;
     h.hp = Math.min(1, h.hp + regen * dt);
-    if (!(g.senseBurstT > 0)) h.mp = Math.min(1, h.mp + (ooc ? 0.035 : 0.008) * dt);   // 神识外放期间法力不回
+    if (!(g.senseBurstT > 0) && !p.boosting) h.mp = Math.min(1, h.mp + (ooc ? 0.035 : 0.008) * dt);   // 神识外放 / 催动遁光期间法力不回
     if (this.heal) { this.heal.t -= dt; h.hp = Math.min(1, h.hp + this.heal.rate * dt); h.mp = Math.min(1, h.mp + this.heal.mp * dt); if (Math.random() < dt * 8) this.sparks.push({ x: p.x + rand(-30, 30), y: p.y - rand(0, 80), vx: 0, vy: -40, t: 0, max: 1, size: 3, color: '150,230,120' }); if (this.heal.t <= 0) this.heal = null; }
     if (this.shield) { this.shield.t -= dt; if (this.shield.t <= 0) this.shield = null; }
     this.blockT = Math.max(0, this.blockT - dt * 3);

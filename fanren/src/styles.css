@@ -581,3 +581,29 @@ img.sk-glyph.art-ico { width: 34px; height: 34px; background: radial-gradient(ci
 @keyframes gainRing { from { transform: scale(0.2); opacity: 1; } to { transform: scale(1.6); opacity: 0.25; } }
 @keyframes gainIco { from { transform: scale(0.1) rotate(-200deg); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes gainBob { 50% { transform: translateY(-6px); } }
+
+/* 追杀 */
+.pursuit { position: absolute; left: 0; right: 0; margin: 0 auto; top: 14px; width: min(560px, 86vw); box-sizing: border-box; padding: 8px 14px 9px; z-index: 40; pointer-events: none; background: linear-gradient(180deg, rgba(40, 6, 8, 0.82), rgba(40, 6, 8, 0.62)); border: 1px solid rgba(220, 70, 60, 0.6); border-radius: 6px; box-shadow: 0 0 24px rgba(200, 30, 30, 0.35), inset 0 0 18px rgba(0, 0, 0, 0.5); color: #f4e2d6; animation: fadeUp 0.4s ease both; }
+.pursuit.near { animation: puNear 0.9s ease-in-out infinite; }
+@keyframes puNear { 50% { box-shadow: 0 0 40px rgba(255, 40, 30, 0.7), inset 0 0 18px rgba(0, 0, 0, 0.5); } }
+.pu-head { display: flex; align-items: baseline; gap: 12px; font-size: 14px; }
+.pu-head em { font-style: normal; font-family: var(--title-font); font-size: 20px; color: #ff7a6a; letter-spacing: 0.3em; text-shadow: 0 0 8px rgba(255, 60, 40, 0.8); }
+.pu-head span { text-shadow: 0 1px 2px #000; }
+.pu-dist { margin-left: auto; color: #ffd0b0; font-variant-numeric: tabular-nums; }
+.pu-bar { position: relative; height: 16px; margin-top: 6px; background: rgba(0, 0, 0, 0.45); border-radius: 3px; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
+.pu-fill { position: absolute; left: 0; top: 0; bottom: 0; transition: width 0.15s linear; }
+.pu-fill.lock { background: linear-gradient(90deg, #6a0c10, #e0302a 70%, #ff9a7a); }
+.pu-fill.free { background: linear-gradient(90deg, #1f5a48, #4fc29a 70%, #c8ffe8); }
+.pu-state { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; letter-spacing: 0.15em; text-shadow: 0 1px 2px #000; }
+.pu-tips { margin-top: 5px; font-size: 12px; color: #e8cfc0; opacity: 0.85; text-align: center; }
+.pu-arrow { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 41; pointer-events: none; }
+.pu-arrow i { position: absolute; left: -18px; top: -14px; width: 0; height: 0; border-left: 30px solid #ff4a3a; border-top: 14px solid transparent; border-bottom: 14px solid transparent; filter: drop-shadow(0 0 8px rgba(255, 40, 30, 0.9)); animation: puArrow 0.8s ease-in-out infinite; }
+@keyframes puArrow { 50% { transform: translateX(-6px); } }
+/* 遁光读数 */
+.fly-hud { position: absolute; left: 50%; bottom: 92px; transform: translateX(-50%); z-index: 30; pointer-events: none; display: flex; align-items: baseline; gap: 10px; padding: 4px 14px; border-radius: 14px; background: rgba(12, 20, 18, 0.45); color: #e4f4ec; font-size: 12px; text-shadow: 0 1px 2px #000; }
+.fly-hud b { font-family: var(--title-font); font-size: 16px; color: #bff0dc; }
+.fly-hud i { font-style: normal; opacity: 0.6; }
+.fly-hud.boost.thunder b { color: #c8d4ff; text-shadow: 0 0 10px #8aa0ff; }
+.fly-hud.boost.blood b { color: #ff9a9a; text-shadow: 0 0 10px #ff3040; }
+.fly-hud.boost.light b { color: #d8fff0; text-shadow: 0 0 10px #6fe8b8; }
+@media (max-width: 1180px) { .pursuit { top: 176px; } }

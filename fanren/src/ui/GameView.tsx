@@ -10,6 +10,7 @@ import { SettingsPanel, WorldMapPanel, makeFogCanvas, SEAL, SEAL_COLOR, loadAudi
 import { Hotbar, SkillPanel } from './CombatUI';
 import { CharPanel, BagPanel, AlchemyPanel, SecludePanel, SavePanel, DeathScreen } from './CultPanels';
 import { GainOverlay } from './GainOverlay';
+import { PursuitHUD } from './PursuitHUD';
 
 const CN = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
 export function cnNum(n: number): string {
@@ -291,6 +292,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
       {panel === 'save' && <SavePanel game={game} onClose={() => setPanel('')} />}
       <ModalLayer game={game} />
       <GainOverlay />
+      <PursuitHUD game={game} />
       {ui.dead && <DeathScreen game={game} onExit={onExit} />}
     </div>
   );

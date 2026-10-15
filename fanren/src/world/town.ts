@@ -18,7 +18,7 @@ const SECT_LIB: Record<string, string[]> = {
   luoyun: ['scroll_art_huichun', 'scroll_art_tengfu', 'scroll_art_qingteng', 'scroll_art_yimu', 'scroll_lianqi'],
   gujian: ['scroll_art_yujian', 'scroll_art_jianying', 'scroll_art_jujianshu'],
   baiqiao: ['scroll_art_kuilei', 'scroll_art_kunzhen', 'scroll_art_diandao'],
-  guiling: ['scroll_xuanyin', 'scroll_art_xueying', 'scroll_art_yinhun'],
+  guiling: ['scroll_xuanyin', 'scroll_art_xueying', 'scroll_art_yinhun', 'scroll_art_xueyingdun'],
   tianmo: ['scroll_tuotian', 'scroll_art_xuelian', 'scroll_art_xuedun'],
   hehuan: ['scroll_art_jingshen', 'scroll_xuanyin'],
   yinluo: ['scroll_art_yinhun', 'scroll_xuanyin'],

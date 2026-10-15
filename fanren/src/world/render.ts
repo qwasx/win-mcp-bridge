@@ -1210,8 +1210,13 @@ export class Renderer {
   }
 
   atmoRect = { x: 0, y: 0, w: 0, h: 0 };
+  private cloudPar = { x: 0, y: 0, x2: 0, y2: 0, cx: NaN, cy: NaN };
   private drawAtmosphere(left: number, top: number, right: number, bottom: number, dt: number) {
     const { game } = this;
+    // 高空视差：云比地面更靠近镜头，镜头移动时云掠得更快
+    const cp = this.cloudPar, alt = game.alt;
+    if (!isNaN(cp.cx)) { const mx = game.cam.x - cp.cx, my = game.cam.y - cp.cy; if (Math.abs(mx) + Math.abs(my) < 3000) { cp.x += mx * 0.6 * alt; cp.y += my * 0.6 * alt; cp.x2 += mx * 1.6 * alt; cp.y2 += my * 1.6 * alt; } }
+    cp.cx = game.cam.x; cp.cy = game.cam.y;
     const a = this.atmoCtx, AW = this.atmo.width, AH = this.atmo.height;
     const k = (AW - 2) / (right - left);
     // 对齐到氛围层像素网格，避免低分辨率层随镜头移动而闪烁
@@ -1256,8 +1261,29 @@ export class Renderer {
         a.drawImage(this.cloud, x - s / 2, y - s / 2, s, s);
       }
     }
-    a.globalAlpha = (game.cam.zoom < 0.5 ? 0.42 : clamp(0.1 + (0.75 - game.cam.zoom) * 0.6, 0.06, 0.24)) * (game.weather.kind === 'clear' ? 1 : 1.4);
-    for (const [x, y, s] of clouds) a.drawImage(this.cloud, x - s / 2, y - s / 2, s, s * 0.6);
+    const baseA = (game.cam.zoom < 0.5 ? 0.42 : clamp(0.1 + (0.75 - game.cam.zoom) * 0.6, 0.06, 0.24)) * (game.weather.kind === 'clear' ? 1 : 1.4);
+    if (alt < 0.02) {
+      a.globalAlpha = baseA;
+      for (const [x, y, s] of clouds) a.drawImage(this.cloud, x - s / 2, y - s / 2, s, s * 0.6);
+    } else {
+      // 云层（中景）：带视差，越高越浓
+      a.globalAlpha = Math.min(0.42, baseA + 0.16 * alt) * (1 - game.night * 0.5);
+      for (const c of this.driftClouds) {
+        const s = 1400 * c.s, ox = c.x - cp.x, oy = c.y - cp.y;
+        const bx = Math.floor((left - s - ox) / fieldW) * fieldW + ox, by = Math.floor((top - s - oy) / fieldH) * fieldH + oy;
+        for (let x = bx; x < right + s; x += fieldW) for (let y = by; y < bottom + s; y += fieldH) a.drawImage(this.cloud, x - s / 2, y - s / 2, s, s * 0.6);
+      }
+      // 近云：从身边飞快掠过的薄云絮
+      if (alt > 0.15) {
+        a.globalAlpha = 0.34 * (alt - 0.15) / 0.85 * (1 - game.night * 0.5);
+        const fw = 4200, fh = 3000;
+        for (let i = 0; i < this.driftClouds.length; i++) {
+          const c = this.driftClouds[i], s = 900 * c.s, ox = c.x * 0.7 + i * 1300 - cp.x2, oy = c.y * 0.6 + i * 900 - cp.y2;
+          const bx = Math.floor((left - s - ox) / fw) * fw + ox, by = Math.floor((top - s - oy) / fh) * fh + oy;
+          for (let x = bx; x < right + s; x += fw) for (let y = by; y < bottom + s; y += fh) a.drawImage(this.cloud, x - s / 2, y - s / 2, s * 1.3, s * 0.5);
+        }
+      }
+    }
     a.globalAlpha = 1;
   }
 }
