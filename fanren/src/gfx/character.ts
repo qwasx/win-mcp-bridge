@@ -1,6 +1,7 @@
 // 代码绘制的人物：3D 骨骼 + 俯视斜角投影 + 布料（袖、衣摆、发带、腰带）模拟
 // 所有角色共用同一套骨骼与动作，外观（发型/服饰/颜色/配饰）由 Look 参数决定。
 import { shade, rgba } from '../core/canvas';
+import { headTex, headTexReady, type HeadView } from './headTex';
 
 export type Action = 'idle' | 'walk' | 'run' | 'fly' | 'sit' | 'cast' | 'hit' | 'dodge' | 'gather';
 export const ACTION_NAMES: Record<Action, string> = {
@@ -39,13 +40,14 @@ export interface Look {
   lip?: string;            // 唇色
   eyeTint?: string;        // 瞳色
   earring?: string;        // 耳坠
+  headTex?: string;        // 头部改用手绘贴图（五个角度），身体仍为代码绘制
 }
 
 export const HANLI_LOOK: Look = {
   sex: 'm', height: 1, build: 1, skin: '#f1d9bd', hair: '#1d1a17', hairStyle: 'bun',
   robe: '#3f6a4c', inner: '#ece6d6', trim: '#2b4636', belt: '#1f2420', pants: '#8a7a62', boots: '#2a2622',
   robeLen: 'long', sleeve: 'wide', ribbon: '#2a3a30', sash: '#1f2420', back: 'none', waist: 'pouch', hand: 'none',
-  swordColor: '#7ff0c0',
+  swordColor: '#7ff0c0', headTex: 'hanli',
 };
 
 // ---------------------------------------------------------------- 姿态
@@ -364,6 +366,9 @@ function convexHull(pts: { x: number; y: number }[]) {
 const PITCH = 0.36; // 俯视角
 const CP = Math.cos(PITCH), SP = Math.sin(PITCH);
 type P2 = { x: number; y: number; z: number };
+
+// 头部贴图的尺寸/锚点（相对代码头）
+const HEAD_NECK_UP = 3.2, HEAD_TOP_Y = 9.6, HEAD_TEX_K = 1.08, HEAD_NECK_SINK = 0.06;
 
 export interface DrawOpts { alpha?: number; ghost?: boolean; glow?: number; preview?: boolean }
 
@@ -813,6 +818,7 @@ export function drawCharacter(ctx: CanvasRenderingContext2D, look: Look, st: Cha
   };
   const visN = (nx: number, ny: number, nz: number) => { const l = Math.hypot(nx, ny, nz) || 1; return (ny * SP + (-nx * sY + nz * cY) * CP) / l; };
   const style = look.hairStyle;
+  const texHead = look.headTex && headTexReady(look.headTex) ? look.headTex : null;
   const bald = style === 'bald';
   const drape = fem ? style !== 'bald' && style !== 'updo' : style === 'long' || style === 'halfup';
   const blink = pose.eyes > 0.5 && ((st.t * 0.9 + st.seed) % 4.3) < 0.13;
@@ -838,7 +844,7 @@ export function drawCharacter(ctx: CanvasRenderingContext2D, look: Look, st: Cha
   const hullLocal = headPts(fem);
   // ---- 背后长发 ----
   let backHair: { s: Strand } | null = null;
-  if (drape) {
+  if (drape && !texHead) {
     const nape = HP(0, -1.2, -4.4);
     const L = fem ? (style === 'twin' ? 4.6 : 6.4) : 5.2;
     backHair = { s: strand('hairLong', 6, L, nape.x, nape.y, 1.5, 1.05) };
@@ -902,15 +908,15 @@ export function drawCharacter(ctx: CanvasRenderingContext2D, look: Look, st: Cha
   const bun = HP(bunL[0], bunL[1], bunL[2]);
   const hairBackZ = P(add(sk.head, v(0, 0, -6))).z;
   let ribbons: Strand[] = [];
-  if (look.ribbon && !bald) {
+  if (look.ribbon && !bald && !texHead) {
     const rb = style === 'twin' ? [HP(3.9, 5.2, -1.4), HP(-3.9, 5.2, -1.4)] : [{ x: bun.x - 0.8 * S, y: bun.y + 1 * S }, { x: bun.x + 0.8 * S, y: bun.y + 1 * S }];
     ribbons = [strand('rib1', 6, fem ? 4.2 : 3.6, rb[0].x, rb[0].y, 2.6, 0.7), strand('rib2', 5, fem ? 4.6 : 3.6, rb[1].x, rb[1].y, 2.6, 0.7)];
   }
   let ponytail: Strand | null = null;
-  if (style === 'ponytail') ponytail = strand('pony', 5, 4.8, bun.x, bun.y, 1.8, 1);
+  if (style === 'ponytail' && !texHead) ponytail = strand('pony', 5, 4.8, bun.x, bun.y, 1.8, 1);
   // 鬓发 / 垂在胸前的发缕
   const lockA = HP(5.25, -0.6, 0.3), lockB = HP(-5.25, -0.6, 0.3);
-  const locks = drape ? [strand('lockL', 5, 3.4, lockA.x, lockA.y, 1.6, 1), strand('lockR', 5, 3.4, lockB.x, lockB.y, 1.6, 1)] : [];
+  const locks = drape && !texHead ? [strand('lockL', 5, 3.4, lockA.x, lockA.y, 1.6, 1), strand('lockR', 5, 3.4, lockB.x, lockB.y, 1.6, 1)] : [];
   // 步摇
   const pinA = HP(2.6, 6.2, -1.8);
   const tassel = look.pin === 'gold' || look.pin === 'jade' ? strand('tassel', 3, 1.6, pinA.x + 1.5 * S, pinA.y, 1.2, 1) : null;
@@ -928,7 +934,28 @@ export function drawCharacter(ctx: CanvasRenderingContext2D, look: Look, st: Cha
     g.beginPath(); g.ellipse(c.x, c.y, rx * 0.7, ry * 0.6, 0, Math.PI * 1.1, Math.PI * 1.65); g.stroke();
   };
 
+  // 手绘头部贴图：按头部朝向取五个角度之一（另一侧镜像），脖子底端锚在领口
+  const texHeadDraw = (name: string) => {
+    const a = Math.atan2(sY, cY);          // 0 正对镜头，+π/2 面朝屏幕右
+    const aa = Math.abs(a);
+    const view: HeadView = aa < 0.39 ? 'front' : aa < 1.18 ? 'q' : aa < 1.96 ? 'side' : aa < 2.75 ? 'qb' : 'back';
+    const flip = (view === 'q' || view === 'side' || view === 'qb') && a < 0;
+    const nb = P(add(sk.chest, sk.up, HEAD_NECK_UP));
+    const top = HP(0, HEAD_TOP_Y, -1.2);
+    const H = Math.max(4, (nb.y - top.y) * HEAD_TEX_K);
+    const t = headTex(name, view, H); if (!t) return false;
+    const W = H * t.img.w / t.img.h;
+    const ang = Math.atan2(hed.x - nb.x, nb.y - hed.y) * 0.7;
+    g.save();
+    g.translate(nb.x, nb.y + H * HEAD_NECK_SINK); g.rotate(ang); if (flip) g.scale(-1, 1);
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(t.src, -t.img.neckX * W, -H, W, H);
+    g.restore();
+    return true;
+  };
+
   const headDraw = () => {
+    if (texHead && texHeadDraw(texHead)) return;
     // 颈
     tube(P(add(sk.chest, sk.up, 4)), P(add(sk.head, v(0, -5.2, -0.6))), 2.2 * S * hk, 1.95 * S * hk, shade(look.skin, -0.1));
     // 双髻（在头后）

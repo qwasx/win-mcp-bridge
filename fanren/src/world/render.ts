@@ -18,6 +18,7 @@ import { collectCombat, drawCombatFx, drawCombatUI } from './combatfx';
 import { REALMS } from '../data/realms';
 import { GLStage, PostParams } from '../gl/stage';
 import { loadBldTex } from '../gfx/bldTex';
+import { loadHeadTex } from '../gfx/headTex';
 import { MAX_SEG, MAX_TOWN, type GroundSegs, type GroundView, type SegProvider } from '../gl/ground';
 import { FxSys } from '../gl/fx';
 import { drawCombatGL } from '../gl/combatgl';
@@ -70,6 +71,7 @@ export class Renderer {
     this.domCanvas = canvas;
     // 建筑贴图就绪后，丢掉已缓存的程序绘制版本
     loadBldTex(() => sprites.clearBase('P:'));
+    loadHeadTex();
     const q = typeof location !== 'undefined' ? location.search : '';
     let wantGL = !/[?&]gl=0/.test(q);
     try { if (localStorage.getItem('fanren.gl') === '0' && !/[?&]gl=1/.test(q)) wantGL = false; } catch { /* */ }
