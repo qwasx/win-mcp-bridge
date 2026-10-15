@@ -17,7 +17,8 @@ import { SenseFx, senseMods } from './sense';
 import { collectCombat, drawCombatFx, drawCombatUI } from './combatfx';
 import { REALMS } from '../data/realms';
 import { GLStage, PostParams } from '../gl/stage';
-import { MAX_SEG, MAX_TOWN, type GroundParams } from '../gl/ground';
+import { loadBldTex } from '../gfx/bldTex';
+import { MAX_SEG, MAX_TOWN, type GroundSegs, type GroundView, type SegProvider } from '../gl/ground';
 import { FxSys } from '../gl/fx';
 import { drawCombatGL } from '../gl/combatgl';
 import { TIERS } from './sense';
@@ -67,6 +68,8 @@ export class Renderer {
   constructor(game: Game, canvas: HTMLCanvasElement) {
     this.game = game;
     this.domCanvas = canvas;
+    // 建筑贴图就绪后，丢掉已缓存的程序绘制版本
+    loadBldTex(() => sprites.clearBase('P:'));
     const q = typeof location !== 'undefined' ? location.search : '';
     let wantGL = !/[?&]gl=0/.test(q);
     try { if (localStorage.getItem('fanren.gl') === '0' && !/[?&]gl=1/.test(q)) wantGL = false; } catch { /* */ }
@@ -101,7 +104,7 @@ export class Renderer {
 
   resize() {
     const isMobile = Math.min(window.innerWidth, window.innerHeight) < 600;
-    this.dpr = Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2, this.maxDpr ?? 2);
+    this.dpr = Math.min(window.devicePixelRatio || 1, isMobile ? 1.25 : 2, this.maxDpr ?? 1.5);
     const el = this.domCanvas;
     this.W = el.clientWidth || window.innerWidth;
     this.H = el.clientHeight || window.innerHeight;
@@ -112,7 +115,9 @@ export class Renderer {
       const ud = Math.min(window.devicePixelRatio || 1, 2);
       this.domCanvas.width = Math.round(this.W * ud); this.domCanvas.height = Math.round(this.H * ud);
       this.uiDpr = ud;
-      this.stage.resize(this.W * Math.min(ud, this.dpr * 1.25), this.H * Math.min(ud, this.dpr * 1.25));
+      // 后期输出与世界层同分辨率（高分屏上不再按 2× 跑整套后期）
+      const sd = Math.min(ud, Math.max(1, this.dpr));
+      this.stage.resize(this.W * sd, this.H * sd);
       this.stage.bloomOn = this.tier >= 1;
     }
     if (this.atmo) { this.atmo.width = Math.ceil(this.W * Renderer.AS) + 2; this.atmo.height = Math.ceil(this.H * Renderer.AS) + 2; }
@@ -194,32 +199,43 @@ export class Renderer {
 
   uiDpr = 1;
   private perfT = 0; private perfN = 0; private perfAcc = 0; private lowered = 0;
-  /** 自适应画质：持续掉帧则逐级降低世界层分辨率，再关泛光、减粒子 */
+  /** 卡顿统计（F3 面板显示）：超过 50ms 的帧数 */
+  spikes = 0;
+  /** 每级画质：世界层像素比上限 / 地表缓存分辨率 / 特效档 */
+  private static LEVELS = [
+    { dpr: 1.5, ground: 1.25, tier: 2, fx: 1 },
+    { dpr: 1.25, ground: 1.0, tier: 2, fx: 1 },
+    { dpr: 1.0, ground: 0.85, tier: 1, fx: 1 },
+    { dpr: 1.0, ground: 0.7, tier: 0, fx: 0.5 },
+  ];
+  private applyLevel(i: number) {
+    const L = Renderer.LEVELS[Math.max(0, Math.min(3, i))];
+    this.maxDpr = L.dpr; this.groundScale = L.ground; this.tier = L.tier;
+    if (this.fx) this.fx.quality = L.fx;
+    this.resize();
+  }
+  /** 自适应画质：每 2.5 秒看一次平均帧时，低于 ~48 帧就降一级（最多 3 级） */
   private adapt(dt: number) {
+    if (dt > 0.05) this.spikes++;
     if (this.lowered >= 3 || dt <= 0 || this.fixedQuality) return;
+    if (dt > 0.25) return; // 切页、加载造成的单次长帧不计入
     this.perfT += dt; this.perfN++; this.perfAcc += dt;
-    if (this.perfT > 4) {
+    if (this.perfT > 2.5) {
       const avg = this.perfAcc / this.perfN;
-      if (avg > 1 / 40) {
-        this.lowered++;
-        this.maxDpr = this.lowered === 1 ? 1.5 : this.lowered === 2 ? 1.15 : 1;
-        if (this.lowered >= 3) { this.tier = 0; if (this.fx) this.fx.quality = 0.5; }
-        else if (this.lowered >= 2) this.tier = 1;
-        this.resize();
-      }
+      if (avg > 1 / 48) { this.lowered++; this.applyLevel(this.lowered); }
       this.perfT = 0; this.perfN = 0; this.perfAcc = 0;
     }
   }
+  get qualityLevel() { return this.lowered; }
   fixedQuality = false;
   /** 手动画质：0 低 1 中 2 高 */
   setQuality(q: number) {
-    this.fixedQuality = true; this.tier = q;
-    this.maxDpr = q >= 2 ? 2 : q === 1 ? 1.4 : 1;
-    if (this.fx) this.fx.quality = q === 0 ? 0.5 : 1;
-    this.lowered = 2 - q;
-    this.resize();
+    this.fixedQuality = true;
+    if (q >= 2) { this.lowered = 0; this.applyLevel(0); this.maxDpr = 2; this.groundScale = 1.5; this.resize(); }
+    else { this.lowered = q === 1 ? 1 : 3; this.applyLevel(this.lowered); }
+    this.tier = q;
   }
-  maxDpr = 2;
+  maxDpr = 1.5;
 
   /** 实时草丛：缓存位图 + 斜切摇摆（只有神识圈内会动，圈外是静止的记忆） */
   private drawGrass(left: number, top: number, right: number, bottom: number, t: number, season: number, z: number) {
@@ -437,7 +453,9 @@ export class Renderer {
         if (z < 0.3 && pc.kind === 'tree' && i % 2) return;
         const key = pc.kind === 'tree' ? `P:${l.id}:${i}:${season}` : `P:${l.id}:${i}`;
         list.push({ y: py, draw: () => {
-          const s = sprites.get(key, pres, (r) => renderPiece(pc, L.pal, r, season) as Spr);
+          const s = pc.kind === 'tree'
+            ? sprites.getAsync(key, pres, (r) => ({ kind: 'T', sp: pc.p.sp, season, seed: pc.seed, res: r }), (r) => renderPiece(pc, L.pal, r, season) as Spr)
+            : sprites.get(key, pres, (r) => renderPiece(pc, L.pal, r, season) as Spr);
           if (!s) return;
           if (pc.kind === 'tree') {
             const sw = Math.sin(t * 1.3 + i) * 0.02 * (0.5 + game.weather.wind);
@@ -698,9 +716,13 @@ export class Renderer {
   private groundWanted = false; private groundSet = false; groundOn = false;
   private gSeg = new Float32Array(MAX_SEG * 16);
   private gTown = new Float32Array(MAX_TOWN * 4); private gTownS = new Int32Array(MAX_TOWN * 4);
-  private groundParams(camX: number, camY: number, z: number, W: number, H: number): GroundParams {
+  /** 地表缓存需要重画时才调用：收集缓存范围内（中心 camX,camY，半宽 hw0/hh0）的河段、路段、城镇 */
+  private segProvider: SegProvider = (camX, camY, hw0, hh0) => this.groundSegs(camX, camY, hw0, hh0);
+  /** 地表缓存分辨率（每 CSS 像素纹素数），随画质自适应 */
+  groundScale = 1.25;
+  private groundSegs(camX: number, camY: number, hw0: number, hh0: number): GroundSegs {
     const game = this.game, T = game.terrain, seg = this.gSeg, ROW = MAX_SEG * 4;
-    const hw = W / 2 / z + 60, hh = H / 2 / z + 60;
+    const hw = hw0 + 60, hh = hh0 + 60;
     const cull = (A: Float32Array, row: number, pad: number) => {
       let n = 0;
       for (let q = 0; q < A.length && n < MAX_SEG; q += 8) {
@@ -726,7 +748,10 @@ export class Renderer {
       this.gTownS[o] = (l.x * 7) | 0; this.gTownS[o + 1] = (l.y * 13) | 0;
       nTown++;
     }
-    return { camX, camY, zoom: z, cssW: W, cssH: H, t: game.time, season: game.season, seg, nRiv, nRoad, town: this.gTown, townS: this.gTownS, nTown };
+    return { seg: seg.slice(), nRiv, nRoad, town: this.gTown.slice(0, nTown * 4), townS: this.gTownS.slice(0, nTown * 4), nTown };
+  }
+  private groundView(camX: number, camY: number, z: number, W: number, H: number): GroundView {
+    return { camX, camY, zoom: z, cssW: W, cssH: H, season: this.game.season, scale: Math.min(this.groundScale, this.dpr) };
   }
 
   // ---------------------------------------------------------------- WebGL 后期
@@ -758,7 +783,7 @@ export class Renderer {
       bloom: 0.9, grain: 1,
       shocks: F.shocks.map((s) => ({ x: W / 2 + (s.x - camX) * z, y: H / 2 + (s.y - camY) * z, r: s.r * z, amp: s.amp * Math.min(1.5, z * 1.2) })),
       sat: 0,
-      ground: this.groundOn ? this.groundParams(camX, camY, z, W, H) : null,
+      ground: this.groundOn ? { view: this.groundView(camX, camY, z, W, H), provider: this.segProvider } : null,
     };
     st.frame(this.canvas, W, H, st.W / W, P);
   }
@@ -900,7 +925,8 @@ export class Renderer {
   private treeSprite(d: TreeDeco, z: number) {
     const season = this.game.season as Season;
     const res = resBucket(z * this.dpr * d.s * TREE_K, 1.4);
-    return sprites.get(`T:${d.sp}:${season}:${d.v}`, res, (r) => makeTree(d.sp, season, (SP_INDEX[d.sp] ?? 0) * 1000 + d.v * 37 + 11, r) as Spr);
+    const seed = (SP_INDEX[d.sp] ?? 0) * 1000 + d.v * 37 + 11;
+    return sprites.getAsync(`T:${d.sp}:${season}:${d.v}`, res, (r) => ({ kind: 'T', sp: d.sp, season, seed, res: r }), (r) => makeTree(d.sp, season, seed, r) as Spr);
   }
   private drawTree(d: TreeDeco, t: number, lodScale: number) {
     const z = this.game.cam.zoom;
@@ -925,7 +951,11 @@ export class Renderer {
       return { canvas: m.canvas, w: m.w, h: m.h, ax: m.ax, ay: m.ay } as Spr;
     };
     if (noBuild && !sprites.has('M:' + d.id)) return null;
-    return sprites.get('M:' + d.id, r, make);
+    return sprites.getAsync('M:' + d.id, r, (rr) => ({ kind: 'M', spec: { ...d.spec, tex: rr } }), make, (m) => {
+      let meta = this.mtnMeta.get(d.id);
+      if (!meta) { meta = { falls: m.falls ?? [], seen: this.game.time }; this.mtnMeta.set(d.id, meta); if (this.mtnMeta.size > 2000) this.mtnMeta.clear(); }
+      meta.falls = m.falls ?? [];
+    });
   }
   private drawMountain(d: MtnDeco, t: number) {
     const z = this.game.cam.zoom;

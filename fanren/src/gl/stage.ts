@@ -5,7 +5,7 @@
 // 旧版需要 8~10 次全屏 Canvas2D 合成，现在合为一次着色器，移动端也能流畅。
 import { Batch, FLOATS } from './batch';
 import { buildAtlas } from './atlas';
-import { Ground, type GroundParams, type GroundTerrain } from './ground';
+import { Ground, GLSL_COMMON, GLSL_WATER, type GroundView, type SegProvider, type GroundTerrain } from './ground';
 
 const VS_SPRITE = `#version 300 es
 layout(location=0) in vec2 aPos; layout(location=1) in vec2 aUv; layout(location=2) in vec4 aCol;
@@ -28,8 +28,10 @@ void main(){ vec4 c=texture(uTex,vUv)*0.2270270270;
  c+=texture(uTex,vUv+uDir*3.2307692308)*0.0702702703; c+=texture(uTex,vUv-uDir*3.2307692308)*0.0702702703; o=c; }`;
 
 const FS_POST = `#version 300 es
-precision highp float;
-uniform sampler2D uScene, uFx, uB1, uB2, uAtmo, uNoise, uGround; uniform float uGroundOn;
+precision highp float; precision highp int;
+uniform sampler2D uScene, uFx, uB1, uB2, uAtmo, uNoise; uniform float uGroundOn;
+// 地表缓存：A=静态色+水面覆盖，B=水面参数；屏幕设备像素 → 世界：w = uGWo + q*uGWs；世界 → 缓存 uv：(w-uGC)*uGTpw/uGSize+0.5
+uniform sampler2D uGA, uGB, uN; uniform vec2 uGWo; uniform float uGWs; uniform vec2 uGC; uniform float uGTpw; uniform vec2 uGSize; uniform float uWT;
 uniform vec2 uRes; uniform float uDpr; uniform float uT;
 uniform vec4 uShock[6]; uniform int uNShock;
 uniform vec3 uMul; uniform float uWarm; uniform float uDusk;
@@ -39,6 +41,15 @@ uniform vec4 uFog; uniform float uFogBands; uniform vec4 uFlash; uniform vec4 uT
 uniform float uVig, uHurt, uFade, uAberr, uBloomK, uGrain, uSat;
 in vec2 vUv; out vec4 o;
 
+${GLSL_COMMON}
+${GLSL_WATER}
+vec2 gUv(vec2 qq){ return (uGWo+qq*uGWs-uGC)*uGTpw/uGSize+0.5; }
+vec3 groundAt(vec2 qq){
+  vec2 w=uGWo+qq*uGWs; vec2 g=(w-uGC)*uGTpw/uGSize+0.5;
+  vec4 A=texture(uGA,g); vec3 c=A.rgb;
+  if(A.a>0.004){ vec4 B=texelFetch(uGB, ivec2(clamp(g*uGSize, vec2(0.0), uGSize-1.0)), 0); c=mix(c, waterAnim(c,B,w,uGWs,uWT), A.a); }
+  return c;
+}
 float h21(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
 vec3 softLight(vec3 b, vec3 s){
   vec3 d = mix(((16.0*b-12.0)*b+4.0)*b, sqrt(b), step(0.25,b));
@@ -55,9 +66,9 @@ void main(){
   if(uGroundOn>0.5){
     // GPU 地表在下，Canvas 世界层（预乘 alpha）叠在上面
     if(uAberr>0.001){ vec2 off=(uv-0.5)*uAberr*0.012; vec4 a=texture(uScene,uv+off), b=texture(uScene,uv), d=texture(uScene,uv-off);
-      vec3 g0=texture(uGround,uv+off).rgb, g1=texture(uGround,uv).rgb, g2=texture(uGround,uv-off).rgb;
+      vec2 offq=off*uRes; vec3 g0=texture(uGA,gUv(q+offq)).rgb, g1=groundAt(q), g2=texture(uGA,gUv(q-offq)).rgb;
       c=vec3(a.r+g0.r*(1.0-a.a), b.g+g1.g*(1.0-b.a), d.b+g2.b*(1.0-d.a)); }
-    else { vec4 sc=texture(uScene,uv); c=sc.rgb+texture(uGround,uv).rgb*(1.0-sc.a); }
+    else { vec4 sc=texture(uScene,uv); c=sc.rgb+(sc.a<0.996?groundAt(q):vec3(0.0))*(1.0-sc.a); }
   }
   else if(uAberr>0.001){ vec2 off=(uv-0.5)*uAberr*0.012; c=vec3(texture(uScene,uv+off).r, texture(uScene,uv).g, texture(uScene,uv-off).b); }
   else c=texture(uScene,uv).rgb;
@@ -150,7 +161,7 @@ export interface PostParams {
   vig: number; hurt: number; fade: number; aberr: number; bloom: number; grain: number;
   shocks: { x: number; y: number; r: number; amp: number }[];
   sat: number; // 1 = 圈外也不褪色（调试全图）
-  ground?: GroundParams | null;
+  ground?: { view: GroundView; provider: SegProvider } | null;
 }
 
 export class GLStage {
@@ -169,9 +180,28 @@ export class GLStage {
   lost = false;
   bloomOn = true;
   private texCache = new WeakMap<HTMLCanvasElement, WebGLTexture>();
-  ground: Ground | null = null; private gT: Target | null = null; private groundData: GroundTerrain | null = null;
+  ground: Ground | null = null; private maxTex = 4096; private groundData: GroundTerrain | null = null;
   drawCalls = 0;
   private vboSize = 0;
+  /** GPU 计时（仅 F3 面板打开时）：EXT_disjoint_timer_query_webgl2，结果延迟几帧可读 */
+  gpuTiming = false; gpuMs = 0;
+  private tq: { ext: { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number } | null; pend: WebGLQuery[]; tried: boolean } = { ext: null, pend: [], tried: false };
+  private gpuBegin() {
+    if (!this.gpuTiming) return false;
+    const gl = this.gl, T = this.tq;
+    if (!T.tried) { T.tried = true; T.ext = gl.getExtension('EXT_disjoint_timer_query_webgl2') as typeof T.ext; }
+    if (!T.ext) return false;
+    // 读取已完成的查询
+    while (T.pend.length && gl.getQueryParameter(T.pend[0], gl.QUERY_RESULT_AVAILABLE)) {
+      const q = T.pend.shift()!;
+      const ns = gl.getQueryParameter(q, gl.QUERY_RESULT) as number;
+      if (!gl.getParameter(T.ext.GPU_DISJOINT_EXT)) this.gpuMs += (ns / 1e6 - this.gpuMs) * 0.2;
+      gl.deleteQuery(q);
+    }
+    if (T.pend.length > 4) return false;
+    const q = gl.createQuery()!; gl.beginQuery(T.ext.TIME_ELAPSED_EXT, q); T.pend.push(q);
+    return true;
+  }
 
   static create(): GLStage | null {
     try {
@@ -187,7 +217,7 @@ export class GLStage {
     this.half = !!gl.getExtension('EXT_color_buffer_float') || !!gl.getExtension('EXT_color_buffer_half_float');
     this.init();
     canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.lost = true; });
-    canvas.addEventListener('webglcontextrestored', () => { this.texCache = new WeakMap(); this.fx = null; this.gT = null; this.sceneW = 0; this.atmoW = 0; this.init(); this.lost = false; });
+    canvas.addEventListener('webglcontextrestored', () => { this.texCache = new WeakMap(); this.fx = null; this.sceneW = 0; this.atmoW = 0; this.init(); this.lost = false; });
   }
 
   private init() {
@@ -212,6 +242,7 @@ export class GLStage {
     this.atmoTex = this.newTex(gl.LINEAR);
     this.atlas = this.uploadStatic(buildAtlas(), true);
     this.noiseTex = this.makeNoise();
+    this.maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
     try { this.ground = new Ground(gl); if (this.groundData) this.ground.setTerrain(this.groundData); }
     catch (e) { console.warn('GPU 地表不可用，回退分块底图', e); this.ground = null; }
   }
@@ -299,8 +330,7 @@ export class GLStage {
     if (this.canvas.height !== h) this.canvas.height = h;
     if (this.fx && this.fx.w === w && this.fx.h === h) return;
     this.W = w; this.H = h;
-    for (const t of [this.fx, this.h1, this.q1, this.q2, this.e1, this.e2, this.gT]) this.free(t);
-    this.gT = null;
+    for (const t of [this.fx, this.h1, this.q1, this.q2, this.e1, this.e2]) this.free(t);
     this.fx = this.target(w, h, true);
     this.h1 = this.target(Math.ceil(w / 2), Math.ceil(h / 2), true);
     this.q1 = this.target(Math.ceil(w / 4), Math.ceil(h / 4), true);
@@ -338,15 +368,10 @@ export class GLStage {
     if (this.lost || !this.fx) return;
     const gl = this.gl;
     this.drawCalls = 0;
+    const timing = this.gpuBegin();
     gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
-    const groundOn = !!P.ground && this.groundReady;
-    if (groundOn) {
-      if (!this.gT || this.gT.w !== this.W || this.gT.h !== this.H) { this.free(this.gT); this.gT = this.target(this.W, this.H, false); }
-      gl.bindFramebuffer(gl.FRAMEBUFFER, this.gT.fb);
-      gl.viewport(0, 0, this.W, this.H);
-      this.ground!.draw(P.ground!, this.W, this.H, this.emptyVao);
-      this.drawCalls++;
-    }
+    const groundOn = !!P.ground && this.groundReady && this.ground!.update(P.ground!.view, P.ground!.provider, this.emptyVao, this.maxTex);
+    if (groundOn) this.drawCalls += this.ground!.stripsThisFrame;
     this.upload(this.sceneTex, scene, groundOn, true);
     if (P.atmo) this.upload(this.atmoTex, P.atmo.canvas, true, false);
 
@@ -395,7 +420,22 @@ export class GLStage {
     this.bindTex(3, this.e1!.tex); gl.uniform1i(pp.u('uB2'), 3);
     this.bindTex(4, this.atmoTex); gl.uniform1i(pp.u('uAtmo'), 4);
     this.bindTex(5, this.noiseTex); gl.uniform1i(pp.u('uNoise'), 5);
-    this.bindTex(6, groundOn ? this.gT!.tex : this.noiseTex); gl.uniform1i(pp.u('uGround'), 6); gl.uniform1f(pp.u('uGroundOn'), groundOn ? 1 : 0);
+    gl.uniform1f(pp.u('uGroundOn'), groundOn ? 1 : 0);
+    if (groundOn) {
+      const G = this.ground!, g = G.front!, v = P.ground!.view;
+      this.bindTex(6, g.a); gl.uniform1i(pp.u('uGA'), 6);
+      this.bindTex(7, g.b); gl.uniform1i(pp.u('uGB'), 7);
+      this.bindTex(8, G.noise); gl.uniform1i(pp.u('uN'), 8);
+      const k = this.W / v.cssW;
+      gl.uniform2f(pp.u('uGWo'), v.camX - v.cssW / 2 / v.zoom, v.camY - v.cssH / 2 / v.zoom);
+      gl.uniform1f(pp.u('uGWs'), 1 / (k * v.zoom));
+      gl.uniform2f(pp.u('uGC'), g.cx, g.cy); gl.uniform1f(pp.u('uGTpw'), g.tpw); gl.uniform2f(pp.u('uGSize'), g.W, g.H);
+      gl.uniform1f(pp.u('uWT'), P.t % 3600);
+    } else {
+      this.bindTex(6, this.noiseTex); gl.uniform1i(pp.u('uGA'), 6);
+      this.bindTex(7, this.noiseTex); gl.uniform1i(pp.u('uGB'), 7);
+      this.bindTex(8, this.noiseTex); gl.uniform1i(pp.u('uN'), 8);
+    }
     gl.uniform2f(pp.u('uRes'), this.W, this.H);
     gl.uniform1f(pp.u('uDpr'), dpr);
     gl.uniform1f(pp.u('uT'), P.t % 10000);
@@ -416,5 +456,6 @@ export class GLStage {
     gl.uniform1f(pp.u('uSat'), P.sat);
     this.full();
     gl.bindVertexArray(null);
+    if (timing) gl.endQuery(this.tq.ext!.TIME_ELAPSED_EXT);
   }
 }

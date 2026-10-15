@@ -145,7 +145,7 @@ const A: ArtSkill[] = [
   { id: 'diandao', name: '颠倒五行阵', school: '阵', tier: 3, realm: 2, cast: 'field', fx: 'array', mp: 0.2, cd: 18, power: 0.6, range: 520, radius: 200, dur: 6, status: { k: 'stun', dur: 0.8, ch: 0.4 }, color: '230,200,120', desc: '五行逆转，阵中敌人晕头转向，五行之力反噬其身。', evo: ['阵域扩大', '五行反噬伤害提升', '阵法持续更久'] },
   { id: 'juling', name: '聚灵阵', school: '阵', tier: 1, realm: 1, cast: 'field', fx: 'array', mp: 0, cd: 30, power: -0.05, range: 0, radius: 180, dur: 10, color: '160,240,200', desc: '布下聚灵阵，阵中法力与气血缓缓回复。', evo: ['回复更快', '持续更久', '阵中修炼速度提升'] },
   // ---------------- 身 ----------------
-  { id: 'yufeng', name: '御风步', school: '身', tier: 0, realm: 1, cast: 'dash', fx: 'wind', mp: 0.03, cd: 1.6, power: 0, range: 240, color: '210,240,230', desc: '身法闪避，瞬间滑出数丈。', evo: ['距离更远', '冷却缩短', '冲刺期间无敌'] },
+  { id: 'yufeng', name: '御风诀', school: '身', tier: 0, realm: 1, cast: 'buff', fx: 'wind', mp: 0.05, cd: 12, power: 0, range: 0, dur: 10, buff: { speed: 0.45 }, color: '210,240,230', desc: '炼气期的轻身法诀，周身风起，脚程大增。赶路、追敌、脱身都用得上。', evo: ['持续更久', '冷却缩短', '御风时闪避更远'] },
   { id: 'luoyan', name: '罗烟步', school: '身', tier: 1, realm: 1, cast: 'dash', fx: 'wind', mp: 0.03, cd: 1.0, power: 0, range: 300, color: '220,220,230', desc: '罗烟一起，人已不见。冷却更短，距离更远。', evo: ['冲刺留下烟雾迷惑敌人', '冷却更短', '可连续闪避'] },
   { id: 'nifeng', name: '匿风术', school: '身', tier: 1, realm: 1, cast: 'buff', fx: 'wind', mp: 0.08, cd: 20, power: 0, range: 0, dur: 6, buff: { speed: 0.4, stealth: true }, color: '200,230,220', desc: '借风匿形，敌人失去你的踪迹，遁速提升。', evo: ['持续更久', '遁速更快', '攻击不破隐'] },
   { id: 'xuedun', name: '血遁', school: '身', tier: 2, realm: 1, cast: 'blink', fx: 'blood', mp: 0, hpCost: 0.2, cd: 25, power: 0, range: 1200, color: '200,30,40', desc: '燃烧精血遁走千里的保命秘术，代价不小。', evo: ['距离更远', '精血消耗减少', '遁后片刻隐身'] },
@@ -169,8 +169,9 @@ export const ART_LIST = A;
 export function artById(id: string): ArtSkill | undefined { return ARTS[id]; }
 
 /** 开局所学 */
-export const START_ARTS = ['qijin', 'huodan', 'fengren', 'yufeng', 'huichun', 'waifang', 'lianxi'];
-export const START_HOTBAR: (string | null)[] = ['qijin', 'huodan', 'fengren', 'yufeng', 'huichun', 'waifang', 'lianxi', null, null];
+// 开局（炼气五层、初入黄枫谷）：几门基础法术 + 罗烟步（战斗闪身）+ 御风诀（赶路）
+export const START_ARTS = ['qijin', 'huodan', 'fengren', 'luoyan', 'yufeng', 'huichun', 'waifang', 'lianxi'];
+export const START_HOTBAR: (string | null)[] = ['qijin', 'huodan', 'fengren', 'luoyan', 'yufeng', 'huichun', 'waifang', 'lianxi', null];
 
 /** 熟练度等级 */
 export function profLevel(tier: number, xp: number) { const n = profNeed(tier); return xp >= n[3] ? 3 : xp >= n[2] ? 2 : xp >= n[1] ? 1 : 0; }

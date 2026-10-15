@@ -31,10 +31,12 @@ export const BOTTLE_YEARS = 100;
 
 export function newHero(): Hero {
   return {
-    name: '韩立', age: 16, realm: 1, stage: 0, exp: 0, root: 'fake', gongfa: 'changchun', talents: [], talentLevels: [],
+    name: '韩立', age: 17, realm: 1, stage: 4, exp: 0, root: 'fake', gongfa: 'changchun', talents: [], talentLevels: [],
     hp: 1, mp: 1, lifeBonus: 0, senseBonus: 0, lifeLost: 0,
-    bag: [{ id: 'herb_huangjing', n: 3, age: 12 }, { id: 'pill_juqi', n: 1 }, { id: 'pill_huiqi', n: 2 }, { id: 'pill_liaoshang', n: 2 }, { id: 'mat_lingshi', n: 30 }],
-    bottle: { drops: 0, charge: 0, owned: false }, pendingTalent: null, dead: false,
+    // 初入黄枫谷：掌天瓶（已凝一滴绿液）、墨大夫遗下的符箓与丹药、几块灵石
+    bag: [{ id: 'item_bottle', n: 1 }, { id: 'herb_huangjing', n: 3, age: 12 }, { id: 'pill_juqi', n: 2 }, { id: 'pill_huiqi', n: 3 }, { id: 'pill_liaoshang', n: 3 },
+      { id: 'tal_fire', n: 6 }, { id: 'tal_jingang', n: 3 }, { id: 'tal_ice', n: 2 }, { id: 'tal_escape', n: 1 }, { id: 'mat_lingshi', n: 120 }],
+    bottle: { drops: 1, charge: 0, owned: true }, pendingTalent: null, dead: false,
     stats: { meditateDays: 0, gathered: 0, pills: 0, breaks: 0, failed: 0, alchemy: 0 },
     arts: START_ARTS.map((id) => ({ id, xp: 0 })), hotbar: [...START_HOTBAR], equip: {}, looted: [], kills: 0,
   };

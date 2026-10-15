@@ -4,6 +4,7 @@ import { makeCanvas, shade, rgba } from '../core/canvas';
 import { mulberry32 } from '../core/rng';
 import type { LocDef } from '../data/world';
 import { makeTree, Species, Season } from './tree';
+import { bldTex, hallFamily, houseFilter } from './bldTex';
 
 export const K = 0.55;
 /** 地点构件绘制时的整体放大（与 92px 的人物协调） */
@@ -526,11 +527,55 @@ const BOUNDS: Record<string, (p: any) => [number, number, number]> = {
   rock: (p) => [(p.w ?? 60) / 2 + 4, (p.h ?? 40) * 1.2 + 4, 2], bones: () => [24, 14, 2],
 };
 
+/** 用贴图画的构件：返回 [贴图名, 世界宽度, 水平翻转, 滤镜]；没有对应贴图返回 null */
+function texFor(pc: Piece, pal: Pal): [string, number, boolean, string, number?] | null {
+  const p = pc.p, flip = (pc.seed & 1) === 1;
+  switch (pc.kind) {
+    case 'hall': return [hallFamily(p.pal ? { ...pal, ...p.pal } : pal), (p.w + 24) * 0.9, false, 'none', 0.82];
+    case 'pagoda': return ['pagoda', ((p.w ?? 60) + 20) * 1.25, false, houseFilter(pal)];
+    case 'paifang': return ['paifang', (p.w ?? 120) * 1.12, false, p.stoneGate ? 'saturate(0.35) brightness(1.06)' : 'none'];
+    case 'house': { const two = (pc.seed >>> 3) % 3 === 0; return [two ? 'house_b' : 'house_a', ((p.w ?? 70) + 8) * (two ? 1.0 : 1.12), flip, houseFilter(pal)]; }
+    case 'hut': return ['hut', ((p.w ?? 54) + 8) * 1.1, flip, 'none'];
+    case 'yurt': return ['yurt', (p.w ?? 70) * 1.08, flip, 'none'];
+  }
+  return null;
+}
+
+function renderTexPiece(pc: Piece, pal: Pal, res: number): Sprite | null {
+  const t = texFor(pc, pal); if (!t) return null;
+  const im = bldTex(t[0]); if (!im) return null;
+  const tw = t[1], th = tw * im.height / im.width * (t[4] ?? 1);
+  const hw = tw / 2 + 6, up = th + 4, down = 8;
+  const W = hw * 2, H = up + down;
+  const c = makeCanvas(Math.max(1, Math.ceil(W * res)), Math.max(1, Math.ceil(H * res)));
+  const g = c.getContext('2d')!;
+  g.scale(res, res); g.translate(hw, up);
+  // 柔和投影
+  g.fillStyle = 'rgba(40,36,26,0.16)';
+  g.beginPath(); g.ellipse(tw * 0.06, -1, tw * 0.5, Math.min(14, tw * 0.09), 0, 0, Math.PI * 2); g.fill();
+  g.imageSmoothingEnabled = true; (g as CanvasRenderingContext2D).imageSmoothingQuality = 'high';
+  if (t[3] !== 'none') g.filter = t[3];
+  // 大幅缩小时分两步，避免锯齿闪烁
+  let src: CanvasImageSource = im, sw = im.width, sh = im.height;
+  const target = tw * res;
+  if (sw > target * 2.2) {
+    const mid = makeCanvas(Math.ceil(target * 2), Math.ceil(target * 2 * sh / sw));
+    const mg = mid.getContext('2d')!; mg.imageSmoothingQuality = 'high'; mg.drawImage(im, 0, 0, mid.width, mid.height);
+    src = mid; sw = mid.width; sh = mid.height;
+  }
+  if (t[2]) { g.scale(-1, 1); }
+  g.drawImage(src, 0, 0, sw, sh, -tw / 2, -th + 2, tw, th);
+  g.filter = 'none';
+  return { canvas: c as HTMLCanvasElement, w: W, h: H, ax: hw, ay: up };
+}
+
 export function renderPiece(pc: Piece, pal: Pal, res: number, season: Season = 1): Sprite {
   if (pc.kind === 'tree') {
     const t = makeTree(pc.p.sp, season, pc.seed, res);
     return { canvas: t.canvas, w: t.w, h: t.h, ax: t.ax, ay: t.ay };
   }
+  const tex = renderTexPiece(pc, pal, res);
+  if (tex) return tex;
   const [hw, up, down] = (BOUNDS[pc.kind] ?? (() => [60, 80, 4]))(pc.p);
   const W = hw * 2, H = up + down;
   const c = makeCanvas(Math.max(1, Math.ceil(W * res)), Math.max(1, Math.ceil(H * res)));

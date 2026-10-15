@@ -1,5 +1,9 @@
 // 程序化位图缓存：LRU（按像素预算）+ 每帧限时生成 + 分辨率分档 + 低清回退
+/** canvas 可能是 ImageBitmap（Worker 生成），只能用于 drawImage / 纹理上传 */
 export interface Spr { canvas: HTMLCanvasElement; w: number; h: number; ax: number; ay: number }
+import { spriteJobs } from './spriteJobs';
+import type { SpriteDone } from './sprite.worker';
+type Req = Parameters<ReturnType<typeof spriteJobs>['post']>[1];
 interface Entry { s: Spr; px: number; used: number; base: string; res: number }
 
 const RES_STEPS = [0.2, 0.35, 0.5, 0.75, 1, 1.4, 2];
@@ -27,6 +31,44 @@ export class SpriteCache {
   canBuild() {
     if (this.builtThisFrame === 0) return true;
     return performance.now() - this.frameStart < this.frameMs;
+  }
+
+  /**
+   * 后台生成版：命中缓存直接返回；否则把请求投给 Worker，先返回同对象其他分辨率（若有）或 null，
+   * 生成好后自动入缓存（onReady 可附带元数据）。Worker 不可用时退回同步 get()。
+   */
+  getAsync(base: string, res: number, req: (res: number) => Req, make: (res: number) => Spr, onReady?: (r: SpriteDone) => void): Spr | null {
+    const J = spriteJobs();
+    if (!J.ok) return this.get(base, res, make);
+    const key = base + '@' + res;
+    const e = this.map.get(key);
+    if (e) { e.used = this.frame; return e.s; }
+    if (!J.busy(key)) {
+      J.post(key, req(res), (r) => {
+        if (r.err || !r.bmp) { if (r.err) console.warn('精灵生成失败', key, r.err); return; }
+        onReady?.(r);
+        this.put(key, base, res, { canvas: r.bmp as unknown as HTMLCanvasElement, w: r.w, h: r.h, ax: r.ax, ay: r.ay });
+      });
+    }
+    this.pending++;
+    return this.fallback(base, res);
+  }
+  private put(key: string, base: string, res: number, s: Spr) {
+    const old = this.map.get(key); if (old) { this.pixels -= old.px; }
+    const px = s.canvas.width * s.canvas.height;
+    this.map.set(key, { s, px, used: this.frame, base, res });
+    let set = this.byBase.get(base); if (!set) { set = new Set(); this.byBase.set(base, set); }
+    set.add(key);
+    this.pixels += px;
+    if (this.pixels > this.budgetPx) this.evict();
+  }
+  private fallback(base: string, res: number): Spr | null {
+    const set = this.byBase.get(base);
+    if (!set) return null;
+    let best: Entry | null = null;
+    for (const k of set) { const o = this.map.get(k); if (o && (!best || Math.abs(o.res - res) < Math.abs(best.res - res))) best = o; }
+    if (best) { best.used = this.frame; return best.s; }
+    return null;
   }
 
   /** 取得 base@res 的位图；若本帧预算耗尽，返回同 base 的其他分辨率（若有），否则 null */
@@ -70,7 +112,7 @@ export class SpriteCache {
       this.byBase.get(e.base)?.delete(k);
       this.pixels -= e.px;
       // 释放 GPU/内存
-      try { e.s.canvas.width = 0; e.s.canvas.height = 0; } catch { /* */ }
+      try { const c = e.s.canvas as unknown as { close?: () => void; width: number; height: number }; if (typeof c.close === 'function') c.close(); else { c.width = 0; c.height = 0; } } catch { /* */ }
     }
   }
 

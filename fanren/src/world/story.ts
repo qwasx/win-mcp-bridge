@@ -50,16 +50,38 @@ export class Story {
   get chapter() { const s = this.S.step; return s.startsWith('c1') ? 1 : s.startsWith('c2') ? 2 : 3; }
 
   // ------------------------------------------------------------ 开局 / 读档
+  /** 新开一局：不再有序章 —— 韩立已持升仙令入黄枫谷，炼气五层，身怀掌天瓶 */
   start() {
-    this.game.ws.flags.story = { step: 'c1_intro', f: { herbs: 0 } } as StoryState;
-    this.fight = null; this.cine = null; this.mind = 0; this.timers = [];
-    this.anchors();
-    this.hideCanon(true);
-    this.enter('c1_intro');
-    this.introT = 1.2;
+    this.game.ws.flags.story = { step: 'free', f: { opening: 'huangfeng' } } as StoryState;
+    this.fight = null; this.cine = null; this.mind = 0; this.timers = []; this.actors = []; this.introT = -1;
+    this.canonBackstory();
+    this.openT = 1.0;
+  }
+  /** 七玄门往事按原著已经发生：墨大夫夺舍不成身死；厉飞雨仍在七玄门 */
+  private canonBackstory() {
+    this.hideCanon(false);
+    const d = this.game.npcs.byId.get('modaifu') as any;
+    if (d) { d.alive = false; d.deathNote = '夺舍韩立不成，身死神手谷'; this.game.npcs.active.delete('modaifu'); }
+  }
+  private openT = -1;
+  private opening() {
+    const g = this.game;
+    this.say(this.N('黄枫谷', '越国，太岳山脉。\n\n云雾在脚下翻涌，山门上“黄枫谷”三个大字被岁月磨得发亮。漫山枫叶正黄。\n\n你叫韩立，伪灵根，炼气五层。\n七玄门的六年像一场梦——墨大夫夺舍不成，死在神手谷；金光上人死在你手里，留下一块升仙令。那块令牌，刚刚被执事收走，换来了你名册上的一行字：外门弟子。\n\n怀里，那只来历不明的小瓶微微发烫。瓶底，一滴碧绿的液体静静躺着。\n\n没有人多看你一眼。这样正好。', [
+      this.O('踏入山门', () => this.N('黄枫谷', '从今往后，路由你自己走：\n· 宗门（靠近山门按 G）：领俸禄、接任务、换取贡献；\n· 掌天瓶：每七日凝一滴绿液，可把凡药催成百年灵药；\n· 两年后的血色禁地，是筑基丹主药的唯一来源；\n· 越国之外，还有天南诸国、乱星海、大晋……\n\n活下去。然后，走得更远。', [this.O('好', undefined, { tone: 'gold' })], { mood: 'mystic' }), { tone: 'gold' }),
+    ], { mood: 'mystic' }));
+    g.hint('opening', '提示：1–9 施法，罗烟步闪身、御风诀赶路；Q 神识外放，Z 打坐，M 地图。');
   }
   resume() {
     this.fight = null; this.cine = null; this.mind = 0; this.timers = []; this.introT = -1;
+    // 旧存档若停在序章 / 第一章中途：剧情直接结束，转为自由（序章不再出现）
+    if (this.active) {
+      const h = this.game.hero;
+      h.bottle.owned = true; h.bottle.drops = Math.max(1, h.bottle.drops);
+      if (C.bagCount(h, 'item_bottle') <= 0) C.addItem(h, 'item_bottle', 1);
+      this.S.step = 'free';
+      this.canonBackstory();
+      this.game.toast('旧存档的序章剧情已结束，转为自由闯荡。', 'good');
+    }
     if (!this.active) { this.actors = []; return; }
     this.anchors();
     if (this.chapter === 1) this.hideCanon(true);
@@ -193,6 +215,7 @@ export class Story {
   // ------------------------------------------------------------ 每帧
   update(dt: number) {
     const g = this.game;
+    if (this.openT > 0 && !g.paused && !g.modal) { this.openT -= dt; if (this.openT <= 0) this.opening(); }
     if (!this.active || g.hero.dead) return;
     const p = g.player, f = this.f, A = this.A;
     for (const t of this.timers) t.t -= dt;

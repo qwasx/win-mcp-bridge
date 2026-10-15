@@ -131,15 +131,17 @@ export class Game {
   }
 
   private startPos() {
-    const start = LOCATIONS.find((l) => l.id === 'qixuan')!;
-    // 七玄门山脚，找一个可行走的位置
-    for (let r = 0; r < 4000; r += 120) {
-      for (let a = 0; a < 8; a++) {
-        const x = start.x * WORLD_SCALE + 300 + Math.cos(a) * r, y = start.y * WORLD_SCALE + 900 + Math.sin(a) * r * 0.6;
-        if (this.terrain.walkFactor(x, y) > 0 && !this.terrain.inLocZone(x, y, 40)) return { x, y };
+    // 开局：黄枫谷山门前（宗门地界南缘，面朝山门）
+    const i = LOCATIONS.findIndex((l) => l.id === 'huangfeng');
+    const L = LOCATIONS[i], z = this.terrain.locZones?.[i];
+    const cx = z ? z.x : L.x * WORLD_SCALE, cy = z ? z.y + z.ry + 140 : L.y * WORLD_SCALE + 600;
+    for (let r = 0; r < 3000; r += 60) {
+      for (let a = 0; a < 12; a++) {
+        const x = cx + Math.cos(a / 12 * Math.PI * 2) * r, y = cy + Math.abs(Math.sin(a / 12 * Math.PI * 2)) * r * 0.6;
+        if (this.terrain.walkFactor(x, y) > 0 && !this.terrain.inLocZone(x, y, 20)) return { x, y };
       }
     }
-    return { x: start.x * WORLD_SCALE + 260, y: start.y * WORLD_SCALE + 420 };
+    return { x: cx, y: cy };
   }
 
   /** 新开一局 */
@@ -157,6 +159,10 @@ export class Game {
     this.npcs.newWorld();
     this.modal = null; this.modalStack = []; this.emitModal();
     this.story.start();
+    // 已是黄枫谷外门弟子（持升仙令入门）
+    this.ws.sect = { id: 'huangfeng', rank: 0, contrib: 50, joined: this.day, lastPay: this.day, tasks: [], done: 0 };
+    this.towns.refreshTasks();
+    this.player.st.faceToward(0, -1, true);
     this.updateUI();
   }
 
@@ -417,7 +423,7 @@ export class Game {
   // ---------- 打击感 ----------
   hitStop = 0; trauma = 0; hurtFlash = 0;
   showPerf = false;
-  perf = { frames: 0, acc: 0, upd: 0, ren: 0, fps: 0, updMs: 0, renMs: 0 };
+  perf = { frames: 0, acc: 0, upd: 0, ren: 0, fps: 0, updMs: 0, renMs: 0, worst: 0, worstMs: 0 };
   /** 顿帧（秒）与震屏（0..1 创伤值，叠加） */
   juice(stop: number, shake: number) {
     if (stop > 0) this.hitStop = Math.max(this.hitStop, Math.min(0.12, stop));
@@ -464,8 +470,9 @@ export class Game {
       const u1 = performance.now();
       this.renderer.render(dt);
       const u2 = performance.now();
-      const pf = this.perf; pf.frames++; pf.acc += rdt; pf.upd += u1 - u0; pf.ren += u2 - u1;
-      if (pf.acc >= 0.5) { pf.fps = pf.frames / pf.acc; pf.updMs = pf.upd / pf.frames; pf.renMs = pf.ren / pf.frames; pf.frames = 0; pf.acc = 0; pf.upd = 0; pf.ren = 0; }
+      const pf = this.perf; pf.frames++; pf.acc += rdt; pf.upd += u1 - u0; pf.ren += u2 - u1; pf.worst = Math.max(pf.worst, rdt * 1000);
+      if (pf.acc >= 0.5) { pf.fps = pf.frames / pf.acc; pf.updMs = pf.upd / pf.frames; pf.renMs = pf.ren / pf.frames; pf.worstMs = pf.worst; pf.frames = 0; pf.acc = 0; pf.upd = 0; pf.ren = 0; pf.worst = 0; }
+      if (this.renderer.stage) this.renderer.stage.gpuTiming = this.showPerf;
       this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);

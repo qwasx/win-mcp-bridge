@@ -1,4 +1,4 @@
-// 主线冒烟测试：从新开局一路走到黄枫谷
+// 开局冒烟测试（第十二步起不再有序章）：新开一局即是韩立初入黄枫谷，炼气五层，身怀掌天瓶。
 const CW = 1280, CH = 800;
 (globalThis as any).window = { innerWidth: CW, innerHeight: CH, devicePixelRatio: 1, addEventListener() {}, removeEventListener() {}, matchMedia: () => ({ matches: false }) };
 (globalThis as any).localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
@@ -6,51 +6,57 @@ await import('./env');
 const { Terrain } = await import('../src/world/terrain');
 const { Game } = await import('../src/world/game');
 const C = await import('../src/world/cultivation');
+const { REALMS } = await import('../src/data/realms');
+const { ARTS } = await import('../src/data/arts');
+const { LOCATIONS, WORLD_SCALE } = await import('../src/data/world');
 const terrain = new Terrain(); terrain.build();
 const g = new Game(terrain);
 g.reset();
 const S = g.story as any;
 const tick = (n = 5, dt = 1 / 30) => { for (let i = 0; i < n; i++) g.update(dt); };
-const show = () => { const m: any = g.modal; return m?.node ? `${m.node.speaker}: ${(m.node.text as string).slice(0, 36).replace(/\n/g, ' ')} [${m.node.options.map((o: any) => o.label).join('|')}]` : '-'; };
-const pick = (sub = '') => { const m: any = g.modal; if (!m?.node) { console.log('   (no modal)'); return; } const o = m.node.options.find((x: any) => x.label.includes(sub)) ?? m.node.options[0]; g.closeModal(true); const nx = o.act?.(); if (nx) g.openDialog(nx); };
-const drain = () => { for (let i = 0; i < 8 && g.modal; i++) { console.log('   modal', show()); pick(); } };
-const to = (k: string, dx = 0, dy = 40) => { const a = S.A[k]; g.teleport(a.x + dx, a.y + dy); tick(3); };
-const talk = (id: string) => { const a = S.actors.find((x: any) => x.id === id); if (!a) { console.log('   !! no actor', id, S.actors.map((x: any) => x.id)); return; } g.teleport(a.x, a.y + 60); tick(2); S.interact(a); };
-const killAll = () => { for (let w = 0; w < 4; w++) { for (const e of g.combat.enemies) if (!e.dead) { e.dead = true; e.deathT = 0; } tick(4); drain(); } };
-const step = () => S.S.step;
-const T = g.terrain;
-for (const k of Object.keys(S.A)) { const a = S.A[k]; console.log('anchor', k, Math.round(a.x), Math.round(a.y), 'walk', T.walkFactor(a.x, a.y) > 0); }
-tick(50); console.log('1', step(), show()); pick('前往');
-console.log('2', step(), S.tracker()?.text);
-talk('mo'); drain(); console.log('3', step(), g.hero.arts.some((a: any) => a.id === 'luoyan'));
-to('creek', 0, 200); tick(3); console.log('4', step());
-talk('bottle'); drain(); console.log('5', step(), g.hero.bottle);
-for (let i = 0; i < 3; i++) S.onGather(); console.log('6', S.tracker()?.text);
-talk('mo'); drain(); console.log('7', step());
-// 等到夜里
-let n = 0; while (g.night < 0.65 && n++ < 4000) { g.clock += 1; tick(1); } console.log('night', g.night.toFixed(2), step(), !!S.cine);
-for (let i = 0; i < 260; i++) g.update(1 / 30); drain(); console.log('8', step(), g.hero.bottle);
-const herb = g.hero.bag.find((b: any) => b.id === 'herb_huangjing'); g.useBottle(herb); tick(30); drain(); console.log('9', step(), g.hero.bag.filter((b: any) => b.id === 'herb_huangjing').map((b: any) => b.age));
-talk('li'); console.log('   ', show()); pick('保密，再配'); drain(); console.log('10', step(), S.f.li, g.hero.arts.some((a: any) => a.id === 'zhayan'));
-talk('mo'); pick('遵命'); drain(); console.log('11', step());
-n = 0; g.clock += 120; while (g.night < 0.65 && n++ < 4000) { g.clock += 1; tick(1); }
-to('valley', 0, 60); tick(5); console.log('12', step(), show()); pick('坐进'); drain(); console.log('   fight', !!S.fight, S.fight?.mind, g.combat.enemies.filter((e: any) => !e.dead).map((e: any) => e.name + ' ' + e.rankText + ' hp' + e.maxHp));
-// 识海战败重试
-g.hero.hp = 0; (g.combat as any).playerDown(); tick(3); console.log('   after down', step(), !!S.fight, g.hero.hp, S.f.moMet);
-to('valley', 0, 60); tick(5); pick('坐进'); drain(); killAll(); console.log('13', step(), g.hero.arts.some((a: any) => a.id === 'quhun'), C.bagCount(g.hero, 'item_moletter'));
-g.day += 13; tick(5); console.log('14', step());
-to('gate', 0, 0); tick(5); drain(); console.log('   foes', g.combat.enemies.filter((e: any) => !e.dead).map((e: any) => e.name + ' ' + e.rankText + ' hp' + e.maxHp + ' atk' + e.atk.toFixed(1)));
-for (const e of g.combat.enemies) if (!e.dead) e.dead = true; tick(4); drain();
-console.log('   foes2', g.combat.enemies.filter((e: any) => !e.dead).map((e: any) => e.name + ' ' + e.rankText + ' hp' + e.maxHp));
-for (let i = 0; i < 200; i++) tick(1); console.log('   vfx', g.combat.vfx.map((v: any) => v.kind).join(','));
-killAll(); console.log('15', step(), C.bagCount(g.hero, 'item_shengxian'), C.bagCount(g.hero, 'tal_fubao'));
-talk('yan'); pick('一言为定'); drain(); console.log('16', step());
-to('duba', 0, 0); tick(5); drain(); console.log('   foes', g.combat.enemies.filter((e: any) => !e.dead).map((e: any) => e.name + ' ' + e.rankText + ' hp' + e.maxHp));
-killAll(); console.log('17', step());
-talk('yan'); pick('婉言'); drain(); console.log('18', step(), C.bagCount(g.hero, 'item_nuanyang'));
-talk('wan'); drain(); console.log('19', step());
-g.ws.sect = { id: 'huangfeng', rank: 0, contrib: 50, joined: g.day, lastPay: g.day, tasks: [], done: 0 } as any; tick(5); drain(); console.log('20', step(), S.tracker());
-// 符箓
-g.hero.hotbar[8] = 'tal:tal_fubao'; g.combat.castSlot(8); console.log('tal left', C.bagCount(g.hero, 'tal_fubao'));
-g.hero.hotbar[7] = 'quhun'; g.combat.castSlot(7); tick(10); console.log('summons', g.combat.summons.map((s: any) => s.kind + (s.cs ? '+cs' : '')));
-console.log('news', g.ws.news.slice(-3).map((x: any) => x.text.slice(0, 30)).join(' / '));
+const show = () => { const m: any = g.modal; return m?.node ? `${m.node.speaker}: ${(m.node.text as string).slice(0, 30).replace(/\n/g, ' ')} [${m.node.options.map((o: any) => o.label).join('|')}]` : '-'; };
+const pick = (sub = '') => { const m: any = g.modal; if (!m?.node) return false; const o = m.node.options.find((x: any) => x.label.includes(sub)) ?? m.node.options[0]; g.closeModal(true); const nx = o.act?.(); if (nx) g.openDialog(nx); return true; };
+let fails = 0;
+const check = (name: string, ok: boolean, extra = '') => { console.log((ok ? 'ok  ' : 'FAIL') + ' ' + name + (extra ? '  ' + extra : '')); if (!ok) fails++; };
+
+const h = g.hero;
+check('剧情直接自由（无序章）', S.S.step === 'free' && !S.active, S.S.step);
+check('炼气五层', h.realm === 1 && h.stage === 4, `${REALMS[h.realm].name}${REALMS[h.realm].stages[h.stage]}`);
+check('掌天瓶在身（一滴绿液）', h.bottle.owned && h.bottle.drops >= 1 && C.bagCount(h, 'item_bottle') === 1);
+check('符箓', C.bagCount(h, 'tal_fire') > 0 && C.bagCount(h, 'tal_jingang') > 0);
+const arts = h.arts.map((a: any) => a.id);
+check('基础法术 + 罗烟步 + 御风诀', ['qijin', 'huodan', 'fengren', 'luoyan', 'yufeng'].every((id) => arts.includes(id)), arts.join(','));
+check('罗烟步=闪身、御风诀=赶路', ARTS.luoyan.cast === 'dash' && ARTS.yufeng.cast === 'buff' && ARTS.yufeng.name === '御风诀');
+check('快捷栏', h.hotbar.includes('luoyan') && h.hotbar.includes('yufeng'), h.hotbar.join(','));
+check('黄枫谷外门弟子', g.ws.sect?.id === 'huangfeng' && g.ws.sect.rank === 0, JSON.stringify({ id: g.ws.sect?.id, tasks: g.ws.sect?.tasks.length }));
+const hf = LOCATIONS.find((l) => l.id === 'huangfeng')!;
+const dist = Math.hypot(g.player.x - hf.x * WORLD_SCALE, g.player.y - hf.y * WORLD_SCALE);
+check('开局在黄枫谷山门前', dist < 4000 && g.terrain.walkFactor(g.player.x, g.player.y) > 0, `距宗门中心 ${Math.round(dist)}`);
+const mo = g.npcs.byId.get('modaifu') as any, li = g.npcs.byId.get('lifeiyu') as any;
+check('墨大夫已按原著身死、厉飞雨尚在', (!mo || mo.alive === false) && (!li || (li.alive !== false && !li.hidden)));
+check('开局无剧情演员', S.actors.length === 0);
+
+// 开场白：一段即止，不是序章
+tick(45);
+const first = show();
+check('开场白出现', /黄枫谷/.test(first), first);
+pick(); const second = show(); pick();
+check('开场白两页后结束', !g.modal, second);
+tick(30);
+check('之后不再弹剧情', !g.modal && S.S.step === 'free', show());
+
+// 御风诀能加快脚程
+const before = g.combat.speedMul;
+const yi = h.hotbar.indexOf('yufeng');
+g.combat.castSlot(yi);
+tick(2);
+check('御风诀加速', g.combat.speedMul > before, `${before.toFixed(2)} → ${g.combat.speedMul.toFixed(2)}`);
+
+// 旧存档停在序章：读档后剧情直接结束
+g.ws.flags.story = { step: 'c1_mo2', f: { herbs: 1 } };
+h.bottle.owned = false; h.bottle.drops = 0; C.removeItem(h, 'item_bottle', 1);
+S.resume();
+check('旧存档序章迁移为自由', S.S.step === 'free' && h.bottle.owned && C.bagCount(h, 'item_bottle') === 1 && S.actors.length === 0);
+
+console.log(fails ? `\n${fails} 项失败` : '\n全部通过');
+process.exit(fails ? 1 : 0);

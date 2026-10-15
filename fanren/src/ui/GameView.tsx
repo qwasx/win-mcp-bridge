@@ -1,4 +1,6 @@
 import { ModalLayer } from './ModalLayer';
+import { spriteJobs } from '../gfx/spriteJobs';
+import { sprites } from '../gfx/sprites';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Game, UIState } from '../world/game';
 import { audio } from '../world/audio';
@@ -137,8 +139,11 @@ function PerfHud({ game }: { game: Game }) {
   if (!game.showPerf) return null;
   const p = game.perf, r = game.renderer;
   return <div className="perf-hud">
-    {p.fps.toFixed(0)} fps · 逻辑 {p.updMs.toFixed(1)}ms · 绘制 {p.renMs.toFixed(1)}ms<br />
+    逻辑 {p.updMs.toFixed(1)}ms · 绘制 {p.renMs.toFixed(1)}ms<br />
     {r?.stage ? `WebGL · ${r.stage.W}×${r.stage.H} · ${r.stage.drawCalls} 次绘制 · 粒子 ${r.fx?.count ?? 0}` : 'Canvas2D'} · 世界层 ×{r?.dpr.toFixed(2)} · 画质 {['低', '中', '高'][r?.tier ?? 2]}<br />
+    {p.fps.toFixed(0)} fps · 最慢一帧 {p.worstMs.toFixed(0)}ms · 卡顿(&gt;50ms) {r?.spikes ?? 0} 次{r?.stage?.gpuMs ? ` · GPU ${r.stage.gpuMs.toFixed(1)}ms` : ''}<br />
+    {r?.stage?.ground?.front ? `地表缓存 ${r.stage.ground.front.W}×${r.stage.ground.front.H} · 重画 ${r.stage.ground.rebuilds} 次` : '地表 —'} · 自动降档 {r?.qualityLevel ?? 0}/3<br />
+    {(() => { const j = spriteJobs(); const st = sprites.stats; return `精灵 ${st.n} 张 ${st.mpx}MP · 后台生成 ${j.ok ? `开（${j.done} 张，均 ${j.avgMs.toFixed(0)}ms，排队 ${j.queued}）` : '关（主线程）'}`; })()}<br />
     树 {r?.stats.trees} · 草 {r?.stats.grass} · 敌 {game.combat.enemies.length} · NPC {game.npcs?.list.length ?? 0}
   </div>;
 }
