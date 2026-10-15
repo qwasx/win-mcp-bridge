@@ -213,9 +213,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
             <button className="round-btn small" onClick={() => { click(); game.zoomBy(1.25); }}>＋</button>
             <button className="round-btn small" onClick={() => { click(); game.zoomBy(0.8); }}>－</button>
           </div>
-          {!ui.canFlyNative && (
-            <button className={'round-btn' + (game.player.flying ? ' active' : '')} onClick={() => game.toggleFly()}>剑<small>{game.player.flying ? '落地' : '御剑'}</small></button>
-          )}
+          <button className={'round-btn' + (ui.flying ? ' active' : '')} onClick={() => game.toggleFly()} title="御剑 / 落地（F）">剑<small>{ui.flying ? '落地' : '御剑'}</small></button>
           <button className={'round-btn' + (ui.sitting ? ' active' : '')} onClick={() => game.toggleSit()}>坐<small>{ui.sitting ? '起身' : '打坐'}</small></button>
           <div className="zoom-col">
             <button className={'round-btn small' + (game.senseBurstT > 0 ? ' active' : '')} onClick={() => game.senseBurst()}>识<small>外放</small></button>

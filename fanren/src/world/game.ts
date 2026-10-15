@@ -195,6 +195,7 @@ export class Game {
     if (this.gatherTarget) this.hint('gather', '提示：按 E 采集神识中的灵物。');
     if (C.bottleneck(h) !== 'none') this.hint('bottle', '提示：修为已满，按 C 打开角色面板冲关。');
     if (h.realm === 1 && h.stage >= 5 && !this.ws.sect) this.hint('sect', '提示：炼气五层后可拜入黄枫谷等大宗门；持升仙令可直接入黄枫谷。');
+    if (this.canFlyNative) this.hint('fly', '提示：已可御剑飞行——按 F（或右下「剑」按钮）随时起落；打坐、采集时会自动落地。');
     if (this.ws.flags.invasion) this.hint('inv', '魔道入侵越国！在越国斩杀魔修削弱攻势，再前往黄枫谷破敌。');
   }
   news(text: string, kind: 'canon' | 'rumor' | 'personal' = 'rumor') {
@@ -280,6 +281,7 @@ export class Game {
       // 地图比例变化（第三步 180 → 第四步 300）：坐标与迷雾按比例迁移
       const ws0 = d.ws ?? (d.hero?.arts ? 180 : 100), wk = WORLD_SCALE / ws0;
       p.x = d.p.x * wk; p.y = d.p.y * wk; p.flying = !!d.p.flying; p.sitting = false; p.moving = false;
+      if (!p.flying && this.terrain.walkFactor(p.x, p.y) <= 0) p.flying = true;   // 旧存档：筑基后停在海上时保持飞行
       p.st = new CharState(p.x, p.y);
       this.day = d.day ?? 60;
       this.clock = d.clock ?? DAY_CYCLE * 0.3;
@@ -379,11 +381,12 @@ export class Game {
     }
   }
   get canFlyNative() { return REALMS[this.hero.realm].fly; }
-  get isFlying() { return this.player.flying || this.canFlyNative; }
+  /** 是否正在飞行（筑基后可随时起落，不再强制凌空） */
+  get isFlying() { return this.player.flying; }
   get speed() {
     const base = REALMS[this.hero.realm].speed * (1 + C.mod(this.hero, 'mapSpeed'));
     if (this.player.flying && !this.canFlyNative) return 420; // 体验御剑
-    if (this.isFlying) return base;
+    if (this.isFlying) return base * 1.8;
     return this.player.running ? base * 1.6 : base;
   }
   get season() { const m = Math.floor(this.day / 30) % 12; return m < 3 ? 0 : m < 6 ? 1 : m < 9 ? 2 : 3; }
@@ -564,11 +567,9 @@ export class Game {
     if (this.hero.dead) return;
     if (p.sitting) { this.stand(); return; }
     if (this.isFlying) {
-      if (this.canFlyNative) { this.toast('御空之中无法打坐。', 'warn'); return; }
-      if (!this.terrain.isLand(p.x, p.y)) { this.toast('身下是大海，无法落脚打坐。', 'warn'); return; }
-      p.flying = false;
+      if (this.terrain.walkFactor(p.x, p.y) <= 0) { this.toast('身下是大海，无法落脚打坐。', 'warn'); return; }
+      p.flying = false; audio.sfx('land');   // 自动按下遁光，落地打坐
     }
-    if (this.hero.realm >= 2 && this.canFlyNative && !this.terrain.isLand(p.x, p.y)) { this.toast('身下是大海，无法落脚打坐。', 'warn'); return; }
     this.gathering = null; this.destination = null;
     p.sitting = true;
     const pl = this.placeBonus();
@@ -580,7 +581,10 @@ export class Game {
   tryGather() {
     const p = this.player;
     if (this.hero.dead || this.gathering) return;
-    if (this.isFlying) { this.toast('需落地方可采集。', 'warn'); return; }
+    if (this.isFlying) {
+      if (this.terrain.walkFactor(p.x, p.y) <= 0) { this.toast('身下是大海，需落地方可采集。', 'warn'); return; }
+      p.flying = false; audio.sfx('land');   // 自动落地采集
+    }
     const n = this.nodes.nearest(p.x, p.y, GATHER_RANGE, this.day);
     if (!n) {
       const far = this.nodes.nearest(p.x, p.y, this.senseRadius, this.day);
@@ -843,15 +847,15 @@ export class Game {
   setZoom(z: number) { this.cam.targetZoom = clamp(z, 0.22, 1.6); this.updateUI(); }
   zoomBy(f: number) { this.setZoom(this.cam.targetZoom * f); }
   toggleFly() {
-    if (this.canFlyNative) return;
     this.stand(); this.gathering = null;
     this.player.flying = !this.player.flying;
-    if (!this.player.flying && !this.terrain.isLand(this.player.x, this.player.y)) {
+    if (!this.player.flying && this.terrain.walkFactor(this.player.x, this.player.y) <= 0) {
       this.player.flying = true;
       this.toast('身下是大海，不能在此落下。', 'warn');
       return;
     }
-    this.toast(this.player.flying ? '（体验模式）御剑而起，可自由飞越山海。' : '收起飞剑，落地步行。');
+    const native = this.canFlyNative;
+    this.toast(this.player.flying ? (native ? '祭起法器，御剑而起。（F 落地）' : '（体验模式）御剑而起，可自由飞越山海。') : '按下遁光，落地步行。');
     audio.sfx(this.player.flying ? 'whoosh' : 'land');
     this.updateUI();
   }
