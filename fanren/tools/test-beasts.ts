@@ -8,13 +8,15 @@ const EN = await import('../src/data/enemies') as any;
 const { Enemy } = await import('../src/world/combat');
 const { enemyVis } = await import('../src/world/combatfx');
 const { RECIPES } = await import('../src/data/recipes');
-const { WORLD_SCALE } = await import('../src/data/world');
+const { WORLD_SCALE, legacyHere, ACTIVE_MAP } = await import('../src/data/world');
 const terrain = new Terrain(); terrain.build();
 const g: any = new Game(terrain); g.reset();
 let fails = 0;
 const check = (n: string, ok: boolean, x = '') => { console.log((ok ? 'ok  ' : 'FAIL') + ' ' + n + (x ? '  ' + x : '')); if (!ok) fails++; };
 const h = g.hero; h.realm = 2; h.stage = 1; h.hp = 1; h.mp = 1;
-const base = { x: 120000, y: 93000 };
+const { LOC_BY_ID } = await import('../src/data/world');
+const baseLoc = ACTIVE_MAP === 'luanxing' ? LOC_BY_ID.get('tianxing') : ACTIVE_MAP === 'dajin' ? LOC_BY_ID.get('jinjing') : null;
+const base = baseLoc ? { x: baseLoc.x * WORLD_SCALE, y: baseLoc.y * WORLD_SCALE + 6000 } : { x: 120000, y: 93000 };
 const tick = (n: number, dt = 1 / 30, f?: () => void) => { for (let i = 0; i < n; i++) { g.modal = null; g.update(dt); f?.(); } };
 const fresh = () => { g.combat.reset(); g.combat.loot = []; g.modal = null; g.player.x = base.x; g.player.y = base.y; g.player.flying = false; h.hp = 1; h.mp = 1; g.senseBurstT = 0; g.concealed = false; g.combat.invulnT = 999; };
 
@@ -39,14 +41,16 @@ fresh();
 { const r = dist(6, 'cold'); const hi = ((r.cnt[5] ?? 0) + (r.cnt[6] ?? 0) + (r.cnt[7] ?? 0)) / r.n; check('危险度 6（寒地）：五至七级为主', hi > 0.9 && r.n > 0, JSON.stringify(r.cnt)); }
 { let lair = 0; for (const d of [0, 2, 4, 6]) lair += dist(d).lair; check('妖王从不随机刷新', lair === 0); }
 
-// 3. 妖王巢穴
+// 3. 妖王巢穴（第十六步起风希洞府在乱星海图；在天南运行时验证“不在本图则不出现”，完整流程见 FANREN_MAP=luanxing）
 fresh();
 const L = EN.LAIRS.find((l: any) => l.id === 'lair_fengxi');
-g.player.x = L.x * WORLD_SCALE + 1500; g.player.y = L.y * WORLD_SCALE; g.player.flying = true;
+const at = legacyHere(L.x, L.y);
+if (!at) { g.combat.lairTick(); check(`风希洞府不在${ACTIVE_MAP}图：不会凭空现身`, !g.combat.enemies.some((e: any) => e.lairId)); }
+if (at) { g.player.x = at[0] * WORLD_SCALE + 1500; g.player.y = at[1] * WORLD_SCALE; g.player.flying = true; }
 g.combat.lairTick();
 const fx = g.combat.enemies.find((e: any) => e.lairId === 'lair_fengxi');
-check('靠近风希洞府 → 风希现身（九级妖修，首领）', !!fx && fx.blv === 9 && fx.boss && fx.rankText === '九级妖修', fx ? fx.rankText : 'none');
-if (fx) {
+if (at) check('靠近风希洞府 → 风希现身（九级妖修，首领）', !!fx && fx.blv === 9 && fx.boss && fx.rankText === '九级妖修', fx ? fx.rankText : 'none');
+if (at && fx) {
   (g.combat as any).kill(fx);
   const ids = g.combat.loot.map((l: any) => l.id);
   check('斩杀风希：九级妖丹 + 雷鹏骨翅', ids.includes('mat_yaodan9') && ids.includes('mat_leipenggu'), ids.join(','));

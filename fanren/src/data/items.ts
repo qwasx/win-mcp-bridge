@@ -141,6 +141,7 @@ const I: ItemDef[] = [
   // ---------- 主线信物 ----------
   { id: 'item_bottle', name: '掌天瓶', type: 'misc', tier: 6, price: 0, desc: '溪谷中拾得的墨绿小瓶，瓶身刻满细密叶纹。夜里吸纳星光，约二十日凝出一滴绿液；绿液滴在灵药上，药龄暴涨百年。此事万万不可为外人所知。', glyph: '瓶' },
   { id: 'item_moletter', name: '墨大夫遗书', type: 'misc', tier: 1, price: 0, desc: '墨居仁留下的书信：嘉元城墨府有暖阳宝玉一块，可解你体内寒毒。信末附着墨府地址，与一句“照拂吾家妻女”。', glyph: '书' },
+  { id: 'tok_danuoyi', name: '大挪移令', type: 'misc', tier: 4, price: 0, desc: '巴掌大的古朴令牌，上刻“大挪移”三字。上古传送阵的钥匙——没有它，古阵便是一堆死物。制法早已失传，今人最远不过百余里的传送。', glyph: '令' },
   { id: 'item_nuanyang', name: '暖阳宝玉', type: 'misc', tier: 2, price: 0, desc: '触手生温的古玉，佩在身上，寒毒渐渐拔除。', glyph: '玉' },
   { id: 'item_qinpu', name: '秦家族谱', type: 'misc', tier: 0, price: 0, desc: '金光上人身上搜出的旧族谱。原来他本姓秦，出身秦叶岭秦家，当年卷走升仙令与一张符宝出逃，一躲就是十几年。', glyph: '谱' },
   { id: 'item_qingxi', name: '清溪笔录', type: 'misc', tier: 0, price: 0, desc: '太南小会上一个憨厚少年送的小册子，记载修仙界常识：七派、灵根、升仙令、筑基丹……', glyph: '录' },

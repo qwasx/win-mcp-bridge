@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Game, UIState } from '../world/game';
 import { audio } from '../world/audio';
 import { REALMS } from '../data/realms';
-import { LOCATIONS, WORLD_SCALE, LOC_TYPE_NAME } from '../data/world';
+import { LOCATIONS, WORLD_SCALE, LOC_TYPE_NAME, MAP_NAME, MapId } from '../data/world';
 import { SettingsPanel, WorldMapPanel, makeFogCanvas, SEAL, SEAL_COLOR, loadAudio } from './Panels';
 import { Hotbar, SkillPanel } from './CombatUI';
 import { CharPanel, BagPanel, AlchemyPanel, SecludePanel, SavePanel, DeathScreen } from './CultPanels';
@@ -156,6 +156,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   type PanelId = '' | 'map' | 'settings' | 'char' | 'bag' | 'alchemy' | 'seclude' | 'save' | 'skills';
   const [panel, setPanel] = useState<PanelId>('');
+  const [travelFx, setTravelFx] = useState<{ to: MapId; via: 'portal' | 'edge' } | null>(null);
   const [showHelp, setShowHelp] = useState(() => { try { return !localStorage.getItem('fanren_help_seen'); } catch { return true; } });
 
   useEffect(() => {
@@ -163,6 +164,8 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
     game.attach(canvasRef.current!);
     game.onOpenMap = () => { audio.sfx('open'); setPanel((p) => (p === 'map' ? '' : 'map')); };
     game.onPanel = (id, force) => { audio.sfx('open'); setPanel((p) => (force ? id : p === id ? '' : id)); };
+    // 换图：先放一段过场（传送阵白光 / 草原远行的水墨淡出），再存档重载
+    game.onTravel = (to, via) => { game.paused = true; setPanel(''); audio.sfx(via === 'portal' ? 'thunder' : 'whoosh'); setTravelFx({ to, via }); setTimeout(() => game.switchMap(to), via === 'portal' ? 2200 : 2600); };
     const t = setTimeout(() => { setShowHelp(false); try { localStorage.setItem('fanren_help_seen', '1'); } catch { /* */ } }, 14000);
     const unload = () => game.save(0);
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { if (game.modal) { game.closeModal(); return; } setPanel((p) => (p ? '' : 'settings')); } };
@@ -170,7 +173,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
     window.addEventListener('beforeunload', unload);
     document.addEventListener('visibilitychange', unload);
     return () => {
-      clearTimeout(t); game.detach(); game.onOpenMap = undefined; game.onPanel = undefined;
+      clearTimeout(t); game.detach(); game.onOpenMap = undefined; game.onPanel = undefined; game.onTravel = undefined;
       window.removeEventListener('beforeunload', unload);
       document.removeEventListener('visibilitychange', unload);
       window.removeEventListener('keydown', esc);
@@ -295,6 +298,10 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
       <GainOverlay />
       <PursuitHUD game={game} />
       <BossHUD game={game} />
+      {travelFx && <div className={'travel-fx ' + travelFx.via}>
+        {travelFx.via === 'portal' && <><div className="tf-ring" /><div className="tf-ring r2" /><div className="tf-flash" /></>}
+        <div className="tf-text"><div className="tf-to">{MAP_NAME[travelFx.to]}</div><div className="tf-sub">{travelFx.via === 'portal' ? '阵光冲天，虚空挪移……' : travelFx.to === 'dajin' ? '横穿天澜草原，顺舜江北上……' : '穿过草原，一路南归……'}</div></div>
+      </div>}
       {ui.dead && <DeathScreen game={game} onExit={onExit} />}
     </div>
   );

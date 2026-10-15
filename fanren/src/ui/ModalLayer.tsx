@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Game } from '../world/game';
 import type { DNode, DOpt, Shop, ShopStock } from '../world/modal';
 import type { LocDef } from '../data/world';
-import { LOC_BY_ID } from '../data/world';
+import { LOC_BY_ID, locHere } from '../data/world';
 import { itemDef } from '../data/items';
 import { REALMS, realmName } from '../data/realms';
 import { BEAUTIES } from '../data/beauties';
@@ -179,8 +179,8 @@ function TownPanel({ game, loc }: { game: Game; loc: LocDef }) {
   fs.push({ seal: '栈', name: isSect ? '洞府' : '客栈', desc: isSect ? '歇息一夜，自动存档' : `住店一晚（${loc.type === 'city' ? 5 : 2} 灵石），气血法力尽复，自动存档`, act: () => { T.rest(loc); re(); } });
   if (T.hasTeleport(loc)) fs.push({ seal: '阵', name: '传送阵', desc: `已激活 ${game.ws.tp.length} 处，按路程收取灵石`, act: () => setTp(!tp) });
   if (T.isMajorTown(loc)) { const open = T.auctionOpen(loc); const d = Math.floor(game.day) % 90; fs.push({ seal: '拍', name: '拍卖会', desc: open ? `正在举行（还剩 ${90 - d} 日）` : `每季末举行，${80 - d} 日后开拍`, act: () => game.openModal({ kind: 'auction', loc }), dis: open ? undefined : '尚未开拍', cls: open ? 'gold' : '' }); }
-  for (const b of BEAUTIES) if (b.home === loc.id) { const s = game.ws.hearts[b.id]; const n = game.npcs.byId.get('b_' + b.id); if (n?.alive && Math.hypot(n.x - loc.x * 300, n.y - loc.y * 300) < 8000) fs.push({ seal: '缘', name: s?.met ? `拜访${b.name}` : '传闻中的仙子', desc: s?.met ? b.title : '听说此地住着一位女修……', act: () => game.hearts.talk(b.id), cls: 'love' }); }
-  const tps = game.ws.tp.map((id) => LOC_BY_ID.get(id)!).filter((l) => l && l.id !== loc.id);
+  for (const b of BEAUTIES) if (b.home === loc.id) { const s = game.ws.hearts[b.id]; const n = game.npcs.byId.get('b_' + b.id); if (n?.alive && (n.map ?? 'tiannan') === loc.map && Math.hypot(n.x - loc.x * 300, n.y - loc.y * 300) < 8000) fs.push({ seal: '缘', name: s?.met ? `拜访${b.name}` : '传闻中的仙子', desc: s?.met ? b.title : '听说此地住着一位女修……', act: () => game.hearts.talk(b.id), cls: 'love' }); }
+  const tps = game.ws.tp.map((id) => locHere(id)!).filter((l) => l && l.id !== loc.id);   // 只列本图的传送阵
   return (
     <Scroll title={loc.name} sub={<span>{loc.desc}　·　灵石 <b>{C.bagCount(h, 'mat_lingshi')}</b>　·　{repName(game.ws.rep)}</span>} onClose={() => game.closeModal()} wide cls="town-panel">
       {occupied && <div className="town-warn">越国已沦陷，此地被魔道占据，商铺尽数关门。</div>}

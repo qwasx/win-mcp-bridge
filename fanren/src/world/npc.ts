@@ -4,7 +4,7 @@
 // - 互相以神识感知：比你强又贪婪的会来劫道；比你弱的见你恶名会逃；你可以交谈、交易、切磋、赠礼、请教、出手
 import type { Game } from './game';
 import { CharState, drawCharacter, drawSwordUnderFeet, randomLook, Look, NpcRole } from '../gfx/character';
-import { LOCATIONS, LOC_BY_ID, WORLD_SCALE, LocDef } from '../data/world';
+import { LOCATIONS, LOC_BY_ID, WORLD_SCALE, LocDef, ACTIVE_MAP, locHere, locsOf, MapId } from '../data/world';
 import { REALMS, realmName } from '../data/realms';
 import { mulberry32 } from '../core/rng';
 import { ENEMIES } from '../data/enemies';
@@ -28,7 +28,11 @@ export interface NpcData {
   goal: Goal; until: number; wealth: number; seed: number;
   canon?: boolean; title?: string; beauty?: string; robe?: string; stay?: boolean;
   taught?: boolean; lastTalk?: number; deathNote?: string; spar?: number; hidden?: boolean;
+  map?: MapId;              // 所在地图（缺省为天南）
 }
+export const npcMap = (d: NpcData): MapId => d.map ?? 'tiannan';
+/** 各图常住修士 / 凡人数量 */
+const POP: Record<MapId, number> = { tiannan: 300, luanxing: 140, dajin: 260 };
 
 interface Active {
   d: NpcData; st: CharState; look: Look;
@@ -83,6 +87,7 @@ const CANON: CanonDef[] = [
   { id: 'qianlaomo', name: '乾老魔', sex: 'm', home: 'xiaohuan', realm: 4, stage: 1, pers: 'ruthless', faction: 'demon', title: '魔道元婴', role: 'elder', robe: '#2a2030', age: 1000 },
   { id: 'tianlan_saint', name: '天澜圣女', sex: 'f', home: 'tianlan', realm: 3, stage: 0, pers: 'cautious', faction: 'sect', title: '天澜圣殿', role: 'female', robe: '#e8dcb0', stay: true, age: 200 },
   { id: 'mulan_shi', name: '慕兰神师', sex: 'm', home: 'mulan', realm: 3, stage: 1, pers: 'arrogant', faction: 'sect', title: '慕兰法士', role: 'monk', robe: '#8a4a2a', age: 350 },
+  { id: 'caomengrong', name: '曹梦容', sex: 'f', home: 'caojia', realm: 0, stage: 0, pers: 'kind', faction: 'mortal', title: '朔州曹家', role: 'female', robe: '#c8a0a0', stay: true, age: 16 },
   { id: 'wuchou', name: '吴丑', sex: 'm', home: 'qingniu', realm: 0, stage: 0, pers: 'kind', faction: 'mortal', title: '青牛镇', role: 'farmer', age: 50 },
 ];
 
@@ -104,6 +109,7 @@ const CANON_LINES: Record<string, string[]> = {
   wentianren: ['（温天仁眼神轻蔑）六道极圣之名，你可听过？', '虚天殿中的宝物，我温天仁要定了。'],
   qianlaomo: ['……滚。'],
   tianlan_saint: ['草原上的修行之道，与天南大不相同。', '外乡修士，请守圣殿的规矩。'],
+  caomengrong: ['（少女好奇地打量你）你是从南边草原来的吗？听说那边常有仙师斗法。', '舜江的水一年四季都冷得刺骨，去年还漂下来一块好大的冰呢。', '爹爹说修仙的人都很凶，可你看起来不像。'],
   mulan_shi: ['天南的修士，又来草原做什么？', '我慕兰法士，从不惧天南七派。'],
   wuchou: ['小立子回来啦？你爹娘可想你了。', '今年收成不错，就是山里的狼又多了。'],
 };
@@ -135,7 +141,7 @@ export class NpcWorld {
     this.list = []; this.active.clear();
     const at = (loc: LocDef, spread = 600) => ({ x: loc.x * WORLD_SCALE + (rnd() - 0.5) * spread * 2, y: loc.y * WORLD_SCALE + (rnd() - 0.5) * spread * 1.4 });
     for (const c of CANON) {
-      const loc = LOC_BY_ID.get(c.home); if (!loc) continue;
+      const loc = LOC_BY_ID.get(c.home); if (!loc) continue;   // 三张图的原著人物都在册，各居其地
       const p = at(loc, 420);
       this.list.push({ id: c.id, name: c.name, sex: c.sex, role: c.role, realm: c.realm, stage: c.stage, faction: c.faction, sect: c.faction === 'sect' || c.faction === 'demon' ? c.home : undefined, home: c.home, pers: c.pers, favor: c.id === 'lifeiyu' || c.id === 'wuchou' ? 40 : 0, grudge: 0, met: false, alive: true, age: c.age, life: REALMS[c.realm].life * 1.1, x: p.x, y: p.y, tx: p.x, ty: p.y, goal: 'stay', until: 0, wealth: 30 + c.realm * c.realm * 400, seed: Math.floor(rnd() * 1e9), canon: true, title: c.title, robe: c.robe, stay: c.stay });
     }
@@ -144,10 +150,13 @@ export class NpcWorld {
       const p = at(loc, 360);
       this.list.push({ id: 'b_' + b.id, name: b.name, sex: 'f', role: 'female', realm: b.realm, stage: b.stage, faction: b.faction, sect: b.faction === 'sect' ? b.home : undefined, home: b.home, pers: b.pers, favor: 0, grudge: 0, met: false, alive: true, age: b.age, life: REALMS[Math.max(1, b.realm)].life * 1.2, x: p.x, y: p.y, tx: p.x, ty: p.y, goal: 'stay', until: 0, wealth: 200 + b.realm * 800, seed: Math.floor(rnd() * 1e9), canon: true, title: b.title, beauty: b.id, stay: true });
     }
-    // 普通修士与凡人
-    const homes = LOCATIONS.filter((l) => l.type !== 'danger' && l.type !== 'secret');
-    const N = 420;
-    for (let i = 0; i < N; i++) this.list.push(this.spawnRandom(rnd, homes[Math.floor(rnd() * homes.length)], 'n' + i));
+    for (const d of this.list) d.map = LOC_BY_ID.get(d.home)?.map ?? 'tiannan';
+    // 普通修士与凡人（三张图各自一批；天南沿用旧编号）
+    for (const m of ['tiannan', 'luanxing', 'dajin'] as MapId[]) {
+      const homes = locsOf(m).filter((l) => l.type !== 'danger' && l.type !== 'secret');
+      const pre = m === 'tiannan' ? 'n' : m === 'luanxing' ? 'xn' : 'jn';
+      for (let i = 0; i < POP[m]; i++) this.list.push(this.spawnRandom(rnd, homes[Math.floor(rnd() * homes.length)], pre + i));
+    }
     this.reindex();
   }
   private spawnRandom(rnd: () => number, loc: LocDef, id: string): NpcData {
@@ -155,7 +164,7 @@ export class NpcWorld {
     let faction: Faction = isSect ? (demon ? 'demon' : 'sect') : loc.type === 'city' ? (rnd() < 0.3 ? 'merchant' : rnd() < 0.6 ? 'rogue' : 'mortal') : loc.type === 'isle' ? (rnd() < 0.7 ? 'rogue' : 'merchant') : (rnd() < 0.7 ? 'mortal' : 'rogue');
     if (!isSect && rnd() < 0.06) faction = 'demon';
     const sex: 'm' | 'f' = rnd() < (faction === 'mortal' ? 0.4 : 0.32) ? 'f' : 'm';
-    const north = loc.y < 260 || loc.x > 650;
+    const north = loc.oy < 260 || loc.ox > 650;   // 大晋与乱星海修士普遍更强（按旧版经纬）
     let realm = 0, stage = 0;
     if (faction !== 'mortal') {
       const r = rnd();
@@ -172,7 +181,7 @@ export class NpcWorld {
       id, name: makeName(rnd, sex), sex, role, realm, stage, faction, sect: isSect ? loc.id : undefined, home: loc.id, pers,
       favor: 0, grudge: 0, met: false, alive: true, age, life: faction === 'mortal' ? 60 + rnd() * 25 : REALMS[realm].life * (0.85 + rnd() * 0.3),
       x, y, tx: x, ty: y, goal: 'stay', until: 0, wealth: Math.round((faction === 'mortal' ? 2 : 20) * Math.pow(4, realm) * (0.5 + rnd()) * (faction === 'merchant' ? 3 : 1)),
-      seed: Math.floor(rnd() * 1e9), robe: isSect ? SECT_ROBE[loc.id] : undefined,
+      seed: Math.floor(rnd() * 1e9), robe: isSect ? SECT_ROBE[loc.id] : undefined, map: loc.map,
     };
   }
   private reindex() { this.byId = new Map(this.list.map((n) => [n.id, n])); }
@@ -186,6 +195,17 @@ export class NpcWorld {
     const tmp = new NpcWorld(this.game); tmp.newWorld();
     for (const n of tmp.list) if (n.canon && !this.list.some((m) => m.id === n.id)) this.list.push(n);
     this.reindex();
+  }
+
+  /** 旧版统一大地图存档 → 三图：重建众生，保留原著人物与红颜的状态（境界、好感、仇怨、生死、相识） */
+  mergeLegacy(a: NpcData[] | undefined) {
+    this.newWorld();
+    if (!a) return;
+    const keep: (keyof NpcData)[] = ['realm', 'stage', 'favor', 'grudge', 'met', 'alive', 'age', 'life', 'deathNote', 'taught', 'spar', 'hidden', 'lastTalk'];
+    for (const o of a) {
+      const n = this.byId.get(o.id); if (!n || !(n.canon || n.beauty)) continue;
+      for (const k of keep) if (o[k] !== undefined) (n as any)[k] = o[k];
+    }
   }
 
   // ------------------------------------------------------------ 工具
@@ -217,7 +237,7 @@ export class NpcWorld {
     const cur = { x: d.x / WORLD_SCALE, y: d.y / WORLD_SCALE };
     if (r < 0.35) { const h = LOC_BY_ID.get(d.home)!; d.tx = h.x * WORLD_SCALE + (rnd() - 0.5) * 1200; d.ty = h.y * WORLD_SCALE + (rnd() - 0.5) * 900; d.goal = 'stay'; return; }
     const far = rnd() < 0.12;
-    const cands = LOCATIONS.filter((l) => { const dd = Math.hypot(l.x - cur.x, l.y - cur.y); return far ? dd < 260 : dd < 70 && dd > 4; }).filter((l) => d.faction === 'mortal' ? l.type === 'town' || l.type === 'city' : true);
+    const cands = locsOf(npcMap(d)).filter((l) => { const dd = Math.hypot(l.x - cur.x, l.y - cur.y); return far ? dd < 260 : dd < 70 && dd > 4; }).filter((l) => d.faction === 'mortal' ? l.type === 'town' || l.type === 'city' : true);
     const l = cands.length ? cands[Math.floor(rnd() * cands.length)] : LOC_BY_ID.get(d.home)!;
     d.tx = l.x * WORLD_SCALE + (rnd() - 0.5) * 1000; d.ty = l.y * WORLD_SCALE + (rnd() - 0.5) * 700;
     d.goal = l.type === 'danger' ? 'hunt' : l.type === 'secret' ? 'gather' : 'travel';
@@ -269,21 +289,35 @@ export class NpcWorld {
       if (d.goal === 'hunt' && !this.active.has(d.id) && rnd() < 1 - Math.pow(1 - 0.0012 * Math.max(1, (LOC_BY_ID.get(d.home)?.danger ?? 1)), days)) this.die(d, '死于妖兽之口');
       if (d.age > d.life) this.die(d, '寿元耗尽，坐化');
       if (days > 20 && !this.active.has(d.id) && !d.stay) { d.x = d.tx; d.y = d.ty; this.pickTarget(d); }
+      // 远行：筑基以上的散修 / 商人偶尔远赴他乡（天南⇄乱星海走传送阵，天南⇄大晋横穿草原）
+      if (!d.canon && !d.beauty && !d.stay && !this.active.has(d.id) && (d.faction === 'rogue' || d.faction === 'merchant') && d.realm >= 2 && rnd() < 1 - Math.pow(1 - 0.00025, days)) this.migrate(d, rnd);
     }
     // 补员：新入道的修士
-    const alive = this.list.filter((n) => n.alive && !n.canon).length;
-    if (alive < 400) {
-      const homes = LOCATIONS.filter((l) => l.type !== 'danger' && l.type !== 'secret');
-      const rr = mulberry32((g.day * 7919) | 0);
-      for (let i = alive; i < 400 && i < alive + Math.max(1, Math.round(days / 10)); i++) {
-        const n = this.spawnRandom(rr, homes[Math.floor(rr() * homes.length)], 'm' + Math.floor(g.day) + '_' + i);
+    for (const m of ['tiannan', 'luanxing', 'dajin'] as MapId[]) {
+      const alive = this.list.filter((n) => n.alive && !n.canon && npcMap(n) === m).length, cap = POP[m] - 10;
+      if (alive >= cap) continue;
+      const homes = locsOf(m).filter((l) => l.type !== 'danger' && l.type !== 'secret');
+      const rr = mulberry32((g.day * 7919 + m.length * 131) | 0);
+      for (let i = alive; i < cap && i < alive + Math.max(1, Math.round(days / 10)); i++) {
+        const n = this.spawnRandom(rr, homes[Math.floor(rr() * homes.length)], 'm' + m[0] + Math.floor(g.day) + '_' + i);
         if (n.faction !== 'mortal') { n.realm = 1; n.stage = 0; }
         n.age = 16 + rr() * 6;
         this.list.push(n); this.byId.set(n.id, n);
       }
     }
     // 清理很久以前的死者（保留原著人物与相识者）
-    if (this.list.length > 520) { this.list = this.list.filter((n) => n.alive || n.canon || n.met); this.reindex(); }
+    if (this.list.length > 860) { this.list = this.list.filter((n) => n.alive || n.canon || n.met); this.reindex(); }
+  }
+  /** 远赴他图：落脚到目标图的某个城镇 / 海岛 */
+  migrate(d: NpcData, rnd = Math.random) {
+    const from = npcMap(d);
+    const opts: MapId[] = from === 'tiannan' ? (d.realm >= 3 ? ['luanxing', 'dajin'] : ['luanxing']) : ['tiannan'];
+    const to = opts[Math.floor(rnd() * opts.length)];
+    const homes = locsOf(to).filter((l) => l.type === 'city' || l.type === 'isle' || (l.type === 'town' && !l.minor));
+    const h = homes[Math.floor(rnd() * homes.length)]; if (!h) return;
+    d.map = to; d.home = h.id; d.sect = undefined;
+    d.x = d.tx = h.x * WORLD_SCALE + (rnd() - 0.5) * 1200; d.y = d.ty = h.y * WORLD_SCALE + (rnd() - 0.5) * 900; d.goal = 'stay';
+    if (d.met && d.favor > 10) this.game.news(`传闻${d.name}已${to === 'luanxing' ? '经上古传送阵远赴乱星海' : to === 'dajin' ? '横穿天澜草原，北上大晋去了' : '回到了天南'}，落脚于${h.name}。`, 'rumor');
   }
   die(d: NpcData, why: string) {
     if (!d.alive) return;
@@ -312,7 +346,7 @@ export class NpcWorld {
     const g = this.game, p = g.player;
     const R = Math.max(2600, g.senseRadius * 1.5), R2 = R + 900;
     for (const d of this.list) {
-      if (!d.alive || d.hidden) { if (this.active.has(d.id) && d.hidden) this.active.delete(d.id); continue; }
+      if (!d.alive || d.hidden || npcMap(d) !== ACTIVE_MAP) { if (this.active.has(d.id) && (d.hidden || npcMap(d) !== ACTIVE_MAP)) this.active.delete(d.id); continue; }
       const dd = Math.hypot(d.x - p.x, d.y - p.y);
       const a = this.active.get(d.id);
       if (!a && dd < R && this.active.size < 34) {
@@ -756,11 +790,20 @@ export class NpcWorld {
   summon(id: string) {
     const d = this.byId.get(id); if (!d) return null;
     const p = this.game.player;
-    d.x = p.x - 80; d.y = p.y + 30;
+    d.x = p.x - 80; d.y = p.y + 30; d.map = ACTIVE_MAP;   // 同行者随你走遍三图
     let a = this.active.get(id);
     if (!a) { a = { d, st: new CharState(d.x, d.y), look: this.look(d), act: 'follow', t: 0, wait: 0, noticed: 0, hp: 1, bolts: [], allyCd: 1 }; this.active.set(id, a); }
     a.st.x = d.x; a.st.y = d.y; a.act = 'follow';
     return a;
   }
-  dismiss(id: string) { const a = this.active.get(id); if (a) { a.act = 'idle'; this.pickTarget(a.d); } }
+  dismiss(id: string) {
+    const a = this.active.get(id); if (!a) return;
+    // 在异乡分别：就近找一处城镇安顿下来
+    if (LOC_BY_ID.get(a.d.home)?.map !== npcMap(a.d)) {
+      let best: LocDef | null = null, bd = 1e18;
+      for (const l of LOCATIONS) if (l.type === 'city' || l.type === 'town' || l.type === 'isle' || l.type === 'sect') { const dd = Math.hypot(l.x * WORLD_SCALE - a.d.x, l.y * WORLD_SCALE - a.d.y); if (dd < bd) { bd = dd; best = l; } }
+      if (best) a.d.home = best.id;
+    }
+    a.act = 'idle'; this.pickTarget(a.d);
+  }
 }

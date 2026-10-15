@@ -1,6 +1,6 @@
 // 第五步：城镇与宗门——坊市、丹药铺、法器阁、酒楼、客栈、传送阵、拍卖会；拜入宗门、贡献、任务、藏经阁、俸禄、晋升
 import type { Game } from './game';
-import { LOCATIONS, LOC_BY_ID, LocDef, WORLD_SCALE } from '../data/world';
+import { LOCATIONS, LOC_BY_ID, locHere, LocDef, WORLD_SCALE } from '../data/world';
 import { ITEM_LIST, itemDef, ItemDef } from '../data/items';
 import { ENEMY_LIST } from '../data/enemies';
 import { REALMS } from '../data/realms';
@@ -34,7 +34,7 @@ export class Towns {
   canEnter(l: LocDef | null) { return !!l && (l.type === 'city' || l.type === 'town' || l.type === 'sect' || (l.type === 'isle' && !l.minor) || l.id === 'tainan'); }
   isMajorTown(l: LocDef) { return l.type === 'city' || l.id === 'tianxing' || l.id === 'tainan' || l.id === 'kuixing'; }
   hasTeleport(l: LocDef) { return (l.type === 'city' && !l.minor) || (l.type === 'sect' && !!l.major) || l.id === 'tianxing' || l.id === 'chuansong' || l.id === 'kuixing'; }
-  occupied(l: LocDef) { const ws = this.game.ws; return !!ws.flags.yueFallen && l.x > 425 && l.x < 590 && l.y > 495 && (l.type === 'city' || l.type === 'town') && ws.rep > -20; }
+  occupied(l: LocDef) { const ws = this.game.ws; return !!ws.flags.yueFallen && l.ox > 425 && l.ox < 590 && l.oy > 495 && l.map === 'tiannan' && (l.type === 'city' || l.type === 'town') && ws.rep > -20; }
 
   open(l: LocDef) {
     const g = this.game;
@@ -48,7 +48,7 @@ export class Towns {
     const g = this.game;
     const month = Math.floor(g.day / 30);
     const rnd = mulberry32(((l.x * 1000 + l.y) | 0) * 31 + month * 7 + kind.length);
-    const tier = this.tierOf(l) + (l.y < 260 || l.x > 650 ? 1 : 0);
+    const tier = this.tierOf(l) + (l.oy < 260 || l.ox > 650 ? 1 : 0);
     const filt: (it: ItemDef) => boolean = kind === 'pill' ? (it) => it.type === 'pill' : kind === 'artifact' ? (it) => it.type === 'artifact' : kind === 'talisman' ? (it) => it.type === 'talisman' || it.type === 'scroll' : (it) => it.type === 'herb' || it.type === 'material' || (it.type === 'pill' && it.tier <= 1) || it.type === 'talisman';
     const pool = ITEM_LIST.filter((it) => filt(it) && it.price > 0 && it.tier <= tier && it.id !== 'mat_lingshi' && it.price < 60000 * tier);
     const stock: ShopStock[] = [];
@@ -191,7 +191,8 @@ export class Towns {
   }
   refreshTasks() {
     const g = this.game, s = g.ws.sect; if (!s) return;
-    const l = LOC_BY_ID.get(s.id)!;
+    const l = locHere(s.id);
+    if (!l) return;   // 宗门不在本图：任务待回到宗门所在地图再刷新
     const rnd = mulberry32((g.day | 0) * 13 + l.x);
     const h = g.hero;
     const out: SectTask[] = [];

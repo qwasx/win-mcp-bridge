@@ -2,7 +2,7 @@
 // - 原著大事件按游戏年份发生（升仙大会、血色禁地、燕家堡之变、魔道入侵越国、虚天殿、坠魔谷……），你可参与并改变结局
 // - 神识之内的随机奇遇：天材地宝出世、受伤修士、古修遗府、妖兽护宝、高人点化、散修摆摊、魔修祭坛、灵草丛
 import type { Game } from './game';
-import { LOC_BY_ID, LOCATIONS, WORLD_SCALE, regionAt } from '../data/world';
+import { LOC_BY_ID, LOCATIONS, WORLD_SCALE, regionAt, locHere, locLabel } from '../data/world';
 import { ENEMIES, ENEMY_LIST, dangerRealm } from '../data/enemies';
 import { Enemy } from './combat';
 import { REALMS, realmName } from '../data/realms';
@@ -135,7 +135,7 @@ export class Events {
       const st = ws.events[key] ?? (ws.events[key] = { state: 'pending' });
       if (st.state === 'pending') {
         if (g.day >= s0 - 360 && !st.t) { st.t = 1; g.news(`【传闻】${ev.announce}`, 'canon'); g.toast(`江湖传闻：${ev.name}将于第${ev.year + cyc * (ev.repeat ?? 0)}年开启（J 查看大事记）`, 'info'); }
-        if (g.day >= s0) { st.state = 'active'; st.t = s0; ev.onStart?.(g); g.news(`${ev.name}开始了！地点：${LOC_BY_ID.get(ev.loc)?.name}`, 'canon'); g.toast(`${ev.name}开始了——地点：${LOC_BY_ID.get(ev.loc)?.name}`, 'warn'); }
+        if (g.day >= s0) { st.state = 'active'; st.t = s0; ev.onStart?.(g); g.news(`${ev.name}开始了！地点：${locLabel(ev.loc)}`, 'canon'); g.toast(`${ev.name}开始了——地点：${locLabel(ev.loc)}`, 'warn'); }
       }
       if (st.state === 'active' && g.day > s0 + ev.dur) {
         if (this.active?.ev === ev) this.disengage();
@@ -149,7 +149,8 @@ export class Events {
     for (const ev of CANON_EVENTS) {
       const key = this.keyOf(ev, this.cycleOf(ev)); const st = g.ws.events[key];
       if (!st || st.state !== 'active') continue;
-      const l = LOC_BY_ID.get(ev.loc)!; const R = ev.radius * WORLD_SCALE;
+      const l = locHere(ev.loc); if (!l) continue;   // 大事件不在本图
+      const R = ev.radius * WORLD_SCALE;
       const d = Math.hypot(l.x * WORLD_SCALE - p.x, l.y * WORLD_SCALE - p.y);
       if (this.active?.ev === ev) {
         if (d > R * 2.2) { this.disengage(); g.toast(`你离开了${ev.name}的战场。`, 'warn'); }
@@ -167,7 +168,7 @@ export class Events {
       return;
     }
     const weak = h.realm < ev.minRealm;
-    const node: DNode = { speaker: ev.name, title: `第${this.year}年 · ${LOC_BY_ID.get(ev.loc)?.name}`, text: ev.intro + (weak ? `\n\n（你的修为恐怕不足以应付——建议${REALMS[ev.minRealm].name}期以上）` : ''), mood: 'danger', options: [] };
+    const node: DNode = { speaker: ev.name, title: `第${this.year}年 · ${locLabel(ev.loc)}`, text: ev.intro + (weak ? `\n\n（你的修为恐怕不足以应付——建议${REALMS[ev.minRealm].name}期以上）` : ''), mood: 'danger', options: [] };
     if (ev.special === 'shengxian') {
       node.options = [
         { label: '出两千灵石，买下一枚升仙令', disabled: C.bagCount(h, 'mat_lingshi') < 2000, hint: C.bagCount(h, 'mat_lingshi') < 2000 ? '灵石不足' : '', act: () => { C.removeItem(h, 'mat_lingshi', 2000); return this.shengxianWin(ev); } },
@@ -273,7 +274,7 @@ export class Events {
     const g = this.game;
     for (const ev of CANON_EVENTS) {
       const key = this.keyOf(ev, this.cycleOf(ev)); const st = g.ws.events[key];
-      if (st?.state === 'active') return `${ev.name}已经开始了！就在${LOC_BY_ID.get(ev.loc)?.name}。${ev.special === 'invasion' ? '越国到处都是魔修，你千万小心。' : '去的人可不少。'}`;
+      if (st?.state === 'active') return `${ev.name}已经开始了！就在${locLabel(ev.loc)}。${ev.special === 'invasion' ? '越国到处都是魔修，你千万小心。' : '去的人可不少。'}`;
       if (st?.state === 'pending' && g.day > this.startDay(ev, this.cycleOf(ev)) - 720) return `听说${ev.announce}`;
     }
     return null;
@@ -283,8 +284,8 @@ export class Events {
     for (const ev of CANON_EVENTS) {
       const cyc = this.cycleOf(ev), key = this.keyOf(ev, cyc), st = g.ws.events[key];
       const y = ev.year + cyc * (ev.repeat ?? 0);
-      if (st?.state === 'active') out.push(`「${ev.name}」正在${LOC_BY_ID.get(ev.loc)?.name}进行！`);
-      else if (st?.state === 'pending' && st.t) out.push(`第${y}年，${ev.name}将于${LOC_BY_ID.get(ev.loc)?.name}开启。`);
+      if (st?.state === 'active') out.push(`「${ev.name}」正在${locLabel(ev.loc)}进行！`);
+      else if (st?.state === 'pending' && st.t) out.push(`第${y}年，${ev.name}将于${locLabel(ev.loc)}开启。`);
     }
     return out;
   }
@@ -295,7 +296,7 @@ export class Events {
       const y = ev.year + cyc * (ev.repeat ?? 0);
       const known = !!st?.t || st?.state === 'active' || st?.state === 'done' || st?.state === 'missed';
       const state = !st || st.state === 'pending' ? (known ? '将至' : '未闻') : st.state === 'active' ? '进行中' : st.state === 'done' ? '已参与' : '已错过';
-      return { name: known ? ev.name : '？？？', year: y, loc: known ? LOC_BY_ID.get(ev.loc)?.name ?? '' : '', state, desc: known ? ev.announce : '尚无传闻。', score: ev.special === 'invasion' && st ? st.score ?? 0 : undefined };
+      return { name: known ? ev.name : '？？？', year: y, loc: known ? locLabel(ev.loc) : '', state, desc: known ? ev.announce : '尚无传闻。', score: ev.special === 'invasion' && st ? st.score ?? 0 : undefined };
     });
   }
 
@@ -528,7 +529,7 @@ export class Events {
   /** 大事件战场标记（世界地图用） */
   activeMarkers() {
     const g = this.game; const out: { x: number; y: number; name: string }[] = [];
-    for (const ev of CANON_EVENTS) { const st = g.ws.events[this.keyOf(ev, this.cycleOf(ev))]; if (st?.state === 'active') { const l = LOC_BY_ID.get(ev.loc)!; out.push({ x: l.x, y: l.y, name: ev.name }); } }
+    for (const ev of CANON_EVENTS) { const st = g.ws.events[this.keyOf(ev, this.cycleOf(ev))]; if (st?.state === 'active') { const l = locHere(ev.loc); if (l) out.push({ x: l.x, y: l.y, name: ev.name }); } }
     return out;
   }
 }

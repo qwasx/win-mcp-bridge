@@ -3,16 +3,14 @@
 // 布局参考原著及网络流传的《凡人修仙传》人界地图：
 //   北部大晋（人界第一大国）→ 中部天澜草原 → 西南天南（韩立故乡）→ 天南以西极西之地
 //   天南以东隔无边海为乱星海（内星海以天星城为中心，外星海妖兽横行）
-export const WORLD_SCALE = 300;   // 第四步起：地图边长为第二步的 3 倍（面积 ×9）
-export const MACRO_W = 1000;
-export const MACRO_H = 700;
-export const WORLD_W = MACRO_W * WORLD_SCALE;
-export const WORLD_H = MACRO_H * WORLD_SCALE;
+// 第十六步起：人界拆为三张独立地图（天南 / 乱星海 / 大晋）。下面的原始数据仍是“旧版统一地图”的宏观坐标（称为
+// legacy 坐标），每张地图按各自的平移 + 缩放把属于自己的部分摊开到整张图上，见文件末尾的 buildMap。
+export const WORLD_SCALE = 300;   // 每宏观单位 300 像素（各图一致）
 
 export type P = [number, number];
 
 // 主大陆轮廓（大晋 + 天澜草原 + 天南 + 极西之地）
-export const MAINLAND: P[] = [
+const RAW_MAINLAND: P[] = [
   [62, 70], [110, 48], [168, 40], [230, 50], [290, 36], [360, 30], [430, 42], [500, 34], [570, 30], [640, 44],
   [700, 52], [748, 72], [782, 104], [792, 140], [770, 168], [744, 186], [752, 212], [742, 240], [712, 262],
   [668, 268], [646, 292], [612, 318], [596, 352], [586, 392], [578, 430], [584, 468], [570, 500], [566, 530],
@@ -22,7 +20,7 @@ export const MAINLAND: P[] = [
 ];
 
 // 内陆湖泊
-export const LAKES: { c: P; r: number; name?: string }[] = [
+const RAW_LAKES: { c: P; r: number; name?: string }[] = [
   { c: [420, 175], r: 10, name: '晋湖' },
   { c: [300, 312], r: 7 },
   { c: [470, 598], r: 4 },
@@ -30,7 +28,7 @@ export const LAKES: { c: P; r: number; name?: string }[] = [
 ];
 
 // 山脉（折线 + 宽度 + 高度）
-export const RANGES: { pts: P[]; w: number; h: number; name?: string }[] = [
+const RAW_RANGES: { pts: P[]; w: number; h: number; name?: string }[] = [
   { pts: [[90, 72], [180, 62], [280, 58], [380, 52], [480, 56], [580, 54], [680, 76]], w: 26, h: 1.0, name: '北寒雪岭' },
   { pts: [[200, 158], [260, 176], [320, 190], [380, 160]], w: 16, h: 0.8 },
   { pts: [[690, 110], [715, 130], [735, 150]], w: 18, h: 1.0, name: '昆吾山' },
@@ -46,7 +44,7 @@ export const RANGES: { pts: P[]; w: number; h: number; name?: string }[] = [
 ];
 
 // 河流
-export const RIVERS: { pts: P[]; w: number }[] = [
+const RAW_RIVERS: { pts: P[]; w: number }[] = [
   { pts: [[300, 440], [350, 470], [410, 512], [452, 548], [500, 590], [540, 628], [566, 646]], w: 1.4 },
   { pts: [[468, 520], [480, 560], [492, 600], [510, 640], [520, 664]], w: 1.0 },
   { pts: [[290, 96], [350, 130], [420, 170], [490, 196], [560, 206], [650, 222], [742, 236]], w: 1.6 },
@@ -56,15 +54,15 @@ export const RIVERS: { pts: P[]; w: number }[] = [
 ];
 
 // 干旱（草原/荒漠）、严寒、森林区域
-export const ARID_ZONES: { pts: P[]; v: number }[] = [
+const RAW_ARID: { pts: P[]; v: number }[] = [
   { pts: [[190, 262], [640, 262], [620, 368], [210, 372]], v: 0.7 },  // 天澜草原
   { pts: [[60, 120], [190, 130], [200, 240], [70, 236]], v: 1.0 },   // 大晋西漠
   { pts: [[25, 520], [100, 520], [100, 615], [35, 600]], v: 0.9 },   // 极西荒漠
 ];
-export const COLD_ZONES: { pts: P[]; v: number }[] = [
+const RAW_COLD: { pts: P[]; v: number }[] = [
   { pts: [[40, 30], [800, 30], [800, 96], [40, 104]], v: 1.0 },
 ];
-export const FOREST_ZONES: { pts: P[]; v: number }[] = [
+const RAW_FOREST: { pts: P[]; v: number }[] = [
   { pts: [[420, 480], [570, 480], [570, 660], [420, 660]], v: 0.8 },  // 越国
   { pts: [[250, 430], [420, 430], [420, 660], [250, 660]], v: 0.6 },
   { pts: [[120, 420], [250, 420], [250, 650], [120, 650]], v: 0.55 },
@@ -73,7 +71,7 @@ export const FOREST_ZONES: { pts: P[]; v: number }[] = [
 
 // 命名区域（用于显示当前位置；按顺序匹配，越靠前越优先）
 export interface Region { id: string; name: string; parent: string; pts: P[]; label?: P; labelSize?: number }
-export const REGIONS: Region[] = [
+const RAW_REGIONS: Region[] = [
   { id: 'yue', name: '越国', parent: '天南', pts: [[425, 495], [575, 495], [580, 670], [425, 670]], label: [500, 640], labelSize: 1 },
   { id: 'yuanwu', name: '元武国', parent: '天南', pts: [[425, 428], [585, 428], [580, 495], [425, 495]], label: [500, 455], labelSize: 1 },
   { id: 'cheqi', name: '车骑国', parent: '天南', pts: [[335, 520], [425, 520], [425, 670], [335, 670]], label: [380, 620], labelSize: 1 },
@@ -97,7 +95,7 @@ function circlePts(cx: number, cy: number, r: number): P[] {
 }
 
 // 大区域标签（缩小地图时显示的大字）
-export const BIG_LABELS: { name: string; at: P; size: number }[] = [
+const RAW_BIG_LABELS: { name: string; at: P; size: number }[] = [
   { name: '大晋', at: [430, 140], size: 5 },
   { name: '天澜草原', at: [420, 310], size: 3.2 },
   { name: '天南', at: [330, 520], size: 4.5 },
@@ -114,9 +112,12 @@ export interface LocDef {
   scale?: number;
   minor?: boolean;          // 程序生成的小地点（村落 / 洞府 / 妖兽巢穴）
   danger?: number;          // 危险等级 0–5（决定妖兽强弱）
+  map: MapId;               // 所在地图
+  ox: number; oy: number;   // 旧版统一地图上的坐标（沿用旧的区域规则）
 }
+type RawLoc = Omit<LocDef, 'map' | 'ox' | 'oy'> & { map?: MapId };
 
-export const LOCATIONS: LocDef[] = [
+const RAW_LOCATIONS: RawLoc[] = [
   // ===== 越国 =====
   { id: 'qixuan', name: '七玄门', type: 'sect', x: 505, y: 598, scale: 0.75, major: true, desc: '越国镜州彩霞山上的江湖门派。韩立少年时在此做记名弟子，结识墨大夫与厉飞雨，也是一切的起点。' },
   { id: 'qingniu', name: '青牛镇', type: 'town', x: 520, y: 614, desc: '韩立家乡附近的小镇，民风淳朴。' },
@@ -136,7 +137,7 @@ export const LOCATIONS: LocDef[] = [
   { id: 'taiyue', name: '太岳山脉深处', type: 'danger', x: 534, y: 596, desc: '妖兽出没的深山，常有修士入山猎妖采药。' },
   // ===== 元武国 / 车骑国 / 紫金国 =====
   { id: 'yuanwu', name: '元武城', type: 'city', x: 488, y: 462, desc: '元武国都城，修仙坊市林立。' },
-  { id: 'chuansong', name: '上古传送阵', type: 'secret', x: 520, y: 440, major: true, desc: '上古遗留的远距离传送阵，可直通乱星海。韩立当年由此远遁。' },
+  { id: 'chuansong', name: '灵石矿洞·古传送阵', type: 'secret', x: 497, y: 524, major: true, desc: '越京城外废弃灵石矿洞深处的上古传送阵。须持“大挪移令”并耗费大量灵石方能开启，可直通乱星海——原著中韩立被鬼灵门少主王蝉追杀，便是由此远遁。' },
   { id: 'cheqi', name: '车骑城', type: 'city', x: 382, y: 590, desc: '车骑国都城。' },
   { id: 'zijin', name: '紫金城', type: 'city', x: 382, y: 476, desc: '紫金国都城，商旅往来不绝。' },
   // ===== 天道盟 / 坠魔谷 =====
@@ -158,9 +159,9 @@ export const LOCATIONS: LocDef[] = [
   { id: 'qianzhu', name: '千竹教', type: 'sect', x: 62, y: 476, major: true, desc: '大衍神君所创之教，傀儡之术独步人界，《大衍诀》即出于此。' },
   { id: 'jixi_desert', name: '极西荒漠', type: 'danger', x: 58, y: 566, desc: '黄沙漫天的不毛之地，沙中埋有上古修士遗骸。' },
   // ===== 天澜草原 =====
-  { id: 'tianlan', name: '天澜圣殿', type: 'sect', x: 430, y: 300, major: true, desc: '慕兰法士的圣地，供奉天澜圣兽。' },
-  { id: 'tuwu', name: '突兀部落', type: 'town', x: 300, y: 300, desc: '草原游牧部族，与慕兰人世代争斗。' },
-  { id: 'mulan', name: '慕兰部落', type: 'town', x: 560, y: 312, desc: '慕兰人的大部落，法士之乡。' },
+  { id: 'tianlan', map: 'dajin', name: '天澜圣殿', type: 'sect', x: 430, y: 300, major: true, desc: '慕兰法士的圣地，供奉天澜圣兽。' },
+  { id: 'tuwu', map: 'dajin', name: '突兀部落', type: 'town', x: 300, y: 300, desc: '草原游牧部族，与慕兰人世代争斗。' },
+  { id: 'mulan', name: '慕兰部落', type: 'town', x: 560, y: 312, desc: '慕兰人的大部落，法士之乡。慕兰与天南时战时和，再往北便是突兀人的天澜草原。' },
   { id: 'caoyuan', name: '草原深处', type: 'danger', x: 370, y: 336, desc: '草原深处妖狼成群，风沙之中暗藏杀机。' },
   // ===== 大晋 =====
   { id: 'jinjing', name: '晋京', type: 'city', x: 440, y: 152, major: true, desc: '大晋京城，人界第一大城，各大世家与宗门的势力交汇于此。' },
@@ -171,10 +172,18 @@ export const LOCATIONS: LocDef[] = [
   { id: 'kunwu', name: '昆吾山', type: 'secret', x: 718, y: 136, major: true, desc: '上古镇压魔物的古山，昆吾殿所在，人界顶级秘境。' },
   { id: 'beihan', name: '北寒雪原', type: 'danger', x: 300, y: 70, desc: '终年冰封的雪原，冰属妖兽横行。' },
   { id: 'xi_mo', name: '大晋西漠', type: 'danger', x: 130, y: 182, desc: '风沙蔽日的大漠。' },
+  { id: 'shuozhou', map: 'dajin', name: '朔州城', type: 'city', x: 374, y: 246, major: true, desc: '大晋南疆的州城，舜江自天澜草原流入大晋境内。原著中韩立冰封于舜江漂流一年，便是在朔州一带被曹家所救。' },
+  { id: 'youzhou', name: '幽州城', type: 'city', x: 318, y: 118, desc: '大晋北方重镇，北望雪岭，城中多猎妖修士与收购冰属材料的商号。' },
+  { id: 'yunzhou', name: '云州城', type: 'city', x: 566, y: 150, desc: '大晋东部大城，坊市繁华，常有世家子弟在此斗宝。' },
+  { id: 'qinzhou', name: '秦州城', type: 'city', x: 236, y: 196, desc: '大晋西陲州城，再往西便是风沙蔽日的西漠。' },
+  { id: 'xiangzhou', name: '襄州城', type: 'city', x: 610, y: 236, desc: '大晋南部商埠，与草原诸部互市。' },
+  { id: 'jin_fangshi', name: '落霞坊市', type: 'town', x: 486, y: 214, desc: '大晋散修聚集的坊市，丹药、法器、消息应有尽有，鱼龙混杂。' },
+  { id: 'caojia', map: 'dajin', name: '曹家', type: 'town', x: 394, y: 238, desc: '朔州城外的凡人家族，世代经商，家中小姐曹梦容心地良善。' },
   // ===== 无边海 =====
   { id: 'xutian', name: '虚天殿', type: 'secret', x: 636, y: 352, major: true, island: 9, desc: '冰魄仙子所留的上古殿宇，每隔一段时间现世一次。内藏虚天鼎与补天丹，元婴老怪亦为之疯狂。' },
   // ===== 乱星海 =====
   { id: 'tianxing', name: '天星城', type: 'city', x: 815, y: 500, major: true, island: 28, scale: 1.3, desc: '乱星海第一大城，建于圣山之上，星宫总坛所在，天星双圣坐镇。' },
+  { id: 'chuansong_lx', map: 'luanxing', name: '魁星岛·上古传送阵', type: 'secret', x: 727, y: 476, major: true, desc: '魁星岛外荒礁上的上古传送阵，与天南越国的古阵遥相呼应。同样以大挪移令与灵石开启，可回天南。' },
   { id: 'kuixing', name: '魁星岛', type: 'isle', x: 734, y: 468, major: true, island: 13, desc: '内外星海交界的大岛，魁星城商贾云集，猎妖修士在此出海。' },
   { id: 'jiyin', name: '极阴岛', type: 'isle', x: 776, y: 604, major: true, island: 12, desc: '极阴祖师的老巢，乱星海魔道重地。' },
   { id: 'miaoyin', name: '妙音门', type: 'isle', x: 872, y: 560, major: true, island: 10, desc: '乱星海门派，以音律与媚术闻名，紫灵仙子出身于此。' },
@@ -188,7 +197,8 @@ export const LOCATIONS: LocDef[] = [
   { id: 'waihai', name: '外海妖域', type: 'danger', x: 962, y: 396, island: 8, desc: '外星海深处，高阶妖兽盘踞，风暴不息。' },
 ];
 
-// ---------- 程序生成的小地点：让地图更丰富 ----------
+
+// ---------- 小地点名字表 ----------
 import { mulberry32 } from '../core/rng';
 const SURN = ['李', '王', '张', '刘', '陈', '杨', '赵', '黄', '周', '吴', '徐', '孙', '马', '朱', '胡', '林', '郭', '何', '高', '罗', '郑', '梁', '谢', '宋', '唐', '许', '韩', '冯', '邓', '曹', '彭', '曾', '萧', '田', '董', '潘', '袁', '蔡', '蒋', '余', '叶', '程', '苏', '魏', '吕', '丁', '沈', '任', '姚', '卢'];
 const VSUF = ['家村', '家庄', '家集', '家坳', '家寨', '家湾', '家堡', '家店'];
@@ -199,61 +209,6 @@ const LAIRS_COLD = ['冰狼原', '雪熊谷', '寒蛟渊', '霜鹰崖'];
 const LAIRS_DRY = ['沙蝎窟', '毒蜥坡', '黄沙鬼域', '风蚀石林'];
 const LAIRS_SEA = ['海妖礁', '鲛人滩', '巨蟹湾', '海蛇窟'];
 
-function genMinor(): LocDef[] {
-  const rnd = mulberry32(31415);
-  const out: LocDef[] = [];
-  const all = () => LOCATIONS.concat(out);
-  const far = (x: number, y: number, d: number) => all().every((l) => Math.hypot(l.x - x, l.y - y) > d);
-  const inLake = (x: number, y: number) => LAKES.some((l) => Math.hypot(l.c[0] - x, l.c[1] - y) < l.r + 3);
-  const cold = (x: number, y: number) => COLD_ZONES.some((z) => pointInPoly(x, y, z.pts));
-  const dry = (x: number, y: number) => ARID_ZONES.some((z) => pointInPoly(x, y, z.pts) && z.v > 0.8);
-  const used = new Set<string>();
-  const uname = (base: string) => { let n = base, k = 2; while (used.has(n)) n = base.replace(/(村|庄|集|坳|寨|湾|堡|店|镇|洲|荡|渡)$/, '') + ['东', '西', '南', '北', '上', '下'][k++ % 6] + base.slice(-1); used.add(n); return n; };
-  // 村落（主大陆）
-  let tries = 0, vi = 0;
-  while (out.filter((l) => l.type === 'town').length < 150 && tries++ < 6000) {
-    const x = 40 + rnd() * 740, y = 60 + rnd() * 600;
-    if (!pointInPoly(x, y, MAINLAND) || inLake(x, y) || !far(x, y, 11)) continue;
-    if (cold(x, y) && rnd() < 0.7) continue;
-    const nat = rnd() < 0.3;
-    const name = uname(nat ? VNAT[vi++ % VNAT.length] : SURN[Math.floor(rnd() * SURN.length)] + VSUF[Math.floor(rnd() * VSUF.length)]);
-    out.push({ id: 'v' + out.length, name, type: 'town', x, y, minor: true, danger: 0, desc: dry(x, y) ? '风沙中的小村落，村民以放牧为生。' : cold(x, y) ? '冰原边缘的猎户村落。' : '凡人聚居的村落，鸡犬相闻，偶有修士路过歇脚。' });
-  }
-  // 洞府 / 遗迹
-  tries = 0; let ci = 0;
-  while (out.filter((l) => l.type === 'secret').length < 72 && tries++ < 6000) {
-    const x = 40 + rnd() * 740, y = 50 + rnd() * 610;
-    if (!pointInPoly(x, y, MAINLAND) || inLake(x, y) || !far(x, y, 12)) continue;
-    const name = uname(CAVES[ci++ % CAVES.length]);
-    out.push({ id: 'c' + out.length, name, type: 'secret', x, y, minor: true, danger: 1 + Math.floor(rnd() * 3), desc: '前人留下的修炼之所或古迹，禁制残存，或有遗宝。' });
-  }
-  // 妖兽巢穴
-  tries = 0; let li = 0;
-  while (out.filter((l) => l.type === 'danger').length < 95 && tries++ < 8000) {
-    const x = 30 + rnd() * 760, y = 40 + rnd() * 630;
-    if (!pointInPoly(x, y, MAINLAND) || inLake(x, y) || !far(x, y, 11)) continue;
-    const list = cold(x, y) ? LAIRS_COLD : dry(x, y) ? LAIRS_DRY : LAIRS;
-    const name = uname(list[li++ % list.length]);
-    const north = y < 260 ? 1 : 0;
-    out.push({ id: 'd' + out.length, name, type: 'danger', x, y, minor: true, danger: 1 + north + Math.floor(rnd() * 3), desc: '妖兽盘踞之地，常有修士结伴前来猎妖取丹。' });
-  }
-  // 乱星海：小岛据点与海妖巢穴（落在现有岛屿附近，岛屿由地形按 island 半径生成）
-  tries = 0;
-  while (out.filter((l) => l.type === 'isle').length < 34 && tries++ < 4000) {
-    const x = 680 + rnd() * 300, y = 320 + rnd() * 360;
-    if (pointInPoly(x, y, MAINLAND) || !far(x, y, 15)) continue;
-    const sea = rnd() < 0.35;
-    const name = uname(sea ? LAIRS_SEA[Math.floor(rnd() * LAIRS_SEA.length)] : ['青螺岛', '碧波岛', '蛟龙屿', '落星岛', '珊瑚岛', '龟背岛', '望潮岛', '浮云岛', '金沙岛', '海市岛'][Math.floor(rnd() * 10)]);
-    out.push({ id: 'i' + out.length, name, type: sea ? 'danger' : 'isle', x, y, minor: true, island: 4 + Math.floor(rnd() * 4), danger: sea ? 2 + Math.floor(rnd() * 3) : 0, desc: sea ? '海妖出没的礁岛。' : '乱星海中的小岛，散修在此结庐。' });
-  }
-  return out;
-}
-LOCATIONS.push(...genMinor());
-for (const l of LOCATIONS) if (l.danger === undefined) l.danger = l.type === 'danger' ? (l.y < 260 || l.x > 900 ? 4 : 3) : l.type === 'secret' ? 3 : 0;
-export const LOC_BY_ID = new Map(LOCATIONS.map((l) => [l.id, l] as const));
-
-// 随机小岛的生成区域（乱星海）
-export const ISLAND_FIELD = { x0: 660, y0: 300, x1: 995, y1: 695, count: 260 };
 
 export function pointInPoly(x: number, y: number, pts: P[]) {
   let inside = false;
@@ -277,3 +232,257 @@ export function regionAt(mx: number, my: number, onLand: boolean): Region | null
 export const LOC_TYPE_NAME: Record<LocType, string> = {
   city: '城池', town: '集镇', sect: '宗门', danger: '险地', secret: '秘境', isle: '海岛',
 };
+
+
+// =====================================================================================
+// 第十六步：三张地图
+// =====================================================================================
+export type MapId = 'tiannan' | 'luanxing' | 'dajin';
+export const MAP_IDS: MapId[] = ['tiannan', 'luanxing', 'dajin'];
+export const MAP_NAME: Record<MapId, string> = { tiannan: '天南', luanxing: '乱星海', dajin: '大晋' };
+
+/** 每张图：取旧版统一地图上的一块（legacy 坐标）平移 + 缩放，铺满整张新图 */
+interface MapSpec { ox: number; oy: number; sx: number; sy: number; W: number; H: number; rangeK: number; riverK: number }
+const SPEC: Record<MapId, MapSpec> = {
+  // 天南：原先只占统一地图西南一隅（约 620 × 430），现在线性放大 1.6 倍，独占整张 1000 × 700 的大图
+  tiannan: { ox: 0, oy: 262, sx: 1.6, sy: 1.6, W: 1000, H: 700, rangeK: 1.3, riverK: 1.25 },
+  // 乱星海：内外星海与无边海东缘，放大 2 倍，岛屿星罗棋布
+  luanxing: { ox: 600, oy: 280, sx: 2.0, sy: 2.0, W: 800, H: 840, rangeK: 1, riverK: 1 },
+  // 大晋：人界第一大国 + 北寒雪原 + 天澜草原北部；面积约为天南的 1.5 倍
+  dajin: { ox: 0, oy: 0, sx: 1.46, sy: 2.65, W: 1200, H: 880, rangeK: 1.5, riverK: 1.25 },
+};
+export function toMap(id: MapId, x: number, y: number): P { const s = SPEC[id]; return [(x - s.ox) * s.sx, (y - s.oy) * s.sy]; }
+export function fromMap(id: MapId, x: number, y: number): P { const s = SPEC[id]; return [x / s.sx + s.ox, y / s.sy + s.oy]; }
+
+function pickMap(): MapId {
+  const ok = (v: unknown): v is MapId => v === 'tiannan' || v === 'luanxing' || v === 'dajin';
+  try { const v = (globalThis as any).__FANREN_MAP; if (ok(v)) return v; } catch { /* */ }
+  try { const v = (globalThis as any).process?.env?.FANREN_MAP; if (ok(v)) return v; } catch { /* */ }
+  try { const v = new URLSearchParams(location.search).get('map'); if (ok(v)) return v; } catch { /* */ }
+  try { const v = localStorage.getItem('fanren.map'); if (ok(v)) return v; } catch { /* */ }
+  return 'tiannan';
+}
+/** 当前加载的地图（整个程序生命周期内不变；换图 = 存档后重新载入） */
+export const ACTIVE_MAP: MapId = pickMap();
+
+/** 旧版统一地图上的一点属于哪张新图 */
+export function legacyMapOf(x: number, y: number): MapId {
+  if (x >= 600 && !pointInPoly(x, y, RAW_MAINLAND)) return 'luanxing';
+  if (y < 262) return 'dajin';
+  return 'tiannan';
+}
+/** 旧版世界坐标（像素）→ 新图与新坐标（像素），用于旧存档迁移、测试 */
+export function fromLegacyWorld(wx: number, wy: number): { map: MapId; x: number; y: number } {
+  const lx = wx / WORLD_SCALE, ly = wy / WORLD_SCALE, map = legacyMapOf(lx, ly), s = SPEC[map];
+  const [mx, my] = toMap(map, lx, ly);
+  return { map, x: Math.min(s.W - 2, Math.max(2, mx)) * WORLD_SCALE, y: Math.min(s.H - 2, Math.max(2, my)) * WORLD_SCALE };
+}
+/** legacy 宏观坐标若在当前图上，返回当前图宏观坐标 */
+export function legacyHere(x: number, y: number): P | null { return legacyMapOf(x, y) === ACTIVE_MAP ? toMap(ACTIVE_MAP, x, y) : null; }
+/** 当前图宏观坐标 → legacy 宏观坐标（沿用旧版按经纬划分的规则，如喀斯特山形、北方强敌） */
+export function toLegacy(mx: number, my: number): P { return fromMap(ACTIVE_MAP, mx, my); }
+
+// ---------- 几何工具 ----------
+/** Sutherland–Hodgman：多边形裁剪到矩形 */
+function clipPoly(pts: P[], x0: number, y0: number, x1: number, y1: number): P[] {
+  const edges: [(p: P) => boolean, (a: P, b: P) => P][] = [
+    [(p) => p[0] >= x0, (a, b) => [x0, a[1] + ((b[1] - a[1]) * (x0 - a[0])) / (b[0] - a[0])]],
+    [(p) => p[0] <= x1, (a, b) => [x1, a[1] + ((b[1] - a[1]) * (x1 - a[0])) / (b[0] - a[0])]],
+    [(p) => p[1] >= y0, (a, b) => [a[0] + ((b[0] - a[0]) * (y0 - a[1])) / (b[1] - a[1]), y0]],
+    [(p) => p[1] <= y1, (a, b) => [a[0] + ((b[0] - a[0]) * (y1 - a[1])) / (b[1] - a[1]), y1]],
+  ];
+  let out = pts;
+  for (const [inside, cut] of edges) {
+    const inp = out; out = [];
+    for (let i = 0; i < inp.length; i++) {
+      const a = inp[(i + inp.length - 1) % inp.length], b = inp[i];
+      if (inside(b)) { if (!inside(a)) out.push(cut(a, b)); out.push(b); } else if (inside(a)) out.push(cut(a, b));
+    }
+    if (!out.length) break;
+  }
+  return out;
+}
+function bboxHits(pts: P[], x0: number, y0: number, x1: number, y1: number) {
+  let a = 1e9, b = 1e9, c = -1e9, d = -1e9;
+  for (const [x, y] of pts) { a = Math.min(a, x); b = Math.min(b, y); c = Math.max(c, x); d = Math.max(d, y); }
+  return c >= x0 && a <= x1 && d >= y0 && b <= y1;
+}
+
+// ---------- 各图独有的补充数据（legacy 坐标） ----------
+const EXTRA_RIVERS: Partial<Record<MapId, { pts: P[]; w: number }[]>> = {
+  // 舜江：自天澜草原北流入大晋朔州（原著韩立冰封漂流之江）
+  dajin: [{ pts: [[452, 330], [430, 312], [404, 292], [384, 274], [370, 258], [352, 236], [330, 214], [318, 200]], w: 1.3 }],
+};
+// 大区域标签（legacy 坐标；size 为新图宏观单位下的字号系数）
+const MAP_LABELS: Record<MapId, { name: string; at: P; size: number }[]> = {
+  tiannan: [{ name: '天南', at: [330, 520], size: 6.5 }, { name: '慕兰草原', at: [420, 296], size: 3.6 }, { name: '极西之地', at: [62, 470], size: 3 }],
+  luanxing: [{ name: '乱星海', at: [822, 420], size: 6 }, { name: '内星海', at: [815, 530], size: 3 }, { name: '外星海', at: [935, 650], size: 3 }, { name: '无边海', at: [626, 520], size: 2.6 }],
+  dajin: [{ name: '大晋', at: [430, 150], size: 7.5 }, { name: '北寒雪原', at: [300, 66], size: 3.4 }, { name: '天澜草原', at: [470, 304], size: 3.6 }],
+};
+const MAP_REGIONS: Record<MapId, string[]> = {
+  tiannan: ['yue', 'yuanwu', 'cheqi', 'zijin', 'tiandao', 'zhuimo', 'modao', 'jiuguo', 'jixi', 'tianlan', 'wubian'],
+  luanxing: ['luanxing_inner', 'luanxing_outer', 'wubian'],
+  dajin: ['dajin', 'tianlan', 'beihai'],
+};
+// 天南一侧的“天澜草原”南部其实是与天南结盟的慕兰人的地盘
+const REGION_RENAME: Partial<Record<MapId, Record<string, { id: string; name: string; parent: string }>>> = {
+  tiannan: { tianlan: { id: 'mulan', name: '慕兰草原', parent: '慕兰草原' } },
+};
+// 随机小岛：乱星海星罗棋布；天南东、南外海与大晋北海零星点缀（新图宏观坐标）
+const ISLES: Record<MapId, { field?: { x0: number; y0: number; x1: number; y1: number; count: number }; extra: { x0: number; y0: number; x1: number; y1: number; n: number; r0: number; r1: number }[]; rk: number }> = {
+  tiannan: { extra: [{ x0: 940, y0: 120, x1: 996, y1: 690, n: 18, r0: 1.2, r1: 3.6 }, { x0: 80, y0: 668, x1: 900, y1: 696, n: 12, r0: 1.2, r1: 3 }], rk: 1 },
+  luanxing: { field: { x0: 110, y0: 30, x1: 792, y1: 832, count: 520 }, extra: [{ x0: 6, y0: 20, x1: 100, y1: 830, n: 30, r0: 1.2, r1: 3.2 }], rk: 1.5 },
+  dajin: { extra: [{ x0: 30, y0: 6, x1: 1170, y1: 66, n: 22, r0: 1.5, r1: 4 }], rk: 1 },
+};
+
+export interface MapExit { edge: 'n' | 's' | 'e' | 'w'; to: MapId; days: number; title: string; text: string }
+/** 走到地图边缘可前往的相邻地图（陆路）。乱星海只能经上古传送阵往来 */
+export const MAP_EXITS: Record<MapId, MapExit[]> = {
+  tiannan: [{ edge: 'n', to: 'dajin', days: 120, title: '北上大晋', text: '再往北，便是突兀人的天澜草原。横穿草原、顺舜江而下，就是人界第一大国——大晋。\n\n此去路途遥远，少说也要四个月；天澜圣殿高手如云，草原上元婴修士亦不罕见。原著中韩立以元婴中期修为闯草原，尚且九死一生。' }],
+  dajin: [{ edge: 's', to: 'tiannan', days: 120, title: '南下天南', text: '向南穿过天澜草原与慕兰草原，便回到天南。路途约需四个月。' }],
+  luanxing: [],
+};
+export const EDGE_BLOCK_TEXT: Record<MapId, string> = {
+  tiannan: '前方是茫茫无边海，以你的遁速根本飞不到尽头。要去乱星海，须借越京城外灵石矿洞中的上古传送阵。',
+  luanxing: '再往外便是无尽深海，妖兽横行、风暴不息，连元婴修士也不敢深入。回天南须借魁星岛的上古传送阵。',
+  dajin: '前方已是人界尽头的荒寒之地，风雪如刀，再走下去有死无生。',
+};
+/** 传送阵：两端地点 id */
+export const PORTALS: { a: string; b: string; minRealm: number; cost: number; token: string }[] = [
+  { a: 'chuansong', b: 'chuansong_lx', minRealm: 2, cost: 600, token: 'tok_danuoyi' },
+];
+
+// ---------- 程序生成的小地点 ----------
+interface MapData {
+  id: MapId; W: number; H: number;
+  mainland: P[]; lakes: typeof RAW_LAKES; ranges: typeof RAW_RANGES; rivers: typeof RAW_RIVERS;
+  arid: typeof RAW_ARID; cold: typeof RAW_COLD; forest: typeof RAW_FOREST;
+  regions: Region[]; labels: { name: string; at: P; size: number }[]; locations: LocDef[];
+  islandField: { x0: number; y0: number; x1: number; y1: number; count: number } | null;
+  extraIslands: { x0: number; y0: number; x1: number; y1: number; n: number; r0: number; r1: number }[];
+  islandK: number;
+}
+
+function genMinor(M: MapData, seed: number, pre: string): LocDef[] {
+  const rnd = mulberry32(seed);
+  const out: LocDef[] = [];
+  const all = () => M.locations.concat(out);
+  const far = (x: number, y: number, d: number) => all().every((l) => Math.hypot(l.x - x, l.y - y) > d);
+  const inLake = (x: number, y: number) => M.lakes.some((l) => Math.hypot(l.c[0] - x, l.c[1] - y) < l.r + 3);
+  const cold = (x: number, y: number) => M.cold.some((z) => pointInPoly(x, y, z.pts));
+  const dry = (x: number, y: number) => M.arid.some((z) => pointInPoly(x, y, z.pts) && z.v > 0.8);
+  const onLand = (x: number, y: number) => M.mainland.length > 2 && pointInPoly(x, y, M.mainland);
+  const used = new Set<string>(M.locations.map((l) => l.name));
+  const DIRS = ['东', '西', '南', '北', '上', '下', '前', '后', '新', '老', '大', '小'];
+  const uname = (base: string) => {
+    const stem = base.replace(/(村|庄|集|坳|寨|湾|堡|店|镇|洲|荡|渡|岛|屿)$/, ''), suf = stem === base ? '' : base.slice(-1);
+    let n = base, k = 0;
+    while (used.has(n)) { n = k < DIRS.length ? stem + DIRS[k] + suf : DIRS[k % DIRS.length] + stem + DIRS[Math.floor(k / DIRS.length) % DIRS.length] + suf; if (++k > 140) { n = base + k; break; } }
+    used.add(n); return n;
+  };
+  const mk = (l: Omit<LocDef, 'map' | 'ox' | 'oy' | 'id'>) => { const [ox, oy] = fromMap(M.id, l.x, l.y); out.push({ ...l, id: pre + (l.type === 'town' ? 'v' : l.type === 'secret' ? 'c' : l.type === 'isle' ? 'i' : 'd') + out.length, map: M.id, ox, oy }); };
+  // 陆地面积（决定小地点数量，使各图密度一致）
+  let landN = 0; for (let i = 0; i < 4000; i++) if (onLand(rnd() * M.W, rnd() * M.H)) landN++;
+  const landArea = (landN / 4000) * M.W * M.H, k = landArea / 300000;   // 旧版统一地图主大陆 ≈ 30 万平方宏观单位
+  const nTown = Math.round(150 * k), nCave = Math.round(72 * k), nLair = Math.round(95 * k);
+  const strong = M.id === 'dajin' ? 1 : 0;
+  let tries = 0, vi = 0;
+  while (out.filter((l) => l.type === 'town').length < nTown && tries++ < nTown * 50) {
+    const x = 10 + rnd() * (M.W - 20), y = 10 + rnd() * (M.H - 20);
+    if (!onLand(x, y) || inLake(x, y) || !far(x, y, 11)) continue;
+    if (cold(x, y) && rnd() < 0.7) continue;
+    const nat = rnd() < 0.3;
+    const name = uname(nat ? VNAT[vi++ % VNAT.length] : SURN[Math.floor(rnd() * SURN.length)] + VSUF[Math.floor(rnd() * VSUF.length)]);
+    mk({ name, type: 'town', x, y, minor: true, danger: 0, desc: dry(x, y) ? '风沙中的小村落，村民以放牧为生。' : cold(x, y) ? '冰原边缘的猎户村落。' : '凡人聚居的村落，鸡犬相闻，偶有修士路过歇脚。' });
+  }
+  tries = 0; let ci = 0;
+  while (out.filter((l) => l.type === 'secret').length < nCave && tries++ < nCave * 80) {
+    const x = 10 + rnd() * (M.W - 20), y = 10 + rnd() * (M.H - 20);
+    if (!onLand(x, y) || inLake(x, y) || !far(x, y, 12)) continue;
+    mk({ name: uname(CAVES[ci++ % CAVES.length]), type: 'secret', x, y, minor: true, danger: 1 + strong + Math.floor(rnd() * 3), desc: '前人留下的修炼之所或古迹，禁制残存，或有遗宝。' });
+  }
+  tries = 0; let li = 0;
+  while (out.filter((l) => l.type === 'danger').length < nLair && tries++ < nLair * 80) {
+    const x = 10 + rnd() * (M.W - 20), y = 10 + rnd() * (M.H - 20);
+    if (!onLand(x, y) || inLake(x, y) || !far(x, y, 11)) continue;
+    const list = cold(x, y) ? LAIRS_COLD : dry(x, y) ? LAIRS_DRY : LAIRS;
+    mk({ name: uname(list[li++ % list.length]), type: 'danger', x, y, minor: true, danger: 1 + strong + Math.floor(rnd() * 3), desc: '妖兽盘踞之地，常有修士结伴前来猎妖取丹。' });
+  }
+  // 乱星海：小岛据点与海妖巢穴（落在海中，岛屿由地形按 island 半径生成）
+  if (M.islandField) {
+    const F = M.islandField; tries = 0;
+    while (out.filter((l) => l.type === 'isle' || l.island).length < 72 && tries++ < 6000) {
+      const x = F.x0 + rnd() * (F.x1 - F.x0), y = F.y0 + rnd() * (F.y1 - F.y0);
+      if (onLand(x, y) || !far(x, y, 16)) continue;
+      const sea = rnd() < 0.35;
+      const name = uname(sea ? LAIRS_SEA[Math.floor(rnd() * LAIRS_SEA.length)] : ['青螺岛', '碧波岛', '蛟龙屿', '落星岛', '珊瑚岛', '龟背岛', '望潮岛', '浮云岛', '金沙岛', '海市岛', '白沙屿', '星罗岛'][Math.floor(rnd() * 12)]);
+      const outer = toLegacy0(M.id, x, y)[0] > 900;
+      mk({ name, type: sea ? 'danger' : 'isle', x, y, minor: true, island: Math.round((4 + rnd() * 4) * M.islandK), danger: sea ? 2 + (outer ? 1 : 0) + Math.floor(rnd() * 2) : 0, desc: sea ? '海妖出没的礁岛。' : '乱星海中的小岛，散修在此结庐。' });
+    }
+  }
+  return out;
+}
+function toLegacy0(id: MapId, x: number, y: number) { return fromMap(id, x, y); }
+
+function buildMap(id: MapId, seed: number, pre: string): MapData {
+  const S = SPEC[id];
+  const x0 = S.ox - 3, y0 = S.oy - 3, x1 = S.ox + S.W / S.sx + 3, y1 = S.oy + S.H / S.sy + 3;   // legacy 窗口（略放宽，海岸线伸出图外）
+  const T = (p: P): P => toMap(id, p[0], p[1]);
+  const sk = Math.sqrt(S.sx * S.sy);
+  const mainland = id === 'luanxing' ? [] : clipPoly(RAW_MAINLAND, x0, y0, x1, y1).map(T);
+  const lakes = RAW_LAKES.filter((l) => l.c[0] > x0 && l.c[0] < x1 && l.c[1] > y0 && l.c[1] < y1).map((l) => ({ ...l, c: T(l.c), r: l.r * sk * 0.8 }));
+  const ranges = id === 'luanxing' ? [] : RAW_RANGES.filter((r) => bboxHits(r.pts, x0, y0, x1, y1)).map((r) => ({ ...r, pts: r.pts.map(T), w: r.w * S.rangeK }));
+  const rivers = (id === 'luanxing' ? [] : RAW_RIVERS.filter((r) => bboxHits(r.pts, x0, y0, x1, y1))).concat(EXTRA_RIVERS[id] ?? []).map((r) => ({ ...r, pts: r.pts.map(T), w: r.w * S.riverK }));
+  const zone = (zs: { pts: P[]; v: number }[]) => zs.filter((z) => bboxHits(z.pts, x0, y0, x1, y1)).map((z) => ({ ...z, pts: z.pts.map(T) }));
+  const ren = REGION_RENAME[id] ?? {};
+  const regions = RAW_REGIONS.filter((r) => MAP_REGIONS[id].includes(r.id)).map((r) => ({ ...r, ...(ren[r.id] ?? {}), pts: r.pts.map(T), label: r.label ? T(r.label) : undefined, labelSize: (r.labelSize ?? 1) * 1.3 }));
+  if (id === 'tiannan') { const m = regions.find((r) => r.id === 'mulan'); if (m) m.label = T([430, 300]); }
+  const labels = MAP_LABELS[id].map((l) => ({ ...l, at: T(l.at) }));
+  const locations: LocDef[] = RAW_LOCATIONS.filter((l) => (l.map ?? legacyMapOf(l.x, l.y)) === id).map((l) => {
+    const [x, y] = T([l.x, l.y]);
+    return { ...l, map: id, x, y, ox: l.x, oy: l.y, island: l.island ? Math.round(l.island * (id === 'luanxing' ? 1.6 : 1.2)) : undefined };
+  });
+  const I = ISLES[id];
+  const M: MapData = { id, W: S.W, H: S.H, mainland, lakes, ranges, rivers, arid: zone(RAW_ARID), cold: zone(RAW_COLD), forest: zone(RAW_FOREST), regions, labels, locations, islandField: I.field ?? null, extraIslands: I.extra, islandK: I.rk };
+  M.locations.push(...genMinor(M, seed, pre));
+  return M;
+}
+// 主要地点的默认危险度（按 legacy 坐标：北方与外星海更凶）
+for (const l of RAW_LOCATIONS) if (l.danger === undefined) l.danger = l.type === 'danger' ? (l.y < 260 || l.x > 900 ? 4 : 3) : l.type === 'secret' ? 3 : 0;
+
+const MAPS: Record<MapId, MapData> = {
+  tiannan: buildMap('tiannan', 31415, ''),
+  luanxing: buildMap('luanxing', 27183, 'lx_'),
+  dajin: buildMap('dajin', 16180, 'dj_'),
+};
+const M = MAPS[ACTIVE_MAP];
+
+// ---------- 当前地图（各模块沿用旧的导出名） ----------
+export const MACRO_W = M.W;
+export const MACRO_H = M.H;
+export const WORLD_W = MACRO_W * WORLD_SCALE;
+export const WORLD_H = MACRO_H * WORLD_SCALE;
+export const MAINLAND = M.mainland;
+export const LAKES = M.lakes;
+export const RANGES = M.ranges;
+export const RIVERS = M.rivers;
+export const ARID_ZONES = M.arid;
+export const COLD_ZONES = M.cold;
+export const FOREST_ZONES = M.forest;
+export const REGIONS = M.regions;
+export const BIG_LABELS = M.labels;
+export const ISLAND_FIELD = M.islandField;
+export const EXTRA_ISLANDS = M.extraIslands;
+export const ISLAND_K = M.islandK;
+/** 当前地图上的地点 */
+export const LOCATIONS: LocDef[] = M.locations;
+/** 三张图的全部地点（用于名称查询、跨图 NPC 与传闻） */
+export const ALL_LOCATIONS: LocDef[] = MAP_IDS.flatMap((m) => MAPS[m].locations);
+export const LOC_BY_ID = new Map(ALL_LOCATIONS.map((l) => [l.id, l] as const));
+/** 当前地图上的地点（不在本图则 undefined）——凡要用坐标的地方都应该用它 */
+export function locHere(id: string | undefined | null): LocDef | undefined { const l = id ? LOC_BY_ID.get(id) : undefined; return l && l.map === ACTIVE_MAP ? l : undefined; }
+export function locsOf(map: MapId): LocDef[] { return MAPS[map].locations; }
+export function mapSize(map: MapId) { return { W: MAPS[map].W, H: MAPS[map].H }; }
+export function mapMainland(map: MapId) { return MAPS[map].mainland; }
+/** 地名（不在本图时冠以地图名，如“乱星海·虚天殿”） */
+export function locLabel(id: string | undefined | null): string { const l = id ? LOC_BY_ID.get(id) : undefined; return l ? (l.map !== ACTIVE_MAP ? MAP_NAME[l.map] + '·' : '') + l.name : ''; }

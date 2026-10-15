@@ -5,7 +5,7 @@ import type { HeartState } from './worldstate';
 import type { DNode, DOpt } from './modal';
 import * as C from './cultivation';
 import { itemDef } from '../data/items';
-import { LOC_BY_ID } from '../data/world';
+import { LOC_BY_ID, locLabel } from '../data/world';
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
@@ -144,7 +144,7 @@ export class Hearts {
     return BEAUTIES.map((b) => {
       const s = this.game.ws.hearts[b.id];
       const ch = s ? this.nextChapter(b) : b.chapters[0];
-      return { b, s: s ?? null, hint: !s?.met ? `传闻她在「${LOC_BY_ID.get(b.home)?.name ?? '?'}」一带` : s.flags.parted ? '缘尽于此' : ch ? `${ch.title}：${ch.hint}` : s.flags.companion ? '道侣同心' : '故事告一段落' };
+      return { b, s: s ?? null, hint: !s?.met ? `传闻她在「${locLabel(b.home) || '?'}」一带` : s.flags.parted ? '缘尽于此' : ch ? `${ch.title}：${ch.hint}` : s.flags.companion ? '道侣同心' : '故事告一段落' };
     });
   }
 }

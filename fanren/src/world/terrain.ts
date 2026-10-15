@@ -2,7 +2,7 @@
 import { fbm, hash2, valueNoise, mulberry32, clamp, hashU, pnoise } from '../core/rng';
 import {
   MACRO_W, MACRO_H, WORLD_SCALE, MAINLAND, LAKES, RANGES, RIVERS, ARID_ZONES, COLD_ZONES, FOREST_ZONES,
-  LOCATIONS, ISLAND_FIELD, pointInPoly, P,
+  LOCATIONS, ISLAND_FIELD, EXTRA_ISLANDS, ISLAND_K, pointInPoly, toLegacy, P,
 } from '../data/world';
 import type { MtnSpec, MtnStyle } from '../gfx/mountain';
 import { pickSpecies, Species, TREE_SIZE } from '../gfx/tree';
@@ -103,8 +103,8 @@ export class Terrain {
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const g = cv.getContext('2d', { willReadFrequently: true })!;
     g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
-    g.fillStyle = '#fff';
-    g.beginPath(); MAINLAND.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); g.fill();
+    g.fillStyle = '#f00';
+    if (MAINLAND.length > 2) { g.beginPath(); MAINLAND.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); g.fill(); }
     g.fillStyle = '#000';
     for (const l of LAKES) { g.beginPath(); g.arc(l.c[0], l.c[1], l.r, 0, Math.PI * 2); g.fill(); }
     // 岛屿
@@ -113,45 +113,77 @@ export class Terrain {
     for (const loc of LOCATIONS) if (loc.island) this.islands.push({ x: loc.x, y: loc.y, r: loc.island });
     const F = ISLAND_FIELD;
     let tries = 0;
-    while (this.islands.length < F.count + 14 && tries++ < 4000) {
-      const x = F.x0 + rnd() * (F.x1 - F.x0), y = F.y0 + rnd() * (F.y1 - F.y0);
-      if (pointInPoly(x, y, MAINLAND)) continue;
-      const r = 1.5 + Math.pow(rnd(), 2.2) * 6.5;
-      if (this.islands.some((o) => Math.hypot(o.x - x, o.y - y) < o.r + r + 3)) continue;
-      this.islands.push({ x, y, r });
+    const n0 = this.islands.length;
+    if (F) {
+      // 群岛：以大岛为核，四周撒落成串的小岛；群岛之间留出开阔海面；外海（东侧）稀疏而多礁
+      const fw = F.x1 - F.x0, fh = F.y1 - F.y0;
+      const cores: { x: number; y: number; s: number }[] = this.islands.filter((o) => o.r >= 9).map((o) => ({ x: o.x, y: o.y, s: o.r * 3.2 }));
+      for (let i = 0; i < 30; i++) cores.push({ x: F.x0 + rnd() * fw, y: F.y0 + rnd() * fh, s: 14 + rnd() * 26 });
+      const gauss = () => (rnd() + rnd() + rnd() - 1.5) / 1.5;
+      while (this.islands.length < F.count + n0 && tries++ < F.count * 20) {
+        let x: number, y: number;
+        if (rnd() < 0.82) { const c = cores[Math.floor(rnd() * cores.length)]; const a = rnd() * Math.PI * 2, d = Math.abs(gauss()) * c.s * 1.6; x = c.x + Math.cos(a) * d * 1.25; y = c.y + Math.sin(a) * d * 0.85; }
+        else { x = F.x0 + rnd() * fw; y = F.y0 + rnd() * fh; }
+        if (x < F.x0 || x > F.x1 || y < F.y0 || y > F.y1 || pointInPoly(x, y, MAINLAND)) continue;
+        const outer = (x - F.x0) / fw > 0.78;
+        if (outer && rnd() < 0.55) continue;
+        const r = (1.1 + Math.pow(rnd(), 2.6) * (outer ? 4.5 : 6.5)) * ISLAND_K;
+        if (this.islands.some((o) => Math.hypot(o.x - x, o.y - y) < o.r + r + 1.6)) continue;
+        this.islands.push({ x, y, r });
+      }
     }
-    // 无边海与北海也零星点缀
-    for (let i = 0; i < 26; i++) {
-      const x = 575 + rnd() * 80, y = 280 + rnd() * 400;
-      if (!pointInPoly(x, y, MAINLAND)) this.islands.push({ x, y, r: 1.2 + rnd() * 2.5 });
+    // 外海零星小岛（天南东、南外海，大晋北海，乱星海西侧无边海）
+    for (const E of EXTRA_ISLANDS) for (let i = 0; i < E.n; i++) {
+      const x = E.x0 + rnd() * (E.x1 - E.x0), y = E.y0 + rnd() * (E.y1 - E.y0);
+      if (!pointInPoly(x, y, MAINLAND)) this.islands.push({ x, y, r: E.r0 + rnd() * (E.r1 - E.r0) });
     }
-    for (let i = 0; i < 18; i++) {
-      const x = 800 + rnd() * 190, y = 30 + rnd() * 240;
-      if (!pointInPoly(x, y, MAINLAND)) this.islands.push({ x, y, r: 1.5 + rnd() * 4 });
+    g.globalCompositeOperation = 'lighter'; g.fillStyle = '#0f0';
+    for (const is of this.islands) {
+      // 海岛轮廓：主椭圆 + 3~6 个偏心小椭圆（形如半岛、岬角），随机朝向
+      const h = hashU(Math.round(is.x * 7), Math.round(is.y * 7), 77);
+      let q = h; const r1 = () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; };
+      const rot = r1() * Math.PI, el = 0.55 + r1() * 0.45;
+      g.beginPath(); g.ellipse(is.x, is.y, is.r * (0.85 + r1() * 0.3), is.r * el, rot, 0, Math.PI * 2); g.fill();
+      const k = is.r > 2.5 ? 3 + Math.floor(r1() * 4) : 1;
+      for (let j = 0; j < k; j++) {
+        const a = rot + (r1() - 0.5) * 2.2 + (j % 2 ? Math.PI : 0), d = is.r * (0.45 + r1() * 0.5), rr = is.r * (0.28 + r1() * 0.4);
+        g.beginPath(); g.ellipse(is.x + Math.cos(a) * d, is.y + Math.sin(a) * d * 0.8, rr, rr * (0.5 + r1() * 0.5), a, 0, Math.PI * 2); g.fill();
+      }
     }
-    g.fillStyle = '#fff';
-    for (const is of this.islands) { g.beginPath(); g.arc(is.x, is.y, is.r, 0, Math.PI * 2); g.fill(); }
+    g.globalCompositeOperation = 'source-over';
     const raw = g.getImageData(0, 0, W, H).data;
-    const land0 = new Float32Array(N);
-    for (let i = 0; i < N; i++) land0[i] = raw[i * 4] / 255;
+    const land0 = new Float32Array(N), isle0 = new Float32Array(N);
+    for (let i = 0; i < N; i++) { land0[i] = raw[i * 4] / 255; isle0[i] = raw[i * 4 + 1] / 255; }
 
     // ---------- 2. 噪声扰动海岸线 ----------
     const land = new Float32Array(N);
-    const samp = (x: number, y: number) => {
+    const samp = (src: Float32Array, x: number, y: number) => {
       x = clamp(x, 0, W - 1.001); y = clamp(y, 0, H - 1.001);
       const xi = x | 0, yi = y | 0, fx = x - xi, fy = y - yi, i = yi * W + xi;
-      const a = land0[i], b = land0[i + 1], c = land0[i + W], d = land0[i + W + 1];
+      const a = src[i], b = src[i + 1], c = src[i + W], d = src[i + W + 1];
       return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
     };
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const wx = (fbm(x * 0.022, y * 0.022, 3, 11) - 0.5) * 16;
       const wy = (fbm(x * 0.022, y * 0.022, 3, 29) - 0.5) * 16;
-      let v = samp(x + wx, y + wy);
+      // 大陆海岸：大尺度扭曲（海湾、半岛）+ 中尺度扭曲（岬角、小湾）
+      const bx = (fbm(x * 0.008, y * 0.008, 3, 53) - 0.5) * 70 + (fbm(x * 0.04, y * 0.04, 3, 71) - 0.5) * 26;
+      const by = (fbm(x * 0.008, y * 0.008, 3, 59) - 0.5) * 70 + (fbm(x * 0.04, y * 0.04, 3, 73) - 0.5) * 26;
+      let v = Math.max(samp(land0, x + wx + bx, y + wy + by), samp(isle0, x + wx * 0.35, y + wy * 0.35));
       v += (valueNoise(x * 0.18, y * 0.18, 5) - 0.5) * 0.25;
       land[y * W + x] = clamp(v, 0, 1);
     }
     this.land = land;
     this.depth = boxBlur(boxBlur(land, W, H, 5), W, H, 5);
+    const landAt = (x: number, y: number) => land[clamp(Math.round(y), 0, H - 1) * W + clamp(Math.round(x), 0, W - 1)];
+    for (const l of LOCATIONS) {
+      if (l.island || landAt(l.x, l.y) > 0.6) continue;
+      let done = false;
+      for (let r = 1; r < 40 && !done; r += 1) for (let a = 0; a < 16; a++) {
+        const qx = l.x + Math.cos(a / 16 * Math.PI * 2) * r, qy = l.y + Math.sin(a / 16 * Math.PI * 2) * r;
+        if (landAt(qx, qy) > 0.75 && landAt(qx + 3, qy) > 0.6 && landAt(qx - 3, qy) > 0.6) { l.x = qx; l.y = qy; done = true; break; }
+      }
+    }
 
     // ---------- 3. 山脉高度 ----------
     // 海岛高度：Canvas 径向渐变栅格化
@@ -197,12 +229,16 @@ export class Terrain {
     // ---------- 4. 气候区域 ----------
     const zone = (zones: { pts: P[]; v: number }[], blur: number) => {
       const a = new Float32Array(N);
+      const A = 46;   // 扭曲幅度（宏观单位）
       for (const z of zones) {
         let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
         for (const [x, y] of z.pts) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
-        for (let y = Math.max(0, y0 | 0); y < Math.min(H, y1 + 1); y++)
-          for (let x = Math.max(0, x0 | 0); x < Math.min(W, x1 + 1); x++)
-            if (pointInPoly(x, y, z.pts)) a[y * W + x] = Math.max(a[y * W + x], z.v);
+        for (let y = Math.max(0, (y0 - A) | 0); y < Math.min(H, y1 + A + 1); y++)
+          for (let x = Math.max(0, (x0 - A) | 0); x < Math.min(W, x1 + A + 1); x++) {
+            const qx = x + (fbm(x * 0.011, y * 0.011, 3, 61) - 0.5) * A * 5 + (valueNoise(x * 0.06, y * 0.06, 63) - 0.5) * 10;
+            const qy = y + (fbm(x * 0.011, y * 0.011, 3, 67) - 0.5) * A * 5 + (valueNoise(x * 0.06, y * 0.06, 69) - 0.5) * 10;
+            if (pointInPoly(qx, qy, z.pts)) a[y * W + x] = Math.max(a[y * W + x], z.v);
+          }
       }
       return boxBlur(boxBlur(a, W, H, blur), W, H, blur);
     };
@@ -897,8 +933,9 @@ export class Terrain {
     if (s.arid > 0.45) return h < 0.7 ? 'qianjiang' : 'hill';
     const island = !pointInPoly(mx, my, MAINLAND);
     if (island) return 'island';
-    if (my > 540 && mx > 430 && h < 0.4) return 'karst';
-    if (my > 440 && my < 540 && mx < 340 && h < 0.3) return 'karst';
+    const [lx, ly] = toLegacy(mx, my);   // 喀斯特峰林：越国南部与天道盟一带（按旧版经纬）
+    if (ly > 540 && lx > 430 && lx < 600 && h < 0.4) return 'karst';
+    if (ly > 440 && ly < 540 && lx < 340 && h < 0.3) return 'karst';
     return h < 0.72 ? 'qinglv' : 'qianjiang';
   }
 

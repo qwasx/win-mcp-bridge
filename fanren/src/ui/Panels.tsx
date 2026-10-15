@@ -2,7 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import type { Game } from '../world/game';
 import { FOG_W, FOG_H } from '../world/game';
 import { audio } from '../world/audio';
-import { LOCATIONS, BIG_LABELS, WORLD_SCALE, MACRO_W, MACRO_H, LOC_TYPE_NAME } from '../data/world';
+import { LOCATIONS, BIG_LABELS, WORLD_SCALE, MACRO_W, MACRO_H, LOC_TYPE_NAME, ACTIVE_MAP, MAP_NAME, MAP_IDS, MAP_EXITS } from '../data/world';
+// 三图之间的往来方式（舆图顶部的说明）
+const MAP_ROUTE: Record<string, string> = {
+  tiannan: '天南：越国七派、天道盟、魔道六宗、九国盟、慕兰草原与极西之地',
+  luanxing: '乱星海：经越京城外灵石矿洞的上古传送阵（需大挪移令）',
+  dajin: '大晋：自天南北缘横穿天澜草原，约四个月路程',
+};
 
 export const SEAL: Record<string, string> = { city: '城', town: '镇', sect: '宗', danger: '险', secret: '秘', isle: '岛' };
 export const SEAL_COLOR: Record<string, string> = { city: '#9a3b2c', town: '#8a6a3a', sect: '#2f6b5e', danger: '#5a1f2a', secret: '#3a5a8a', isle: '#2f6a80' };
@@ -134,6 +140,13 @@ export function WorldMapPanel({ game, onClose }: { game: Game; onClose: () => vo
         g.fillStyle = 'rgba(40,34,26,0.32)';
         g.fillText(L.name.split('').join(' '), L.at[0] * s, L.at[1] * s);
       }
+      // 陆路出口：图边的箭头
+      for (const ex of MAP_EXITS[ACTIVE_MAP]) {
+        const north = ex.edge === 'n', y = north ? 22 : size.h - 22;
+        g.font = `${Math.max(13, 15 * s * 1.6)}px 'Ma Shan Zheng', serif`;
+        g.fillStyle = 'rgba(120,40,30,0.75)';
+        g.fillText(`${north ? '↑' : '↓'} ${ex.to === 'dajin' ? '天澜草原 · 大晋' : '慕兰草原 · 天南'} ${north ? '↑' : '↓'}`, size.w / 2, y);
+      }
       // 地点（先画已探索与重要地点，名字做简单避让）
       const placed: [number, number, number, number][] = [];
       const order = [...LOCATIONS].sort((a, b) => (b.id === hover ? 1 : 0) - (a.id === hover ? 1 : 0) || (b.major ? 1 : 0) - (a.major ? 1 : 0));
@@ -220,7 +233,7 @@ export function WorldMapPanel({ game, onClose }: { game: Game; onClose: () => vo
     <div className="modal-mask" onClick={onClose}>
       <div className="scroll-panel" onClick={(e) => e.stopPropagation()}>
         <div className="panel-head">
-          <div className="panel-title">人界舆图</div>
+          <div className="panel-title">人界舆图 · {MAP_NAME[ACTIVE_MAP]}</div>
           <div style={{ flex: 1, fontSize: 13, color: 'var(--ink-soft)' }}>
             {hovered ? <><b style={{ color: 'var(--ink)' }}>{hovered.name}</b>　{game.isExplored(hovered.x * WORLD_SCALE, hovered.y * WORLD_SCALE) ? hovered.desc : '只闻其名，尚未亲至。'}</>
               : `已探索 ${(game.ui.explored * 100).toFixed(1)}%　·　点击地图设定目的地${game.debugTeleport ? '（体验：瞬移）' : ''}`}
@@ -230,6 +243,7 @@ export function WorldMapPanel({ game, onClose }: { game: Game; onClose: () => vo
         <canvas ref={ref} className="worldmap-canvas" style={{ width: size.w, height: size.h }}
           onPointerMove={(e) => { const { mx, my } = toWorld(e); const id = pickLoc(mx, my); if (id !== hover) setHover(id); }}
           onPointerUp={onClick} />
+        <div className="map-tabs">{MAP_IDS.map((m) => <span key={m} className={m === ACTIVE_MAP ? 'on' : ''} title={MAP_ROUTE[m]}><b>{MAP_NAME[m]}</b>{m === ACTIVE_MAP ? '（你在此）' : m === 'luanxing' ? (ACTIVE_MAP === 'tiannan' ? '　经上古传送阵' : '　须先回天南') : ACTIVE_MAP === 'luanxing' ? '　须先回天南' : '　横穿天澜草原'}</span>)}</div>
         <div className="map-legend">
           {Object.keys(SEAL).map((k) => <span key={k}><i style={{ background: SEAL_COLOR[k] }}>{SEAL[k]}</i>{LOC_TYPE_NAME[k as keyof typeof LOC_TYPE_NAME]}</span>)}
           <span><i style={{ background: '#a8352a', borderRadius: '50%' }} />韩立</span>

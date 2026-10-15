@@ -3,7 +3,7 @@ import type { Game } from './game';
 import { ARTS, ArtSkill, PROF_CD, PROF_CH, PROF_DMG, PROF_NAME, PROF_RAD, profLevel, StatusKind, StatusSpec, STATUS_NAME, Fx, School, ART_LIST } from '../data/arts';
 import { ENEMY_LIST, ENEMIES, EnemyDef, dangerRealm, lvOf, lvRealm, lvName, lvWeight, LAIRS } from '../data/enemies';
 import { REALMS, realmName, expNeed } from '../data/realms';
-import { LOCATIONS, WORLD_SCALE, regionAt, LocDef } from '../data/world';
+import { LOCATIONS, WORLD_SCALE, regionAt, LocDef, legacyHere } from '../data/world';
 import { itemDef } from '../data/items';
 import * as C from './cultivation';
 import { clamp } from '../core/rng';
@@ -769,7 +769,7 @@ export class Combat {
     const T = this.game.terrain;
     const land = T.isLand(x, y);
     const reg = regionAt(x / WORLD_SCALE, y / WORLD_SCALE, land);
-    const BASE: Record<string, number> = { yue: 0, yuanwu: 1, cheqi: 0.8, zijin: 1, tiandao: 1.5, zhuimo: 2.5, modao: 2.2, jiuguo: 1.8, jixi: 2.5, tianlan: 2, dajin: 3, luanxing_inner: 2, luanxing_outer: 3, wubian: 3.5, beihai: 4 };
+    const BASE: Record<string, number> = { yue: 0, yuanwu: 1, cheqi: 0.8, zijin: 1, tiandao: 1.5, zhuimo: 2.5, modao: 2.2, jiuguo: 1.8, jixi: 2.5, tianlan: 2, mulan: 1.4, dajin: 3, luanxing_inner: 2, luanxing_outer: 3, wubian: 3.5, beihai: 4 };
     let d = BASE[reg?.id ?? ''] ?? 1;
     for (const l of LOCATIONS) {
       const dl = l.danger ?? 0;
@@ -847,7 +847,8 @@ export class Combat {
     const f = g.ws.flags as any;
     f.lairs ??= {}; f.lairSeen ??= {};
     for (const L of LAIRS) {
-      const lx = L.x * WORLD_SCALE, ly = L.y * WORLD_SCALE;
+      const at = legacyHere(L.x, L.y); if (!at) continue;   // 巢穴不在本图
+      const lx = at[0] * WORLD_SCALE, ly = at[1] * WORLD_SCALE;
       const d = Math.hypot(lx - p.x, ly - p.y);
       if (d > 6000) continue;
       if (!f.lairSeen[L.id]) { f.lairSeen[L.id] = 1; g.toast(`一股令人心悸的妖气自远处弥漫而来——此地是「${L.name}」。${L.desc}`, 'warn'); }

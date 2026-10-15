@@ -2,7 +2,8 @@
 import { Terrain } from './terrain';
 import { Renderer } from './render';
 import { REALMS, realmName } from '../data/realms';
-import { LOCATIONS, LocDef, WORLD_SCALE, WORLD_W, WORLD_H, MACRO_W, regionAt, Region } from '../data/world';
+import { LOCATIONS, LocDef, WORLD_SCALE, WORLD_W, WORLD_H, regionAt, Region, ACTIVE_MAP, MapId, MAP_NAME, MAP_IDS, fromLegacyWorld, mapSize } from '../data/world';
+import { Travel, encodeFog, decodeFog } from './travel';
 import { clamp } from '../core/rng';
 import { audio } from './audio';
 import { CharState, HANLI_LOOK, Look } from '../gfx/character';
@@ -79,6 +80,11 @@ export class Game {
   day = 60; // 从第一年三月开始
   clock = DAY_CYCLE * 0.3; // 昼夜时钟（现实秒），开局为上午
   explored = new Uint8Array(FOG_W * FOG_H);
+  /** 各图的探索迷雾（当前图的在 explored 里，存档时写回） */
+  fogs: Partial<Record<MapId, string>> = {};
+  travel!: Travel;
+  /** 换图动画（由界面设置；动画结束后调用 switchMap） */
+  onTravel?: (to: MapId, via: 'portal' | 'edge') => void;
   revealAll = false;
   debugSeeAll = false;            // 调试：无视神识
   revealT = new Map<number, number>(); // 迷雾格揭开时间（用于淡出）
@@ -131,6 +137,7 @@ export class Game {
     this.towns = new Towns(this);
     this.events = new Events(this);
     this.story = new Story(this);
+    this.travel = new Travel(this);
     this.hookCombat();
     const start = this.startPos();
     const st = new CharState(start.x, start.y);
@@ -141,8 +148,8 @@ export class Game {
   }
 
   private startPos() {
-    // 开局：黄枫谷山门前（宗门地界南缘，面朝山门）
-    const i = LOCATIONS.findIndex((l) => l.id === 'huangfeng');
+    // 开局：黄枫谷山门前（宗门地界南缘，面朝山门）；其他地图（仅调试 / 读档前的占位）取该图的大城
+    const i = Math.max(0, LOCATIONS.findIndex((l) => l.id === (ACTIVE_MAP === 'tiannan' ? 'huangfeng' : ACTIVE_MAP === 'luanxing' ? 'kuixing' : 'shuozhou')));
     const L = LOCATIONS[i], z = this.terrain.locZones?.[i];
     const cx = z ? z.x : L.x * WORLD_SCALE, cy = z ? z.y + z.ry + 140 : L.y * WORLD_SCALE + 600;
     for (let r = 0; r < 3000; r += 60) {
@@ -161,7 +168,7 @@ export class Game {
     this.player.st = new CharState(s.x, s.y);
     this.hero = C.newHero();
     this.nodes.fromSave([]);
-    this.day = 60; this.clock = DAY_CYCLE * 0.3; this.explored.fill(0); this.revealAll = false; this.destination = null; this.debugTeleport = false;
+    this.day = 60; this.clock = DAY_CYCLE * 0.3; this.explored.fill(0); this.fogs = {}; this.travel.pending = null; this.revealAll = false; this.destination = null; this.debugTeleport = false;
     this.cam.x = this.player.x; this.cam.y = this.player.y; this.cam.zoom = this.cam.targetZoom = 0.8;
     this.currentRegionId = ''; this.gathering = null;
     this.combat.reset(); this.pursuit?.reset();
@@ -240,10 +247,12 @@ export class Game {
     const dn = n ? Math.hypot(n.st.x - p.x, n.st.y - p.y) : 1e9, de = e ? Math.hypot(e.x - p.x, e.y - p.y) : 1e9;
     if (n && dn <= de) { this.npcs.interact(); return; }
     if (e) { this.events.interact(e); return; }
+    if (this.travel.tryPortal()) return;
     const l = this.ui?.nearby;
     if (l && this.towns.canEnter(l)) { this.enterTown(); return; }
   }
   enterTown() {
+    if (this.travel.tryPortal()) return;
     const l = this.nearbyLocation();
     if (!l || !this.towns.canEnter(l)) { this.toast('附近没有可以进入的城镇或宗门。', 'warn'); return; }
     this.towns.open(l);
@@ -280,14 +289,13 @@ export class Game {
   save(slot = 0) {
     if (this.hero.dead) return false;
     try {
-      let s = '';
-      for (let i = 0; i < this.explored.length; i++) s += this.explored[i] ? '1' : '0';
-      const p = this.player;
+      const p = this.player, tp = this.travel.pending;
+      this.fogs[ACTIVE_MAP] = encodeFog(this.explored);
       const data = {
-        v: 2, ws: WORLD_SCALE, time: Date.now(),
-        p: { x: p.x, y: p.y, flying: p.flying }, day: this.day, clock: this.clock, fog: s, zoom: this.cam.targetZoom, revealAll: this.revealAll,
+        v: 3, ws: WORLD_SCALE, time: Date.now(), map: tp?.map ?? ACTIVE_MAP, arrive: tp ? tp.via : undefined,
+        p: tp ? { x: tp.x, y: tp.y, flying: false } : { x: p.x, y: p.y, flying: p.flying }, day: this.day, clock: this.clock, fogs: this.fogs, zoom: this.cam.targetZoom, revealAll: this.revealAll,
         hero: this.hero, nodes: this.nodes.toSave(), world: this.ws, npcs: this.npcs.toSave(),
-        meta: { realm: realmName(this.hero.realm, this.hero.stage), year: Math.floor(this.day / 360) + 1, region: this.ui?.region ?? '', age: Math.floor(this.hero.age) },
+        meta: { realm: realmName(this.hero.realm, this.hero.stage), year: Math.floor(this.day / 360) + 1, region: tp ? MAP_NAME[tp.map] : `${MAP_NAME[ACTIVE_MAP]}·${this.ui?.region ?? ''}`, age: Math.floor(this.hero.age) },
       };
       localStorage.setItem(SLOT_KEYS[slot], JSON.stringify(data));
       return true;
@@ -303,20 +311,21 @@ export class Game {
       const p = this.player;
       // 地图比例变化（第三步 180 → 第四步 300）：坐标与迷雾按比例迁移
       const ws0 = d.ws ?? (d.hero?.arts ? 180 : 100), wk = WORLD_SCALE / ws0;
-      p.x = d.p.x * wk; p.y = d.p.y * wk; p.flying = !!d.p.flying; p.sitting = false; p.moving = false;
+      // 第十六步：三图。旧存档（统一大地图）按位置迁到对应的新图
+      const legacy = !d.map;
+      let map: MapId = d.map ?? 'tiannan', px = d.p.x * wk, py = d.p.y * wk;
+      if (legacy) { const r = fromLegacyWorld(px, py); map = r.map; px = r.x; py = r.y; }
+      if (map !== ACTIVE_MAP) return this.switchMap(map, k);
+      p.x = px; p.y = py; p.flying = !!d.p.flying; p.sitting = false; p.moving = false;
+      if (d.arrive || legacy) { const q = this.findLand(p.x, p.y); p.x = q.x; p.y = q.y; p.flying = false; }
       if (!p.flying && this.terrain.walkFactor(p.x, p.y) <= 0) p.flying = true;   // 旧存档：筑基后停在海上时保持飞行
+      this.travel.pending = null;
       p.st = new CharState(p.x, p.y);
       this.day = d.day ?? 60;
       this.clock = d.clock ?? DAY_CYCLE * 0.3;
       this.explored.fill(0);
-      if (d.fog && wk === 1) for (let i = 0; i < Math.min(d.fog.length, this.explored.length); i++) this.explored[i] = d.fog[i] === '1' ? 1 : 0;
-      else if (d.fog) {
-        const ow = Math.ceil(MACRO_W * ws0 / FOG_CELL);
-        for (let i = 0; i < d.fog.length; i++) if (d.fog[i] === '1') {
-          const ox = (i % ow) * FOG_CELL * wk, oy = Math.floor(i / ow) * FOG_CELL * wk, os = FOG_CELL * wk;
-          for (let yy = Math.floor(oy / FOG_CELL); yy <= Math.floor((oy + os) / FOG_CELL); yy++) for (let xx = Math.floor(ox / FOG_CELL); xx <= Math.floor((ox + os) / FOG_CELL); xx++) if (xx < FOG_W && yy < FOG_H) this.explored[yy * FOG_W + xx] = 1;
-        }
-      }
+      if (d.fogs) { this.fogs = { ...d.fogs }; decodeFog(d.fogs[ACTIVE_MAP], this.explored); }
+      else if (d.fog) { this.fogs = this.migrateFog(d.fog, ws0); decodeFog(this.fogs[ACTIVE_MAP], this.explored); }
       this.cam.x = p.x; this.cam.y = p.y;
       this.cam.zoom = this.cam.targetZoom = d.zoom ?? 0.8;
       this.revealAll = !!d.revealAll;
@@ -334,13 +343,45 @@ export class Game {
       this.hero.equip = this.hero.equip ?? {}; this.hero.looted = this.hero.looted ?? []; this.hero.kills = this.hero.kills ?? 0;
       // 第四步起：世界状态与 NPC
       this.ws = Object.assign(newWorldState(), d.world ?? {});
-      this.npcs.fromSave(d.npcs, wk);
+      if (legacy) this.npcs.mergeLegacy(d.npcs); else this.npcs.fromSave(d.npcs, wk);
       this.modal = null; this.modalStack = []; this.emitModal();
       this.hearts.restore();
       this.story.resume();
       this.updateUI(true);
       return true;
     } catch (e) { console.warn(e); return false; }
+  }
+  /** 存档所在地图与当前不同：记下目标图，重新载入后自动读档 */
+  switchMap(map: MapId, key?: string): boolean {
+    try { localStorage.setItem('fanren.map', map); sessionStorage.setItem('fanren.resume', key ?? 'fanren_save_auto'); } catch { return false; }
+    if (typeof location !== 'undefined' && !(globalThis as any).__FANREN_NORELOAD) { location.reload(); return true; }
+    return false;
+  }
+  /** 旧版统一地图的迷雾 → 三张新图各自的迷雾 */
+  private migrateFog(fog: string, ws0: number): Partial<Record<MapId, string>> {
+    const ow = Math.ceil(1000 * ws0 / FOG_CELL), wk = WORLD_SCALE / ws0;
+    const arr = {} as Record<MapId, { a: Uint8Array; w: number; h: number }>;
+    for (const m of MAP_IDS) { const S = mapSize(m), w = Math.ceil(S.W * WORLD_SCALE / FOG_CELL), h = Math.ceil(S.H * WORLD_SCALE / FOG_CELL); arr[m] = { a: new Uint8Array(w * h), w, h }; }
+    const raw = new Uint8Array(fog.length); decodeFog(fog, raw);
+    for (let i = 0; i < raw.length; i++) if (raw[i]) {
+      const ox = (i % ow) * FOG_CELL * wk, oy = Math.floor(i / ow) * FOG_CELL * wk, os = FOG_CELL * wk;
+      const a = fromLegacyWorld(ox, oy), b = fromLegacyWorld(ox + os, oy + os);
+      if (a.map !== b.map) continue;
+      const T = arr[a.map];
+      for (let yy = Math.floor(a.y / FOG_CELL); yy <= Math.floor(b.y / FOG_CELL); yy++) for (let xx = Math.floor(a.x / FOG_CELL); xx <= Math.floor(b.x / FOG_CELL); xx++) if (xx >= 0 && yy >= 0 && xx < T.w && yy < T.h) T.a[yy * T.w + xx] = 1;
+    }
+    const out: Partial<Record<MapId, string>> = {};
+    for (const m of MAP_IDS) out[m] = encodeFog(arr[m].a);
+    return out;
+  }
+  /** 就近找一处可落脚的陆地（换图落点、旧存档迁移） */
+  findLand(x: number, y: number) {
+    const T = this.terrain;
+    for (let r = 0; r < 12000; r += 80) for (let a = 0; a < 16; a++) {
+      const qx = clamp(x + Math.cos(a / 16 * Math.PI * 2) * r, 400, WORLD_W - 400), qy = clamp(y + Math.sin(a / 16 * Math.PI * 2) * r, 400, WORLD_H - 400);
+      if (T.walkFactor(qx, qy) > 0 && !T.inLocZone(qx, qy, 10)) return { x: qx, y: qy };
+    }
+    return { x, y };
   }
   static deleteSlot(slot: number) { try { localStorage.removeItem(SLOT_KEYS[slot]); } catch { /* */ } }
   static clearAll() { try { for (const k of SLOT_KEYS) localStorage.removeItem(k); localStorage.removeItem(LEGACY_KEY); } catch { /* */ } }
@@ -625,6 +666,7 @@ export class Game {
         const sp = this.speed * factor * this.combat.speedMul;
         const ox = p.x, oy = p.y;
         const nx = clamp(p.x + mx * sp * dt, 200, WORLD_W - 200), ny = clamp(p.y + my * sp * dt, 200, WORLD_H - 200);
+        this.travel.dir.x = mx; this.travel.dir.y = my;
         if (this.isFlying || this.terrain.walkFactor(nx, ny) > 0) { p.x = nx; p.y = ny; }
         else if (this.terrain.walkFactor(nx, p.y) > 0) { p.x = nx; }
         else if (this.terrain.walkFactor(p.x, ny) > 0) { p.y = ny; }
@@ -657,6 +699,7 @@ export class Game {
       this.pursuit.update(dt);
       this.pursuitTriggers(dt);
       this.npcs.update(dt);
+      this.travel.update(dt);
       this.events.update(dt);
       this.story.update(dt);
       // 采集

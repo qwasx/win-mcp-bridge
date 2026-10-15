@@ -624,3 +624,23 @@ img.sk-glyph.art-ico { width: 34px; height: 34px; background: radial-gradient(ci
 .alch-tabs button { padding: 5px 18px; background: rgba(60, 46, 30, 0.08); border: 1px solid rgba(90, 70, 40, 0.35); border-radius: 3px; font-family: inherit; font-size: 14px; letter-spacing: 0.3em; color: #5a4630; cursor: pointer; }
 .alch-tabs button.on { background: #4a3a26; color: #f4e6c8; border-color: #4a3a26; }
 .alch-tabs button i { font-style: normal; font-size: 11px; margin-left: 6px; padding: 0 4px; background: #c0502a; color: #fff; border-radius: 2px; letter-spacing: 0; }
+
+/* ---------- 第十六步：换图过场 ---------- */
+.travel-fx { position: fixed; inset: 0; z-index: 400; pointer-events: all; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.travel-fx.edge { background: radial-gradient(ellipse at center, rgba(236,226,200,0) 0%, rgba(236,226,200,0.85) 55%, #ece2c8 80%); animation: tf-ink 2.6s ease-in forwards; }
+.travel-fx.portal { background: radial-gradient(circle at center, rgba(180,220,255,0.0) 0%, rgba(20,30,60,0.0) 60%); animation: tf-void 2.2s ease-in forwards; }
+@keyframes tf-ink { 0% { opacity: 0; backdrop-filter: blur(0); } 35% { opacity: 1; } 100% { opacity: 1; backdrop-filter: blur(6px); background-color: #ece2c8; } }
+@keyframes tf-void { 0% { background-color: rgba(10,16,36,0); } 55% { background-color: rgba(10,16,36,0.55); } 80% { background-color: rgba(230,244,255,0.95); } 100% { background-color: #f4f8ff; } }
+.tf-ring { position: absolute; left: 50%; top: 52%; width: 120px; height: 46px; margin: -23px 0 0 -60px; border-radius: 50%; border: 3px solid rgba(170,215,255,0.9); box-shadow: 0 0 24px rgba(140,200,255,0.9), inset 0 0 18px rgba(140,200,255,0.7); animation: tf-ring 2.2s cubic-bezier(.3,.0,.4,1) forwards; }
+.tf-ring.r2 { animation-delay: 0.35s; border-color: rgba(255,240,190,0.85); box-shadow: 0 0 22px rgba(255,220,140,0.8); }
+@keyframes tf-ring { 0% { transform: scale(0.3); opacity: 0; } 20% { opacity: 1; } 100% { transform: scale(14); opacity: 0; } }
+.tf-flash { position: absolute; left: 50%; top: 0; bottom: 0; width: 70px; margin-left: -35px; background: linear-gradient(90deg, transparent, rgba(220,240,255,0.95), transparent); filter: blur(6px); transform: scaleX(0.1); opacity: 0; animation: tf-flash 2.2s ease-in forwards; }
+@keyframes tf-flash { 0%, 30% { opacity: 0; transform: scaleX(0.1); } 55% { opacity: 1; transform: scaleX(1); } 100% { opacity: 1; transform: scaleX(30); } }
+.tf-text { position: relative; text-align: center; opacity: 0; animation: tf-text 2.4s ease-out 0.5s forwards; }
+.tf-to { font-family: var(--title-font); font-size: 72px; letter-spacing: 0.4em; margin-left: 0.4em; color: #2a2620; text-shadow: 0 0 18px rgba(255,255,255,0.8); }
+.tf-sub { margin-top: 8px; font-size: 16px; letter-spacing: 0.2em; color: #4a4238; }
+@keyframes tf-text { 0% { opacity: 0; transform: translateY(8px); } 100% { opacity: 1; transform: none; } }
+.map-tabs { display: flex; gap: 10px; justify-content: center; margin: 6px 0 2px; font-size: 13px; color: var(--ink-soft); }
+.map-tabs span { padding: 3px 12px; border: 1px solid rgba(80,64,40,0.25); border-radius: 4px; }
+.map-tabs span.on { border-color: #a8352a; color: var(--ink); background: rgba(168,53,42,0.08); }
+.map-tabs b { font-family: var(--title-font); font-size: 16px; font-weight: normal; letter-spacing: 0.1em; }

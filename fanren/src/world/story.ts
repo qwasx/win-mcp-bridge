@@ -5,7 +5,7 @@
 import type { Game } from './game';
 import type { DNode, DOpt } from './modal';
 import type { FxSys } from '../gl/fx';
-import { LOC_BY_ID, LOCATIONS, WORLD_SCALE } from '../data/world';
+import { LOC_BY_ID, LOCATIONS, WORLD_SCALE , ACTIVE_MAP } from '../data/world';
 import { ENEMIES } from '../data/enemies';
 import { Enemy } from './combat';
 import * as C from './cultivation';
@@ -105,7 +105,7 @@ export class Story {
     }
     return { x, y };
   }
-  private zone(id: string) { const i = LOCATIONS.findIndex((l) => l.id === id); return this.game.terrain.locZones[i] ?? { x: LOC_BY_ID[id].x * WORLD_SCALE, y: LOC_BY_ID[id].y * WORLD_SCALE, rx: 300, ry: 220, id }; }
+  private zone(id: string) { const i = LOCATIONS.findIndex((l) => l.id === id); return this.game.terrain.locZones[i] ?? { x: (LOC_BY_ID.get(id)?.x ?? 0) * WORLD_SCALE, y: (LOC_BY_ID.get(id)?.y ?? 0) * WORLD_SCALE, rx: 300, ry: 220, id }; }
   private anchors() {
     const g = this.game, T = g.terrain;
     const q = this.zone('qixuan');
@@ -202,6 +202,7 @@ export class Story {
     return null;
   }
   tracker() {
+    if (ACTIVE_MAP !== 'tiannan') return null;
     if (!this.active) return null;
     const gl = this.goal(); if (!gl) return null;
     const p = this.game.player;
@@ -215,6 +216,7 @@ export class Story {
   // ------------------------------------------------------------ 每帧
   update(dt: number) {
     const g = this.game;
+    if (ACTIVE_MAP !== 'tiannan') return;   // 引导剧情只在天南
     if (this.openT > 0 && !g.paused && !g.modal) { this.openT -= dt; if (this.openT <= 0) this.opening(); }
     if (!this.active || g.hero.dead) return;
     const p = g.player, f = this.f, A = this.A;
