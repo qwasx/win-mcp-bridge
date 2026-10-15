@@ -74,9 +74,26 @@ function drawBoost(F: FxSys, c: Combat, dt: number) {
   for (let i = 0; i < n; i++) { const ox = rnd(-560, 560), oy = rnd(-340, 340); F.emit({ x: hx + ox + ux * 300, y: hy + oy + uy * 300, vx: -ux * 2000, vy: -uy * 2000, life: 0.2, s0: 2, s1: 1, c: WHITE, a: 0.28, stretch: 6, cell: C.Glow }); }
 }
 
+/** 投放边界：战斗中在神识圈内画一圈淡淡的虚线，标出功法/法器能打到的距离 */
+let reachA = 0;
+function drawReach(F: FxSys, c: Combat, t: number, dt: number) {
+  const g = c.game, p = g.player;
+  const want = c.inCombat && !g.halted ? 1 : 0;
+  reachA += (want - reachA) * Math.min(1, dt * (want ? 3 : 1.5));
+  if (reachA < 0.02) return;
+  const R = c.reach, z = Math.max(0.2, g.cam.zoom), w = 4.5 / z, N = 90, rot = t * 0.05;
+  const burst = g.senseBurstT > 0, col: RGB = burst ? [0.8, 0.9, 1] : [0.85, 0.95, 0.9];
+  for (let i = 0; i < N; i++) {
+    const a0 = rot + (i / N) * TAU, a1 = a0 + (TAU / N) * 0.55, am = (a0 + a1) / 2;
+    const pts = [p.x + Math.cos(a0) * R, p.y + Math.sin(a0) * R, p.x + Math.cos(am) * R, p.y + Math.sin(am) * R, p.x + Math.cos(a1) * R, p.y + Math.sin(a1) * R];
+    F.B.strip(C.Beam, pts, 3, () => w, () => 0.3 * reachA, col[0], col[1], col[2], 1);
+  }
+}
+
 export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
   const p = c.game.player;
   drawBoost(F, c, dt);
+  drawReach(F, c, t, dt);
   // ---- 事件（命中/击杀/受伤）
   // 同一帧多次命中同一处（剑阵、飞针）：只完整播放前几次，其余减弱，避免叠加过曝
   const hitSeen: [number, number, number][] = [];

@@ -366,6 +366,7 @@ export class Game {
     return r;
   }
   // ---------- 神识秘术 ----------
+  camFrameZ = 1; camLeanX = 0; camLeanY = 0;
   senseBurstT = 0; senseBurstCd = 0; concealed = false; senseAlarm = 0; private scanTimer = 20;
   /** 神识外放（持续型）：Q 开 / 再按 Q 收。半径 ×2；起手耗一成法力，之后持续耗蓝（外放期间法力不回），法力将尽时自动收回 */
   senseBurst() {
@@ -436,8 +437,9 @@ export class Game {
   }
   /** 遁光类别：风雷翅 → 雷遁；血色披风 → 血光遁；其余 → 催动遁光 */
   get boostKind(): 'thunder' | 'blood' | 'light' {
-    const f = this.hero.equip?.flight;
-    return f === 'art_fenglei' ? 'thunder' : f === 'art_xuepifeng' ? 'blood' : 'light';
+    const q = this.hero.equip ?? {};
+    // 风雷翅（飞行位）→ 雷遁；血色披风（护甲位，古宝）→ 血光遁
+    return q.flight === 'art_fenglei' ? 'thunder' : q.armor === 'art_xuepifeng' || q.flight === 'art_xuepifeng' ? 'blood' : 'light';
   }
   get boostMul() { if (!this.player.boosting) return 1; const k = this.boostKind; return k === 'thunder' ? 1.8 : k === 'blood' ? 1.7 : 1.55; }
   /** 催动遁光每秒耗法力 */
@@ -563,7 +565,24 @@ export class Game {
     // 高空：飞行时缓缓升高，疾遁时更高——镜头随之拉远
     const altT = this.player.flying ? (this.player.boosting ? 1 : this.player.moving ? 0.5 : 0.3) : 0;
     this.alt += (altT - this.alt) * Math.min(1, dt * (altT > this.alt ? 0.7 : 1.6));
-    const zT = Math.max(0.22, this.cam.targetZoom * (1 - 0.3 * this.alt));
+    // 战斗取景：锁定的敌人远在投放距离边缘时，镜头略微拉远并偏向对方，保证双方同在画面中
+    {
+      const c = this.combat, R = c.reach;
+      let tg = c.lock && !c.lock.dead && Math.hypot(c.lock.x - p.x, c.lock.y - p.y) < R * 1.1 ? c.lock : null;
+      if (!tg) { let bd = R; for (const e of c.enemies) { if (e.dead || !e.aggro || e.spar) continue; const d = Math.hypot(e.x - p.x, e.y - p.y); if (d < bd) { bd = d; tg = e; } } }
+      let fz = 1, lx = 0, ly = 0;
+      if (tg && !this.halted) {
+        const dx = tg.x - p.x, dy = tg.y - 40 - p.y, LEAN = 0.32;
+        const W = (typeof window !== 'undefined' && window.innerWidth) || 1280, H = (typeof window !== 'undefined' && window.innerHeight) || 800;
+        const zNeed = Math.min(W * 0.4 / Math.max(1, Math.abs(dx) * (1 - LEAN)), H * 0.34 / Math.max(1, Math.abs(dy) * (1 - LEAN)));
+        const z0 = Math.max(0.22, this.cam.targetZoom * (1 - 0.3 * this.alt));
+        fz = clamp(Math.max(0.42, zNeed) / z0, 0.5, 1);
+        lx = dx * LEAN; ly = dy * LEAN;
+      }
+      const k = Math.min(1, dt * 2.2);
+      this.camFrameZ += (fz - this.camFrameZ) * k; this.camLeanX += (lx - this.camLeanX) * k; this.camLeanY += (ly - this.camLeanY) * k;
+    }
+    const zT = Math.max(0.22, this.cam.targetZoom * (1 - 0.3 * this.alt) * this.camFrameZ);
     this.cam.zoom += (zT - this.cam.zoom) * Math.min(1, dt * (Math.abs(zT - this.cam.targetZoom) > 0.01 ? 3 : 10));
     const active = !this.halted && !h.dead;
     if (active) {
@@ -679,8 +698,8 @@ export class Game {
       this.life.update(dt, this, v, this.night, this.season, this.weather.kind);
     }
     // 相机跟随
-    this.cam.x += (p.x + this.debugCamDX - this.cam.x) * Math.min(1, dt * 6);
-    this.cam.y += (p.y - st.lift * 0.5 - this.cam.y) * Math.min(1, dt * 6);
+    this.cam.x += (p.x + this.debugCamDX + this.camLeanX - this.cam.x) * Math.min(1, dt * 6);
+    this.cam.y += (p.y - st.lift * 0.5 + this.camLeanY - this.cam.y) * Math.min(1, dt * 6);
 
     this.regionTimer -= dt;
     if (this.regionTimer <= 0) { this.regionTimer = 0.35; this.checkRegion(); this.exploreCheck(this.nearbyLocation()); this.townAutoZoom(); if (!this.halted) this.hintTick(); }
@@ -801,8 +820,10 @@ export class Game {
     return ok;
   }
   useBottle(stack: C.BagItem) { const m = C.useBottle(this.hero, stack); this.flushMsgs([m]); if (m.kind === 'good') { audio.sfx('chime'); this.story.onBottle(); } this.updateUI(true); return m; }
+  /** 地火：城镇法器阁 / 宗门炼器房 */
+  get forgeFire() { const t = this.nearbyLocation()?.type; return t === 'city' || t === 'town' || t === 'sect' || t === 'isle'; }
   brew(r: import('../data/recipes').Recipe) {
-    const res = C.brew(this.hero, r);
+    const res = C.brew(this.hero, r, this.forgeFire);
     if (res.days) { const msgs: Msg[] = []; C.passDays(this.hero, res.days, false, 1, msgs); this.day += res.days; this.flushMsgs(msgs.filter((m) => m.kind)); }
     audio.sfx(res.ok ? 'break' : 'fail');
     this.updateUI(true);

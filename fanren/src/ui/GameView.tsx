@@ -11,6 +11,7 @@ import { Hotbar, SkillPanel } from './CombatUI';
 import { CharPanel, BagPanel, AlchemyPanel, SecludePanel, SavePanel, DeathScreen } from './CultPanels';
 import { GainOverlay } from './GainOverlay';
 import { PursuitHUD } from './PursuitHUD';
+import { BossHUD } from './BossHUD';
 
 const CN = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
 export function cnNum(n: number): string {
@@ -268,7 +269,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
             <button className={'round-btn small' + (ui.pendingTalent || ui.bottleneck !== 'none' ? ' glow' : '')} onClick={() => { audio.sfx('open'); setPanel('char'); }}>修<small>角色</small></button>
             <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('bag'); }}>袋<small>储物</small></button>
             <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('skills'); }}>术<small>法术</small></button>
-            <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('alchemy'); }}>丹<small>丹房</small></button>
+            <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('alchemy'); }}>丹<small>丹器</small></button>
             <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('seclude'); }}>关<small>闭关</small></button>
             <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('map'); }}>图<small>地图</small></button>
             <button className="round-btn small" onClick={() => { audio.sfx('open'); game.openModal({ kind: 'hearts' }); }}>缘<small>红颜</small></button>
@@ -293,6 +294,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
       <ModalLayer game={game} />
       <GainOverlay />
       <PursuitHUD game={game} />
+      <BossHUD game={game} />
       {ui.dead && <DeathScreen game={game} onExit={onExit} />}
     </div>
   );

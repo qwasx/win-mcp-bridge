@@ -257,8 +257,10 @@ export function usePill(h: Hero, id: string, out: Msg[]) {
 
 // ---------------- 炼丹 ----------------
 export interface AlchemyCheck { ok: boolean; chance: number; missing: string[]; ages: number[] }
-export function checkRecipe(h: Hero, r: Recipe): AlchemyCheck {
+export function checkRecipe(h: Hero, r: Recipe, fire = true): AlchemyCheck {
   const missing: string[] = [];
+  const forge = r.kind === 'forge';
+  if (forge && h.realm < r.reqRealm) missing.push(`修为不足（需${['凡人', '炼气', '筑基', '结丹', '元婴'][r.reqRealm]}期方能驾驭此器）`);
   let bonus = 0;
   for (const inp of r.inputs) {
     const have = bagCount(h, inp.id, inp.minAge ?? 0);
@@ -272,15 +274,23 @@ export function checkRecipe(h: Hero, r: Recipe): AlchemyCheck {
       bonus += Math.min(0.15, Math.max(0, (avg - ref) / Math.max(60, ref * 2)) * 0.15);
     }
   }
-  if (bagCount(h, 'mat_lingquan') > 0 && !r.inputs.some((i) => i.id === 'mat_lingquan')) bonus += 0.05;
+  if (!forge && bagCount(h, 'mat_lingquan') > 0 && !r.inputs.some((i) => i.id === 'mat_lingquan')) bonus += 0.05;
+  // 炼器：境界越高、控火越稳；野外无地火，只能以法力代火
+  if (forge) bonus += Math.max(0, h.realm - r.reqRealm) * 0.1;
   const realmPen = h.realm < r.reqRealm ? 0.5 : 1;
-  const chance = Math.min(0.97, (r.base + bonus + mod(h, 'alchemy')) * realmPen);
+  const chance = Math.min(0.97, (r.base + bonus + mod(h, 'alchemy')) * realmPen * (forge && !fire ? 0.6 : 1));
   return { ok: missing.length === 0, chance, missing, ages: [] };
 }
 
-export function brew(h: Hero, r: Recipe): { ok: boolean; msgs: Msg[]; days: number } {
-  const c = checkRecipe(h, r);
-  if (!c.ok) return { ok: false, msgs: [{ text: '药材不足：' + c.missing.join('，'), kind: 'warn' }], days: 0 };
+export function brew(h: Hero, r: Recipe, fire = true): { ok: boolean; msgs: Msg[]; days: number } {
+  const c = checkRecipe(h, r, fire);
+  if (!c.ok) return { ok: false, msgs: [{ text: (r.kind === 'forge' ? '无法开炉：' : '药材不足：') + c.missing.join('，'), kind: 'warn' }], days: 0 };
+  if (r.kind === 'forge') {
+    for (const inp of r.inputs) removeItem(h, inp.id, inp.n, inp.minAge ?? 0);
+    h.stats.alchemy++;
+    if (Math.random() < c.chance) { addItem(h, r.out, 1); return { ok: true, msgs: [{ text: `炉中霞光冲起，器成！得${itemDef(r.out).name}。`, kind: 'good' }], days: r.days }; }
+    return { ok: false, msgs: [{ text: `火候一偏，器胚崩裂，材料尽毁……（成器率 ${(c.chance * 100).toFixed(0)}%）`, kind: 'warn' }], days: r.days };
+  }
   for (const inp of r.inputs) removeItem(h, inp.id, inp.n, inp.minAge ?? 0);
   h.stats.alchemy++;
   if (Math.random() < c.chance) {

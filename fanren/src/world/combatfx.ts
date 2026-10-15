@@ -1,5 +1,6 @@
 // 战斗绘制：敌人、召唤物、掉落、弹道、法术特效、血条与伤害数字
 import type { Combat, Enemy } from './combat';
+import { YAODAN_COL } from './combat';
 import type { Drawable } from './life';
 import type { Fx } from '../data/arts';
 import { drawBeast, BeastLook } from '../gfx/beast';
@@ -22,9 +23,11 @@ const SUMMON_LOOK: Record<string, BeastLook> = {
   jiao: { body: 'jiao', color: [60, 150, 120], belly: [190, 230, 200], accent: [220, 240, 200], size: 1.1, glow: '120,240,180' },
 };
 
-export function enemyVis(c: Combat, e: { x: number; y: number }) {
+export function enemyVis(c: Combat, e: { x: number; y: number; def?: { hide?: boolean }; aggro?: boolean }) {
   const s = c.game.life.sense;
-  return clamp((s.R - Math.hypot(e.x - s.x, e.y - s.y)) / 110, 0, 1);
+  // 擅隐匿的妖兽（双瞳鼠、阴芝马）：神识须贴近（约四成半径）或外放方能察觉；一旦惊走则现形
+  const R = e.def?.hide && !e.aggro && !(c.game.senseBurstT > 0) ? s.R * 0.45 : s.R;
+  return clamp((R - Math.hypot(e.x - s.x, e.y - s.y)) / 110, 0, 1);
 }
 
 /** 收集需 Y 排序的战斗实体 */
@@ -78,6 +81,7 @@ function drawEnemy(g: G, c: Combat, e: Enemy, alpha: number, t: number, dt: numb
     // 魔修血光
     if (e.def.evil) { g.globalCompositeOperation = 'lighter'; const gr = g.createRadialGradient(e.x, e.y - 50, 0, e.x, e.y - 50, 70); gr.addColorStop(0, 'rgba(200,30,40,0.18)'); gr.addColorStop(1, 'rgba(200,30,40,0)'); g.fillStyle = gr; g.fillRect(e.x - 70, e.y - 120, 140, 140); }
   } else if (e.def.look) {
+    if (e.blv >= 5 && !e.dead) drawYaoqi(g, e, t);
     drawBeast(g, e.def.look, e.x, e.y, e.facing, e.anim, 1);
   }
   // 异状表现
@@ -89,7 +93,61 @@ function drawEnemy(g: G, c: Combat, e: Enemy, alpha: number, t: number, dt: numb
   g.restore();
 }
 
+/** 妖气：五级以上妖兽周身缭绕，等阶越高越浓；八级以上（化形大妖）脚下有妖纹旋转 */
+function drawYaoqi(g: G, e: Enemy, t: number) {
+  const L = e.def.look!, k = e.blv - 4, sz = L.size;
+  const col = L.glow ?? (e.def.evil ? '150,60,170' : '170,70,50');
+  const fly = e.anim.flying ? 70 : 0;
+  g.save();
+  // 地面暗晕
+  const r0 = 60 * sz * (0.8 + k * 0.12);
+  const gr = g.createRadialGradient(e.x, e.y, 0, e.x, e.y, r0);
+  gr.addColorStop(0, `rgba(30,10,10,${0.1 + k * 0.025})`); gr.addColorStop(1, 'rgba(30,10,10,0)');
+  g.fillStyle = gr; g.beginPath(); g.ellipse(e.x, e.y + 2, r0, r0 * 0.36, 0, 0, TAU); g.fill();
+  g.globalCompositeOperation = 'lighter';
+  // 上升的妖气丝缕
+  const n = 2 + k;
+  for (let i = 0; i < n; i++) {
+    const ph = (t * 0.45 + i / n) % 1, sx = Math.sin(i * 2.3 + e.id * 7) * 34 * sz;
+    const x = e.x + sx + Math.sin(t * 2 + i) * 8, y = e.y - fly - 20 * sz - ph * 110 * sz;
+    const a = Math.sin(ph * Math.PI) * (0.09 + k * 0.012);
+    const rr = (10 + ph * 22) * sz;
+    const w = g.createRadialGradient(x, y, 0, x, y, rr);
+    w.addColorStop(0, `rgba(${col},${a})`); w.addColorStop(1, `rgba(${col},0)`);
+    g.fillStyle = w; g.fillRect(x - rr, y - rr, rr * 2, rr * 2);
+  }
+  // 化形大妖：脚下妖纹
+  if (e.blv >= 8) {
+    g.strokeStyle = `rgba(${col},0.32)`; g.lineWidth = 2;
+    const R = 92 * sz;
+    for (let i = 0; i < 6; i++) { const a0 = t * 0.6 + i * TAU / 6; g.beginPath(); g.ellipse(e.x, e.y + 2, R, R * 0.36, 0, a0, a0 + 0.6); g.stroke(); }
+    g.strokeStyle = `rgba(${col},0.18)`; g.beginPath(); g.ellipse(e.x, e.y + 2, R * 0.7, R * 0.25, 0, 0, TAU); g.stroke();
+  }
+  g.restore();
+}
+
+/** 妖丹：一枚内蕴灵光的圆丹，按等阶变色；五级以上有光柱 */
+function drawYaodan(g: G, l: { x: number; y: number; id: string; t: number }, t: number, a: number) {
+  const lv = parseInt(l.id.slice(10)) || 1, col = YAODAN_COL[lv] ?? '220,220,200';
+  const bob = Math.sin(t * 3 + l.x) * 4 - Math.max(0, 1 - l.t * 2) * 40;
+  const x = l.x, y = l.y - 22 + bob, r = 7 + lv * 0.6;
+  g.save(); g.globalAlpha *= a; g.globalCompositeOperation = 'lighter';
+  if (lv >= 5) { const pg = g.createLinearGradient(x, y - 130, x, y); pg.addColorStop(0, `rgba(${col},0)`); pg.addColorStop(1, `rgba(${col},0.28)`); g.fillStyle = pg; g.fillRect(x - 5, y - 130, 10, 130); }
+  const R = 24 + lv * 3.5 + Math.sin(t * 4) * 2.5;
+  const gr = g.createRadialGradient(x, y, 0, x, y, R);
+  gr.addColorStop(0, `rgba(${col},0.55)`); gr.addColorStop(1, `rgba(${col},0)`);
+  g.fillStyle = gr; g.fillRect(x - R, y - R, R * 2, R * 2);
+  for (let i = 0; i < 2 + (lv >> 2); i++) { const an = t * 2.4 + i * TAU / (2 + (lv >> 2)); const ox = Math.cos(an) * (r + 9), oy = Math.sin(an) * (r + 9) * 0.45; g.fillStyle = `rgba(${col},0.9)`; g.beginPath(); g.arc(x + ox, y + oy, 1.6, 0, TAU); g.fill(); }
+  g.globalCompositeOperation = 'source-over';
+  const cg = g.createRadialGradient(x - r * 0.35, y - r * 0.35, 0, x, y, r);
+  cg.addColorStop(0, 'rgba(255,255,250,1)'); cg.addColorStop(0.45, `rgba(${col},1)`); cg.addColorStop(1, `rgba(${col.split(',').map((v) => (+v * 0.45) | 0).join(',')},1)`);
+  g.fillStyle = cg; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+  g.strokeStyle = 'rgba(40,30,20,0.5)'; g.lineWidth = 1; g.stroke();
+  g.restore();
+}
+
 function drawLoot(g: G, l: { x: number; y: number; id: string; n: number; t: number }, t: number, a: number) {
+  if (l.id.startsWith('mat_yaodan')) { drawYaodan(g, l, t, a); return; }
   const d = itemDef(l.id);
   const col = TIER_COLORS[d.tier] ?? '#888';
   const bob = Math.sin(t * 3 + l.x) * 4 - Math.max(0, 1 - l.t * 3) * 30;

@@ -607,3 +607,20 @@ img.sk-glyph.art-ico { width: 34px; height: 34px; background: radial-gradient(ci
 .fly-hud.boost.blood b { color: #ff9a9a; text-shadow: 0 0 10px #ff3040; }
 .fly-hud.boost.light b { color: #d8fff0; text-shadow: 0 0 10px #6fe8b8; }
 @media (max-width: 1180px) { .pursuit { top: 176px; } }
+
+/* 第十五步：妖王血条 */
+.boss-hud { position: absolute; left: 50%; top: 64px; transform: translateX(-50%); width: min(620px, 70vw); z-index: 39; pointer-events: none; color: #f4e6c8; animation: bhIn 0.6s ease-out; }
+.bh-head { display: flex; align-items: baseline; gap: 12px; }
+.bh-name { font-family: var(--title-font); font-size: 24px; letter-spacing: 0.35em; color: #ffd9a0; text-shadow: 0 0 10px rgba(255, 140, 60, 0.75), 0 2px 3px #000; }
+.bh-rank { font-size: 13px; color: #e8c8a8; letter-spacing: 0.15em; text-shadow: 0 1px 2px #000; }
+.bh-pct { margin-left: auto; font-size: 13px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px #000; }
+.bh-bar { position: relative; height: 12px; margin-top: 5px; background: rgba(10, 6, 4, 0.7); border: 1px solid rgba(220, 180, 120, 0.55); border-radius: 2px; box-shadow: 0 0 12px rgba(0, 0, 0, 0.6); }
+.bh-lag { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(255, 220, 160, 0.55); }
+.bh-fill { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(180deg, #e2563a, #8a1810 60%, #5a0c08); box-shadow: 0 0 8px rgba(255, 80, 40, 0.6); transition: width 0.1s linear; }
+.bh-orn { position: absolute; top: 50%; width: 10px; height: 10px; background: #d8b070; transform: translateY(-50%) rotate(45deg); box-shadow: 0 0 6px rgba(255, 200, 120, 0.8); }
+.bh-orn.l { left: -7px; } .bh-orn.r { right: -7px; }
+@keyframes bhIn { from { opacity: 0; transform: translate(-50%, -10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.alch-tabs { display: flex; gap: 8px; margin: 4px 0 12px; }
+.alch-tabs button { padding: 5px 18px; background: rgba(60, 46, 30, 0.08); border: 1px solid rgba(90, 70, 40, 0.35); border-radius: 3px; font-family: inherit; font-size: 14px; letter-spacing: 0.3em; color: #5a4630; cursor: pointer; }
+.alch-tabs button.on { background: #4a3a26; color: #f4e6c8; border-color: #4a3a26; }
+.alch-tabs button i { font-style: normal; font-size: 11px; margin-left: 6px; padding: 0 4px; background: #c0502a; color: #fff; border-radius: 2px; letter-spacing: 0; }

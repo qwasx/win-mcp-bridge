@@ -41,6 +41,8 @@ abstract class Act {
   t = 0; done = false;
   constructor(public c: Combat, public I: ActInit) {}
   get p() { return this.c.game.player; }
+  /** 投放距离（随神识） */
+  get reach() { return this.c.reach; }
   abstract update(dt: number): void;
   bodies(_out: Drawable[]): void {}
   glow(_F: FxSys, _t: number, _dt: number): void {}
@@ -81,7 +83,7 @@ class SwordAct extends Act {
     this.per = n > 1 ? I.dmg / (Math.sqrt(n) * 0.8) : I.dmg;
     this.size = n > 6 ? 64 : 96;
     // 多口飞剑分配不同目标
-    const foes = this.c.enemies.filter((e) => !e.dead && Math.hypot(e.x - this.p.x, e.y - this.p.y) < 760).sort((a, b) => Math.hypot(a.x - this.p.x, a.y - this.p.y) - Math.hypot(b.x - this.p.x, b.y - this.p.y));
+    const foes = this.c.enemies.filter((e) => !e.dead && Math.hypot(e.x - this.p.x, e.y - this.p.y) < this.reach).sort((a, b) => Math.hypot(a.x - this.p.x, a.y - this.p.y) - Math.hypot(b.x - this.p.x, b.y - this.p.y));
     for (let i = 0; i < n; i++) {
       const side = n === 1 ? 0 : (i / (n - 1) - 0.5) * 2;
       const tgt = I.target && i % 2 === 0 ? I.target : foes.length ? foes[i % foes.length] : I.target;
@@ -126,7 +128,7 @@ class SwordAct extends Act {
           if (e.dead || b.hit.has(e.id)) continue;
           if (Math.hypot(e.x - b.x, (e.y - b.y) * 1.3) < 46 * (e.def.look?.size ?? 1)) { b.hit.add(e.id); this.hit(e, this.per, b.x - b.vx * 0.05, b.y - b.vy * 0.05); b.flash = 1; this.onHit(e, b); }
         }
-        if (b.dist > 760 || b.pt > 0.75 || (tg && b.hit.has(tg.id) && b.pt > 0.12 && b.dist > Math.hypot(tg.x - p.x, tg.y - p.y) + 180)) { b.ph = 3; b.pt = 0; b.hit.clear(); }
+        if (b.dist > this.reach + 120 || b.pt > 0.3 + this.reach / 1700 || (tg && b.hit.has(tg.id) && b.pt > 0.12 && b.dist > Math.hypot(tg.x - p.x, tg.y - p.y) + 180)) { b.ph = 3; b.pt = 0; b.hit.clear(); }
       } else if (b.ph === 3) {
         // 回旋：划弧折返，回程亦可伤敌
         const dx = p.x - b.x, dy = p.y - b.y, d = Math.hypot(dx, dy);
@@ -236,7 +238,7 @@ class JinfuAct extends Act {
       const dx = tp.x - m.x, dy = tp.y - m.y, d = Math.hypot(dx, dy);
       const sp = 1500 * dt;
       m.ang = Math.atan2(dy, dx);
-      if (d <= sp + 10 || m.pt > 0.6) {
+      if (d <= sp + 10 || m.pt > 0.25 + this.reach / 1500) {
         m.x = tp.x; m.y = tp.y; m.ph = 1; m.pt = 0;
         for (const e of this.near(tp.x, tp.y, 70)) this.hit(e, this.I.dmg * 1.4, p.x, p.y);
         this.c.fxq.push({ k: 'cast', x: tp.x, y: tp.y - 90, color: this.I.L.glow });
@@ -345,7 +347,7 @@ class NeedleAct extends Act {
       if (n.delay > 0) { n.delay -= dt; continue; }
       n.life += dt;
       let tg = n.tgt && !n.tgt.dead ? n.tgt : null;
-      if (!tg && n.life > 0.15) tg = n.tgt = this.nearestE(n.x, n.y, 600);
+      if (!tg && n.life > 0.15) tg = n.tgt = this.nearestE(n.x, n.y, this.reach * 0.75);
       let dir = Math.atan2(n.vy, n.vx), sp = Math.hypot(n.vx, n.vy);
       sp = Math.min(this.petal ? 1100 : 2200, sp + (this.petal ? 900 : 2600) * dt);
       if (tg && n.life > 0.08) dir = angLerp(dir, Math.atan2(tg.y - n.y, tg.x - n.x), dt * (this.petal ? 7 : 12) * Math.min(1, n.life * 4));
@@ -356,7 +358,7 @@ class NeedleAct extends Act {
         this.hit(tg, this.I.dmg, n.x - n.vx * 0.04, n.y - n.vy * 0.04);
         n.dead = true; (n as any)._pop = 1;
       }
-      if (n.life > 1.5) n.dead = true;
+      if (n.life > Math.max(1.5, this.reach / 750)) n.dead = true;
       pushTrail(n, this.petal ? 5 : 14);
     }
     if (!alive && this.t > 0.6) this.done = true;
@@ -395,7 +397,7 @@ class RingAct extends Act {
   constructor(c: Combat, I: ActInit) {
     super(c, I);
     const p = this.p; this.f.x = p.x; this.f.y = p.y;
-    const dx = I.ax - p.x, dy = I.ay - p.y, d = Math.hypot(dx, dy) || 1, R = Math.min(560, Math.max(260, d + 60));
+    const dx = I.ax - p.x, dy = I.ay - p.y, d = Math.hypot(dx, dy) || 1, R = Math.min(this.reach, Math.max(260, d + 60));
     this.tx = p.x + dx / d * R; this.ty = p.y + dy / d * R;
     this.five = I.itemId === 'art_wuxing'; this.fire = I.art.element === 'fire'; this.ice = I.art.element === 'ice';
     audio.sfx('whoosh');
@@ -481,7 +483,7 @@ class MirrorAct extends Act {
       const hy = this.my - 92;
       for (const b of this.beams) {
         const cx = Math.cos(b.a), cy = Math.sin(b.a);
-        let L = 680;
+        let L = this.reach + 60;
         for (const e of this.c.enemies) {
           if (e.dead) continue;
           const rx = e.x - this.mx, ry = e.y - this.my, along = rx * cx + ry * cy;
@@ -534,7 +536,7 @@ class SlamAct extends Act {
   constructor(c: Combat, I: ActInit) {
     super(c, I);
     const p = this.p, tg = I.target && !I.target.dead ? I.target : null;
-    const dx = (tg ? tg.x : I.ax) - p.x, dy = (tg ? tg.y : I.ay) - p.y, d = Math.hypot(dx, dy) || 1, D = Math.min(560, d);
+    const dx = (tg ? tg.x : I.ax) - p.x, dy = (tg ? tg.y : I.ay) - p.y, d = Math.hypot(dx, dy) || 1, D = Math.min(this.reach, d);
     this.x = p.x + dx / d * D; this.y = p.y + dy / d * D;
     const mtn = I.L.shape === 'mountain';
     this.R = mtn ? 210 : I.itemId === 'art_lanjin' ? 130 : 110;
@@ -640,7 +642,7 @@ class ArrowAct extends Act {
           (this as any)._hits = [...((this as any)._hits ?? []), { x: e.x, y: e.y - eh(e), t: 0 }];
         }
       }
-      if (this.dist > 720) { this.ph = 2; this.pt = 0; }
+      if (this.dist > this.reach + 80) { this.ph = 2; this.pt = 0; }
     } else { if (this.pt > 0.22) this.done = true; f.x += this.vx * dt * 0.3; f.y += this.vy * dt * 0.3; }
     pushTrail(f, 14);
   }
@@ -676,7 +678,7 @@ class FubaoAct extends Act {
   constructor(c: Combat, I: ActInit) {
     super(c, I);
     const p = this.p, tg = I.target && !I.target.dead ? I.target : null;
-    const dx = (tg ? tg.x : I.ax) - p.x, dy = (tg ? tg.y : I.ay) - p.y, d = Math.hypot(dx, dy) || 1, D = Math.min(600, d);
+    const dx = (tg ? tg.x : I.ax) - p.x, dy = (tg ? tg.y : I.ay) - p.y, d = Math.hypot(dx, dy) || 1, D = Math.min(this.reach, d);
     this.tx = p.x + dx / d * D; this.ty = p.y + dy / d * D;
     this.sword = { shape: 'jian', c1: '#f4e8b0', c2: '#b8902a', glow: I.L.glow };
     audio.sfx('fire');
@@ -784,7 +786,7 @@ class BindAct extends Act {
   ph = 0; pt = 0; tgt: Enemy | null; tick = 0;
   constructor(c: Combat, I: ActInit) {
     super(c, I);
-    this.tgt = I.target && !I.target.dead ? I.target : this.nearestE(this.p.x, this.p.y, 640);
+    this.tgt = I.target && !I.target.dead ? I.target : this.nearestE(this.p.x, this.p.y, this.reach);
     this.head.x = this.p.x; this.head.y = this.p.y;
     audio.sfx('whoosh');
   }
@@ -797,7 +799,7 @@ class BindAct extends Act {
       const sp = 1150 * dt;
       // 蛇行：垂直方向正弦摆动
       const nx = -dy / (d || 1), ny = dx / (d || 1), wig = Math.cos(this.t * 22) * 160 * dt;
-      if (d < sp + 20 || this.pt > 0.8) {
+      if (d < sp + 20 || this.pt > 0.3 + this.reach / 1150) {
         if (tg) {
           this.ph = 1; this.pt = 0;
           this.hit(tg, this.I.dmg, p.x, p.y, { ...this.I.src, status: { k: 'root', dur: 2.6, ch: 1 }, stCh: 1 });
@@ -1006,7 +1008,7 @@ class CauldronAct extends Act {
   ph = 0; pt = 0; x: number; y: number; h = 0; tick = 0; caught: Enemy[] = [];
   constructor(c: Combat, I: ActInit) {
     super(c, I);
-    const p = this.p, dx = I.ax - p.x, dy = I.ay - p.y, d = Math.hypot(dx, dy) || 1, D = Math.min(420, d);
+    const p = this.p, dx = I.ax - p.x, dy = I.ay - p.y, d = Math.hypot(dx, dy) || 1, D = Math.min(this.reach, d);
     this.x = p.x + dx / d * D; this.y = p.y + dy / d * D;
     audio.sfx('chime');
   }
@@ -1062,7 +1064,7 @@ class BombAct extends Act {
   constructor(c: Combat, I: ActInit) {
     super(c, I);
     const p = this.p, tg = I.target && !I.target.dead ? I.target : null;
-    const dx = (tg ? tg.x : I.ax) - p.x, dy = (tg ? tg.y : I.ay) - p.y, d = Math.hypot(dx, dy) || 1, D = Math.min(540, Math.max(160, d));
+    const dx = (tg ? tg.x : I.ax) - p.x, dy = (tg ? tg.y : I.ay) - p.y, d = Math.hypot(dx, dy) || 1, D = Math.min(this.reach, Math.max(160, d));
     this.sx = p.x + dx / d * 24; this.sy = p.y + dy / d * 10; this.tx = p.x + dx / d * D; this.ty = p.y + dy / d * D;
     this.x = this.sx; this.y = this.sy;
   }

@@ -1,7 +1,7 @@
 // 第三步：战斗系统 —— 法术施放、弹道、区域、召唤、异状与连携、敌人 AI、掉落、熟练度
 import type { Game } from './game';
 import { ARTS, ArtSkill, PROF_CD, PROF_CH, PROF_DMG, PROF_NAME, PROF_RAD, profLevel, StatusKind, StatusSpec, STATUS_NAME, Fx, School, ART_LIST } from '../data/arts';
-import { ENEMY_LIST, EnemyDef, dangerRealm } from '../data/enemies';
+import { ENEMY_LIST, ENEMIES, EnemyDef, dangerRealm, lvOf, lvRealm, lvName, lvWeight, LAIRS } from '../data/enemies';
 import { REALMS, realmName, expNeed } from '../data/realms';
 import { LOCATIONS, WORLD_SCALE, regionAt, LocDef } from '../data/world';
 import { itemDef } from '../data/items';
@@ -9,6 +9,8 @@ import * as C from './cultivation';
 import { clamp } from '../core/rng';
 import { CharState, randomLook, Look } from '../gfx/character';
 import { audio } from './audio';
+/** 走“投放距离”的施法类型 */
+const REACH_CASTS = new Set<string>(['bolt', 'fan', 'burst', 'strike', 'beam', 'chain', 'field']);
 import type { FxEvent } from '../gl/combatgl';
 import { ArtActs, lookOf } from './artacts';
 
@@ -29,6 +31,9 @@ const rint = (a: number, b: number) => Math.floor(rand(a, b + 1));
 export interface StatusInst { t: number; dps: number; stacks?: number }
 export type Statuses = Partial<Record<StatusKind, StatusInst>>;
 
+/** 各级妖丹的灵光颜色 */
+export const YAODAN_COL = ['', '200,220,190', '150,230,170', '120,220,220', '120,170,255', '190,140,255', '255,150,220', '255,120,90', '255,190,70', '255,230,120', '255,250,210'];
+
 export class Enemy {
   id = Math.random();
   def: EnemyDef; x: number; y: number; hx: number; hy: number;
@@ -46,6 +51,11 @@ export class Enemy {
   npcId?: string;      // 第四步：由人界 NPC 转化而来的敌人
   spar?: boolean;      // 切磋：不致死
   boss?: boolean;      // 事件首领
+  /** 妖兽等阶 1–10（无等阶的鬼物 / 修士为 0） */
+  blv = 0;
+  lairId?: string;     // 妖王巢穴
+  burrowed = false;    // 土甲龙：已土遁过一次
+  called = false;      // 云翅鸟：已示警
   constructor(def: EnemyDef, x: number, y: number, realm: number, stage: number, sea = false) {
     this.def = def; this.x = this.hx = x; this.y = this.hy = y;
     this.realm = realm; this.stage = stage; this.level = realm * 13 + stage;
@@ -58,6 +68,7 @@ export class Enemy {
     this.anim.flying = !!def.flying;
     this.sea = sea;
     this.name = def.name;
+    if (def.lv) this.blv = Math.max(def.lv[0], Math.min(def.lv[1], lvOf(realm, stage)));
     if (def.kind === 'human') {
       let seed = Math.floor(Math.random() * 1e9);
       const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
@@ -67,6 +78,7 @@ export class Enemy {
     }
   }
   get rankText() {
+    if (this.blv) return lvName(this.blv, this.stage) + (this.def.lair ? (this.def.title?.split('·')[0] ?? '妖王') : this.def.kind === 'ghost' ? '阴物' : '妖兽');
     if (this.def.kind === 'human' || this.def.kind === 'ghost') return realmName(this.realm, this.stage);
     const lv = this.realm === 1 ? (this.stage < 5 ? 1 : this.stage < 10 ? 2 : 3) : this.realm === 2 ? 3 + Math.min(1, this.stage) : this.realm === 3 ? 5 + Math.min(1, this.stage) : 7 + Math.min(1, this.stage);
     return ['', '一级', '二级', '三级', '四级', '五级', '六级', '七级', '八级'][lv] + '妖兽';
@@ -154,8 +166,18 @@ export class Combat {
   get speedMul() { return (this.pst.slow ? 0.5 : 1) * (1 + this.buffs.speed) * (1 - 0.22 * Math.min(2, this.pressure)); }
 
   // ------------------------------------------------------------ 瞄准
+  /** 投放距离：神识未外放时为神识半径的 80%，外放时为（外放后）半径的 70%。所有远程功法、法器、符箓共用 */
+  get reach() { const g = this.game; return g.senseRadius * (g.senseBurstT > 0 ? 0.7 : 0.8); }
+  /** 把功法的射程换成投放距离（锥形吐息、自身周围的爆发、位移类不变）；弹道相应提速，免得远射慢吞吞 */
+  reachSkill(s: ArtSkill): ArtSkill {
+    if (!REACH_CASTS.has(s.cast) || !(s.range > 0) || s.id === 'juling') return s;
+    const R = this.reach, o: ArtSkill = { ...s, range: R };
+    if (s.cast === 'bolt' || s.cast === 'fan') o.speed = Math.max(s.speed ?? 700, R / (s.dur ?? 1.25));
+    return o;
+  }
   aim(range: number): { x: number; y: number; dx: number; dy: number; target: Enemy | null } {
     const g = this.game, p = g.player;
+    const exact = range >= this.reach - 1;   // 远程：锁定范围即投放距离
     const m = g.input.mouse;
     const R = g.senseRadius;
     let target: Enemy | null = null;
@@ -168,9 +190,9 @@ export class Combat {
       return { x: tx, y: ty, dx: (tx - p.x) / d, dy: (ty - p.y) / d, target };
     }
     // 自动锁定最近敌人
-    if (this.lock && (this.lock.dead || Math.hypot(this.lock.x - p.x, this.lock.y - p.y) > Math.min(R, range * 1.6))) this.lock = null;
+    if (this.lock && (this.lock.dead || Math.hypot(this.lock.x - p.x, this.lock.y - p.y) > Math.min(R, range * (exact ? 1.08 : 1.6)))) this.lock = null;
     if (!this.lock) {
-      let bd = Math.min(R, range * 1.4);
+      let bd = Math.min(R, range * (exact ? 1 : 1.4));
       for (const e of this.enemies) { if (e.dead) continue; const d = Math.hypot(e.x - p.x, e.y - p.y); if (d < bd) { bd = d; this.lock = e; } }
     }
     target = this.lock;
@@ -219,9 +241,10 @@ export class Combat {
     this.castT = 0.32; this.combatT = 0;
     if (g.concealed && s.power > 0) g.toggleConceal();
     this.buffs.until.stealth && (this.buffs.until.stealth = Math.min(this.buffs.until.stealth, g.time + (lv >= 3 && id === 'nifeng' ? 99 : 0)));
-    const a = this.aim(s.range || 400);
+    const sr = this.reachSkill(s);
+    const a = this.aim(sr.range || 400);
     g.player.st.faceToward(a.dx, a.dy, false);
-    this.exec(s, lv, a, this.pStats.atk, this.pStats.realm);
+    this.exec(sr, lv, a, this.pStats.atk, this.pStats.realm);
     this.gainXp(id, 1);
     audio.sfx(s.school === '雷' ? 'thunder' : 'whoosh');
   }
@@ -449,19 +472,19 @@ export class Combat {
     if (this.cdLeft(key) > 0) return;
     const p = g.player, ps = this.pStats;
     const color = hexToRgb(tal.color);
-    const fake: ArtSkill = { id: key, name: d.name, school: '符', tier: 0, realm: 0, cast: 'bolt', fx: 'talisman', mp: 0, cd: 1, power: tal.power, range: 620, speed: 820, color, desc: '', evo: ['', '', ''] };
+    const fake: ArtSkill = { id: key, name: d.name, school: '符', tier: 0, realm: 0, cast: 'bolt', fx: 'talisman', mp: 0, cd: 1, power: tal.power, range: this.reach, speed: Math.max(820, this.reach / 1.1), color, desc: '', evo: ['', '', ''] };
     // 符箓威力不随自身攻击过多放大：取“符力”为主
     const atk = Math.max(ps.atk, REALMS[Math.max(1, h.realm)].atk[0]) * 0.9;
     switch (tal.kind) {
       case 'fire': fake.cast = 'fan'; fake.fx = 'fireball'; fake.count = 3; fake.status = { k: 'burn', dur: 3, ch: 0.5 }; break;
       case 'ice': fake.cast = 'fan'; fake.fx = 'icicle'; fake.count = 3; fake.speed = 900; fake.status = { k: 'freeze', dur: 1.4, ch: 0.45 }; break;
-      case 'thunder': fake.cast = 'strike'; fake.fx = 'lightning'; fake.radius = 120; fake.count = 1; fake.range = 640; fake.status = { k: 'shock', dur: 1, ch: 0.6 }; fake.vsEvil = 2; break;
-      case 'fubao': fake.cast = 'beam'; fake.fx = 'bigsword'; fake.radius = 64; fake.range = 640; fake.status = { k: 'knock', dur: 0.4, ch: 1 }; fake.school = '剑'; break;
+      case 'thunder': fake.cast = 'strike'; fake.fx = 'lightning'; fake.radius = 120; fake.count = 1; fake.status = { k: 'shock', dur: 1, ch: 0.6 }; fake.vsEvil = 2; break;
+      case 'fubao': fake.cast = 'beam'; fake.fx = 'bigsword'; fake.radius = 64; fake.status = { k: 'knock', dur: 0.4, ch: 1 }; fake.school = '剑'; break;
       case 'shield': fake.cast = 'shield'; fake.fx = 'gold'; fake.power = tal.power; fake.dur = 12; break;
       case 'bomb': {
         C.removeItem(h, itemId, 1); this.setCd(key, 1); this.castT = 0.3; this.combatT = 0;
         if (g.player.sitting) g.stand();
-        const a = this.aim(560); p.st.faceToward(a.dx, a.dy, false);
+        const a = this.aim(this.reach); p.st.faceToward(a.dx, a.dy, false);
         const L = lookOf(itemId);
         this.acts.bomb({ itemId, art: { kind: 'slam', reqRealm: 0, sense: 0, pieces: 1, power: tal.power, mp: 0, cd: 1, color: tal.color }, L, cc: hexToRgb01(L.glow), dmg: atk * tal.power,
           src: { realm: h.realm, status: { k: 'shock', dur: 1.2, ch: 0.7 }, stCh: 0.7, school: '符', evil: 2, skill: key }, pieces: 1, ax: a.x, ay: a.y, target: a.target });
@@ -525,7 +548,7 @@ export class Combat {
     const status: StatusSpec | undefined = art.element === 'fire' ? { k: 'burn', dur: 3, ch: 0.4 } : art.element === 'ice' ? { k: 'freeze', dur: 1.5, ch: 0.3 } : art.element === 'thunder' ? { k: 'shock', dur: 0.8, ch: 0.4 } : art.element === 'earth' ? { k: 'stun', dur: 0.8, ch: 0.4 } : undefined;
     const pieces = Math.max(1, Math.min(art.pieces, 1 + Math.floor(ps.sense / Math.max(1, art.sense * 2.5))));
     const fake: ArtSkill = {
-      id: key, name: d.name, school: sch ?? '剑', tier: 0, realm: 0, cast: 'bolt', fx: 'sword', mp: 0, cd: art.cd, power: art.power * 1.3 * weak, range: 640, speed: 950, pierce: art.kind === 'sword', status, color, desc: '', evo: ['', '', ''], vsEvil: art.element === 'thunder' ? 2 : undefined,
+      id: key, name: d.name, school: sch ?? '剑', tier: 0, realm: 0, cast: 'bolt', fx: 'sword', mp: 0, cd: art.cd, power: art.power * 1.3 * weak, range: this.reach, speed: Math.max(950, this.reach / 1.1), pierce: art.kind === 'sword', status, color, desc: '', evo: ['', '', ''], vsEvil: art.element === 'thunder' ? 2 : undefined,
     };
     switch (art.kind) {
       case 'sword': fake.count = pieces; fake.cast = pieces > 1 ? 'fan' : 'bolt'; fake.homing = pieces > 1; if (pieces > 1) fake.power /= Math.sqrt(pieces) * 0.8; break;
@@ -647,7 +670,18 @@ export class Combat {
     C.gainExp(h, exp, msgs);
     this.texts.push({ x: e.x, y: e.y - 60, s: `修为 +${Math.round(exp)}`, color: '#9fe8c0', t: 0, vy: -40 });
     // 掉落
-    for (const dr of e.def.drops) if (Math.random() < dr.ch) this.dropLoot(e.x, e.y, dr.id, dr.n ? rint(dr.n[0], dr.n[1]) * (1 + e.realm - 1) : 1);
+    for (const dr of e.def.drops) if (Math.random() < dr.ch) this.dropLoot(e.x, e.y, dr.id, dr.n ? rint(dr.n[0], dr.n[1]) * (e.blv ? 1 : e.realm) : 1);
+    // 妖丹：一级妖兽约三成有丹，五级以上必有
+    if (e.blv && Math.random() < [0, 0.35, 0.5, 0.65, 0.8, 1, 1, 1, 1, 1, 1][e.blv]) {
+      this.dropLoot(e.x, e.y, 'mat_yaodan' + e.blv, e.def.lair ? 2 : 1);
+      this.fxq.push({ k: 'kill', x: e.x, y: e.y - 60, color: YAODAN_COL[e.blv] });
+    }
+    if (e.lairId) {
+      const f = g.ws.flags as any; (f.lairs ??= {})[e.lairId] = g.day;
+      g.news?.(`韩立斩杀${lvName(e.blv)}${e.def.title?.split('·')[0] ?? '妖王'}「${e.name}」！`, 'personal');
+      g.toast(`斩杀${e.name}！妖王陨落，妖丹与遗骸归你所有。`, 'good');
+      g.juice(0.12, 0.8);
+    }
     const dz = this.dangerCache.d;
     if (Math.random() < 0.05 + dz * 0.025 + (e.def.kind === 'human' ? 0.08 : 0)) {
       const sk = this.randomScroll(Math.min(4, Math.floor(dz / 1.5) + (e.realm >= 2 ? 1 : 0)));
@@ -776,32 +810,67 @@ export class Combat {
       const sea = !T.isLand(x, y);
       if (this.safeAt(x, y)) continue;
       const zone = sea ? 'sea' : dz.zone === 'sea' ? '' : dz.zone;
-      const cands = ENEMY_LIST.filter((e) => e.minDanger <= dz.d + 0.4 && dz.d <= e.maxDanger + 0.5 && (!e.regions || e.regions.includes(dz.region)) && (sea ? e.zone === 'sea' || e.flying : e.zone !== 'sea') && (!e.zone || e.zone === zone));
+      const rk = dangerRealm(dz.d, Math.random);
+      const band = lvOf(rk.realm, rk.stage);
+      // 越阶妖兽（高一级）只在危险度 ≥1.5 处偶尔出没，新手地带不至于撞上筑基妖兽
+      const place = (e: EnemyDef) => !e.lair && (!e.regions || e.regions.includes(dz.region)) && (sea ? e.zone === 'sea' || e.flying : e.zone !== 'sea') && (!e.zone || e.zone === zone);
+      const cands = ENEMY_LIST.filter((e) => place(e) && (e.lv ? lvWeight(e, band, dz.d >= 1.5) > 0 : e.minDanger <= dz.d + 0.4 && dz.d <= e.maxDanger + 0.5));
       if (!cands.length) continue;
-      const w = cands.map((e) => (e.zone && e.zone === zone ? 3 : 1) * (e.kind === 'human' ? 0.6 : 1));
+      // 珍稀妖兽（见人即逃 / 擅隐匿）出现得少
+      const w = cands.map((e) => (e.zone && e.zone === zone ? 3 : 1) * (e.kind === 'human' ? 0.6 : 1) * (e.lv ? lvWeight(e, band, dz.d >= 1.5) : 1) * (e.behave === 'flee' ? (e.lv && e.lv[0] >= 4 ? 0.12 : 0.35) : e.behave === 'call' ? 0.5 : 1));
       let r = Math.random() * w.reduce((a, b) => a + b, 0), def = cands[0];
       for (let i = 0; i < cands.length; i++) { r -= w[i]; if (r <= 0) { def = cands[i]; break; } }
       const n = def.pack ? rint(def.pack[0], def.pack[1]) : 1;
-      const rk = dangerRealm(dz.d, Math.random);
       for (let i = 0; i < n; i++) {
         const ex = x + rand(-90, 90), ey = y + rand(-60, 60);
         if (!def.flying && !sea && T.walkFactor(ex, ey) <= 0) continue;
-        const st = clamp(rk.stage + rint(-1, 1), 0, REALMS[rk.realm].hp.length - 1);
-        this.enemies.push(new Enemy(def, ex, ey, rk.realm, st, sea));
+        const rs = this.beastRS(def, rk);
+        const st = rs.realm === 1 ? clamp(rs.stage + rint(-1, 1), 0, REALMS[1].hp.length - 1) : def.lv ? rs.stage : clamp(rs.stage + rint(-1, 1), 0, REALMS[rs.realm].hp.length - 1);
+        this.enemies.push(new Enemy(def, ex, ey, rs.realm, st, sea));
       }
       return;
+    }
+  }
+
+  /** 妖兽按自身等阶取境界：危险度给出的等阶被夹在该妖兽的等阶范围内 */
+  beastRS(def: EnemyDef, rk: { realm: number; stage: number }) {
+    if (!def.lv) return rk;
+    const band = lvOf(rk.realm, rk.stage);
+    const lv = clamp(band, def.lv[0], def.lv[1]);
+    if (lv === band) return rk;
+    return lvRealm(lv, band > lv ? 12 : 2);
+  }
+
+  /** 妖王巢穴：靠近时妖王现身；斩杀后三年内无妖王 */
+  lairTick() {
+    const g = this.game, p = g.player;
+    const f = g.ws.flags as any;
+    f.lairs ??= {}; f.lairSeen ??= {};
+    for (const L of LAIRS) {
+      const lx = L.x * WORLD_SCALE, ly = L.y * WORLD_SCALE;
+      const d = Math.hypot(lx - p.x, ly - p.y);
+      if (d > 6000) continue;
+      if (!f.lairSeen[L.id]) { f.lairSeen[L.id] = 1; g.toast(`一股令人心悸的妖气自远处弥漫而来——此地是「${L.name}」。${L.desc}`, 'warn'); }
+      if (d > 3200) continue;
+      if (f.lairs[L.id] && g.day - f.lairs[L.id] < 1080) continue;
+      if (this.enemies.some((e) => e.lairId === L.id && !e.dead)) continue;
+      const def = ENEMIES[L.enemy]; if (!def?.lv) continue;
+      const rs = lvRealm(def.lv[0]);
+      const e = new Enemy(def, lx, ly, rs.realm, rs.stage, !g.terrain.isLand(lx, ly));
+      e.boss = true; e.lairId = L.id; e.hx = lx; e.hy = ly;
+      this.enemies.push(e);
     }
   }
 
   /** 秘境 / 洞府守卫 */
   spawnGuards(loc: LocDef) {
     const dz = loc.danger ?? 1;
-    const cands = ENEMY_LIST.filter((e) => e.minDanger <= dz && dz <= e.maxDanger && e.zone !== 'sea');
+    const cands = ENEMY_LIST.filter((e) => e.minDanger <= dz && dz <= e.maxDanger && e.zone !== 'sea' && !e.behave && !e.lair);
     if (!cands.length) return;
     const n = 1 + Math.floor(dz / 2);
     for (let i = 0; i < n; i++) {
       const def = cands[Math.floor(Math.random() * cands.length)];
-      const rk = dangerRealm(dz + 0.5, Math.random);
+      const rk = this.beastRS(def, dangerRealm(dz + 0.5, Math.random));
       const e = new Enemy(def, loc.x * WORLD_SCALE + rand(-200, 200), loc.y * WORLD_SCALE + rand(-150, 150), rk.realm, rk.stage);
       e.name = def.name + '·守护'; e.maxHp = e.hp = Math.round(e.hp * 1.4); e.aggro = true;
       this.enemies.push(e);
@@ -828,7 +897,7 @@ export class Combat {
     const stealth = (this.buffs.until.stealth ?? 0) > t;
     // 刷怪
     this.spawnT -= dt;
-    if (this.spawnT <= 0) { this.spawnT = 2.5; this.spawnTick(); }
+    if (this.spawnT <= 0) { this.spawnT = 2.5; this.spawnTick(); this.lairTick(); }
     // 玩家异状
     this.tickStatuses(this.pst, dt, (dmg) => { h.hp -= dmg / this.pStats.hp; if (Math.random() < dt * 3) this.texts.push({ x: p.x, y: p.y - 110, s: '-' + Math.round(dmg * 0.5), color: '#e09060', t: 0, vy: -40 }); if (h.hp <= 0) this.playerDown(); });
     // 回复
@@ -889,7 +958,12 @@ export class Combat {
     // 掉落拾取
     this.loot = this.loot.filter((l) => {
       l.t += dt;
-      const d = Math.hypot(l.x - p.x, l.y - p.y);
+      let d = Math.hypot(l.x - p.x, l.y - p.y);
+      // 妖丹灵光自行投入怀中
+      if (l.id.startsWith('mat_yaodan') && l.t > 0.7 && d < 520 && !h.dead) {
+        const k = Math.min(1, dt * (3 + (l.t - 0.7) * 6));
+        l.x += (p.x - l.x) * k; l.y += (p.y - 40 - l.y) * k; d = Math.hypot(l.x - p.x, l.y - p.y);
+      }
       if (l.t > 0.6 && d < 130) {
         C.addItem(h, l.id, l.n);
         const it = itemDef(l.id);
@@ -934,7 +1008,24 @@ export class Combat {
       const dx = tx - e.x, dy = ty - e.y, dist = Math.hypot(dx, dy);
       // 察觉
       const aggroR = (e.def.aggro ?? 480) * concealK * (e.realm > h.realm ? 1.3 : 1);
-      if (!e.aggro && !stealth && !playerSafe && dist < aggroR) { e.aggro = true; if (e.def.kind === 'human') this.texts.push({ x: e.x, y: e.y - 110, s: ['留下储物袋！', '小子，找死！', '杀人夺宝！'][Math.floor(Math.random() * 3)], color: '#ffd0a0', t: 0, vy: -20 }); }
+      const bh = e.def.behave;
+      // 见人即逃：察觉后不交战，只顾逃窜（受伤亦然）
+      if (bh === 'flee' && !e.flee && !stealth && (dist < aggroR * 1.15 || e.hp < e.maxHp)) { e.flee = true; e.aggro = true; this.texts.push({ x: e.x, y: e.y - 70, s: '逃！', color: '#e8d8a8', t: 0, vy: -30 }); }
+      if (bh === 'flee' && e.flee && dist > 1400) { e.flee = false; e.aggro = false; e.dead = true; e.deathT = 0.8; this.game.toast(`${e.name}${e.def.id === 'tujia' ? '钻入地下' : '隐入草木'}，没了踪影。`, 'info'); continue; }
+      // 土甲龙：重伤时土遁一次
+      if (e.def.id === 'tujia' && !e.burrowed && e.hp < e.maxHp * 0.55) {
+        e.burrowed = true; const a = Math.atan2(-dy, -dx) + rand(-0.6, 0.6), L = rand(520, 760);
+        this.burstShards(e.x, e.y - 10, '190,160,110'); this.vfx.push({ kind: 'ring', x: e.x, y: e.y, r: 90, t: 0, dur: 0.6, color: '170,140,90' } as any);
+        const nx = e.x + Math.cos(a) * L, ny = e.y + Math.sin(a) * L * 0.8;
+        if (T.walkFactor(nx, ny) > 0) { e.x = nx; e.y = ny; this.burstShards(e.x, e.y - 10, '190,160,110'); this.texts.push({ x: e.x, y: e.y - 80, s: '土遁！', color: '#e0c890', t: 0, vy: -30 }); }
+      }
+      if (!e.aggro && !stealth && !playerSafe && dist < aggroR && bh !== 'shy' && bh !== 'flee') { e.aggro = true;
+        if (bh === 'call' && !e.called) {
+          e.called = true; e.flee = true;
+          let n = 0; for (const o of this.enemies) if (o !== e && !o.dead && !o.aggro && o.def.kind !== 'human' && o.def.behave !== 'flee' && Math.hypot(o.x - e.x, o.y - e.y) < 1300) { o.aggro = true; n++; }
+          this.texts.push({ x: e.x, y: e.y - 120, s: '啾——！', color: '#ffe080', t: 0, vy: -24, big: true });
+          if (n) this.game.toast(`云翅鸟尖啸示警，附近 ${n} 头妖兽被惊动了！`, 'warn');
+        } if (e.def.kind === 'human') this.texts.push({ x: e.x, y: e.y - 110, s: ['留下储物袋！', '小子，找死！', '杀人夺宝！'][Math.floor(Math.random() * 3)], color: '#ffd0a0', t: 0, vy: -20 }); }
       if (e.aggro && (stealth || playerSafe || dist > 2600 || Math.hypot(e.x - e.hx, e.y - e.hy) > 3200)) e.aggro = false;
       if (!e.flee && e.def.kind === 'beast' && e.hp < e.maxHp * 0.15 && Math.random() < 0.01) e.flee = true;
       let mvx = 0, mvy = 0, sp = e.speed * (e.st.slow ? 0.5 : 1);

@@ -13,7 +13,7 @@ const check = (name: string, ok: boolean, extra = '') => { console.log((ok ? 'ok
 
 function scenario(label: string, o: { realm: number; stage?: number; gap: number; fly: boolean; boost: boolean; flight?: string; conceal?: boolean; skill?: string; secs?: number; dir?: string }) {
   g.combat.reset(); g.pursuit.reset(); g.modal = null; g.modalStack = [];
-  const h = g.hero; h.realm = o.realm; h.stage = o.stage ?? 0; h.hp = 1; h.mp = 1; h.dead = false; h.equip = o.flight ? { flight: o.flight } : {};
+  const h = g.hero; h.realm = o.realm; h.stage = o.stage ?? 0; h.hp = 1; h.mp = 1; h.dead = false; h.equip = o.flight === 'art_xuepifeng' ? { armor: o.flight } : o.flight ? { flight: o.flight } : {};
   g.player.x = 120000; g.player.y = 93000; g.player.flying = o.fly; g.player.sitting = false; g.concealed = !!o.conceal; g.senseBurstT = 0;
   g.input.keys.clear(); g.input.keys.add(o.dir ?? 'd'); if (o.boost) g.input.keys.add('shift');
   for (let i = 0; i < 10; i++) { g.modal = null; g.update(1 / 30); }   // 先跑起来，追杀者从身后出现

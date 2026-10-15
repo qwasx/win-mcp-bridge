@@ -173,24 +173,32 @@ export function BagPanel({ game, onClose }: { game: Game; onClose: () => void })
 export function AlchemyPanel({ game, onClose }: { game: Game; onClose: () => void }) {
   const [, force] = useState(0);
   const re = () => force((x) => x + 1);
+  const [tab, setTab] = useState<'pill' | 'forge'>('pill');
+  const list = RECIPES.filter((x) => (x.kind ?? 'pill') === tab);
   const [sel, setSel] = useState(RECIPES[0].id);
   const [log, setLog] = useState<string[]>([]);
   const h = game.hero;
-  const r = RECIPES.find((x) => x.id === sel)!;
-  const chk = C.checkRecipe(h, r);
+  const fire = game.forgeFire;
+  const r = list.find((x) => x.id === sel) ?? list[0];
+  const chk = C.checkRecipe(h, r, fire);
+  const forge = tab === 'forge';
   return (
-    <Panel title="丹房" onClose={onClose} wide sub="以灵草炼丹。药龄越高，成丹率越高；有灵泉水在侧亦可提升。">
+    <Panel title={forge ? '器炉' : '丹房'} onClose={onClose} wide sub={forge ? (fire ? '此地有地火可借，炼器无碍。妖兽身上的鳞、爪、鳍、角与妖丹皆是炼器之材。' : '此处无地火，只能以自身法力催火——成器率大减。去城镇法器阁或宗门炼器房更稳妥。') : '以灵草炼丹。药龄越高，成丹率越高；有灵泉水在侧亦可提升。'}>
+      <div className="alch-tabs">
+        <button className={tab === 'pill' ? 'on' : ''} onClick={() => { setTab('pill'); setSel(RECIPES[0].id); }}>炼丹</button>
+        <button className={tab === 'forge' ? 'on' : ''} onClick={() => { setTab('forge'); setSel(''); }}>炼器{fire ? <i>地火</i> : null}</button>
+      </div>
       <div className="alch">
         <div className="recipe-list">
-          {RECIPES.map((x) => { const ok = C.checkRecipe(h, x).ok; return (
-            <button key={x.id} className={'recipe' + (sel === x.id ? ' on' : '') + (ok ? ' ok' : '')} onClick={() => setSel(x.id)}>
-              <span className="glyph">丹</span>{x.name}{ok && <i>可炼</i>}
+          {list.map((x) => { const ok = C.checkRecipe(h, x, fire).ok; return (
+            <button key={x.id} className={'recipe' + (r.id === x.id ? ' on' : '') + (ok ? ' ok' : '')} onClick={() => setSel(x.id)}>
+              <span className="glyph">{forge ? '器' : '丹'}</span>{x.name}{ok && <i>{forge ? '可炼' : '可炼'}</i>}
             </button>); })}
         </div>
         <div className="recipe-detail">
-          <div className="bd-name">{r.name}<small>　产出 {itemDef(r.out).name} ×{r.outN}　耗时 {r.days} 日</small></div>
+          <div className="bd-name">{r.name}<small>　产出 {itemDef(r.out).name} ×{r.outN}　耗时 {r.days} 日{forge ? `　需${['凡人', '炼气', '筑基', '结丹', '元婴'][r.reqRealm]}期` : ''}</small></div>
           <div className="bd-desc">{r.desc}</div>
-          <div className="sec-title">所需药材</div>
+          <div className="sec-title">{forge ? '所需材料' : '所需药材'}</div>
           <div className="inputs">
             {r.inputs.map((inp) => { const have = C.bagCount(h, inp.id, inp.minAge ?? 0); const ok = have >= inp.n; return (
               <div key={inp.id} className={'inp' + (ok ? ' ok' : '')}>
@@ -198,8 +206,8 @@ export function AlchemyPanel({ game, onClose }: { game: Game; onClose: () => voi
                 <div><b>{itemDef(inp.id).name}</b>{inp.minAge ? <small> · {inp.minAge}年以上</small> : null}<div className="hint">持有 {have} / 需 {inp.n}{!ok && inp.minAge && C.bagCount(h, inp.id) > have ? `（另有 ${C.bagCount(h, inp.id) - have} 株年份不足，可用掌天瓶催熟）` : ''}</div></div>
               </div>); })}
           </div>
-          <div className="bk-row"><span>成丹率</span><div className="bar chance"><div style={{ width: `${chk.chance * 100}%` }} /></div><b>{(chk.chance * 100).toFixed(0)}%</b></div>
-          <button className="ink-btn jade" disabled={!chk.ok} onClick={() => { const res = game.brew(r); setLog((l) => [res.msgs.map((m) => m.text).join(' '), ...l].slice(0, 5)); re(); }}>开 炉</button>
+          <div className="bk-row"><span>{forge ? '成器率' : '成丹率'}</span><div className="bar chance"><div style={{ width: `${chk.chance * 100}%` }} /></div><b>{(chk.chance * 100).toFixed(0)}%</b></div>
+          <button className="ink-btn jade" disabled={!chk.ok} onClick={() => { const res = game.brew(r); setLog((l) => [res.msgs.map((m) => m.text).join(' '), ...l].slice(0, 5)); re(); }}>{forge ? '起 炉 炼 器' : '开 炉'}</button>
           <div className="alch-log">{log.map((l, i) => <div key={i} style={{ opacity: 1 - i * 0.18 }}>{l}</div>)}</div>
         </div>
       </div>
