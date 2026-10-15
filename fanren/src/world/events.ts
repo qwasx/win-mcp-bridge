@@ -30,7 +30,7 @@ interface CanonEvent {
 }
 const lvR = (g: Game, add = 0) => { const h = g.hero; return { realm: Math.max(1, Math.min(5, h.realm + (h.stage >= REALMS[h.realm].stages.length - 1 ? 1 : 0) + add)), stage: 0 }; };
 
-const CANON_EVENTS: CanonEvent[] = [
+export const CANON_EVENTS: CanonEvent[] = [
   {
     id: 'shengxian', name: '升仙大会', year: 2, month: 3, dur: 120, loc: 'tainan', radius: 9, minRealm: 1, special: 'shengxian',
     announce: '七派将于明年春在太南山举办升仙大会，广招有灵根的少年。持升仙令者，可直入黄枫谷。',

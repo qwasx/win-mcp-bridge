@@ -32,7 +32,7 @@ export interface NpcData {
 }
 export const npcMap = (d: NpcData): MapId => d.map ?? 'tiannan';
 /** 各图常住修士 / 凡人数量 */
-const POP: Record<MapId, number> = { tiannan: 300, luanxing: 140, dajin: 260 };
+const POP: Record<MapId, number> = { tiannan: 300, luanxing: 140, dajin: 420 };
 
 interface Active {
   d: NpcData; st: CharState; look: Look;
@@ -155,7 +155,11 @@ export class NpcWorld {
     for (const m of ['tiannan', 'luanxing', 'dajin'] as MapId[]) {
       const homes = locsOf(m).filter((l) => l.type !== 'danger' && l.type !== 'secret');
       const pre = m === 'tiannan' ? 'n' : m === 'luanxing' ? 'xn' : 'jn';
-      for (let i = 0; i < POP[m]; i++) this.list.push(this.spawnRandom(rnd, homes[Math.floor(rnd() * homes.length)], pre + i));
+      // 按地点规模加权：城池、宗门人多，荒野小地点人少
+      const wt = (l: LocDef) => (l.type === 'city' ? 8 : l.type === 'sect' ? 6 : l.type === 'town' ? 3 : l.type === 'isle' ? 2.5 : 1) * (l.minor ? 0.35 : 1);
+      const cum: number[] = []; let tot = 0; for (const l of homes) cum.push(tot += wt(l));
+      const pickHome = () => { const r = rnd() * tot; let lo = 0, hi = cum.length - 1; while (lo < hi) { const mid = (lo + hi) >> 1; if (cum[mid] < r) lo = mid + 1; else hi = mid; } return homes[lo]; };
+      for (let i = 0; i < POP[m]; i++) this.list.push(this.spawnRandom(rnd, pickHome(), pre + i));
     }
     this.reindex();
   }
@@ -164,12 +168,14 @@ export class NpcWorld {
     let faction: Faction = isSect ? (demon ? 'demon' : 'sect') : loc.type === 'city' ? (rnd() < 0.3 ? 'merchant' : rnd() < 0.6 ? 'rogue' : 'mortal') : loc.type === 'isle' ? (rnd() < 0.7 ? 'rogue' : 'merchant') : (rnd() < 0.7 ? 'mortal' : 'rogue');
     if (!isSect && rnd() < 0.06) faction = 'demon';
     const sex: 'm' | 'f' = rnd() < (faction === 'mortal' ? 0.4 : 0.32) ? 'f' : 'm';
-    const north = loc.oy < 260 || loc.ox > 650;   // 大晋与乱星海修士普遍更强（按旧版经纬）
+    const north = loc.map !== 'tiannan';   // 大晋与乱星海修士普遍更强
+    const deep = loc.map === 'dajin';      // 大晋：灵气浓郁，结丹满街走
     let realm = 0, stage = 0;
     if (faction !== 'mortal') {
       const r = rnd();
       realm = r < 0.62 ? 1 : r < 0.9 ? 2 : r < 0.985 ? 3 : 4;
       if (north && realm < 4 && rnd() < 0.35) realm++;
+      if (deep && realm < 4 && rnd() < 0.3) realm++;
       stage = Math.floor(rnd() * REALMS[realm].stages.length);
     }
     const P: Pers[] = faction === 'demon' ? ['ruthless', 'greedy', 'arrogant', 'cautious'] : faction === 'merchant' ? ['greedy', 'kind', 'cautious'] : faction === 'mortal' ? ['kind', 'cautious', 'righteous'] : ['righteous', 'greedy', 'cautious', 'arrogant', 'kind', 'ruthless', 'aloof'];

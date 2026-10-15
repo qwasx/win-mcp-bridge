@@ -40,7 +40,7 @@ export function App() {
     if (bootResume !== null) { mode.current = 'continue'; enterGame(bootResume || undefined); }
     else if (bootNew) { mode.current = 'new'; setScreen('intro'); }
     // 调试 / 自动化测试：?auto=new 直接进入新游戏
-    if (new URLSearchParams(location.search).get('auto') === 'new') { mode.current = 'new'; enterGame(); }
+    if (bootResume === null && new URLSearchParams(location.search).get('auto') === 'new') { mode.current = 'new'; enterGame(); }
     return () => { progressListeners.delete(f); clearTimeout(t); };
   }, []);
 

@@ -354,7 +354,12 @@ export class Game {
   /** 存档所在地图与当前不同：记下目标图，重新载入后自动读档 */
   switchMap(map: MapId, key?: string): boolean {
     try { localStorage.setItem('fanren.map', map); sessionStorage.setItem('fanren.resume', key ?? 'fanren_save_auto'); } catch { return false; }
-    if (typeof location !== 'undefined' && !(globalThis as any).__FANREN_NORELOAD) { location.reload(); return true; }
+    if (typeof location !== 'undefined' && !(globalThis as any).__FANREN_NORELOAD) {
+      // 网址里带 ?map= 时它优先于本地记录——改写网址，否则会无限重载
+      if (/[?&](map|auto)=/.test(location.search)) { const u = new URL(location.href); u.searchParams.set('map', map); u.searchParams.delete('auto'); location.replace(u.toString()); }
+      else location.reload();
+      return true;
+    }
     return false;
   }
   /** 旧版统一地图的迷雾 → 三张新图各自的迷雾 */
