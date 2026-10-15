@@ -9,10 +9,13 @@ import { audio } from '../world/audio';
 function slotInfo(id: string | null | undefined): { glyph: string; name: string; color: string; tier: number } | null {
   if (!id) return null;
   if (id.startsWith('art:')) { const d = itemDef(id.slice(4)); return { glyph: d.glyph, name: d.name, color: '#b8802a', tier: d.tier }; }
+  if (id.startsWith('tal:')) { const d = itemDef(id.slice(4)); return { glyph: d.name[0], name: d.name, color: d.tal?.color ?? '#c0a050', tier: d.tier }; }
   const s = ARTS[id];
   if (!s) return null;
   return { glyph: s.name[0], name: s.name, color: SCHOOL_COLOR[s.school], tier: s.tier };
 }
+
+function talCount(game: Game, id: string) { let n = 0; for (const b of game.hero.bag) if (b.id === id) n += b.n; return n; }
 
 /** 快捷栏：PC 底部一排九格；触屏右下 3×3 法诀盘 */
 export function Hotbar({ game, touch }: { game: Game; touch: boolean }) {
@@ -23,7 +26,7 @@ export function Hotbar({ game, touch }: { game: Game; touch: boolean }) {
     let raf = 0, sig = '';
     const loop = () => {
       const h = game.hero;
-      const s = h.hotbar.join('|') + h.arts.length;
+      const s = h.hotbar.join('|') + h.arts.length + h.hotbar.map((id) => id?.startsWith('tal:') ? talCount(game, id.slice(4)) : '').join(',');
       if (s !== sig) { sig = s; force((x) => x + 1); }
       h.hotbar.forEach((id, i) => {
         const el = cdRefs.current[i], tx = txtRefs.current[i];
@@ -51,6 +54,7 @@ export function Hotbar({ game, touch }: { game: Game; touch: boolean }) {
             style={inf ? { ['--sc' as any]: inf.color } : undefined}>
             {inf && <span className="hb-glyph">{inf.glyph}</span>}
             {inf && !touch && <span className="hb-name">{inf.name}</span>}
+            {id?.startsWith('tal:') && <span className="hb-count">{talCount(game, id.slice(4))}</span>}
             <div className="hb-cd" ref={(el) => (cdRefs.current[i] = el)} />
             <span className="hb-cdt" ref={(el) => (txtRefs.current[i] = el)} />
             {!touch && <span className="hb-key">{i + 1}</span>}
@@ -75,6 +79,7 @@ export function SkillPanel({ game, onClose }: { game: Game; onClose: () => void 
   const learned = new Set(h.arts.map((a) => a.id));
   const list = h.arts.map((a) => ({ a, s: ARTS[a.id] })).filter((x) => x.s && (school === 'all' || x.s.school === school)).sort((x, y) => x.s.tier - y.s.tier || x.s.realm - y.s.realm);
   const arts = [...new Set(h.bag.filter((b) => itemDef(b.id).art).map((b) => b.id))];
+  const tals = [...new Set(h.bag.filter((b) => { const t = itemDef(b.id).tal; return t && t.kind !== 'revive'; }).map((b) => b.id))];
   const selKey = sel;
   const assign = (i: number) => {
     if (!selKey) return;
@@ -88,7 +93,7 @@ export function SkillPanel({ game, onClose }: { game: Game; onClose: () => void 
   const a = h.arts.find((x) => x.id === sel);
   const lv = s && a ? profLevel(s.tier, a.xp) : 0;
   const need = s ? profNeed(s.tier) : [0];
-  const it = sel.startsWith('art:') ? itemDef(sel.slice(4)) : null;
+  const it = sel.startsWith('art:') || sel.startsWith('tal:') ? itemDef(sel.slice(4)) : null;
   return (
     <div className="modal-mask" onClick={onClose}>
       <div className="scroll-panel cult-panel wide skill-panel" onClick={(e) => e.stopPropagation()}>
@@ -126,7 +131,17 @@ export function SkillPanel({ game, onClose }: { game: Game; onClose: () => void 
                   </button>
                 );
               })}
-              {tab === 'items' && arts.length === 0 && <div className="hint">储物袋中尚无法器。斩杀妖兽、探索洞府遗迹可得。</div>}
+              {tab === 'items' && tals.map((id) => {
+                const d = itemDef(id), key = 'tal:' + id;
+                return (
+                  <button key={id} className={'skill-row' + (sel === key ? ' on' : '')} onClick={() => { setSel(key); audio.sfx('click'); }}>
+                    <span className="sk-glyph" style={{ background: d.tal?.color ?? '#a08040' }}>{d.name[0]}</span>
+                    <span className="sk-name">{d.name}<small>符箓 ×{talCount(game, id)}</small></span>
+                    {h.hotbar.includes(key) && <span className="sk-slot">{h.hotbar.indexOf(key) + 1}</span>}
+                  </button>
+                );
+              })}
+              {tab === 'items' && arts.length === 0 && tals.length === 0 && <div className="hint">储物袋中尚无法器。斩杀妖兽、探索洞府遗迹可得。</div>}
               {tab === 'arts' && <div className="hint" style={{ marginTop: 8 }}>尚有 {ART_LIST.length - learned.size} 门法术散落天下：妖兽、魔修掉落，洞府遗迹，日后坊市、宗门藏经阁亦可求得。</div>}
             </div>
             <div className="bag-detail">
@@ -148,6 +163,13 @@ export function SkillPanel({ game, onClose }: { game: Game; onClose: () => void 
                   <div className="bd-desc">{it.desc}</div>
                   <div className="bd-type">驱使法力 {it.art.mp} · 冷却 {it.art.cd}s{it.art.power ? ` · 威力 ×${it.art.power}` : ''}</div>
                   {(['armor', 'shield', 'flight', 'wings'] as string[]).includes(it.art.kind) && <button className="ink-btn jade" onClick={() => { game.combat.castArtifact(sel.slice(4)); re(); }}>{Object.values(h.equip ?? {}).includes(sel.slice(4)) ? '收起' : '祭出护身'}</button>}
+                </>
+              )}
+              {it && it.tal && (
+                <>
+                  <div className="bd-name" style={{ color: it.tal.color }}>{it.name}<small>　符箓 · 持有 {talCount(game, it.id)}</small></div>
+                  <div className="bd-desc">{it.desc}</div>
+                  <div className="bd-type">一次性消耗 · 符箓之力对高境界敌人衰减较少（越一大境界仍有三成）</div>
                 </>
               )}
               {sel && <>

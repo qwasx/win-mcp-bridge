@@ -133,7 +133,9 @@ export class Towns {
     const g = this.game;
     const q = Math.floor(g.day / 90);
     const rnd = mulberry32(((l.x * 977 + l.y * 13) | 0) + q * 101);
-    const pool = ITEM_LIST.filter((it) => it.price >= 600 && it.price < 400000 && (it.type === 'artifact' || it.type === 'pill' || it.type === 'scroll' || it.type === 'material'));
+    // 原著有主的重宝（风雷翅、虚天鼎、三焰扇、元磁神山、五子同心魔、紫冰镯、三神白骨幡、乾蓝冰焰、大衍诀、元磁神光）只能靠机缘，不上拍卖
+    const CANON_ONLY = new Set(['art_fenglei', 'art_xutian', 'art_sanyan', 'art_yuanci', 'art_wuzi', 'art_zibing', 'art_sanshen', 'art_qianlan', 'scroll_dayan', 'scroll_yuanci', 'pill_butian', 'art_qingzhu']);
+    const pool = ITEM_LIST.filter((it) => it.price >= 600 && it.price < 400000 && !CANON_ONLY.has(it.id) && (it.type === 'artifact' || it.type === 'pill' || it.type === 'scroll' || it.type === 'material'));
     const lots: { id: string; base: number; price: number; done?: 'won' | 'lost' }[] = [];
     while (lots.length < 5 && pool.length) {
       const it = pool[Math.floor(rnd() * pool.length)];

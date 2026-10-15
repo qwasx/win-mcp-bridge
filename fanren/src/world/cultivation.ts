@@ -12,7 +12,7 @@ export interface Hero {
   hp: number; mp: number;             // 当前比例 0–1
   lifeBonus: number; senseBonus: number; lifeLost: number;
   bag: BagItem[];
-  bottle: { drops: number; charge: number };
+  bottle: { drops: number; charge: number; owned?: boolean };
   pendingTalent: string[] | null;
   dead: boolean;
   stats: { meditateDays: number; gathered: number; pills: number; breaks: number; failed: number; alchemy: number };
@@ -34,7 +34,7 @@ export function newHero(): Hero {
     name: '韩立', age: 16, realm: 1, stage: 0, exp: 0, root: 'fake', gongfa: 'changchun', talents: [], talentLevels: [],
     hp: 1, mp: 1, lifeBonus: 0, senseBonus: 0, lifeLost: 0,
     bag: [{ id: 'herb_huangjing', n: 3, age: 12 }, { id: 'pill_juqi', n: 1 }, { id: 'pill_huiqi', n: 2 }, { id: 'pill_liaoshang', n: 2 }, { id: 'mat_lingshi', n: 30 }],
-    bottle: { drops: 1, charge: 0 }, pendingTalent: null, dead: false,
+    bottle: { drops: 0, charge: 0, owned: false }, pendingTalent: null, dead: false,
     stats: { meditateDays: 0, gathered: 0, pills: 0, breaks: 0, failed: 0, alchemy: 0 },
     arts: START_ARTS.map((id) => ({ id, xp: 0 })), hotbar: [...START_HOTBAR], equip: {}, looted: [], kills: 0,
   };
@@ -193,7 +193,7 @@ export function passDays(h: Hero, days: number, meditating: boolean, place: numb
   if (h.dead) return;
   h.age += days / 360;
   // 掌天瓶聚露
-  if (h.bottle.drops < BOTTLE_MAX) {
+  if (h.bottle.owned !== false && h.bottle.drops < BOTTLE_MAX) {
     h.bottle.charge += days;
     while (h.bottle.charge >= BOTTLE_DAYS && h.bottle.drops < BOTTLE_MAX) {
       h.bottle.charge -= BOTTLE_DAYS; h.bottle.drops++;
@@ -210,6 +210,7 @@ export function passDays(h: Hero, days: number, meditating: boolean, place: numb
 
 /** 掌天瓶催熟 */
 export function useBottle(h: Hero, stack: BagItem): Msg {
+  if (h.bottle.owned === false) return { text: '你还没有这样的宝物。', kind: 'warn' };
   if (h.bottle.drops <= 0) return { text: '瓶中尚无绿液。', kind: 'warn' };
   if (itemDef(stack.id).type !== 'herb') return { text: '绿液只能催熟灵药。', kind: 'warn' };
   h.bottle.drops--;

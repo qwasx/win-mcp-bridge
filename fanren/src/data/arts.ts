@@ -55,7 +55,7 @@ export interface ArtSkill {
   dur?: number;              // 持续（field/buff/summon/shield）
   status?: StatusSpec;
   buff?: { atk?: number; def?: number; speed?: number; regen?: number; stealth?: boolean; reflect?: number; decoy?: boolean };
-  summon?: { kind: 'bugs' | 'puppet' | 'fox' | 'tihun' | 'demon'; n: number };
+  summon?: { kind: 'bugs' | 'puppet' | 'fox' | 'tihun' | 'demon' | 'quhun'; n: number };
   needs?: string;            // 需要某件法宝（物品 id）
   vsEvil?: number;           // 对魔物/鬼物额外倍率
   color: string;             // 'r,g,b'
@@ -159,6 +159,9 @@ const A: ArtSkill[] = [
   { id: 'sanyuan', name: '三元斩', school: '剑', tier: 3, realm: 3, cast: 'fan', fx: 'wind', mp: 0.14, cd: 4, power: 2.2, range: 640, speed: 1000, count: 3, pierce: true, status: { k: 'break', dur: 4, ch: 0.5 }, color: '220,240,255', desc: '三道月牙斩芒呈品字形斩出，破甲裂铠。', evo: ['斩芒更宽', '斩芒回旋', '五道斩芒'], lvCount: [0, 0, 1, 2] },
   { id: 'shengmo', name: '圣魔驭日', school: '魔', tier: 4, realm: 5, cast: 'strike', fx: 'flame', mp: 0.45, cd: 30, power: 6, range: 700, radius: 220, count: 3, status: { k: 'burn', dur: 6, ch: 1 }, color: '255,80,40', desc: '化神神通，驭使魔日从天而降，焚灭一切。', evo: ['魔日更大', '五轮魔日', '魔日不灭'], lvCount: [0, 1, 2, 2] },
   { id: 'jinlei', name: '金雷竹·雷芒', school: '雷', tier: 3, realm: 2, cast: 'beam', fx: 'goldthunder', mp: 0.12, cd: 5, power: 2.8, range: 620, radius: 30, vsEvil: 2, status: { k: 'shock', dur: 1, ch: 0.7 }, needs: 'mat_jinleizhu', color: '255,230,120', desc: '催动金雷竹中的辟邪神雷，射出一道金色雷芒。', evo: ['雷芒加粗', '雷芒分叉', '雷芒贯日'] },
+  // ---------------- 主线所得（七玄门）----------------
+  { id: 'zhayan', name: '眨眼剑法', school: '剑', tier: 0, realm: 1, cast: 'cone', fx: 'sword', mp: 0.02, cd: 0.55, power: 1.15, range: 170, radius: 0.55, status: { k: 'break', dur: 2, ch: 0.12 }, color: '225,232,240', desc: '七玄门的冷门剑法，出剑快在一眨眼之间。厉飞雨练不成，你身法好，反倒练成了。', evo: ['出剑更快', '破甲更易', '一息七剑'] },
+  { id: 'quhun', name: '曲魂', school: '御', tier: 2, realm: 1, cast: 'summon', fx: 'none', mp: 0.15, cd: 40, power: 1.5, range: 0, dur: 30, summon: { kind: 'quhun', n: 1 }, color: '170,160,150', desc: '墨大夫以张铁之躯炼成的尸傀，眉心打着你的神识烙印。力大无穷，不知疼痛，替你挡在身前。', evo: ['存在更久', '一拳震退', '刀枪不入'] },
 ];
 
 export const ARTS: Record<string, ArtSkill> = Object.fromEntries(A.map((s) => [s.id, s]));

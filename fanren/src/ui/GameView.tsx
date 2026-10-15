@@ -61,6 +61,12 @@ function Minimap({ game, onOpen }: { game: Game; onOpen: () => void }) {
         const pr = (4 + 2 * Math.sin(performance.now() / 300)) * dpr;
         g.strokeStyle = 'rgba(200,40,40,0.9)'; g.lineWidth = 2 * dpr; g.beginPath(); g.arc(Math.max(6, Math.min(cv.width - 6, dx)), Math.max(6, Math.min(cv.height - 6, dy)), pr + 4 * dpr, 0, Math.PI * 2); g.stroke();
       }
+      const sm = game.story?.marker();
+      if (sm) {
+        const dx = Math.max(7 * dpr, Math.min(cv.width - 7 * dpr, (sm.x - mx) * k + c)), dy = Math.max(7 * dpr, Math.min(cv.height - 7 * dpr, (sm.y - my) * k + c));
+        const pr = (5 + 1.5 * Math.sin(performance.now() / 250)) * dpr;
+        g.save(); g.translate(dx, dy); g.rotate(Math.PI / 4); g.fillStyle = '#f0b830'; g.strokeStyle = '#5a3a10'; g.lineWidth = 1.5 * dpr; g.fillRect(-pr / 2, -pr / 2, pr, pr); g.strokeRect(-pr / 2, -pr / 2, pr, pr); g.restore();
+      }
       for (const d of game.npcs.visibleDots()) { const dx = (d.x / WORLD_SCALE - mx) * k + c, dy = (d.y / WORLD_SCALE - my) * k + c; g.fillStyle = d.c; g.beginPath(); g.arc(dx, dy, 1.6 * dpr, 0, Math.PI * 2); g.fill(); }
       g.strokeStyle = 'rgba(47,140,120,0.85)'; g.lineWidth = 1.5 * dpr;
       g.beginPath(); g.arc(c, c, Math.max(4 * dpr, (game.senseRadius / WORLD_SCALE) * k), 0, Math.PI * 2); g.stroke();
@@ -103,6 +109,23 @@ function Joystick({ game }: { game: Game }) {
       onPointerMove={(e) => { if (active.current === e.pointerId) move(e); }}
       onPointerUp={end} onPointerCancel={end}>
       <div className="joystick-knob" style={{ transform: `translate(${knob.x}px, ${knob.y}px)` }} />
+    </div>
+  );
+}
+
+// ---------- 主线目标卷轴 ----------
+function QuestTracker({ game }: { game: Game }) {
+  const [, f] = useState(0);
+  useEffect(() => { const t = setInterval(() => f((x) => x + 1), 250); return () => clearInterval(t); }, []);
+  const q = game.story?.tracker();
+  if (!q) return null;
+  const go = () => { if (q.tx !== undefined && q.ty !== undefined) { audio.sfx('click'); game.destination = { x: q.tx, y: q.ty! }; game.toast(`前往：${q.title}`); } };
+  return (
+    <div className={'quest-tracker' + (q.tx !== undefined ? ' clickable' : '')} onPointerDown={(e) => { e.stopPropagation(); go(); }} title={q.tx !== undefined ? '点击自动前往' : ''}>
+      <div className="qt-ch">{q.ch}</div>
+      <div className="qt-title">{q.title}</div>
+      <div className="qt-text">{q.text}</div>
+      {q.ang !== undefined && q.dist !== undefined && q.dist > 160 && <div className="qt-dir"><span className="qt-arrow" style={{ transform: `rotate(${q.ang}rad)` }}>➤</span>约 {Math.max(1, Math.round(q.dist / 30))} 丈</div>}
     </div>
   );
 }
@@ -166,6 +189,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
     <div className={"game-root" + (isTouch ? " touch" : "")}>
       <canvas ref={canvasRef} className="game-canvas" />
       <PerfHud game={game} />
+      <QuestTracker game={game} />
       <div className="hud">
         {/* 人物卡 */}
         <div className="char-card">

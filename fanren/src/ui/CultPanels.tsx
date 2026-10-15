@@ -66,7 +66,7 @@ export function CharPanel({ game, onClose }: { game: Game; onClose: () => void }
           <div className="kv"><span>寿元</span><b style={{ color: lifeLeft < 10 ? '#a8352a' : undefined }}>{C.maxLife(h)} 载（余 {Math.max(0, lifeLeft).toFixed(1)}）</b></div>
           <div className="kv"><span>灵根</span><b title={root.desc}>{root.name} ×{root.rate}</b></div>
           <div className="kv"><span>功法</span><b title={gf.desc}>{gf.name} ×{gf.rate}</b></div>
-          <div className="kv"><span>掌天瓶</span><b className="bottle">{'●'.repeat(h.bottle.drops)}{'○'.repeat(C.BOTTLE_MAX - h.bottle.drops)}{h.bottle.drops < C.BOTTLE_MAX && <small>（{Math.ceil(C.BOTTLE_DAYS - h.bottle.charge)} 天后凝露）</small>}</b></div>
+          {h.bottle.owned !== false && <div className="kv"><span>掌天瓶</span><b className="bottle">{'●'.repeat(h.bottle.drops)}{'○'.repeat(C.BOTTLE_MAX - h.bottle.drops)}{h.bottle.drops < C.BOTTLE_MAX && <small>（{Math.ceil(C.BOTTLE_DAYS - h.bottle.charge)} 天后凝露）</small>}</b></div>}
         </div>
         <div className="char-right">
           <div className="sec-title">修为</div>
@@ -129,7 +129,7 @@ export function BagPanel({ game, onClose }: { game: Game; onClose: () => void })
   const cd = cur ? itemDef(cur.id) : null;
   const lingshi = C.bagCount(h, 'mat_lingshi');
   return (
-    <Panel title="储物袋" onClose={onClose} wide sub={<span>灵石 <b>{lingshi}</b>　·　掌天瓶 <b className="bottle">{'●'.repeat(h.bottle.drops)}{'○'.repeat(C.BOTTLE_MAX - h.bottle.drops)}</b></span>}>
+    <Panel title="储物袋" onClose={onClose} wide sub={<span>灵石 <b>{lingshi}</b>{h.bottle.owned !== false && <>　·　掌天瓶 <b className="bottle">{'●'.repeat(h.bottle.drops)}{'○'.repeat(C.BOTTLE_MAX - h.bottle.drops)}</b></>}</span>}>
       <div className="tabs">
         {['all', 'pill', 'herb', 'material', 'scroll', 'artifact'].map((t) => <button key={t} className={tab === t ? 'on' : ''} onClick={() => { setTab(t); setSel(-1); }}>{t === 'all' ? '全部' : TYPE_NAME[t]}</button>)}
       </div>
@@ -157,7 +157,8 @@ export function BagPanel({ game, onClose }: { game: Game; onClose: () => void })
                 {cd.type === 'scroll' && <button className="ink-btn jade" onClick={() => { if (game.learnScroll(cur.id)) setSel(-1); re(); }}>研读参悟</button>}
                 {cd.art && <button className="ink-btn" onClick={() => { const key = 'art:' + cur.id; if (!h.hotbar.includes(key)) { const k = h.hotbar.findIndex((x) => !x); h.hotbar[k >= 0 ? k : 8] = key; game.toast(`${cd.name}已放入快捷栏 ${(k >= 0 ? k : 8) + 1}`); } re(); }}>放入快捷栏</button>}
                 {cd.art && ['armor', 'shield', 'flight', 'wings'].includes(cd.art.kind) && <button className="ink-btn jade" onClick={() => { game.combat.castArtifact(cur.id); re(); }}>{Object.values(h.equip ?? {}).includes(cur.id) ? '收起' : '祭出'}</button>}
-                {cd.type === 'herb' && <button className="ink-btn" disabled={h.bottle.drops <= 0} onClick={() => { game.useBottle(cur); const ni = h.bag.findIndex((x) => x.id === cur.id && x.age === (cur.age ?? 0) + C.BOTTLE_YEARS); setSel(ni); re(); }}>掌天瓶催熟（+{C.BOTTLE_YEARS}年）</button>}
+                {cd.type === 'talisman' && cd.tal?.kind !== 'revive' && <button className="ink-btn" onClick={() => { const key = 'tal:' + cur.id; if (!h.hotbar.includes(key)) { const k = h.hotbar.findIndex((x) => !x); h.hotbar[k >= 0 ? k : 8] = key; game.toast(`${cd.name}已放入快捷栏 ${(k >= 0 ? k : 8) + 1}`); } re(); }}>放入快捷栏</button>}
+                {cd.type === 'herb' && h.bottle.owned !== false && <button className="ink-btn" disabled={h.bottle.drops <= 0} onClick={() => { game.useBottle(cur); const ni = h.bag.findIndex((x) => x.id === cur.id && x.age === (cur.age ?? 0) + C.BOTTLE_YEARS); setSel(ni); re(); }}>掌天瓶催熟（+{C.BOTTLE_YEARS}年）</button>}
               </div>
             </>
           ) : <div className="hint">选择一件物品查看。</div>}

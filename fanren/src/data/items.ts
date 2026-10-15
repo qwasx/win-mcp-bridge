@@ -24,7 +24,7 @@ export interface ArtSpec {
 }
 
 export interface PillEffect { exp?: number; expPct?: number; hp?: number; mp?: number; life?: number; sense?: number; root?: number; favor?: number }
-export interface TalSpec { kind: 'fire' | 'thunder' | 'ice' | 'shield' | 'escape' | 'revive'; power: number; color: string }
+export interface TalSpec { kind: 'fire' | 'thunder' | 'ice' | 'shield' | 'escape' | 'revive' | 'fubao'; power: number; color: string }
 
 export interface ItemDef {
   id: string; name: string; type: ItemType; tier: number; price: number; desc: string;
@@ -116,6 +116,13 @@ const I: ItemDef[] = [
   { id: 'scroll_yuanci', name: '元磁神光', type: 'scroll', tier: 5, price: 80000, desc: '天星双圣秘传，五行法宝克星，可短暂禁锢敌人法宝。', glyph: '术', scroll: { skill: 'yuanci' } },
 
   // ---------- 法器（炼气/筑基）----------
+  // ---------- 主线信物 ----------
+  { id: 'item_bottle', name: '掌天瓶', type: 'misc', tier: 6, price: 0, desc: '溪谷中拾得的墨绿小瓶，瓶身刻满细密叶纹。夜里吸纳星光，约二十日凝出一滴绿液；绿液滴在灵药上，药龄暴涨百年。此事万万不可为外人所知。', glyph: '瓶' },
+  { id: 'item_moletter', name: '墨大夫遗书', type: 'misc', tier: 1, price: 0, desc: '墨居仁留下的书信：嘉元城墨府有暖阳宝玉一块，可解你体内寒毒。信末附着墨府地址，与一句“照拂吾家妻女”。', glyph: '书' },
+  { id: 'item_nuanyang', name: '暖阳宝玉', type: 'misc', tier: 2, price: 0, desc: '触手生温的古玉，佩在身上，寒毒渐渐拔除。', glyph: '玉' },
+  { id: 'item_qinpu', name: '秦家族谱', type: 'misc', tier: 0, price: 0, desc: '金光上人身上搜出的旧族谱。原来他本姓秦，出身秦叶岭秦家，当年卷走升仙令与一张符宝出逃，一躲就是十几年。', glyph: '谱' },
+  { id: 'item_qingxi', name: '清溪笔录', type: 'misc', tier: 0, price: 0, desc: '太南小会上一个憨厚少年送的小册子，记载修仙界常识：七派、灵根、升仙令、筑基丹……', glyph: '录' },
+  { id: 'tal_fubao', name: '飞剑符宝', type: 'talisman', tier: 3, price: 3000, desc: '金光上人的保命符宝，符纸上封着一口小剑，激发后化作丈许金芒斩落。灵力所剩无几，只能再用几次。', glyph: '符', tal: { kind: 'fubao', power: 9, color: '#ffd870' }, stack: true },
   { id: 'item_shengxian', name: '升仙令', type: 'misc', tier: 2, price: 0, desc: '黄枫谷等七派发放的入门信物，持之可直接拜入黄枫谷。原著中韩立便是凭升仙令入的黄枫谷。', glyph: '令' },
   { id: 'art_jinfu', name: '金蚨子母刃', type: 'artifact', tier: 2, price: 2600, desc: '一母九子的成套飞刃，母刃一出，子刃随行，原著中韩立早年倚仗的法器之一。', glyph: '刃', art: { kind: 'needle', reqRealm: 1, sense: 6, pieces: 10, power: 0.5, mp: 2, cd: 1.2, element: 'gold', color: '#ffd878' } },
   { id: 'art_fuguang', name: '符宝·伏光剑', type: 'artifact', tier: 3, price: 5200, desc: '结丹修士将本命法宝之力封入符纸而成的符宝，可驱使数十次，威力远胜寻常法器。', glyph: '符', art: { kind: 'arrow', reqRealm: 1, sense: 20, pieces: 1, power: 6, mp: 20, cd: 5, element: 'gold', color: '#e6f0ff' } },

@@ -82,7 +82,7 @@ interface Field { x: number; y: number; r: number; t: number; dur: number; fx: F
 interface Vfx { kind: 'ring' | 'beam' | 'chain' | 'strike' | 'cone' | 'flash' | 'warn' | 'slash' | 'aura' | 'blinkfx' | 'bigsword' | 'pillar'; x: number; y: number; x2?: number; y2?: number; r: number; t: number; dur: number; color: string; fx?: Fx; ang?: number; spread?: number; pts?: [number, number][]; seed?: number; w?: number }
 interface Txt { x: number; y: number; s: string; color: string; t: number; big?: boolean; vy: number }
 interface Loot { x: number; y: number; id: string; n: number; t: number }
-interface Summon { kind: 'bugs' | 'puppet' | 'fox' | 'tihun' | 'demon' | 'jiao'; x: number; y: number; t: number; dmg: number; cd: number; target: Enemy | null; phase: number; facing: number; n: number; evil?: number; status?: StatusSpec; dots?: { a: number; r: number; s: number }[] }
+interface Summon { cs?: CharState; kind: 'bugs' | 'puppet' | 'fox' | 'tihun' | 'demon' | 'jiao' | 'quhun'; x: number; y: number; t: number; dmg: number; cd: number; target: Enemy | null; phase: number; facing: number; n: number; evil?: number; status?: StatusSpec; dots?: { a: number; r: number; s: number }[] }
 interface Strike { x: number; y: number; t: number; dmg: number; r: number; status?: StatusSpec; stCh: number; school?: School; fx: Fx; color: string; realm: number; evil?: number; lv: number }
 interface Spark { x: number; y: number; vx: number; vy: number; t: number; max: number; size: number; color: string }
 
@@ -180,6 +180,7 @@ export class Combat {
     const id = this.game.hero.hotbar[i];
     if (!id) { this.game.toast(`快捷栏 ${i + 1} 尚未放置法术。按 K 打开法术书。`); return; }
     if (id.startsWith('art:')) this.castArtifact(id.slice(4));
+    else if (id.startsWith('tal:')) this.castTalisman(id.slice(4));
     else this.cast(id);
   }
 
@@ -391,12 +392,56 @@ export class Combat {
         const n = sm.kind === 'bugs' ? 1 : sm.n + (lv >= 3 && sm.n === 1 ? 1 : 0);
         for (let i = 0; i < n; i++) {
           const an = Math.random() * TAU;
-          this.summons.push({ kind: sm.kind, x: p.x + Math.cos(an) * 60, y: p.y + Math.sin(an) * 40, t: (s.dur ?? 20) * (1 + lv * 0.1), dmg: dmg * (sm.kind === 'demon' ? 0.5 : 1), cd: 0, target: null, phase: 0, facing: 1, n: sm.kind === 'bugs' ? sm.n + lv * 4 : 1, evil: s.vsEvil, status: s.status, dots: sm.kind === 'bugs' ? Array.from({ length: sm.n + lv * 4 }, () => ({ a: Math.random() * TAU, r: rand(8, 40), s: rand(3, 7) })) : undefined });
+          this.summons.push({ cs: sm.kind === 'quhun' ? new CharState(p.x + Math.cos(an) * 60, p.y + Math.sin(an) * 40) : undefined, kind: sm.kind, x: p.x + Math.cos(an) * 60, y: p.y + Math.sin(an) * 40, t: (s.dur ?? 20) * (1 + lv * 0.1), dmg: dmg * (sm.kind === 'demon' ? 0.5 : 1), cd: 0, target: null, phase: 0, facing: 1, n: sm.kind === 'bugs' ? sm.n + lv * 4 : 1, evil: s.vsEvil, status: s.status, dots: sm.kind === 'bugs' ? Array.from({ length: sm.n + lv * 4 }, () => ({ a: Math.random() * TAU, r: rand(8, 40), s: rand(3, 7) })) : undefined });
         }
         this.vfx.push({ kind: 'aura', x: p.x, y: p.y, r: 100, t: 0, dur: 0.8, color: s.color });
         break;
       }
     }
+  }
+
+  /** 符箓：一次性消耗（对高境界衰减较少） */
+  castTalisman(itemId: string) {
+    const g = this.game, h = g.hero, d = itemDef(itemId), tal = d.tal;
+    if (!tal) return;
+    if (C.bagCount(h, itemId) <= 0) { g.toast(`储物袋中已无${d.name}。`, 'warn'); return; }
+    if (!this.canAct) return;
+    const key = 'tal:' + itemId;
+    if (this.cdLeft(key) > 0) return;
+    const p = g.player, ps = this.pStats;
+    const color = hexToRgb(tal.color);
+    const fake: ArtSkill = { id: key, name: d.name, school: '符', tier: 0, realm: 0, cast: 'bolt', fx: 'talisman', mp: 0, cd: 1, power: tal.power, range: 620, speed: 820, color, desc: '', evo: ['', '', ''] };
+    // 符箓威力不随自身攻击过多放大：取“符力”为主
+    const atk = Math.max(ps.atk, REALMS[Math.max(1, h.realm)].atk[0]) * 0.9;
+    switch (tal.kind) {
+      case 'fire': fake.cast = 'fan'; fake.fx = 'fireball'; fake.count = 3; fake.status = { k: 'burn', dur: 3, ch: 0.5 }; break;
+      case 'ice': fake.cast = 'fan'; fake.fx = 'icicle'; fake.count = 3; fake.speed = 900; fake.status = { k: 'freeze', dur: 1.4, ch: 0.45 }; break;
+      case 'thunder': fake.cast = 'strike'; fake.fx = 'lightning'; fake.radius = 120; fake.count = 1; fake.range = 640; fake.status = { k: 'shock', dur: 1, ch: 0.6 }; fake.vsEvil = 2; break;
+      case 'fubao': fake.cast = 'beam'; fake.fx = 'bigsword'; fake.radius = 64; fake.range = 640; fake.status = { k: 'knock', dur: 0.4, ch: 1 }; fake.school = '剑'; break;
+      case 'shield': fake.cast = 'shield'; fake.fx = 'gold'; fake.power = tal.power; fake.dur = 12; break;
+      case 'escape': {
+        C.removeItem(h, itemId, 1); this.setCd(key, 2);
+        let fx = 0, fy = 0; for (const e of this.enemies) if (!e.dead && e.aggro) { fx += p.x - e.x; fy += p.y - e.y; }
+        const L = Math.hypot(fx, fy) || 1; let tx = p.x + fx / L * 700, ty = p.y + fy / L * 500;
+        for (let k = 0; k < 12 && g.terrain.walkFactor(tx, ty) <= 0; k++) { tx = (tx + p.x) / 2; ty = (ty + p.y) / 2; }
+        this.vfx.push({ kind: 'blinkfx', x: p.x, y: p.y, r: 70, t: 0, dur: 0.6, color });
+        p.x = tx; p.y = ty; this.vfx.push({ kind: 'blinkfx', x: tx, y: ty, r: 70, t: 0, dur: 0.6, color });
+        this.buffs.until.stealth = g.time + 4; for (const e of this.enemies) e.aggro = false; this.invulnT = 0.5;
+        g.toast(`${d.name}一闪，你已遁出数十丈。`); this.fxq.push({ k: 'dodge', x: tx, y: ty });
+        return;
+      }
+      default: return;
+    }
+    C.removeItem(h, itemId, 1);
+    this.setCd(key, tal.kind === 'fubao' ? 3 : 1);
+    this.castT = 0.3; this.combatT = 0;
+    if (g.player.sitting) g.stand();
+    const a = this.aim(fake.range);
+    p.st.faceToward(a.dx, a.dy, false);
+    this.vfx.push({ kind: 'flash', x: p.x + a.dx * 30, y: p.y - 50, r: 40, t: 0, dur: 0.25, color });
+    this.exec(fake, 0, a, atk, h.realm);
+    audio.sfx(tal.kind === 'thunder' ? 'thunder' : 'whoosh');
+    if (tal.kind === 'fubao') { g.trauma = Math.min(1, g.trauma + 0.35); const left = C.bagCount(h, itemId); g.toast(left > 0 ? `符宝金芒斩落！符纸上的灵光又黯淡了几分（余 ${left} 次）。` : '符宝金芒斩落——符纸化作飞灰，灵力耗尽了。', left > 0 ? 'info' : 'warn'); }
   }
 
   /** 法宝 / 法器出手 */
@@ -648,6 +693,7 @@ export class Combat {
   private spawnTick() {
     const g = this.game, p = g.player, T = g.terrain;
     if (g.paused || g.hero.dead) return;
+    if (g.story?.fight) return;
     if (this.safeAt(p.x, p.y)) return;
     const dz = this.dangerAt(p.x, p.y);
     const alive = this.enemies.filter((e) => !e.dead).length;
@@ -891,7 +937,7 @@ export class Combat {
         }
       }
       pr.x += pr.vx * dt; pr.y += pr.vy * dt;
-      pr.trail.push([pr.x, pr.y]); if (pr.trail.length > 14) pr.trail.shift();
+      pr.trail.push([pr.x, pr.y]); if (pr.trail.length > 14) pr.trail.shift(); { const tl = pr.trail; const lim = 240 * pr.size; while (tl.length > 2 && Math.hypot(tl[0][0] - pr.x, tl[0][1] - pr.y) > lim) tl.shift(); }
       if (pr.fx === 'fireball' || pr.fx === 'firesnake' || pr.fx === 'crow' || pr.fx === 'blood' || pr.fx === 'talisman') if (Math.random() < 0.7) this.sparks.push({ x: pr.x + rand(-6, 6), y: pr.y + rand(-6, 6), vx: rand(-20, 20), vy: rand(-50, -10), t: 0, max: rand(0.3, 0.6), size: rand(2, 5) * pr.size, color: pr.color });
       if (pr.fac === 'p') {
         for (const e of this.enemies) {
@@ -948,14 +994,16 @@ export class Combat {
       let tx = p.x + Math.cos(g.time + s.n) * 70, ty = p.y + 30;
       if (s.target) { tx = s.target.x; ty = s.target.y; }
       const dx = tx - s.x, dy = ty - s.y, d = Math.hypot(dx, dy);
-      const sp = s.kind === 'bugs' ? 340 : s.kind === 'puppet' ? 200 : 260;
+      const sp = s.kind === 'bugs' ? 340 : s.kind === 'puppet' || s.kind === 'quhun' ? 210 : 260;
       const reach = s.kind === 'bugs' ? 40 : 60;
-      if (d > reach) { s.x += dx / d * sp * dt; s.y += dy / d * sp * dt; s.facing = dx > 0 ? 1 : -1; }
+      const moving = d > reach;
+      if (moving) { s.x += dx / d * sp * dt; s.y += dy / d * sp * dt; s.facing = dx > 0 ? 1 : -1; }
+      if (s.cs) { s.cs.x = s.x; s.cs.y = s.y; s.cs.speed = moving ? sp : 0; s.cs.vx = moving ? dx / d * sp : 0; s.cs.vy = moving ? dy / d * sp : 0; if (d > 1) s.cs.faceToward(dx, dy, false); s.cs.setAction(s.cd > 0.75 ? 'cast' : moving ? 'run' : 'idle'); s.cs.update(dt); }
       if (s.target && d < reach + 20) {
         if (s.kind === 'bugs') { if (s.cd <= 0) { s.cd = 0.4; this.hitEnemy(s.target, s.dmg * (s.n / 14), { realm: h.realm, status: s.status, stCh: s.status?.ch ?? 0, school: '御' }, s.x, s.y); } }
         else if (s.cd <= 0) {
           s.cd = s.kind === 'demon' ? 0.9 : 1.1;
-          this.hitEnemy(s.target, s.dmg, { realm: h.realm, stCh: 0.3, status: s.kind === 'fox' ? { k: 'burn', dur: 3, ch: 0.3 } : s.kind === 'tihun' ? { k: 'stun', dur: 1, ch: 0.5 } : undefined, school: s.kind === 'fox' ? '火' : '御', evil: s.evil }, s.x, s.y);
+          this.hitEnemy(s.target, s.dmg, { realm: h.realm, stCh: 0.3, status: s.kind === 'fox' ? { k: 'burn', dur: 3, ch: 0.3 } : s.kind === 'tihun' ? { k: 'stun', dur: 1, ch: 0.5 } : s.kind === 'quhun' ? { k: 'knock', dur: 0.3, ch: 0.5 } : undefined, school: s.kind === 'fox' ? '火' : '御', evil: s.evil }, s.x, s.y);
           if (s.kind === 'tihun' && s.target.def.evil) h.mp = Math.min(1, h.mp + 0.03);
         }
       }

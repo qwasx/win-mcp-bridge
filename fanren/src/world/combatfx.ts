@@ -6,6 +6,7 @@ import { drawBeast, BeastLook } from '../gfx/beast';
 import { drawCharacter } from '../gfx/character';
 import { itemDef, TIER_COLORS } from '../data/items';
 import { mulberry32 } from '../core/rng';
+import { QUHUN_LOOK } from '../data/storylooks';
 
 type G = CanvasRenderingContext2D;
 const TAU = Math.PI * 2;
@@ -34,6 +35,7 @@ export function collectCombat(c: Combat, out: Drawable[], view: { left: number; 
   }
   for (const s of c.summons) {
     if (s.kind === 'bugs') continue;
+    if (s.kind === 'quhun' && s.cs) { const cs = s.cs; out.push({ y: s.y, draw: (g) => { g.save(); g.globalAlpha *= Math.min(1, s.t * 2); drawCharacter(g, QUHUN_LOOK, cs, 1.12, 0); g.globalCompositeOperation = 'lighter'; g.fillStyle = 'rgba(120,255,170,0.5)'; g.beginPath(); g.arc(s.x, s.y - 150, 3, 0, Math.PI * 2); g.fill(); g.restore(); } }); continue; }
     out.push({ y: s.y, draw: (g) => { drawBeast(g, SUMMON_LOOK[s.kind] ?? SUMMON_LOOK.fox, s.x, s.y, s.facing, { move: 1, phase: s.phase, atk: s.cd > 0.7 ? 1 - (s.cd - 0.7) / 0.4 : 0, hit: 0, t: s.phase / 8, flying: s.kind === 'demon' }, 1); } });
   }
   for (const l of c.loot) {

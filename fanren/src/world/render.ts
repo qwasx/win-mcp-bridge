@@ -468,6 +468,7 @@ export class Renderer {
     collectCombat(game.combat, list, view, t, dt);
     game.npcs.collect(list, view, t, dt);
     game.events.collect(list, view, t, dt);
+    game.story.collect(list, view, t, dt);
     list.push({ y: p.y, draw: () => this.drawPlayer(dt) });
 
     list.sort((a, b) => a.y - b.y);
@@ -569,6 +570,7 @@ export class Renderer {
         game.life.collectGlow(night, (x, y, r, a) => { B.quad(0, x, y, r * 2.6, r * 2.6, 0, 0.85, 1, 0.55, a, 1); B.quad(26, x, y, r * 0.5, r * 0.5, 0, 1, 1, 0.8, a, 1); });
       }
       drawCombatGL(F, game.combat, t, dt);
+      game.story.drawGL(F, t);
       F.drawRings(dt);
       F.drawParticles();
     } else {
@@ -693,6 +695,8 @@ export class Renderer {
     const hurt = (hpk < 0.35 && !game.hero.dead ? (0.35 - hpk) / 0.35 * (0.45 + 0.15 * Math.sin(game.time * 5)) : 0) + game.hurtFlash * 0.35;
     const k = wt.k;
     const fog: [number, number, number, number] = wt.kind === 'sand' ? [0.77, 0.63, 0.43, 0.28 * k] : wt.kind === 'fog' ? [0.9, 0.91, 0.89, 0.18 * k] : [0, 0, 0, 0];
+    const mind = game.story?.mind ?? 0;
+    const tintM: [number, number, number, number] = mind > 0.01 ? [tint[0] + (0.55 - tint[0]) * mind, tint[1] + (0.12 - tint[1]) * mind, tint[2] + (0.14 - tint[2]) * mind, tint[3] + 0.38 * mind] : tint;
     const P: PostParams = {
       t: game.time,
       mul: [mul[0] / 255, mul[1] / 255, mul[2] / 255],
@@ -702,8 +706,8 @@ export class Renderer {
       atmo: { canvas: this.atmo, x: W / 2 + (this.atmoRect.x - camX) * z, y: H / 2 + (this.atmoRect.y - camY) * z, w: this.atmoRect.w * z, h: this.atmoRect.h * z },
       fog, fogBands: wt.kind === 'fog' ? k : 0,
       flash: [0.92, 0.94, 1, wt.flash * 0.55],
-      tint,
-      vig: 1, hurt: Math.min(0.8, hurt), fade: Math.min(1, game.combat.fade * 1.4),
+      tint: tintM,
+      vig: 1 + mind * 0.8, hurt: Math.min(0.8, hurt + mind * 0.18), fade: Math.min(1, game.combat.fade * 1.4),
       aberr: game.trauma > 0.25 ? (game.trauma - 0.25) * 1.2 : 0,
       bloom: 0.9, grain: 1,
       shocks: F.shocks.map((s) => ({ x: W / 2 + (s.x - camX) * z, y: H / 2 + (s.y - camY) * z, r: s.r * z, amp: s.amp * Math.min(1.5, z * 1.2) })),

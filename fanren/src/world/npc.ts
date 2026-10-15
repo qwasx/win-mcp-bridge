@@ -27,7 +27,7 @@ export interface NpcData {
   age: number; life: number; x: number; y: number; tx: number; ty: number;
   goal: Goal; until: number; wealth: number; seed: number;
   canon?: boolean; title?: string; beauty?: string; robe?: string; stay?: boolean;
-  taught?: boolean; lastTalk?: number; deathNote?: string; spar?: number;
+  taught?: boolean; lastTalk?: number; deathNote?: string; spar?: number; hidden?: boolean;
 }
 
 interface Active {
@@ -312,7 +312,7 @@ export class NpcWorld {
     const g = this.game, p = g.player;
     const R = Math.max(2600, g.senseRadius * 1.5), R2 = R + 900;
     for (const d of this.list) {
-      if (!d.alive) continue;
+      if (!d.alive || d.hidden) { if (this.active.has(d.id) && d.hidden) this.active.delete(d.id); continue; }
       const dd = Math.hypot(d.x - p.x, d.y - p.y);
       const a = this.active.get(d.id);
       if (!a && dd < R && this.active.size < 34) {

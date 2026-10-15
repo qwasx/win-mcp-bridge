@@ -20,6 +20,7 @@ import { NpcWorld } from './npc';
 import { Hearts } from './hearts';
 import { Towns } from './town';
 import { Events } from './events';
+import { Story } from './story';
 import { WorldState, newWorldState } from './worldstate';
 import type { Modal, DNode, Shop } from './modal';
 
@@ -87,6 +88,7 @@ export class Game {
   hearts!: Hearts;
   towns!: Towns;
   events!: Events;
+  story!: Story;
   modal: Modal | null = null;
   private modalStack: Modal[] = [];
   modalListeners = new Set<() => void>();
@@ -118,6 +120,7 @@ export class Game {
     this.hearts = new Hearts(this);
     this.towns = new Towns(this);
     this.events = new Events(this);
+    this.story = new Story(this);
     this.hookCombat();
     const start = this.startPos();
     const st = new CharState(start.x, start.y);
@@ -153,6 +156,7 @@ export class Game {
     this.ws = newWorldState();
     this.npcs.newWorld();
     this.modal = null; this.modalStack = []; this.emitModal();
+    this.story.start();
     this.updateUI();
   }
 
@@ -214,6 +218,8 @@ export class Game {
   /** T：与身旁的人交谈 / 查看奇遇 */
   interact() {
     const p = this.player;
+    const sf = this.story.focus;
+    if (sf) { const dsf = Math.hypot(sf.x - p.x, sf.y - p.y); const dn0 = this.npcs.focus ? Math.hypot(this.npcs.focus.st.x - p.x, this.npcs.focus.st.y - p.y) : 1e9; if (dsf <= dn0 + 40) { this.story.interact(sf); return; } }
     const n = this.npcs.focus, e = this.events.focus;
     const dn = n ? Math.hypot(n.st.x - p.x, n.st.y - p.y) : 1e9, de = e ? Math.hypot(e.x - p.x, e.y - p.y) : 1e9;
     if (n && dn <= de) { this.npcs.interact(); return; }
@@ -315,6 +321,7 @@ export class Game {
       this.npcs.fromSave(d.npcs, wk);
       this.modal = null; this.modalStack = []; this.emitModal();
       this.hearts.restore();
+      this.story.resume();
       this.updateUI(true);
       return true;
     } catch (e) { console.warn(e); return false; }
@@ -544,6 +551,7 @@ export class Game {
       this.combat.update(dt);
       this.npcs.update(dt);
       this.events.update(dt);
+      this.story.update(dt);
       // 采集
       if (this.gathering) {
         this.gathering.t += dt;
@@ -644,6 +652,7 @@ export class Game {
       parts.push(`${itemDef(it.item).name}${it.age ? `（${it.age}年）` : ''}×${it.n}`);
     }
     this.hero.stats.gathered++;
+    this.story.onGather();
     this.toast('采得 ' + parts.join('、'), 'good');
     audio.sfx('gather');
     this.renderer?.burst(g.node.x, g.node.y - 10, g.node.kind === 'ore' ? '#d8e0ff' : g.node.kind === 'spring' ? '#bff0ff' : '#c8ffb0');
@@ -701,7 +710,7 @@ export class Game {
     this.updateUI(true);
     return ok;
   }
-  useBottle(stack: C.BagItem) { const m = C.useBottle(this.hero, stack); this.flushMsgs([m]); if (m.kind === 'good') audio.sfx('chime'); this.updateUI(true); return m; }
+  useBottle(stack: C.BagItem) { const m = C.useBottle(this.hero, stack); this.flushMsgs([m]); if (m.kind === 'good') { audio.sfx('chime'); this.story.onBottle(); } this.updateUI(true); return m; }
   brew(r: import('../data/recipes').Recipe) {
     const res = C.brew(this.hero, r);
     if (res.days) { const msgs: Msg[] = []; C.passDays(this.hero, res.days, false, 1, msgs); this.day += res.days; this.flushMsgs(msgs.filter((m) => m.kind)); }
@@ -748,6 +757,7 @@ export class Game {
 
   /** 战斗中倒下：损失一成修为与部分物品，在最近的城镇醒来 */
   onPlayerDown() {
+    if (this.story.onDown()) return;
     const h = this.hero, p = this.player;
     const lostExp = Math.floor(C.need(h) * 0.1);
     h.exp = Math.max(0, h.exp - lostExp);
@@ -866,7 +876,7 @@ export class Game {
       gather: gt ? { name: itemDef(gt.item).name, kind: gt.kind } : null, gatherP: this.gathering ? this.gathering.t / GATHER_TIME : -1,
       weather: WEATHER_NAME[this.weather.kind], timeName: this.timeName(), night: this.night,
       bottle: h.bottle.drops, pendingTalent: !!h.pendingTalent, dead: h.dead, rootName: C.rootDef(h).name,
-      talk: this.npcs?.focus ? `与${this.npcs.focus.d.met ? this.npcs.focus.d.name : '此人'}交谈` : this.events?.focus ? '查看' : null,
+      talk: this.story?.focus ? (this.story.focus.look ? `与${this.story.focus.name}交谈` : '查看') : this.npcs?.focus ? `与${this.npcs.focus.d.met ? this.npcs.focus.d.name : '此人'}交谈` : this.events?.focus ? '查看' : null,
     };
     this.listeners.forEach((f) => f());
   }

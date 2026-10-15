@@ -543,3 +543,18 @@ button.mini:disabled { opacity: 0.35; }
 /* WebGL 合成层：在 UI 画布之下，不接收指针 */
 .game-gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
 .perf-hud { position: absolute; left: 50%; top: 52px; transform: translateX(-50%); z-index: 30; pointer-events: none; font: 12px/1.5 ui-monospace, Menlo, monospace; color: #e8f0e0; background: rgba(20,18,14,0.72); padding: 4px 10px; border-radius: 6px; white-space: nowrap; }
+.hb-count { position: absolute; right: 4px; top: 2px; font-family: var(--body-font); font-size: 11px; color: #ffe6a0; text-shadow: 0 1px 2px #000; }
+/* 主线目标卷轴 */
+.quest-tracker { position: absolute; left: 16px; top: 132px; z-index: 12; max-width: 290px; padding: 8px 14px 9px 14px; border-radius: 4px;
+  background: linear-gradient(90deg, rgba(246,236,212,0.94), rgba(238,226,198,0.86)); border-left: 4px solid #b8862a;
+  box-shadow: 0 2px 10px rgba(40,26,10,0.25); color: #3a2a1a; font-family: var(--body-font); pointer-events: auto; user-select: none; }
+.quest-tracker.clickable { cursor: pointer; }
+.quest-tracker.clickable:hover { background: linear-gradient(90deg, rgba(252,244,224,0.97), rgba(244,232,206,0.9)); }
+.qt-ch { font-size: 11px; color: #8a6a3a; letter-spacing: 2px; }
+.qt-title { font-family: 'Ma Shan Zheng', serif; font-size: 20px; color: #6a2a1a; line-height: 1.2; }
+.qt-text { font-size: 13px; line-height: 1.45; }
+.qt-dir { margin-top: 3px; font-size: 12px; color: #7a5a2a; display: flex; align-items: center; gap: 6px; }
+.qt-arrow { display: inline-block; color: #b8862a; font-size: 14px; }
+.game-root.touch .quest-tracker { top: 104px; max-width: 220px; padding: 6px 10px; }
+.game-root.touch .qt-title { font-size: 16px; }
+.game-root.touch .qt-text { font-size: 12px; }
