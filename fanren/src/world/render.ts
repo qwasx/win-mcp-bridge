@@ -1,5 +1,6 @@
 // 大地图渲染：水墨底图 → 水波 → 倒影 → 地点地面 → (山/树/建筑/生灵/人物 Y 排序) → 护山大阵 → 天空生灵
 //            → 昼夜 → 灯火 → 云雾/迷雾 → 名牌 → 神识 → 天气 → 季节纸纹
+import { grassSprite, grassRes } from '../gfx/grass';
 import type { Game } from './game';
 import { FOG_CELL, FOG_W, FOG_H } from './game';
 import { CHUNK, Deco, TreeDeco, MtnDeco } from './terrain';
@@ -44,7 +45,7 @@ export class Renderer {
   mtnMeta = new Map<string, MtnMeta>();
   private lastCam = { x: 0, y: 0 };
   private Z = 1; private ox = 0; private oy = 0;
-  stats = { decos: 0, trees: 0, mtns: 0, ms: 0 };
+  stats = { decos: 0, trees: 0, mtns: 0, ms: 0, grass: 0 };
   sense = new SenseFx();
   senseMods: string[] = [];
   private modsT = 0;
@@ -158,6 +159,87 @@ export class Renderer {
   }
   maxDpr = 2;
 
+  /** 实时草丛：缓存位图 + 斜切摇摆（只有神识圈内会动，圈外是静止的记忆） */
+  private drawGrass(left: number, top: number, right: number, bottom: number, t: number, season: number, z: number) {
+    const { ctx, game } = this;
+    const T = game.terrain;
+    const res = grassRes(z * this.dpr);
+    const lod = z < 0.65 ? 0 : z < 0.85 ? 1 : 2;
+    const wind = game.weather.wind;
+    const px = game.player.x, py = game.player.y, R = this.sense.dispR || 600, R2 = R * R;
+    const Z = this.Z;
+    let n = 0;
+    for (let cy = Math.floor((top - 10) / CHUNK); cy <= Math.floor((bottom + 60) / CHUNK); cy++) for (let cx = Math.floor((left - 40) / CHUNK); cx <= Math.floor((right + 40) / CHUNK); cx++) {
+      if (cx < 0 || cy < 0 || cx * CHUNK > WORLD_W || cy * CHUNK > WORLD_H) continue;
+      if (!T.getChunk(cx, cy, false)) continue;
+      for (const c of T.getGrass(cx, cy)) {
+        if (c.lod > lod) continue;
+        if (c.x < left - 40 || c.x > right + 40 || c.y < top - 5 || c.y > bottom + 60) continue;
+        const sp = grassSprite(c.kind, c.v, season, res);
+        const dx = c.x - px, dy = c.y - py;
+        const d2 = dx * dx + dy * dy;
+        let sk = wind * 0.12;
+        if (d2 < R2) {
+          sk += (Math.sin(t * 1.7 + c.ph + c.x * 0.004) * 0.16 + Math.sin(t * 3.1 + c.ph * 2) * 0.05) * (0.45 + wind);
+          // 人走过时草向两侧分开
+          if (d2 < 3600) sk += (dx > 0 ? 1 : -1) * (1 - Math.sqrt(d2) / 60) * 0.5;
+        }
+        const s = c.s;
+        ctx.setTransform(Z * s, 0, -sk * Z * s, Z * s, c.x * Z + this.ox, c.y * Z + this.oy);
+        ctx.drawImage(sp.canvas, -sp.ax, -sp.ay, sp.w, sp.h);
+        n++;
+      }
+    }
+    this.stats.grass = n;
+    this.world();
+  }
+
+  private sfx: { x: number; y: number; vx: number; vy: number; r: number; vr: number; life: number; age: number; c: string; s: number; k: number }[] = [];
+  private drawSeasonFx(dt: number, season: number, px: number, py: number, R: number) {
+    const { ctx, game } = this;
+    const wk = game.weather.kind as string;
+    const ok = (wk === 'clear' || wk === 'cloudy') && season !== 3 && game.cam.zoom > 0.4;
+    const wind = game.weather.wind;
+    if (ok && dt > 0) {
+      const rate = season === 2 ? 7 : season === 0 ? 6 : 2.5;
+      let n = rate * dt;
+      while (n > 0 && this.sfx.length < 70) {
+        if (Math.random() > n) break; n -= 1;
+        const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * R * 0.95;
+        const C = season === 0 ? ['#f6c6d2', '#f9dde4', '#ffffff', '#efb0c2'] : season === 2 ? ['#d8902e', '#c0582a', '#e8b84a', '#a8402a'] : ['#fbfaf2'];
+        this.sfx.push({ x: px + Math.cos(a) * d, y: py + Math.sin(a) * d - 120, vx: 20 + wind * 60, vy: season === 1 ? 6 : 26, r: Math.random() * 6, vr: (Math.random() - 0.5) * 4,
+          life: 5 + Math.random() * 4, age: 0, c: C[(Math.random() * C.length) | 0], s: season === 2 ? 4 + Math.random() * 3 : 2.4 + Math.random() * 1.6, k: season });
+      }
+    }
+    if (!this.sfx.length) return;
+    const t = game.time;
+    for (let i = this.sfx.length - 1; i >= 0; i--) {
+      const f = this.sfx[i];
+      f.age += dt;
+      const sway = Math.sin(t * 1.8 + f.r * 3) * (f.k === 1 ? 14 : 26);
+      f.x += (f.vx + sway) * dt; f.y += (f.vy + Math.cos(t * 2.3 + f.r) * 8) * dt; f.r += f.vr * dt;
+      const dd = Math.hypot(f.x - px, f.y - py);
+      if (f.age > f.life || dd > R * 1.05) { this.sfx.splice(i, 1); continue; }
+      const a = Math.min(1, f.age * 2, (f.life - f.age) * 0.8, (R - dd) / 60);
+      ctx.globalAlpha = Math.max(0, a) * 0.9;
+      ctx.fillStyle = f.c;
+      ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.r);
+      const flip = Math.abs(Math.cos(t * 3 + f.r * 2));
+      ctx.scale(1, 0.25 + flip * 0.75);
+      ctx.beginPath();
+      if (f.k === 2) { // 叶：两头尖
+        ctx.moveTo(-f.s, 0); ctx.quadraticCurveTo(0, -f.s * 0.7, f.s, 0); ctx.quadraticCurveTo(0, f.s * 0.7, -f.s, 0);
+      } else if (f.k === 0) { // 花瓣：一端圆一端尖
+        ctx.moveTo(-f.s, 0); ctx.quadraticCurveTo(-f.s * 0.2, -f.s * 0.9, f.s, -f.s * 0.15); ctx.quadraticCurveTo(f.s * 0.6, f.s * 0.5, -f.s, 0);
+      } else { // 柳絮：一团软毛
+        ctx.arc(0, 0, f.s * 0.8, 0, Math.PI * 2);
+      }
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  }
+
   /** 设回世界变换 */
   private world() { this.ctx.setTransform(this.Z, 0, 0, this.Z, this.ox, this.oy); }
 
@@ -192,6 +274,7 @@ export class Renderer {
     this.Z = z * dpr; this.ox = W * dpr / 2 - camX * this.Z; this.oy = H * dpr / 2 - camY * this.Z;
     this.world();
     const T = game.terrain;
+    T.season = season;
 
     // ---------- 1. 底图分块 ----------
     const cx0 = Math.floor(left / CHUNK), cx1 = Math.floor(right / CHUNK);
@@ -207,7 +290,7 @@ export class Renderer {
     for (const [cx, cy] of order) {
       if (cx < 0 || cy < 0 || cx * CHUNK > WORLD_W || cy * CHUNK > WORLD_H) continue;
       let ch = T.getChunk(cx, cy, false);
-      if (!ch && builds < maxBuilds) { ch = T.getChunk(cx, cy, true); builds++; }
+      if ((!ch || ch.season !== T.season) && builds < maxBuilds) { ch = T.getChunk(cx, cy, true); builds++; }
       if (!ch) { missing++; continue; }
       const inView = (cx + 1) * CHUNK > left && cx * CHUNK < right && (cy + 1) * CHUNK > top && cy * CHUNK < bottom;
       if (inView) ctx.drawImage(ch.canvas, cx * CHUNK - 0.6, cy * CHUNK - 0.6, CHUNK + 1.2, CHUNK + 1.2);
@@ -216,6 +299,8 @@ export class Renderer {
 
     // ---------- 2. 水波 ----------
     if (z >= 0.35) this.drawWater(left, top, right, bottom, t);
+    // ---------- 2b. 草丛 ----------
+    if (z >= 0.42) this.drawGrass(left, top, right, bottom, t, season, z);
 
     // ---------- 3. 收集装饰 ----------
     const list: Drawable[] = [];
@@ -352,6 +437,9 @@ export class Renderer {
       ctx.restore();
     }
 
+    // ---------- 8.5 四季飘物：春花瓣、夏柳絮、秋落叶（仅神识圈内）----------
+    this.drawSeasonFx(dt, season, p.x, p.y, R);
+
     // ---------- 9. 昼夜 + 天气暗化（multiply）----------
     const night = game.night, light = game.light;
     const dusk = clamp(1 - Math.abs(light - 0.52) / 0.2, 0, 1) * (1 - night) * 0.7;
@@ -367,6 +455,25 @@ export class Renderer {
       ctx.globalCompositeOperation = 'multiply';
       ctx.fillStyle = `rgb(${r | 0},${g | 0},${bb | 0})`;
       ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      ctx.restore();
+    }
+    // 调色：白昼略增反差与暖意（避免发灰），晨昏金色柔光
+    {
+      const dayK = (1 - night) * (1 - clamp(gloom, 0, 1));
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation = 'soft-light';
+      if (dayK > 0.05) { ctx.fillStyle = `rgba(255,236,196,${0.22 * dayK * (1 - dusk)})`; ctx.fillRect(0, 0, this.canvas.width, this.canvas.height); }
+      if (dusk > 0.03) {
+        const gr = ctx.createLinearGradient(0, 0, this.canvas.width, this.canvas.height * 0.6);
+        gr.addColorStop(0, `rgba(255,170,80,${0.75 * dusk})`); gr.addColorStop(1, `rgba(255,120,90,${0.2 * dusk})`);
+        ctx.fillStyle = gr; ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        ctx.globalCompositeOperation = 'screen';
+        const cw = this.canvas.width, chh = this.canvas.height;
+        const sg = ctx.createRadialGradient(cw * 0.1, -chh * 0.1, 0, cw * 0.1, -chh * 0.1, Math.max(cw, chh) * 1.1);
+        sg.addColorStop(0, `rgba(255,170,90,${0.3 * dusk})`); sg.addColorStop(1, 'rgba(255,150,90,0)');
+        ctx.fillStyle = sg; ctx.fillRect(0, 0, cw, chh);
+      }
       ctx.restore();
     }
     // 灯火
@@ -465,7 +572,7 @@ export class Renderer {
   private drawWater(left: number, top: number, right: number, bottom: number, t: number) {
     const { ctx, game } = this;
     const T = game.terrain;
-    const step = 150;
+    const step = 105;
     ctx.save();
     ctx.lineCap = 'round';
     const gx0 = Math.floor(left / step), gx1 = Math.floor(right / step), gy0 = Math.floor(top / step), gy1 = Math.floor(bottom / step);
@@ -473,7 +580,7 @@ export class Renderer {
     ctx.lineWidth = Math.max(1.2, 1.6 / z);
     for (let gy = gy0; gy <= gy1; gy++) for (let gx = gx0; gx <= gx1; gx++) {
       const h1 = hash2(gx, gy, 61);
-      if (h1 > 0.55) continue;
+      if (h1 > 0.62) continue;
       const h2 = hash2(gx, gy, 62), h3 = hash2(gx, gy, 63);
       const x = (gx + h2) * step, y = (gy + h3) * step;
       if (T.isLand(x, y)) continue;
@@ -482,9 +589,11 @@ export class Renderer {
       // 波纹：缓慢漂移、明灭
       const ph = (t * (deep ? 0.22 : 0.35) + h1 * 7) % 1;
       const a = Math.sin(ph * Math.PI);
-      const len = (deep ? 40 : 26) + h2 * 30;
+      const len = (deep ? 50 : 30) + h2 * 40;
       const dx = Math.sin(t * 0.3 + h3 * 6) * 14 + ph * 20;
-      ctx.strokeStyle = `rgba(248,252,250,${0.45 * a})`;
+      ctx.strokeStyle = `rgba(30,64,80,${0.16 * a})`;
+      ctx.beginPath(); ctx.moveTo(x - len * 0.45 + dx, y + 4); ctx.quadraticCurveTo(x + dx, y - 1 - h1 * 4, x + len * 0.45 + dx, y + 4); ctx.stroke();
+      ctx.strokeStyle = `rgba(248,252,250,${0.55 * a})`;
       ctx.beginPath();
       ctx.moveTo(x - len / 2 + dx, y);
       ctx.quadraticCurveTo(x + dx, y - 5 - h1 * 4, x + len / 2 + dx, y);
@@ -493,11 +602,81 @@ export class Renderer {
         ctx.strokeStyle = `rgba(40,70,80,${0.18 * a})`;
         ctx.beginPath(); ctx.moveTo(x - len * 0.4 + dx, y + 7); ctx.quadraticCurveTo(x + dx, y + 3, x + len * 0.4 + dx, y + 7); ctx.stroke();
       }
-      // 粼光
-      if (h1 < 0.08 && game.night < 0.5) {
-        const gl = Math.max(0, Math.sin(t * 2.2 + h2 * 20));
-        ctx.fillStyle = `rgba(255,255,240,${0.7 * gl * gl})`;
-        ctx.fillRect(x + dx * 0.5 - 3, y - 1, 6, 1.6);
+    }
+    // 粼光：日光下的细碎闪点（夜里换成月色）
+    if (z > 0.45) {
+      const gs = 70, day = 1 - game.night;
+      const col = day > 0.5 ? '255,252,232' : '220,230,255';
+      for (let gy = Math.floor(top / gs); gy <= Math.floor(bottom / gs); gy++) for (let gx = Math.floor(left / gs); gx <= Math.floor(right / gs); gx++) {
+        const h = hash2(gx, gy, 71);
+        if (h > 0.3) continue;
+        const x = (gx + hash2(gx, gy, 72)) * gs, y = (gy + hash2(gx, gy, 73)) * gs;
+        if (T.isLand(x, y)) continue;
+        const gl = Math.sin(t * (1.6 + h * 3) + h * 40);
+        if (gl < 0.55) continue;
+        const k = (gl - 0.55) / 0.45, a = k * k * (day > 0.5 ? 0.85 : 0.45);
+        const L = 5 + h * 20;
+        ctx.fillStyle = `rgba(${col},${a})`;
+        ctx.beginPath(); ctx.ellipse(x, y, L * (0.5 + k * 0.5), 1.6, 0, 0, Math.PI * 2); ctx.fill();
+        if (h < 0.04 && k > 0.7) { ctx.fillRect(x - 0.6, y - 5 * k, 1.2, 10 * k); }
+      }
+    }
+    // 岸边浪花：贴着画出的岸线一涨一退
+    if (z > 0.4) {
+      const fs = 34;
+      ctx.lineWidth = Math.max(1.3, 1.8 / z);
+      for (let gy = Math.floor(top / fs); gy <= Math.floor(bottom / fs); gy++) for (let gx = Math.floor(left / fs); gx <= Math.floor(right / fs); gx++) {
+        let x = (gx + 0.5) * fs, y = (gy + 0.5) * fs;
+        const L0 = T.visLand(x, y);
+        if (Math.abs(L0 - 0.5) > 0.09) continue;
+        const ex = (T.visLand(x + 8, y) - T.visLand(x - 8, y)) / 16, ey = (T.visLand(x, y + 8) - T.visLand(x, y - 8)) / 16;
+        const g2 = ex * ex + ey * ey;
+        if (g2 < 1e-9) continue;
+        // 牛顿一步投到岸线上
+        const k0 = (L0 - 0.5) / g2;
+        x -= ex * k0; y -= ey * k0;
+        if (Math.abs(x - (gx + 0.5) * fs) > fs * 0.6 || Math.abs(y - (gy + 0.5) * fs) > fs * 0.6) continue;
+        const n = Math.sqrt(g2), nx = ex / n, ny = ey / n; // 指向陆地
+        const h = hash2(gx, gy, 75);
+        for (let w = 0; w < 2; w++) {
+          const ph = (t * 0.22 + h * 0.5 + w * 0.5 + (x + y) * 0.0003) % 1;
+          const a = Math.sin(ph * Math.PI) * (w ? 0.45 : 0.7);
+          const back = 3 + (1 - ph) * 16 + w * 4;   // 浪从外向岸推进
+          const cx2 = x - nx * back, cy2 = y - ny * back, hl = 13 + h * 6;
+          ctx.strokeStyle = `rgba(252,253,248,${a})`;
+          ctx.beginPath();
+          ctx.moveTo(cx2 - ny * hl, cy2 + nx * hl);
+          ctx.quadraticCurveTo(cx2 + nx * 4, cy2 + ny * 4, cx2 + ny * hl, cy2 - nx * hl);
+          ctx.stroke();
+        }
+      }
+    }
+    // 河流：顺流而下的细碎水光
+    if (z > 0.35) {
+      ctx.lineCap = 'round';
+      for (const rv of T.rivers) {
+        const bb = (rv as any)._bb ?? ((rv as any)._bb = (() => { let a = 1e9, b = 1e9, c = -1e9, d = -1e9; for (const [px, py] of rv.pts) { a = Math.min(a, px); b = Math.min(b, py); c = Math.max(c, px); d = Math.max(d, py); } return [a * WORLD_SCALE - 200, b * WORLD_SCALE - 200, c * WORLD_SCALE + 200, d * WORLD_SCALE + 200]; })());
+        if (bb[2] < left || bb[0] > right || bb[3] < top || bb[1] > bottom) continue;
+        const pts = rv.pts;
+        const w = 70 * rv.w;
+        for (let lane = -1; lane <= 1; lane++) {
+          ctx.beginPath();
+          let started = false;
+          for (let k = 0; k < pts.length; k++) {
+            const x = pts[k][0] * WORLD_SCALE, y = pts[k][1] * WORLD_SCALE;
+            const k2 = Math.min(pts.length - 1, k + 1), k1 = Math.max(0, k - 1);
+            let tx = pts[k2][0] - pts[k1][0], ty = pts[k2][1] - pts[k1][1]; const tn = Math.hypot(tx, ty) || 1; tx /= tn; ty /= tn;
+            const off = lane * w * 0.26;
+            const px = x - ty * off, py = y + tx * off;
+            if (!started) { ctx.moveTo(px, py); started = true; } else ctx.lineTo(px, py);
+          }
+          ctx.setLineDash([10 + lane * 3, 46 + lane * 9]);
+          ctx.lineDashOffset = -t * (34 + lane * 6);
+          ctx.strokeStyle = `rgba(250,254,252,${lane === 0 ? 0.5 : 0.3})`;
+          ctx.lineWidth = lane === 0 ? 2.2 : 1.6;
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
       }
     }
     ctx.restore();
@@ -819,8 +998,8 @@ export class Renderer {
       const by = Math.floor((top - s - c.y) / fieldH) * fieldH + c.y;
       for (let x = bx; x < right + s; x += fieldW) for (let y = by; y < bottom + s; y += fieldH) clouds.push([x, y, s]);
     }
-    a.globalAlpha = 0.08 * (1 - game.night * 0.7);
-    for (const [x, y, s] of clouds) a.drawImage(this.cloudShadow, x - s / 2 + 220, y - s / 2 + 320, s, s * 0.6);
+    a.globalAlpha = 0.16 * (1 - game.night * 0.8);
+    for (const [x, y, s] of clouds) a.drawImage(this.cloudShadow, x - s / 2 + 260, y - s / 2 + 420, s, s * 0.6);
     if (!game.revealAll) {
       const fx0 = Math.max(0, Math.floor(left / FOG_CELL) - 1), fx1 = Math.min(FOG_W - 1, Math.floor(right / FOG_CELL) + 1);
       const fy0 = Math.max(0, Math.floor(top / FOG_CELL) - 1), fy1 = Math.min(FOG_H - 1, Math.floor(bottom / FOG_CELL) + 1);
@@ -843,7 +1022,7 @@ export class Renderer {
         a.drawImage(this.cloud, x - s / 2, y - s / 2, s, s);
       }
     }
-    a.globalAlpha = (game.cam.zoom < 0.5 ? 0.42 : 0.24) * (game.weather.kind === 'clear' ? 1 : 1.3);
+    a.globalAlpha = (game.cam.zoom < 0.5 ? 0.42 : clamp(0.1 + (0.75 - game.cam.zoom) * 0.6, 0.06, 0.24)) * (game.weather.kind === 'clear' ? 1 : 1.4);
     for (const [x, y, s] of clouds) a.drawImage(this.cloud, x - s / 2, y - s / 2, s, s * 0.6);
     a.globalAlpha = 1;
   }

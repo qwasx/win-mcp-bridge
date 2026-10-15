@@ -7,6 +7,7 @@ import {
 import type { MtnSpec, MtnStyle } from '../gfx/mountain';
 import { pickSpecies, Species, TREE_SIZE } from '../gfx/tree';
 import { layoutLocation, LOC_SCALE } from '../gfx/building';
+import { GRASS_VARIANTS, type GrassKind } from '../gfx/grass';
 
 export const CHUNK = 1024;          // 每块世界像素
 export const CHUNK_RES = 384;       // 每块纹理分辨率（含笔触细节）
@@ -19,10 +20,12 @@ export interface ImgDeco { kind: 'img'; img: HTMLCanvasElement; x: number; y: nu
 export interface TreeDeco { kind: 'tree'; sp: Species; v: number; x: number; y: number; w: number; h: number; s: number; flip: boolean; ph: number; lod: number }
 export interface MtnDeco { kind: 'mtn'; id: string; spec: MtnSpec; x: number; y: number; w: number; h: number; flip: boolean }
 export type Deco = ImgDeco | TreeDeco | MtnDeco;
+/** 草丛（实时绘制，见 gfx/grass.ts） */
+export interface Clump { x: number; y: number; kind: GrassKind; v: number; s: number; ph: number; lod: number }
 export const TREE_VARIANTS = 24;
 const DEMON_SECTS = ['tianmo', 'guiling', 'yuling', 'tiansha', 'yinluo', 'hehuan', 'qianhuan'];
 
-export interface Chunk { cx: number; cy: number; canvas: HTMLCanvasElement; used: number }
+export interface Chunk { cx: number; cy: number; canvas: HTMLCanvasElement; used: number; season: number }
 
 function boxBlur(src: Float32Array, w: number, h: number, r: number) {
   const tmp = new Float32Array(w * h), out = new Float32Array(w * h);
@@ -78,6 +81,9 @@ export class Terrain {
   rivers: { pts: P[]; w: number }[] = [];
   chunks = new Map<string, Chunk>();
   decoCache = new Map<string, { d: Deco[]; used: number }>();
+  grassCache = new Map<string, { d: Clump[]; used: number }>();
+  /** 当前季节（0 春 1 夏 2 秋 3 冬）：底图随之重烘焙 */
+  season = 1;
   riverMask!: Uint8Array;
   locZones: { x: number; y: number; rx: number; ry: number; id: string }[] = [];
   waveGlyph?: HTMLCanvasElement;
@@ -266,6 +272,31 @@ export class Terrain {
     for (let i = 0; i < W * H; i++) this.roadMask[i] = raw[i * 4] > 60 ? 1 : 0;
   }
 
+  private roadSegs: Map<string, number[]> | null = null;
+  /** 精确：距道路中线 < pad（世界像素） */
+  nearRoad(wx: number, wy: number, pad: number) {
+    if (!this.onRoad(wx, wy)) return false;
+    const RC = 600;
+    if (!this.roadSegs) {
+      const m = new Map<string, number[]>();
+      for (const r of this.roads) {
+        const w = r.major ? 17 : 11;
+        for (let k = 0; k < r.pts.length - 1; k++) {
+          const ax = r.pts[k][0] * WORLD_SCALE, ay = r.pts[k][1] * WORLD_SCALE, bx = r.pts[k + 1][0] * WORLD_SCALE, by = r.pts[k + 1][1] * WORLD_SCALE;
+          for (let gy = Math.floor((Math.min(ay, by) - 60) / RC); gy <= Math.floor((Math.max(ay, by) + 60) / RC); gy++)
+            for (let gx = Math.floor((Math.min(ax, bx) - 60) / RC); gx <= Math.floor((Math.max(ax, bx) + 60) / RC); gx++) {
+              const key = gx + ',' + gy; let a = m.get(key); if (!a) m.set(key, (a = [])); a.push(ax, ay, bx, by, w);
+            }
+        }
+      }
+      this.roadSegs = m;
+    }
+    const a = this.roadSegs.get(Math.floor(wx / RC) + ',' + Math.floor(wy / RC));
+    if (!a) return false;
+    for (let i = 0; i < a.length; i += 5) if (segDist(wx, wy, a[i], a[i + 1], a[i + 2], a[i + 3]) < a[i + 4] + pad) return true;
+    return false;
+  }
+
   onRoad(wx: number, wy: number) {
     const x = (wx / WORLD_SCALE) | 0, y = (wy / WORLD_SCALE) | 0;
     if (x < 0 || y < 0 || x >= this.W || y >= this.H) return false;
@@ -399,6 +430,10 @@ export class Terrain {
     };
   }
 
+  /** 底图上画出来的海岸线所用的陆地值（0.5 为岸） */
+  visLand(wx: number, wy: number) {
+    return this.bil(this.land, wx / WORLD_SCALE, wy / WORLD_SCALE) + (valueNoise(wx / 150, wy / 150, 9) - 0.5) * 0.12;
+  }
   isLand(wx: number, wy: number) {
     const x = wx / WORLD_SCALE, y = wy / WORLD_SCALE;
     const l = this.bil(this.land, x, y) + (valueNoise(wx / 140, wy / 140, 9) - 0.5) * 0.12;
@@ -428,8 +463,8 @@ export class Terrain {
     if (L < 0.5) {
       const dep = this.bil(this.depth, x, y);
       const t = clamp(dep * 1.6, 0, 1);       // 越近岸越浅
-      r = 112 + 74 * t; g = 146 + 58 * t; b = 152 + 42 * t;
-      const m = 0.95 + 0.09 * n1;
+      r = 70 + 82 * t; g = 122 + 72 * t; b = 136 + 50 * t;
+      const m = 0.94 + 0.12 * n1 + (n2 - 0.5) * 0.05;
       r *= m; g *= m; b *= m;
       if (L > 0.44) { const k = (L - 0.44) / 0.06; r += (222 - r) * k * 0.55; g += (226 - g) * k * 0.55; b += (214 - b) * k * 0.55; }
     } else {
@@ -437,16 +472,18 @@ export class Terrain {
       // 基础：宣纸色平原
       r = 226; g = 217; b = 184;
       // 湿润绿意
-      const green = clamp((1 - arid) * (0.35 + 0.45 * n1), 0, 1);
-      r += (198 - r) * green; g += (206 - g) * green; b += (162 - b) * green;
+      const green = clamp((1 - arid) * (0.5 + 0.5 * n1), 0, 1);
+      const nm = valueNoise(wx / 700, wy / 700, 13);   // 成片的嫩绿 / 青绿
+      const gr0 = 168 + nm * 30, gg0 = 194 + nm * 14, gb0 = 128 - nm * 10;
+      r += (gr0 - r) * green; g += (gg0 - g) * green; b += (gb0 - b) * green;
       // 森林
       const f = clamp(forest * 1.2, 0, 1);
-      r += (160 - r) * f; g += (178 - g) * f; b += (138 - b) * f;
+      r += (136 - r) * f; g += (166 - g) * f; b += (118 - b) * f;
       // 干旱/草原/荒漠
       const a = clamp(arid, 0, 1);
       const desert = clamp((arid - 0.74) / 0.18, 0, 1);
       const steppe = a * (1 - desert);
-      r += (206 - r) * steppe; g += (204 - g) * steppe; b += (140 - b) * steppe;
+      r += (210 - r) * steppe; g += (200 - g) * steppe; b += (128 - b) * steppe;
       r += (234 - r) * desert; g += (208 - g) * desert; b += (152 - b) * desert;
       // 山地
       const e = clamp((elev - 0.2) * 1.4, 0, 1);
@@ -466,6 +503,16 @@ export class Terrain {
       // 高处略带青灰（远山感）
       const hi = clamp((elev - 0.55) * 1.2, 0, 0.35);
       r += (150 - r) * hi * 0.4; g += (160 - g) * hi * 0.4; b += (160 - b) * hi * 0.4;
+      // 四季：春嫩、夏浓、秋黄、冬枯（雪原另算）
+      const veg = clamp(green * (1 - desert) * (1 - c) * (1 - e * 0.6), 0, 1);
+      const S = this.season;
+      if (S === 0) { const k = 0.3 * veg; r += (184 - r) * k; g += (210 - g) * k; b += (132 - b) * k; }
+      else if (S === 2) { const k = (0.62 + 0.2 * n1) * veg; r += (200 - r) * k; g += (180 - g) * k; b += (108 - b) * k; }
+      else if (S === 3) {
+        const k = 0.75 * veg; r += (206 - r) * k; g += (202 - g) * k; b += (180 - b) * k;
+        const sn = clamp((valueNoise(wx / 420, wy / 420, 29) - 0.55) * 4, 0, 1) * veg;
+        r += (244 - r) * sn; g += (244 - g) * sn; b += (240 - b) * sn;
+      }
       // 海岸墨线
       if (L < 0.535) { const k = 1 - (L - 0.5) / 0.035; r += (96 - r) * k * 0.7; g += (104 - g) * k * 0.7; b += (92 - b) * k * 0.7; }
     }
@@ -475,7 +522,7 @@ export class Terrain {
   getChunk(cx: number, cy: number, allowBuild: boolean): Chunk | null {
     const key = cx + ',' + cy;
     let c = this.chunks.get(key);
-    if (c) { c.used = this.frame; return c; }
+    if (c && (c.season === this.season || !allowBuild)) { c.used = this.frame; return c; }
     if (!allowBuild) return null;
     c = this.buildChunk(cx, cy);
     this.chunks.set(key, c);
@@ -560,82 +607,97 @@ export class Terrain {
       if (!hit) continue;
       const path = () => { g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x * WORLD_SCALE, y * WORLD_SCALE) : g.moveTo(x * WORLD_SCALE, y * WORLD_SCALE))); };
       const w = rd.major ? 34 : 22;
-      path(); g.strokeStyle = 'rgba(105,90,62,0.32)'; g.lineWidth = w + 12; g.stroke();
-      path(); g.strokeStyle = 'rgba(214,198,158,0.92)'; g.lineWidth = w; g.stroke();
-      g.setLineDash([18, 40]); path(); g.strokeStyle = 'rgba(150,128,90,0.35)'; g.lineWidth = 3; g.stroke(); g.setLineDash([]);
+      // 土路：柔和路肩 → 深色路缘 → 夯土路面 → 两道车辙 → 中间被踩亮的一线
+      path(); g.strokeStyle = 'rgba(150,132,88,0.16)'; g.lineWidth = w + 30; g.stroke();
+      path(); g.strokeStyle = 'rgba(118,98,64,0.34)'; g.lineWidth = w + 7; g.stroke();
+      path(); g.strokeStyle = 'rgba(206,188,146,0.96)'; g.lineWidth = w; g.stroke();
+      path(); g.strokeStyle = 'rgba(160,138,96,0.4)'; g.lineWidth = w * 0.66; g.stroke();
+      path(); g.strokeStyle = 'rgba(214,198,158,1)'; g.lineWidth = w * 0.54; g.stroke();
+      path(); g.strokeStyle = 'rgba(234,224,194,0.55)'; g.lineWidth = w * 0.18; g.stroke();
     }
     if (landish) {
-      // 5. 草叶、苔点、碎石（批量路径）
-      const grass = new Path2D(), dry = new Path2D(), moss = new Path2D(), pebble = new Path2D();
-      const dune = new Path2D(), drift = new Path2D();
-      const flowers: [number, number, number][] = [];
-      for (let i = 0; i < 230; i++) {
+      // 5. 水彩笔触：成片的嫩绿/墨绿晕染 + 细密草纹（远看有质感，近看由实时草丛接管）
+      const dune = new Path2D(), drift = new Path2D(), pebble = new Path2D();
+      const hatchA = new Path2D(), hatchB = new Path2D();
+      // 全局网格摆放，跨块连续（无接缝）
+      const DC = 64;
+      for (let Y = Math.floor((oy - 200) / DC); Y <= Math.floor((oy + CHUNK + 200) / DC); Y++) for (let X = Math.floor((ox - 200) / DC); X <= Math.floor((ox + CHUNK + 200) / DC); X++) {
+        if (hash2(X, Y, 61) > 0.26) continue;
+        const x = (X + hash2(X, Y, 62)) * DC, y = (Y + hash2(X, Y, 63)) * DC;
+        const h4 = hash2(X, Y, 64), h5 = hash2(X, Y, 65);
+        const rw = 50 + h4 * 130, rh = rw * (0.14 + h5 * 0.14);
+        if (x + rw < ox || x - rw > ox + CHUNK || y + rh < oy || y - rh > oy + CHUNK) continue;
+        const sm = this.sample(x, y);
+        if (sm.land < 0.62 || sm.cold > 0.6 || sm.arid > 0.8) continue;
+        const lightK = h5 < 0.55;
+        const S = this.season;
+        const c = sm.arid > 0.45 ? (lightK ? '226,214,150' : '150,140,80')
+          : S === 2 ? (lightK ? '234,206,126' : '130,100,48')
+          : S === 3 ? (lightK ? '248,248,244' : '140,134,112')
+          : (lightK ? (S === 0 ? '214,234,150' : '206,226,150') : '70,112,64');
+        g.fillStyle = `rgba(${c},${0.05 + h4 * 0.06})`;
+        g.beginPath(); g.ellipse(x, y, rw, rh, (h4 - 0.5) * 0.4, 0, Math.PI * 2); g.fill();
+      }
+      for (let i = 0; i < 700; i++) {
+        const x = ox + rnd() * CHUNK, y = oy + rnd() * CHUNK;
+        const sm = this.sample(x, y);
+        if (sm.land < 0.62 || sm.cold > 0.6 || sm.arid > 0.8 || sm.elev > 0.5) continue;
+        const L = 6 + rnd() * 8, lean = (rnd() - 0.5) * 6;
+        const P2 = rnd() < 0.5 ? hatchA : hatchB;
+        P2.moveTo(x, y); P2.lineTo(x + lean, y - L);
+        P2.moveTo(x + 4, y + 1); P2.lineTo(x + 4 + lean * 0.6, y - L * 0.7);
+      }
+      for (let i = 0; i < 240; i++) {
         const x = ox + rnd() * CHUNK, y = oy + rnd() * CHUNK;
         const sm = this.sample(x, y);
         if (sm.land < 0.62) continue;
-        if (this.onRoad(x, y)) continue;
-        const n = 3 + (rnd() * 3 | 0), hgt = 14 + rnd() * 14;
         if (sm.cold > 0.6) {
           const q = rnd();
-          if (q < 0.18) { pebble.moveTo(x + 6, y); pebble.ellipse(x, y, 6 + rnd() * 5, 3 + rnd() * 2, 0, 0, Math.PI * 2); }
+          if (q < 0.12) { pebble.moveTo(x + 6, y); pebble.ellipse(x, y, 6 + rnd() * 5, 3 + rnd() * 2, 0, 0, Math.PI * 2); }
           else if (q < 0.5) { const L = 40 + rnd() * 90; drift.moveTo(x, y); drift.quadraticCurveTo(x + L / 2, y - 6 - rnd() * 8, x + L, y + rnd() * 4); }
-          continue;
-        }
-        if (sm.arid > 0.8) {
-          // 沙丘纹
-          if (i % 3 === 0) {
-            const L = 120 + rnd() * 220, b = 14 + rnd() * 18;
-            dune.moveTo(x, y); dune.bezierCurveTo(x + L * 0.3, y - b, x + L * 0.7, y - b, x + L, y + rnd() * 10);
-            dune.moveTo(x + L * 0.2, y + 12); dune.quadraticCurveTo(x + L * 0.5, y - b * 0.4, x + L * 0.8, y + 14);
-          } else if (rnd() < 0.25) {
-            for (let k = 0; k < 3; k++) { const bx = x + k * 4; dry.moveTo(bx, y); dry.lineTo(bx + (k - 1) * 5, y - 10 - rnd() * 6); }
-          }
-          continue;
-        }
-        const path = sm.arid > 0.45 ? dry : grass;
-        const reps = sm.arid > 0.45 ? 2 : 1; // 草原更茂密
-        for (let rep = 0; rep < reps; rep++) {
-          const xx = x + rep * 60 * (rnd() - 0.5), yy = y + rep * 40 * (rnd() - 0.5);
-          for (let k = 0; k < n; k++) {
-            const bx = xx + k * 5 - n * 2.5;
-            path.moveTo(bx, yy); path.quadraticCurveTo(bx + 2, yy - hgt * 0.6, bx + (k - n / 2) * 4, yy - hgt - rnd() * 6);
-          }
-        }
-        if (rnd() < (sm.arid > 0.45 ? 0.22 : 0.08)) flowers.push([x + 20, y - 4, rnd()]);
-      }
-      for (let i = 0; i < 60; i++) {
-        const x = ox + rnd() * CHUNK, y = oy + rnd() * CHUNK;
-        const sm = this.sample(x, y);
-        if (sm.land < 0.62 || (sm.forest < 0.25 && sm.elev < 0.3) || sm.arid > 0.6 || sm.cold > 0.6) continue;
-        const m = 3 + (rnd() * 4 | 0);
-        for (let k = 0; k < m; k++) {
-          const px = x + (rnd() - 0.5) * 40, py = y + (rnd() - 0.5) * 22, r = 2.5 + rnd() * 4;
-          moss.moveTo(px + r, py); moss.ellipse(px, py, r, r * 0.7, rnd(), 0, Math.PI * 2);
+        } else if (sm.arid > 0.8 && i % 3 === 0) {
+          const L = 120 + rnd() * 220, b = 14 + rnd() * 18;
+          dune.moveTo(x, y); dune.bezierCurveTo(x + L * 0.3, y - b, x + L * 0.7, y - b, x + L, y + rnd() * 10);
+          dune.moveTo(x + L * 0.2, y + 12); dune.quadraticCurveTo(x + L * 0.5, y - b * 0.4, x + L * 0.8, y + 14);
         }
       }
-      for (let i = 0; i < 26; i++) {
+      for (let i = 0; i < 22; i++) {
         const x = ox + rnd() * CHUNK, y = oy + rnd() * CHUNK;
         const sm = this.sample(x, y);
-        if (sm.land < 0.62 || sm.elev < 0.25) continue;
-        const r = 5 + rnd() * 9;
+        if (sm.land < 0.62 || sm.elev < 0.25 || this.nearRoad(x, y, 10)) continue;
+        const r = 4 + rnd() * 7;
         pebble.moveTo(x + r, y); pebble.ellipse(x, y, r, r * 0.6, 0, 0, Math.PI * 2);
       }
+      g.lineWidth = 2.2; g.strokeStyle = 'rgba(60,96,54,0.16)'; g.stroke(hatchA);
+      g.strokeStyle = 'rgba(190,214,140,0.22)'; g.stroke(hatchB);
       g.lineWidth = 3; g.strokeStyle = 'rgba(150,115,60,0.32)'; g.stroke(dune);
       g.lineWidth = 2.5; g.strokeStyle = 'rgba(120,140,165,0.35)'; g.stroke(drift);
-      // 野花
-      const FC = ['200,70,60', '230,190,70', '245,240,230', '170,110,180'];
-      for (const [x, y, h] of flowers) {
-        g.fillStyle = `rgba(${FC[(h * 4) | 0]},0.8)`;
-        for (let k = 0; k < 4; k++) { g.beginPath(); g.arc(x + Math.cos(k * 1.7 + h * 9) * 9, y + Math.sin(k * 2.3 + h * 7) * 5, 2.6, 0, Math.PI * 2); g.fill(); }
-      }
-      g.lineWidth = 2.2; g.strokeStyle = 'rgba(58,88,52,0.38)'; g.stroke(grass);
-      g.strokeStyle = 'rgba(130,110,60,0.45)'; g.stroke(dry);
-      g.fillStyle = 'rgba(36,58,42,0.5)'; g.fill(moss);
-      g.fillStyle = 'rgba(140,140,128,0.55)'; g.fill(pebble);
-      g.lineWidth = 1.6; g.strokeStyle = 'rgba(50,50,44,0.55)'; g.stroke(pebble);
+      g.fillStyle = 'rgba(176,172,156,0.7)'; g.fill(pebble);
+      g.lineWidth = 1.4; g.strokeStyle = 'rgba(90,88,76,0.4)'; g.stroke(pebble);
     }
     g.restore();
-    return { cx, cy, canvas: cv, used: this.frame };
+    return { cx, cy, canvas: cv, used: this.frame, season: this.season };
+  }
+
+  /** 是否落在 drawFields 画出的某块田里（与其网格同构） */
+  private inField(wx: number, wy: number, locs: typeof LOCATIONS) {
+    const cw = 300, chh = 210;
+    for (const l of locs) {
+      const lx = l.x * WORLD_SCALE, ly = l.y * WORLD_SCALE;
+      const RR = l.type === 'city' ? 2700 : 1800;
+      const ang = (hash2(l.x, l.y, 77) - 0.5) * 0.7;
+      const ca = Math.cos(ang), sa = Math.sin(ang);
+      const dx = wx - lx, dy = wy - ly;
+      const u = dx * ca + dy * sa, v = -dx * sa + dy * ca;
+      const j = Math.floor(v / chh);
+      const i = Math.floor((u - (j % 2 ? cw * 0.4 : 0)) / cw);
+      const fx = i * cw + (j % 2 ? cw * 0.4 : 0), fy = j * chh;
+      const dd = Math.hypot(fx + cw / 2, (fy + chh / 2) * 1.2);
+      const h = hash2(i + l.x * 7, j + l.y * 13, 5);
+      if (dd > RR * (0.55 + 0.45 * h) || dd < 620 || h < 0.12) continue;
+      return true;
+    }
+    return false;
   }
 
   // 城镇周边的田畴
@@ -690,6 +752,14 @@ export class Terrain {
     }
     return null;
   }
+  /** 地点核心区（广场、院落）：不长野草；外围仍可 */
+  inLocCore(wx: number, wy: number) {
+    for (const z of this.locZones) {
+      const dx = (wx - z.x) / (z.rx * 0.62), dy = (wy - z.y) / (z.ry * 0.62);
+      if (dx * dx + dy * dy < 1) return true;
+    }
+    return false;
+  }
   demonNear(wx: number, wy: number) {
     for (const z of this.locZones) if (DEMON_SECTS.includes(z.id) && Math.hypot(wx - z.x, wy - z.y) < 5200) return true;
     return false;
@@ -709,6 +779,58 @@ export class Terrain {
     }
     e.used = this.frame;
     return e.d;
+  }
+
+  /** 草丛分布：按 56 像素网格抖动，随地貌决定疏密与种类（跨块连续） */
+  getGrass(cx: number, cy: number): Clump[] {
+    const key = cx + ',' + cy;
+    let e = this.grassCache.get(key);
+    if (!e) {
+      e = { d: this.buildGrass(cx, cy), used: this.frame };
+      this.grassCache.set(key, e);
+      if (this.grassCache.size > 200) {
+        const arr = [...this.grassCache.entries()].sort((a, b) => a[1].used - b[1].used);
+        for (let i = 0; i < 50; i++) this.grassCache.delete(arr[i][0]);
+      }
+    }
+    e.used = this.frame;
+    return e.d;
+  }
+  private buildGrass(cx: number, cy: number): Clump[] {
+    const out: Clump[] = [];
+    const GC = 40, ox = cx * CHUNK, oy = cy * CHUNK;
+    // 城镇周边田畴：草少
+    const towns = LOCATIONS.filter((l) => (l.type === 'city' || l.type === 'town') && Math.abs(l.x * WORLD_SCALE - ox - CHUNK / 2) < 3600 && Math.abs(l.y * WORLD_SCALE - oy - CHUNK / 2) < 3600);
+    for (let Y = Math.floor(oy / GC); Y < Math.ceil((oy + CHUNK) / GC); Y++) for (let X = Math.floor(ox / GC); X < Math.ceil((ox + CHUNK) / GC); X++) {
+      const h1 = hash2(X, Y, 41), h2 = hash2(X, Y, 42), h3 = hash2(X, Y, 43), h4 = hash2(X, Y, 44);
+      const x = (X + h1) * GC, y = (Y + h2) * GC;
+      if (x < ox || x >= ox + CHUNK || y < oy || y >= oy + CHUNK) continue;
+      const s = this.sample(x, y);
+      if (s.land < 0.6 || !this.isLand(x, y)) continue;
+      // 疏密：大尺度噪声形成成片的草甸与空地
+      const patch = valueNoise(x / 520, y / 520, 47);
+      let dens = clamp((patch - 0.28) * 1.7, 0.06, 0.85);
+      dens *= 1 - clamp((s.elev - 0.25) * 1.6, 0, 0.85);
+      if (s.arid > 0.82) dens *= 0.12;
+      if (s.cold > 0.6) dens *= 0.25;
+      if (h3 > dens) {
+        // 空地上的零星小草
+        if (h3 - dens < 0.35 && s.cold < 0.6 && s.arid < 0.82 && !this.nearRoad(x, y, 8) && !this.inLocCore(x, y))
+          out.push({ x: x + 13, y: y + 9, kind: 'sprig', v: Math.floor(h4 * GRASS_VARIANTS), s: 0.9 + h1 * 0.4, ph: h2 * 6.28, lod: 2 });
+        continue;
+      }
+      if (this.nearRoad(x, y, 14) || this.inLocCore(x, y)) continue;
+      if (towns.length && this.inField(x, y, towns) && h4 > 0.15) continue;
+      let kind: GrassKind;
+      const k = hash2(X, Y, 45);
+      if (s.cold > 0.6) kind = 'snow';
+      else if (s.arid > 0.45) kind = k < 0.55 ? 'dry' : k < 0.8 ? 'tall' : k < 0.9 ? 'flower' : 'tuft';
+      else if (s.forest > 0.45) kind = k < 0.1 ? 'fern' : k < 0.26 ? 'clover' : k < 0.36 ? 'flower' : 'tuft';
+      else kind = k < 0.13 ? 'flower' : k < 0.24 ? 'clover' : k < 0.3 ? 'tall' : 'tuft';
+      out.push({ x, y, kind, v: Math.floor(h4 * GRASS_VARIANTS), s: 0.85 + hash2(X, Y, 46) * 0.4 + patch * 0.25, ph: h1 * 6.28, lod: h2 < 0.45 ? 0 : 1 });
+    }
+    out.sort((a, b) => a.y - b.y);
+    return out;
   }
 
   private mountainStyle(wx: number, wy: number, s: Sample, h: number): MtnStyle {
@@ -821,7 +943,7 @@ export class Terrain {
         else if (s.land > 0.36 && s.land < 0.5 && h3 < 0.35 && this.reedGlyph && s.cold < 0.5) out.push({ kind: 'img', img: this.reedGlyph, x: wx, y: wy, w: 62, h: 70, flip: h4 < 0.5, alpha: 0.9 });
         continue;
       }
-      if (this.inLocZone(wx, wy, 40) || this.onRoad(wx, wy)) continue;
+      if (this.inLocZone(wx, wy, 40) || this.nearRoad(wx, wy, 40)) continue;
       const rock = this.rockGlyphs.length ? this.rockGlyphs[(h5 * 3) | 0] : null;
       if (this.nearRiver(wx, wy) && this.reedGlyph && h3 < 0.3 && s.cold < 0.5) out.push({ kind: 'img', img: this.reedGlyph, x: wx, y: wy, w: 62, h: 70, flip: h4 < 0.5, alpha: 0.9 });
       else if (s.elev > 0.3) { if (rock && h3 < 0.18) { const k = 0.7 + h4 * 0.6; out.push({ kind: 'img', img: rock, x: wx, y: wy, w: 120 * k, h: 86 * k, flip: h4 < 0.5, alpha: 1 }); } }
@@ -829,8 +951,7 @@ export class Terrain {
         if (this.shrubGlyph && h3 < 0.14) out.push({ kind: 'img', img: this.shrubGlyph, x: wx, y: wy, w: 80 + h4 * 40, h: (80 + h4 * 40) * 0.82, flip: h4 < 0.5, alpha: 0.95 });
         else if (h3 > 0.93 && rock) out.push({ kind: 'img', img: rock, x: wx, y: wy, w: 110, h: 76, flip: h4 < 0.5, alpha: 1 });
       } else if (s.arid > 0.45) {
-        if (this.grassGlyph && h3 < 0.2) out.push({ kind: 'img', img: this.grassGlyph, x: wx, y: wy, w: 80 + h4 * 40, h: 44 + h4 * 22, flip: h4 < 0.5, alpha: 0.6 + h4 * 0.3 });
-        else if (h3 > 0.95 && rock) out.push({ kind: 'img', img: rock, x: wx, y: wy, w: 100, h: 69, flip: h4 < 0.5, alpha: 1 });
+        if (h3 > 0.95 && rock) out.push({ kind: 'img', img: rock, x: wx, y: wy, w: 100, h: 69, flip: h4 < 0.5, alpha: 1 });
       } else if (h3 > 0.965 && rock) out.push({ kind: 'img', img: rock, x: wx, y: wy, w: 90, h: 62, flip: h4 < 0.5, alpha: 1 });
     }
     return out;
