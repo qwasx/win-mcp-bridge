@@ -738,7 +738,7 @@ export class NpcWorld {
       if (st.x < view.left - 200 || st.x > view.right + 200 || st.y < view.top - 100 || st.y > view.bottom + 260) continue;
       const v = g.life.vis({ x: st.x, y: st.y });
       if (v <= 0.01) continue;
-      out.push({ y: st.y, draw: (ctx) => this.drawOne(ctx, a, v, t, dt) });
+      out.push({ y: st.lift > 12 ? st.y + 200000 : st.y, draw: (ctx) => this.drawOne(ctx, a, v, t, dt) });   // 御器飞行时在山树之上
     }
   }
   private drawOne(ctx: G, a: Active, v: number, t: number, dt: number) {

@@ -501,7 +501,7 @@ export class Renderer {
     game.npcs.collect(list, view, t, dt);
     game.events.collect(list, view, t, dt);
     game.story.collect(list, view, t, dt);
-    list.push({ y: p.y, draw: () => this.drawPlayer(dt) });
+    list.push({ y: p.flying ? p.y + 200000 : p.y, draw: () => this.drawPlayer(dt) });   // 御器飞行：在山树之上
 
     list.sort((a, b) => a.y - b.y);
     for (const d of list) d.draw(ctx);
@@ -738,7 +738,7 @@ export class Renderer {
       }
       return n;
     };
-    const nRiv = cull(T.rivSegW, 0, 340), nRoad = cull(T.roadSegW, 2, 200);
+    const nRiv = cull(T.rivSegW, 0, 820), nRoad = cull(T.roadSegW, 2, 200);
     let nTown = 0;
     for (const l of LOCATIONS) {
       if (nTown >= MAX_TOWN) break;

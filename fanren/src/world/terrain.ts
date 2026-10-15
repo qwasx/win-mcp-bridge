@@ -8,6 +8,7 @@ import type { MtnSpec, MtnStyle } from '../gfx/mountain';
 import { pickSpecies, Species, TREE_SIZE } from '../gfx/tree';
 import { layoutLocation, LOC_SCALE } from '../gfx/building';
 import { GRASS_VARIANTS, type GrassKind } from '../gfx/grass';
+import { RiverGeo } from './rivergeo';
 
 export const CHUNK = 1024;          // 每块世界像素
 export const CHUNK_RES = 384;       // 每块纹理分辨率（含笔触细节）
@@ -263,7 +264,7 @@ export class Terrain {
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
     g.strokeStyle = '#fff'; g.lineCap = 'round'; g.lineJoin = 'round';
-    for (const rv of this.rivers) { g.lineWidth = rv.w * 0.8 + 3; g.beginPath(); rv.pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke(); }
+    for (const rv of this.rivers) { g.lineWidth = rv.w * 0.8 + 6.5; g.beginPath(); rv.pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke(); }
     const rr = g.getImageData(0, 0, W, H).data;
     this.riverMask = new Uint8Array(W * H);
     for (let i = 0; i < W * H; i++) this.riverMask[i] = rr[i * 4] > 60 ? 1 : 0;
@@ -312,6 +313,10 @@ export class Terrain {
   /** 世界坐标线段（Catmull-Rom 细分到 ~150px，GPU 地表与 CPU 判定共用）：
    *  每段 8 个数 [ax,ay,bx,by, 宽, 累计长, 标记, 0]；河：标记=河号；路：标记=1 官道 */
   rivSegW = new Float32Array(0); roadSegW = new Float32Array(0);
+  /** 与 GPU 地表一致的蜿蜒河道（第十七步） */
+  riverGeo: RiverGeo | null = null;
+  /** 到河水边缘的有符号距离（负 = 在河里） */
+  riverEdge(wx: number, wy: number) { return this.riverMask && this.nearRiver(wx, wy) && this.riverGeo ? this.riverGeo.edgeDist(wx, wy) : 1e9; }
   private buildSegs() {
     const S = WORLD_SCALE;
     const resample = (pts: P[]) => {
@@ -350,6 +355,7 @@ export class Terrain {
       for (let i = 2; i < p.length; i += 2) road.push(p[i - 2], p[i - 1], p[i], p[i + 1], r.major ? 40 : 24, 0, r.major ? 1 : 0, 0);
     }
     this.rivSegW = new Float32Array(riv); this.roadSegW = new Float32Array(road);
+    this.riverGeo = new RiverGeo(this.rivSegW);
   }
 
   private _gl: { W: number; H: number; scale: number; a: Float32Array; b: Float32Array } | null = null;
@@ -541,6 +547,7 @@ export class Terrain {
     if (s.forest > 0.6) f *= 0.88;
     if (s.cold > 0.6) f *= 0.85;
     if (this.onRoad(wx, wy)) f = Math.max(f, 1) * 1.25;
+    else if (this.riverEdge(wx, wy) < 0) f *= 0.5;   // 涉水而过
     return f;
   }
 
@@ -899,12 +906,13 @@ export class Terrain {
       if (x < ox || x >= ox + CHUNK || y < oy || y >= oy + CHUNK) continue;
       const s = this.sample(x, y);
       if (s.land < 0.6 || !this.isLand(x, y)) continue;
+      if (this.riverEdge(x, y) < 14) continue;
       // 疏密：大尺度噪声形成成片的草甸与空地
       const patch = valueNoise(x / 520, y / 520, 47);
-      let dens = clamp((patch - 0.28) * 1.7, 0.06, 0.85);
+      let dens = clamp((patch - 0.4) * 2.0, 0.02, 0.62);   // 第十七步：成簇而疏（地表着色器已有细草）
       dens *= 1 - clamp((s.elev - 0.25) * 1.6, 0, 0.85);
-      if (s.arid > 0.82) dens *= 0.12;
-      if (s.cold > 0.6) dens *= 0.25;
+      if (s.arid > 0.82) dens *= 0.12; else if (s.arid > 0.45) dens *= 0.36;
+      if (s.cold > 0.6) dens *= 0.035;
       if (h3 > dens) {
         // 空地上的零星小草
         if (h3 - dens < 0.35 && s.cold < 0.6 && s.arid < 0.82 && !this.nearRoad(x, y, 8) && !this.inLocCore(x, y))
@@ -1012,6 +1020,7 @@ export class Terrain {
         if (!inChunk(x, y)) continue;
         if (!this.isLand(x, y)) continue;
         if (this.onRoad(x, y) || this.inLocZone(x, y, 260)) continue;
+        if (this.riverEdge(x, y) < 40) continue;
         const ss = this.sample(x, y);
         if (ss.elev > 0.62 && hsp < 0.8) continue;
         let sp: Species = hsp < 0.72 ? sp1 : sp2;
@@ -1038,7 +1047,9 @@ export class Terrain {
       }
       if (this.inLocZone(wx, wy, 40) || this.nearRoad(wx, wy, 40)) continue;
       const rock = this.rockGlyphs.length ? this.rockGlyphs[(h5 * 3) | 0] : null;
-      if (this.nearRiver(wx, wy) && this.reedGlyph && h3 < 0.3 && s.cold < 0.5) out.push({ kind: 'img', img: this.reedGlyph, x: wx, y: wy, w: 62, h: 70, flip: h4 < 0.5, alpha: 0.9 });
+      const re = this.riverEdge(wx, wy);
+      if (re < -18) continue;
+      if (re < 70 && this.reedGlyph && h3 < 0.55 && s.cold < 0.5) out.push({ kind: 'img', img: this.reedGlyph, x: wx, y: wy, w: 62, h: 70, flip: h4 < 0.5, alpha: 0.9 });
       else if (s.elev > 0.3) { if (rock && h3 < 0.18) { const k = 0.7 + h4 * 0.6; out.push({ kind: 'img', img: rock, x: wx, y: wy, w: 120 * k, h: 86 * k, flip: h4 < 0.5, alpha: 1 }); } }
       else if (s.arid > 0.8) {
         if (this.shrubGlyph && h3 < 0.14) out.push({ kind: 'img', img: this.shrubGlyph, x: wx, y: wy, w: 80 + h4 * 40, h: (80 + h4 * 40) * 0.82, flip: h4 < 0.5, alpha: 0.95 });

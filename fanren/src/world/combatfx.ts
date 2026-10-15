@@ -10,6 +10,8 @@ import { mulberry32 } from '../core/rng';
 import { QUHUN_LOOK } from '../data/storylooks';
 import { artLook } from '../data/artlooks';
 import { drawArt } from '../gfx/artifact';
+/** 空中单位的排序偏移：排在所有地面物体之后 */
+const AIR_Y = 200000;
 
 type G = CanvasRenderingContext2D;
 const TAU = Math.PI * 2;
@@ -36,12 +38,12 @@ export function collectCombat(c: Combat, out: Drawable[], view: { left: number; 
     if (e.x < view.left - 200 || e.x > view.right + 200 || e.y < view.top - 100 || e.y > view.bottom + 260) continue;
     const a = enemyVis(c, e);
     if (a <= 0.01) continue;
-    out.push({ y: e.y, draw: (g) => drawEnemy(g, c, e, a, t, dt) });
+    out.push({ y: e.def.flying ? e.y + AIR_Y : e.y, draw: (g) => drawEnemy(g, c, e, a, t, dt) });
   }
   for (const s of c.summons) {
     if (s.kind === 'bugs') continue;
     if (s.kind === 'quhun' && s.cs) { const cs = s.cs; out.push({ y: s.y, draw: (g) => { g.save(); g.globalAlpha *= Math.min(1, s.t * 2); drawCharacter(g, QUHUN_LOOK, cs, 1.12, 0); g.globalCompositeOperation = 'lighter'; g.fillStyle = 'rgba(120,255,170,0.5)'; g.beginPath(); g.arc(s.x, s.y - 150, 3, 0, Math.PI * 2); g.fill(); g.restore(); } }); continue; }
-    out.push({ y: s.y, draw: (g) => { drawBeast(g, SUMMON_LOOK[s.kind] ?? SUMMON_LOOK.fox, s.x, s.y, s.facing, { move: 1, phase: s.phase, atk: s.cd > 0.7 ? 1 - (s.cd - 0.7) / 0.4 : 0, hit: 0, t: s.phase / 8, flying: s.kind === 'demon' }, 1); } });
+    out.push({ y: s.kind === 'demon' ? s.y + AIR_Y : s.y, draw: (g) => { drawBeast(g, SUMMON_LOOK[s.kind] ?? SUMMON_LOOK.fox, s.x, s.y, s.facing, { move: 1, phase: s.phase, atk: s.cd > 0.7 ? 1 - (s.cd - 0.7) / 0.4 : 0, hit: 0, t: s.phase / 8, flying: s.kind === 'demon' }, 1); } });
   }
   for (const l of c.loot) {
     const a = enemyVis(c, l);

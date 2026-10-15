@@ -91,7 +91,7 @@ void main(){
   vec2 rel=(px-uRes*0.5)/uTPW;
   vec2 w=uCam+rel;
   float wpp=1.0/uTPW;                 // 每纹素对应的世界像素
-  float near=smoothstep(0.9,0.35,wpp); // 近景细节（草叶、石子、野花）
+  float near=smoothstep(2.3,1.0,wpp);  // 近景细节（草叶、石子、野花）——第十七步：常用缩放（dpr 1、zoom 0.8）下也要看得见
   vec2 m0=w/uScale;
 
   // ---------- 陆地（与 CPU isLand 一致）
@@ -112,36 +112,42 @@ void main(){
   // ---------- 草甸
   float pM=fbm3(w/2600.0);                       // 成片的青翠 / 枯黄
   float pC=fbm3(w/320.0+vec2(11.0,3.0));          // 草丛团块
-  float lush=clamp(pM*1.2-0.1+(pC-0.5)*0.35,0.0,1.0);
-  float dryK=clamp((arid-0.25)*1.3,0.0,1.0)*0.8 + smoothstep(0.62,0.85,1.0-pM)*0.25;
+  float lush=clamp(pM*1.25-0.12+(pC-0.5)*0.18,0.0,1.0);
+  float dryK=clamp((arid-0.25)*1.3,0.0,1.0)*0.8 + smoothstep(0.62,0.85,1.0-pM)*0.2;
   vec3 col=seasonGrass(lush,clamp(dryK,0.0,1.0));
-  // 水彩晕染块：边界清楚但柔和，边缘积色（水彩“水痕”），代替模糊的大噪声
-  float pa=fbm3(w/820.0+vec2(23.0,41.0));
-  float m1=smoothstep(0.47,0.53,pa);
-  col=mix(col,col*vec3(0.90,0.95,0.86),m1*0.8);
-  col*=1.0-exp(-pow((pa-0.5)/0.018,2.0))*0.07;
-  float pb=fbm3(w/300.0+vec2(5.0,77.0));
-  float m2=smoothstep(0.57,0.65,pb);
-  col=mix(col,mix(col,vec3(0.84,0.82,0.58),0.22),m2);  // 向阳的浅黄绿草斑
-  col*=1.0-exp(-pow((pb-0.62)/0.014,2.0))*0.05;
+  // 第十七步：平坡用“横擦”——沿水平方向拉长的淡彩晕染（山水画里坡地的画法），不再是一团团的噪声斑
+  vec2 hq0=w+vec2(0.0,(fbm2(w/1700.0)-0.5)*420.0);
+  float hs1=fbm3(vec2(hq0.x/1150.0,hq0.y/150.0)+vec2(13.0,5.0));
+  float hs2=fbm2(vec2(hq0.x/430.0,hq0.y/46.0)+vec2(3.0,29.0));
+  float washA=smoothstep(0.50,0.68,hs1);
+  col=mix(col,col*vec3(0.85,0.91,0.81),washA*0.6);                     // 深一层的青绿：坡脚背阴
+  col*=1.0-exp(-pow((hs1-0.515)/0.02,2.0))*0.06;                        // 水痕：晕染边缘积色
+  col=mix(col,mix(col,vec3(0.87,0.87,0.67),0.4),smoothstep(0.42,0.26,hs1)*0.55);   // 向阳坡：浅黄绿
+  col=mix(col,col*vec3(0.93,0.96,0.89),smoothstep(0.56,0.74,hs2)*0.4);
+  // 干笔飞白：细长的横向擦痕，透出纸色（只在部分地段，避免满地都是）
+  float dbN=N4(vec2(w.x/95.0,w.y/5.5)+vec2(0.31,0.17)).g;
+  float dbM=smoothstep(0.55,0.8,fbm2(w/520.0+vec2(9.0,9.0)));
+  col=mix(col,vec3(0.93,0.915,0.85),smoothstep(0.64,0.8,dbN)*dbM*0.2*mix(0.4,1.0,near));
+  float pb=hs2;
   // 草丛起伏（很轻）：受光面略亮、背光略暗
   float h0=fbm2(w/150.0+vec2(4.0,9.0));
   float hx=fbm2((w+vec2(9.0,0.0))/150.0+vec2(4.0,9.0)), hy=fbm2((w+vec2(0.0,9.0))/150.0+vec2(4.0,9.0));
   float bump=dot(normalize(vec3((h0-hx)*7.0,(h0-hy)*7.0,1.0)),LD)-LD.z;
-  col*=1.0+bump*0.3;
-  col=mix(col,col*vec3(0.86,0.9,0.84),smoothstep(0.4,0.26,h0)*0.3);
+  col*=1.0+bump*0.08;   // 假法线光照只留一点点（多了像塑料）
   // 细纹理：极细的竖向草纹（远看是质感）
   float b1=N4(vec2(w.x/5.0+w.y/38.0, w.y/24.0)).g;
   float b2=N4(vec2(w.x/4.2-w.y/52.0, w.y/19.0)+vec2(0.37,0.71)).b;
   float blades=(b1+b2)*0.5;
-  col*=0.95+0.1*blades;
+  col*=0.975+0.05*blades;
   // 手绘草丛：两层网格（小丛密、大丛疏），叶根深、叶尖亮
   float tufCov=0.0;
   if(near>0.01){
     float lean=(fbm2(w/600.0)-0.5)*0.5;
     // 成簇：中尺度噪声决定疏密，密处一片片、疏处零星（不再均匀撒点）
-    float clus=smoothstep(0.3,0.75,fbm2(w/180.0+vec2(61.0,17.0)));
-    float dens=(0.12+0.75*clus)*(0.55+0.45*lush)*(1.0-arid*0.7);
+    // 第十七步：明显成簇——一片片草丛，中间是素净的平地
+    float clusN=fbm2(w/220.0+vec2(61.0,17.0))*0.7+fbm2(w/900.0+vec2(3.0,40.0))*0.3;
+    float clus=smoothstep(0.45,0.72,clusN);
+    float dens=(0.03+0.8*clus*clus)*(0.55+0.45*lush)*(1.0-arid*0.7);
     vec4 t1=tuft(w,18.0,301,dens,wpp,lean);
     vec4 t2=tuft(w+vec2(7.0,4.0),40.0,331,dens*0.55,wpp,lean);
     vec4 t3=tuft(w+vec2(23.0,11.0),72.0,361,clus*0.35*(1.0-arid),wpp,lean*1.3);
@@ -149,7 +155,7 @@ void main(){
     vec4 tt=t2.x>t1.x?t2:t1; tt=t3.x>tt.x?t3:tt;
     col*=1.0-clus*0.06;
     // 三种笔色：深青（阴面）/ 本色 / 嫩黄（受光的叶尖）
-    vec3 dark=col*vec3(0.58,0.70,0.52), lite=min(col*vec3(1.12,1.12,0.96)+vec3(0.06,0.06,0.0),vec3(1.0));
+    vec3 dark=col*vec3(0.50,0.62,0.48), lite=min(col*vec3(1.12,1.12,0.96)+vec3(0.06,0.06,0.0),vec3(1.0));
     vec3 tc=mix(dark,lite,smoothstep(0.15,0.95,tt.y)*(0.35+0.65*tt.z));
     tufCov=tt.x*near;
     col=mix(col,tc,tufCov*0.9);
@@ -157,15 +163,15 @@ void main(){
 
   // 裸土斑（踩秃的地、鼠穴、旧火塘）
   float soilN=fbm3(w/250.0+vec2(77.0,13.0));
-  float soil=smoothstep(0.74,0.8,soilN-lush*0.1+(blades-0.5)*0.12);
-  vec3 soilC=mix(vec3(0.68,0.60,0.46),vec3(0.76,0.69,0.54),N4(w/60.0).a);
+  float soil=smoothstep(0.78,0.86,soilN-lush*0.12+(N4(vec2(w.x/40.0,w.y/6.0)).r-0.5)*0.1);
+  vec3 soilC=mix(vec3(0.72,0.66,0.50),vec3(0.80,0.75,0.59),N4(vec2(w.x/120.0,w.y/30.0)).a);
 
   // 野花（春夏），落叶（秋）
   float flowers=0.0; vec3 flowerC=vec3(1.0);
   if(near>0.01 && uSeason<=1){
     vec2 cell=floor(w/11.0); vec2 fc=(cell+vec2(hashU(int(cell.x),int(cell.y),71),hashU(int(cell.x),int(cell.y),72)))*11.0;
     float hf=hashU(int(cell.x),int(cell.y),73);
-    float dens=smoothstep(0.45,0.8,fbm2(w/700.0+vec2(5.0,1.0)))*0.22*(1.0-arid);
+    float dens=smoothstep(0.6,0.82,fbm2(w/520.0+vec2(5.0,1.0))*0.75+fbm2(w/90.0+vec2(1.0,8.0))*0.25)*0.42*(1.0-arid);   // 花成片开
     if(hf<dens){ float r=length(w-fc); float k=hashU(int(cell.x),int(cell.y),74);
       flowerC = k<0.35?vec3(0.97,0.96,0.90): k<0.6?vec3(0.98,0.84,0.36): k<0.82?vec3(0.95,0.62,0.70): vec3(0.70,0.62,0.92);
       flowers=(1.0-smoothstep(1.0,2.0+wpp,r))*near; }
@@ -173,12 +179,25 @@ void main(){
 
   // ---------- 林下：苔藓、腐叶
   float fW=smoothstep(0.35,0.78,forest+(pC-0.5)*0.35);
-  vec3 forestC=mix(vec3(0.40,0.50,0.32),vec3(0.52,0.59,0.38),fbm2(w/90.0));
+  vec3 forestC=mix(vec3(0.42,0.52,0.34),vec3(0.54,0.61,0.40),smoothstep(0.3,0.7,fbm2(vec2(w.x/300.0,w.y/70.0)+vec2(2.0,8.0))));
   if(uSeason==2) forestC=mix(forestC,vec3(0.56,0.40,0.20),0.45);
   float litter=smoothstep(0.62,0.7,N4(w/7.0).r)*near;
   forestC=mix(forestC, uSeason==2?vec3(0.78,0.48,0.20):vec3(0.46,0.40,0.26), litter*0.5);
-  forestC*=1.0+bump*0.4;
+  forestC*=1.0+bump*0.12;
   col=mix(col,forestC*(1.0-tufCov*0.12),fW*0.7);
+  // 苔点：三五成群的横点（墨绿），点在草根、坡脚、林下——山水画的“点苔”
+  if(near>0.01){
+    float dz=smoothstep(0.52,0.78,fbm2(w/260.0+vec2(41.0,7.0))+fW*0.2)*(1.0-arid*0.8)*(1.0-smoothstep(0.5,0.8,cold));
+    vec2 dc=floor(w/13.0); int ix=int(dc.x), iy=int(dc.y);
+    float hd=hashU(ix,iy,501);
+    if(hd<dz*0.6){
+      vec2 pc=(dc+vec2(0.2+0.6*hashU(ix,iy,502),0.2+0.6*hashU(ix,iy,503)))*13.0;
+      vec2 q=(w-pc)*vec2(1.0,2.0);
+      float r=1.5+hashU(ix,iy,504)*1.9;
+      float dk=clamp((r-length(q))/wpp+0.5,0.0,1.0)*near;
+      col=mix(col,col*vec3(0.36,0.45,0.36),dk*0.7);
+    }
+  }
 
   // ---------- 草原（干旱 0.42~0.8）：风吹的横向草纹
   float steppe=smoothstep(0.40,0.60,arid)*(1.0-smoothstep(0.74,0.9,arid));
@@ -229,13 +248,16 @@ void main(){
     col=mix(col,rC,rock*(0.75-tufCov*0.4));
   }
   // ---------- 积雪（寒地 + 冬季原野薄雪）
-  float snow=smoothstep(0.5,0.68,cold*(0.7+elev*0.6)+(fbm2(w/300.0)-0.5)*0.18);
+  float snow=smoothstep(0.5,0.7,cold+elev*0.18+(fbm2(w/300.0)-0.5)*0.16);
   if(uSeason==3) snow=max(snow, smoothstep(0.35,0.6,fbm3(w/500.0)+0.25-arid*0.3)*0.85);
   if(snow>0.001){
-    float sd=fbm3(vec2(w.x/420.0,w.y/220.0));
-    float sdx=fbm3(vec2((w.x+12.0)/420.0,w.y/220.0)), sdy=fbm3(vec2(w.x/420.0,(w.y+12.0)/220.0));
-    float ss=dot(normalize(vec3((sd-sdx)*10.0,(sd-sdy)*10.0,1.0)),LD)-LD.z;
-    vec3 sC=mix(vec3(0.84,0.87,0.92),vec3(0.96,0.965,0.97),clamp(0.65+ss*2.5,0.0,1.0));
+    // 雪垄：横向拉长的起伏，背光面是淡淡的青灰（像留白边上一抹淡墨）
+    float sd=fbm3(vec2(w.x/760.0,w.y/150.0));
+    float sdx=fbm3(vec2((w.x+14.0)/760.0,w.y/150.0)), sdy=fbm3(vec2(w.x/760.0,(w.y+14.0)/150.0));
+    float ss=dot(normalize(vec3((sd-sdx)*9.0,(sd-sdy)*9.0,1.0)),LD)-LD.z;
+    vec3 sC=mix(vec3(0.80,0.84,0.89),vec3(0.965,0.965,0.96),clamp(0.7+ss*2.6,0.0,1.0));
+    sC*=1.0-exp(-pow((sd-0.55)/0.025,2.0))*0.05;
+    sC=mix(sC,vec3(0.985,0.98,0.97),smoothstep(0.66,0.8,N4(vec2(w.x/110.0,w.y/7.0)+vec2(0.7,0.2)).b)*0.3);   // 风吹雪的细痕
     // 冰晶闪烁
     vec2 sc=floor(w/5.0); float sp=hashU(int(sc.x),int(sc.y),91);
     sC+=step(0.985,sp)*near*0.12;
@@ -245,7 +267,7 @@ void main(){
   }
 
   // 裸土
-  col=mix(col,soilC*(1.0+bump*0.4),soil*(1.0-snow)*(1.0-desert)*(1.0-rock*0.7)*(0.6-tufCov*0.3));
+  col=mix(col,soilC*(1.0+bump*0.1),soil*(1.0-snow)*(1.0-desert)*(1.0-rock*0.7)*(0.42-tufCov*0.3));
 
   // ---------- 田畴（城镇周边，与 Terrain.inField 同构）
   for(int k=0;k<${MAX_TOWN};k++){
@@ -322,9 +344,12 @@ void main(){
   float rivCov=0.0; vec4 rivB=vec4(0.0);
   // 取最近的两段：水体按并集；水纹按两段各算一遍再按距离差交融（汇流口、转弯处不再有接缝）
   float d1=1e9, d2=1e9; int k1=-1, k2=-1; float h1=0.0, h2=0.0;
+  // 第十七步：河道蜿蜒——对河的距离场做两级域扭曲（大湾 ~1.5 千像素、小弯 ~300 像素），屏幕内就能看到河曲
+  vec2 rq=rel+(vec2(fbm2(w/1250.0+vec2(71.0,13.0)),fbm2(w/1250.0+vec2(19.0,57.0)))-0.5)*760.0
+             +(vec2(fbm2(w/300.0+vec2(5.0,3.0)),fbm2(w/300.0+vec2(9.0,1.0)))-0.5)*110.0;
   for(int k=0;k<${MAX_SEG};k++){
     if(k>=uNRiv) break;
-    vec4 s=texelFetch(uSeg,ivec2(k,0),0); float hh; float dd=segDist(rel,s.xy,s.zw,hh)-texelFetch(uSeg,ivec2(k,1),0).x*0.5;
+    vec4 s=texelFetch(uSeg,ivec2(k,0),0); float hh; float dd=segDist(rq,s.xy,s.zw,hh)-texelFetch(uSeg,ivec2(k,1),0).x*0.5;
     if(dd<d1){ d2=d1; k2=k1; h2=h1; d1=dd; k1=k; h1=hh; } else if(dd<d2){ d2=dd; k2=k; h2=hh; }
   }
   if(k1>=0 && d1<300.0){
@@ -337,12 +362,12 @@ void main(){
       bl=0.5*(1.0-smoothstep(0.0,40.0,d2-d1));
       float hk=clamp(0.5+0.5*(d2-d1)/16.0,0.0,1.0); e=mix(d2,d1,hk)-16.0*hk*(1.0-hk); }
     float wv=mix(W1.x,W2.x,bl);
-    float nk=1.0+(fbm2(w/260.0)-0.5)*0.35;
+    float nk=clamp(1.0+(fbm2(w/1500.0+vec2(2.0,6.0))-0.5)*1.3+(fbm2(w/260.0)-0.5)*0.3,0.55,1.6);   // 河面时宽时窄：深潭、浅滩
     float hw=wv*0.5*nk;
     // 统一成“到中线距离 d、半宽 hw”的形式：d = hw + e·(宽度扰动)
     float d=hw+(e+wv*0.5*(1.0-nk))+(N4(w/30.0).r-0.5)*6.0;
     // 河岸：湿泥 → 卵石滩 → 草
-    float bank=1.0-smoothstep(hw+6.0,hw+34.0+fbm2(w/80.0)*24.0,d);
+    float bank=1.0-smoothstep(hw+6.0,hw+26.0+smoothstep(0.45,0.75,fbm2(w/420.0+vec2(8.0,8.0)))*70.0+fbm2(w/80.0)*20.0,d);
     vec3 bankC=mix(vec3(0.66,0.62,0.52),vec3(0.74,0.70,0.60),N4(w/14.0).g);
     if(near>0.01){ vec2 c2=floor(w/9.0); float hp=hashU(int(c2.x),int(c2.y),55);
       vec2 pc=(c2+0.5+vec2(hashU(int(c2.x),int(c2.y),56),hashU(int(c2.x),int(c2.y),57))*0.5-0.25)*9.0;
@@ -360,7 +385,7 @@ void main(){
     { vec4 S=bl>0.5?S2:S1; vec4 Wd=bl>0.5?W2:W1; float hq=bl>0.5?h2:h1;
       vec2 tdir=normalize(S.zw-S.xy+1e-4); vec2 nrm=vec2(-tdir.y,tdir.x);
       float along=mod(Wd.y+hq*length(S.zw-S.xy),1920.0)/1920.0;
-      float across=dot(rel-S.xy,nrm);
+      float across=dot(rq-S.xy,nrm);
       float hi=floor(along*255.0)/255.0;
       rivB=vec4(hi,fract(along*255.0),clamp(across/512.0+0.5,0.0,1.0),0.5+0.5*clamp(dp*(1.0-bl*1.6)*0.999,0.0,0.999));
     }
@@ -415,7 +440,7 @@ void main(){
 export const GLSL_WATER = `
 const vec3 WLD=vec3(-0.4615,-0.6293,0.6293);
 vec3 waterAnim(vec3 c, vec4 B, vec2 w, float wpp, float T){
-  float near=smoothstep(0.9,0.35,wpp);
+  float near=smoothstep(2.3,1.0,wpp);
   if(B.a>=0.5){
     // —— 河：沿程坐标模 1920（=噪声周期），所有沿程采样都取 1920 的约数，接缝处无断痕
     float along=(B.r+B.g/255.0)*1920.0, across=(B.b-0.5)*512.0, dp=(B.a-0.5)*2.0;
@@ -641,7 +666,7 @@ export class Ground {
         const lead = 40, mx = m * 0.6, my = m * 0.6;
         const cx = v.camX + Math.max(-mx, Math.min(mx, this.vel.x * lead));
         const cy = v.camY + Math.max(-my, Math.min(my, this.vel.y * lead));
-        const n = W * H > 3e6 ? 6 : 4;
+        const n = W * H > 3e6 ? 8 : 6;   // 第十七步：条更窄，每帧负担更轻
         this.job = { cx, cy, tpw, season: v.season, W, H, strip: 0, n, segs: provider(cx, cy, W / tpw / 2, H / tpw / 2) };
       }
       const job = this.job!;
@@ -659,6 +684,7 @@ export class Ground {
     return !!this.front;
   }
 
+  private tileSeg = new Float32Array(MAX_SEG * 4 * 4);
   private drawStrips(job: NonNullable<Ground['job']>, g: GBuf, from: number, to: number, vao: WebGLVertexArrayObject) {
     const gl = this.gl, pr = this.prog, T = this.T!;
     gl.bindFramebuffer(gl.FRAMEBUFFER, g.fb);
@@ -669,9 +695,7 @@ export class Ground {
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, this.noise); gl.uniform1i(pr.u('uN'), 2);
     const S = job.segs;
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, this.segTex);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, MAX_SEG, 4, gl.RGBA, gl.FLOAT, S.seg);
     gl.uniform1i(pr.u('uSeg'), 3);
-    gl.uniform1i(pr.u('uNRiv'), S.nRiv); gl.uniform1i(pr.u('uNRoad'), S.nRoad);
     if (S.nTown) { gl.uniform4fv(pr.u('uTown[0]'), S.town, 0, S.nTown * 4); gl.uniform4iv(pr.u('uTownS[0]'), S.townS, 0, S.nTown * 4); }
     gl.uniform1i(pr.u('uNTown'), S.nTown);
     gl.uniform2f(pr.u('uMacro'), T.W, T.H); gl.uniform1f(pr.u('uScale'), T.scale);
@@ -679,10 +703,32 @@ export class Ground {
     gl.uniform2f(pr.u('uRes'), g.W, g.H); gl.uniform1i(pr.u('uSeason'), job.season);
     gl.bindVertexArray(vao);
     gl.enable(gl.SCISSOR_TEST);
+    // 第十七步：分块裁剪线段——每块只上传可能影响到它的河段 / 路段（与 Renderer 裁剪同样的余量），
+    // 每个像素的线段循环从“整个缓存的全部线段”降到“本块附近的几段”，画面完全不变
+    const ROW = MAX_SEG * 4, src = S.seg, dst = this.tileSeg, COLS = 3;
+    const fill = (row: number, n: number, pad: number, x0: number, x1: number, y0: number, y1: number) => {
+      let m = 0;
+      for (let k = 0; k < n; k++) {
+        const o = row * ROW + k * 4, ax = src[o], ay = src[o + 1], bx = src[o + 2], by = src[o + 3], r = src[o + ROW] * 0.5 + pad;
+        if (Math.max(ax, bx) < x0 - r || Math.min(ax, bx) > x1 + r || Math.max(ay, by) < y0 - r || Math.min(ay, by) > y1 + r) continue;
+        const d = row * ROW + m * 4;
+        dst[d] = ax; dst[d + 1] = ay; dst[d + 2] = bx; dst[d + 3] = by;
+        dst[d + ROW] = src[o + ROW]; dst[d + ROW + 1] = src[o + ROW + 1]; dst[d + ROW + 2] = src[o + ROW + 2]; dst[d + ROW + 3] = src[o + ROW + 3];
+        m++;
+      }
+      return m;
+    };
     for (let i = from; i < to; i++) {
       const y0 = Math.floor(g.H * i / job.n), y1 = Math.floor(g.H * (i + 1) / job.n);
-      gl.scissor(0, y0, g.W, y1 - y0);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      for (let c = 0; c < COLS; c++) {
+        const x0 = Math.floor(g.W * c / COLS), x1 = Math.floor(g.W * (c + 1) / COLS);
+        const wx0 = (x0 - g.W / 2) / job.tpw, wx1 = (x1 - g.W / 2) / job.tpw, wy0 = (y0 - g.H / 2) / job.tpw, wy1 = (y1 - g.H / 2) / job.tpw;
+        const nR = fill(0, S.nRiv, 820, wx0, wx1, wy0, wy1), nD = fill(2, S.nRoad, 210, wx0, wx1, wy0, wy1);
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, MAX_SEG, 4, gl.RGBA, gl.FLOAT, dst);
+        gl.uniform1i(pr.u('uNRiv'), nR); gl.uniform1i(pr.u('uNRoad'), nD);
+        gl.scissor(x0, y0, x1 - x0, y1 - y0);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+      }
       this.stripsThisFrame++;
     }
     gl.disable(gl.SCISSOR_TEST);
