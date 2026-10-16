@@ -9,6 +9,7 @@ import { pickSpecies, Species, TREE_SIZE } from '../gfx/tree';
 import { layoutLocation, LOC_SCALE } from '../gfx/building';
 import { GRASS_VARIANTS, type GrassKind } from '../gfx/grass';
 import { RiverGeo } from './rivergeo';
+import { LANDMARKS, SCENIC, landmarkAt, lmCleared, lmNoGrass, type GroveSpot, type FallSpot } from '../data/landmarks';
 
 export const CHUNK = 1024;          // 每块世界像素
 export const CHUNK_RES = 384;       // 每块纹理分辨率（含笔触细节）
@@ -20,7 +21,11 @@ export interface Sample { land: number; elev: number; arid: number; cold: number
 export interface ImgDeco { kind: 'img'; img: HTMLCanvasElement; x: number; y: number; w: number; h: number; flip: boolean; alpha: number }
 export interface TreeDeco { kind: 'tree'; sp: Species; v: number; x: number; y: number; w: number; h: number; s: number; flip: boolean; ph: number; lod: number }
 export interface MtnDeco { kind: 'mtn'; id: string; spec: MtnSpec; x: number; y: number; w: number; h: number; flip: boolean }
-export type Deco = ImgDeco | TreeDeco | MtnDeco;
+/** 第十九步：瀑布（崖壁精灵 + 逐帧水练） */
+export interface FallDeco { kind: 'fall'; id: string; x: number; y: number; w: number; h: number; seed: number; tiers: number; name?: string }
+export type Deco = ImgDeco | TreeDeco | MtnDeco | FallDeco;
+const GROVE_MIX: Species[] = ['peach', 'peach', 'peach', 'peach', 'peach', 'peach', 'peach', 'peach', 'peach', 'apricot', 'apricot', 'apricot', 'apricot', 'apricot', 'apricot', 'plum', 'plum', 'plum', 'maple', 'maple'];
+const GVC = 2600, FC = 3000;
 /** 草丛（实时绘制，见 gfx/grass.ts） */
 export interface Clump { x: number; y: number; kind: GrassKind; v: number; s: number; ph: number; lod: number }
 export const TREE_VARIANTS = 24;
@@ -907,6 +912,7 @@ export class Terrain {
       const s = this.sample(x, y);
       if (s.land < 0.6 || !this.isLand(x, y)) continue;
       if (this.riverEdge(x, y) < 14) continue;
+      if (lmNoGrass(x, y)) continue;
       // 疏密：大尺度噪声形成成片的草甸与空地
       const patch = valueNoise(x / 520, y / 520, 47);
       let dens = clamp((patch - 0.4) * 2.0, 0.02, 0.62);   // 第十七步：成簇而疏（地表着色器已有细草）
@@ -930,6 +936,69 @@ export class Terrain {
       out.push({ x, y, kind, v: Math.floor(h4 * GRASS_VARIANTS), s: 0.85 + hash2(X, Y, 46) * 0.4 + patch * 0.25, ph: h1 * 6.28, lod: h2 < 0.45 ? 0 : 1 });
     }
     out.sort((a, b) => a.y - b.y);
+    return out;
+  }
+
+  // ---------- 第十九步：程序化花林与瀑布 ----------
+  private gvMemo = new Map<string, GroveSpot | null>();
+  private fallMemo = new Map<string, FallSpot | null>();
+  private procGrove(gx: number, gy: number): GroveSpot | null {
+    const key = gx + ',' + gy;
+    if (this.gvMemo.has(key)) return this.gvMemo.get(key)!;
+    let res: GroveSpot | null = null;
+    if (hash2(gx, gy, 311) < 0.12) {
+      const x = (gx + 0.2 + hash2(gx, gy, 312) * 0.6) * GVC, y = (gy + 0.2 + hash2(gx, gy, 313) * 0.6) * GVC;
+      const s = this.sample(x, y);
+      if (s.land > 0.7 && this.isLand(x, y) && s.elev < 0.38 && s.arid < 0.4 && s.cold < 0.4 && !this.inLocZone(x, y, 500) && !landmarkAt(x, y, 600) && !this.nearRiver(x, y)) {
+        const r = 300 + hash2(gx, gy, 314) * 260;
+        res = { x, y, r, sp: 'peach', seed: (gx * 7919 + gy * 104729) >>> 0 } as GroveSpot;
+        (res as any).mix = true;
+      }
+    }
+    this.gvMemo.set(key, res);
+    return res;
+  }
+  grovesNear(x: number, y: number, pad: number): GroveSpot[] {
+    const out: GroveSpot[] = [];
+    for (const g of SCENIC.groves) if (Math.abs(g.x - x) < g.r + pad && Math.abs(g.y - y) < g.r + pad) out.push(g);
+    const gx = Math.floor(x / GVC), gy = Math.floor(y / GVC);
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const g = this.procGrove(gx + i, gy + j); if (g && Math.abs(g.x - x) < g.r + pad && Math.abs(g.y - y) < g.r + pad) out.push(g); }
+    return out;
+  }
+  groveHere(x: number, y: number): GroveSpot | null {
+    for (const g of this.grovesNear(x, y, 0)) { const dx = (x - g.x) / g.r, dy = (y - g.y) / (g.r * 0.75); if (dx * dx + dy * dy < 1.1) return g; }
+    return null;
+  }
+  private procFall(gx: number, gy: number): FallSpot | null {
+    const key = gx + ',' + gy;
+    if (this.fallMemo.has(key)) return this.fallMemo.get(key)!;
+    let res: FallSpot | null = null;
+    if (hash2(gx, gy, 321) < 0.3) {
+      const x = (gx + 0.2 + hash2(gx, gy, 322) * 0.6) * FC, y = (gy + 0.2 + hash2(gx, gy, 323) * 0.6) * FC;
+      const s = this.sample(x, y);
+      if (s.land > 0.7 && this.isLand(x, y) && this.isLand(x, y + 120) && s.elev > 0.5 && s.elev < 1.1 && s.arid < 0.45 && s.cold < 0.45 && !this.inLocZone(x, y, 500) && !landmarkAt(x, y, 300) && !this.onRoad(x, y)) {
+        const h4 = hash2(gx, gy, 324);
+        const w = 420 + h4 * 260, h = w * (0.9 + hash2(gx, gy, 325) * 0.45);
+        res = { id: `wf${gx}_${gy}`, x, y, w, h, seed: (gx * 48271 + gy * 69621) >>> 0, tiers: 1 + Math.floor(hash2(gx, gy, 326) * 3) };
+      }
+    }
+    this.fallMemo.set(key, res);
+    return res;
+  }
+  procFallsNear(x: number, y: number, pad: number): FallSpot[] {
+    const out: FallSpot[] = [];
+    const gx = Math.floor(x / FC), gy = Math.floor(y / FC);
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const f = this.procFall(gx + i, gy + j); if (f && Math.abs(f.x - x) < f.w + pad && Math.abs(f.y - y) < f.h + pad) out.push(f); }
+    return out;
+  }
+  private nearProcFall(x: number, y: number, pad: number) {
+    for (const f of this.procFallsNear(x, y, 0)) if (Math.abs(x - f.x) < f.w * 0.6 + pad * 0.5 && y < f.y + f.w * 0.5 + pad * 0.3 && y > f.y - f.h * 0.6 - pad) return true;
+    return false;
+  }
+  /** 当前地图所有瀑布（地图界面、水声用） */
+  allFallsIn(x0: number, y0: number, x1: number, y1: number): FallSpot[] {
+    const out: FallSpot[] = SCENIC.falls.filter((f) => f.x > x0 && f.x < x1 && f.y > y0 && f.y < y1);
+    for (let gy = Math.floor(y0 / FC); gy <= Math.floor(y1 / FC); gy++) for (let gx = Math.floor(x0 / FC); gx <= Math.floor(x1 / FC); gx++) { const f = this.procFall(gx, gy); if (f && f.x > x0 && f.x < x1 && f.y > y0 && f.y < y1) out.push(f); }
     return out;
   }
 
@@ -961,6 +1030,7 @@ export class Terrain {
         const s = this.sample(wx, wy);
         if (s.land < 0.55 || !this.isLand(wx, wy + 40)) continue;
         if (this.inLocZone(wx, wy, 260) || this.onRoad(wx, wy)) continue;
+        if (lmCleared(wx, wy, 260) || this.nearProcFall(wx, wy, 700)) continue;
         const e = s.elev;
         if (k === 1 && e < 0.75) continue; // 高山区第二座（叠峦）
         let w = 0, hh = 0, style: MtnStyle;
@@ -968,6 +1038,7 @@ export class Terrain {
           const p = clamp((e - 0.42) * 2.4, 0, 0.97);
           if (h3 > p) continue;
           style = this.mountainStyle(wx, wy, s, h4);
+          { const LM = landmarkAt(wx, wy); if (LM?.mtnStyle && style !== 'snow') style = LM.mtnStyle; }
           w = (560 + (e - 0.42) * 2000 * (0.6 + h4 * 0.7)) * (k ? 0.75 : 1);
           w = Math.min(w, 2300);
           hh = w * (0.42 + Math.min(1, e) * 0.32) * (0.8 + h5 * 0.45);
@@ -987,6 +1058,47 @@ export class Terrain {
           path: h2 < 0.08 && style !== 'snow', snowcap: e > 0.9 && style !== 'snow' && style !== 'desert' && style !== 'hill' && s.arid < 0.6, pavilion: h2 < 0.05, clouds: big && h4 < 0.6, layers: big ? 3 : w > 600 ? 2 : 1,
         };
         out.push({ kind: 'mtn', id, spec, x: wx, y: wy + 30, w, h: hh, flip: h5 < 0.5 });
+      }
+    }
+    // ---------- 1b. 原著名地的山峰、名山 ----------
+    const named = [...SCENIC.peaks];
+    for (const L of LANDMARKS) if (Math.abs(L.x - ox) < L.r + CHUNK * 2 && Math.abs(L.y - oy) < L.r + CHUNK * 2) named.push(...L.peaks as any);
+    for (const p of named) {
+      if (!inChunk(p.x, p.y)) continue;
+      const big = p.w > 1100;
+      const spec: MtnSpec = { seed: p.seed >>> 0, style: p.style, w: p.w, h: p.h, cliff: p.style !== 'danxia', waterfall: !!p.waterfall, path: false, pavilion: false, snowcap: !!p.snow, clouds: !!p.clouds, layers: big ? 3 : 2 };
+      out.push({ kind: 'mtn', id: p.id, spec, x: p.x, y: p.y, w: p.w, h: p.h, flip: !!p.flip });
+    }
+    // ---------- 1c. 瀑布 ----------
+    for (const f of [...SCENIC.falls, ...this.procFallsNear(ox + CHUNK / 2, oy + CHUNK / 2, CHUNK)]) {
+      if (!inChunk(f.x, f.y)) continue;
+      out.push({ kind: 'fall', id: f.id, x: f.x, y: f.y, w: f.w, h: f.h, seed: f.seed, tiers: f.tiers, name: f.name });
+      // 背后的山：瀑布挂在山脚的崖壁上，不至于孤零零立在平地
+      const s0 = this.sample(f.x, f.y);
+      const bst: MtnStyle = s0.cold > 0.42 ? 'snow' : landmarkAt(f.x, f.y)?.mtnStyle ?? (this.mountainStyle(f.x, f.y, s0, 0.3) === 'karst' ? 'karst' : 'qinglv');
+      const bw = Math.min(2300, f.w * 2.6), bh = Math.max(f.h * 1.7, bw * 0.62);
+      out.push({ kind: 'mtn', id: f.id + '_bg', spec: { seed: (f.seed * 31 + 7) >>> 0, style: bst, w: bw, h: bh, cliff: true, waterfall: false, path: false, pavilion: false, snowcap: false, clouds: bw > 1300, layers: 3 }, x: f.x + (hash2(f.x | 0, 1, 3) - 0.5) * f.w * 0.3, y: f.y - f.h * 0.42, w: bw, h: bh, flip: hash2(f.x | 0, 2, 3) < 0.5 });
+    }
+    // ---------- 1d. 花林（桃、杏，冬梅秋枫）----------
+    for (const gv of this.grovesNear(ox + CHUNK / 2, oy + CHUNK / 2, CHUNK)) {
+      const SP = 70;
+      const rnd = mulberry32((gv.seed ^ 0x9e37) >>> 0);
+      for (let yy = Math.floor((oy) / SP); yy <= Math.floor((oy + CHUNK) / SP); yy++) for (let xx = Math.floor(ox / SP); xx <= Math.floor((ox + CHUNK) / SP); xx++) {
+        const j1 = hash2(xx, yy, 301), j2 = hash2(xx, yy, 302), j3 = hash2(xx, yy, 303);
+        const x = (xx + j1 * 0.8) * SP, y = (yy + j2 * 0.8) * SP;
+        if (!inChunk(x, y)) continue;
+        const dx = (x - gv.x) / gv.r, dy = (y - gv.y) / (gv.r * 0.75);
+        const q = dx * dx + dy * dy + (valueNoise(x / 160, y / 160, gv.seed & 255) - 0.5) * 0.5;
+        if (q > 1) continue;
+        if (q > 0.6 && j3 < (q - 0.6) * 1.6) continue;           // 林缘稀疏
+        if (j3 > 0.86) continue;                                // 林间空地
+        if (!this.isLand(x, y) || this.onRoad(x, y) || this.inLocZone(x, y, 200) || this.riverEdge(x, y) < 40 || lmCleared(x, y)) continue;
+        let sp = gv.sp;
+        if ((gv as any).mix) sp = GROVE_MIX[Math.floor(hash2(xx, yy, 304) * GROVE_MIX.length)];
+        else if (hash2(xx, yy, 305) < 0.12) sp = sp === 'peach' ? 'apricot' : sp === 'apricot' ? 'peach' : sp;
+        const sc = (0.82 + hash2(xx, yy, 306) * 0.36) * (1.08 - q * 0.2);
+        const base = TREE_SIZE[sp] * sc;
+        out.push({ kind: 'tree', sp, v: Math.floor(hash2(xx, yy, 307) * TREE_VARIANTS), x, y, w: base * 1.2, h: base * 1.35, s: sc, flip: rnd() < 0.5, ph: rnd() * Math.PI * 2, lod: (xx + yy) % 3 });
       }
     }
     // ---------- 2. 树林（成片的林子，大小不一）----------
@@ -1021,9 +1133,12 @@ export class Terrain {
         if (!this.isLand(x, y)) continue;
         if (this.onRoad(x, y) || this.inLocZone(x, y, 260)) continue;
         if (this.riverEdge(x, y) < 40) continue;
+        if (lmCleared(x, y) || this.groveHere(x, y) || this.nearProcFall(x, y, 260)) continue;
         const ss = this.sample(x, y);
         if (ss.elev > 0.62 && hsp < 0.8) continue;
         let sp: Species = hsp < 0.72 ? sp1 : sp2;
+        const LM = landmarkAt(x, y);
+        if (LM?.trees) { if (LM.treeK !== undefined && LM.treeK < 1 && hv > LM.treeK) continue; sp = LM.trees[Math.floor(hsp * LM.trees.length) % LM.trees.length]; }
         if (sp === 'willow' && !(this.nearRiver(x, y) || ss.land < 0.66)) sp = s.cold > 0.4 ? 'pine' : 'broad';
         // 边缘的树小一点，林心大
         const sc = (0.78 + hs * 0.4) * (1.1 - (rr / R) * 0.25);

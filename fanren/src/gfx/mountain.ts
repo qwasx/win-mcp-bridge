@@ -2,7 +2,7 @@
 import { makeCanvas, shade, mix, rgba } from '../core/canvas';
 import { mulberry32, valueNoise, clamp } from '../core/rng';
 
-export type MtnStyle = 'qinglv' | 'qianjiang' | 'snow' | 'demon' | 'desert' | 'island' | 'hill' | 'karst';
+export type MtnStyle = 'qinglv' | 'qianjiang' | 'snow' | 'demon' | 'desert' | 'island' | 'hill' | 'karst' | 'volcano' | 'danxia' | 'spire';
 
 export interface MtnSpec {
   seed: number; style: MtnStyle; w: number; h: number;
@@ -28,6 +28,10 @@ const PALS: Record<MtnStyle, Pal> = {
   desert: { top: '#b8743e', mid: '#d29c5e', base: '#e6c894', ink: '#4a2e18', far: '#e0c4a0', accent: '#8a4a28', moss: '#5a4a2a' },
   island: { top: '#2f6a68', mid: '#5f9a74', base: '#c8b88a', ink: '#1f2a28', far: '#9fbcbc', moss: '#1d3a2c' },
   hill: { top: '#6f9670', mid: '#93ad80', base: '#cfc596', ink: '#2a3024', far: '#b8c4a8', moss: '#2a4028' },
+  // 第十九步：坠魔谷赤红火山、彩霞山丹霞赤壁、天柱山孤峰
+  volcano: { top: '#3a1c18', mid: '#7a2c1c', base: '#9a5a44', ink: '#1a0806', far: '#8a5e54', accent: '#ff7a2a', moss: '#3a1a10' },
+  danxia: { top: '#963524', mid: '#c4603a', base: '#dfa070', ink: '#4a1c10', far: '#d6a892', accent: '#f2cf98', moss: '#3e6232' },
+  spire: { top: '#34525e', mid: '#668a88', base: '#c8bc96', ink: '#1c2628', far: '#a6bcc0', moss: '#1d3a2c' },
 };
 
 type Peak = { cx: number; hgt: number; wid: number; sharp: number; round: number };
@@ -81,14 +85,17 @@ export function makeMountain(spec: MtnSpec): MtnSprite {
       if (style === 'snow') { sharp = R(1.3, 2.2); round = R(1.0, 1.4); }
       if (style === 'demon') { sharp = R(1.6, 2.6); round = R(0.9, 1.3); wid *= 0.75; }
       if (style === 'desert') { sharp = R(0.25, 0.4); round = R(3, 5); }
-      wid = Math.min(wid, Math.min(cx, w - cx) * (style === 'karst' || style === 'desert' || style === 'hill' ? 0.9 : 1.1));
+      if (style === 'volcano') { sharp = R(1.0, 1.5); round = R(1.1, 1.4); wid *= i === 0 ? 1.15 : 0.8; }
+      if (style === 'danxia') { sharp = R(0.3, 0.5); round = R(2.2, 3.4); wid *= R(0.42, 0.62); hgt *= i === 0 ? 1 : R(0.7, 1.0); }
+      if (style === 'spire') { if (i === 0) { wid = w * R(0.27, 0.32); sharp = R(0.42, 0.6); round = R(2.6, 3.4); } else { hgt *= R(0.4, 0.62); wid *= R(0.45, 0.6); sharp = R(0.5, 0.75); round = R(2.2, 3); } }
+      wid = Math.min(wid, Math.min(cx, w - cx) * (style === 'karst' || style === 'desert' || style === 'hill' || style === 'danxia' ? 0.9 : 1.1));
       peaks.push({ cx, hgt, wid, sharp, round });
     }
     return peaks;
   };
-  const peakCount = style === 'karst' ? Math.floor(R(3, 6)) : style === 'hill' ? Math.floor(R(1, 3)) : Math.floor(R(2, 5));
-  const roughBase = style === 'hill' ? 0.03 : style === 'desert' ? 0.04 : style === 'demon' ? 0.16 : 0.1;
-  const flat = style === 'desert' ? R(0.5, 0.75) : 0;
+  const peakCount = style === 'karst' ? Math.floor(R(3, 6)) : style === 'hill' ? Math.floor(R(1, 3)) : style === 'spire' ? 4 : style === 'danxia' ? Math.floor(R(3, 6)) : Math.floor(R(2, 5));
+  const roughBase = style === 'hill' ? 0.03 : style === 'desert' ? 0.04 : style === 'demon' ? 0.16 : style === 'danxia' ? 0.05 : style === 'spire' ? 0.09 : style === 'volcano' ? 0.12 : 0.1;
+  const flat = style === 'desert' ? R(0.5, 0.75) : style === 'danxia' ? R(0.86, 0.96) : 0;
 
   // 层：远 → 中 → 近
   const layerDefs = [] as { peaks: Peak[]; rough: number; dy: number; tone: number; detail: number; seed: number }[];
@@ -169,7 +176,7 @@ export function makeMountain(spec: MtnSpec): MtnSprite {
       }
     }
     // 亮面高光（青绿山水的留白）
-    if (!isFar && style !== 'snow' && style !== 'demon') {
+    if (!isFar && style !== 'snow' && style !== 'demon' && style !== 'volcano') {
       for (const p of L.peaks) {
         const px = p.cx, py = baseY - ridge(px);
         const hl = g.createRadialGradient(px - p.wid * 0.3, py + mh * 0.3, 0, px - p.wid * 0.3, py + mh * 0.3, p.wid * 0.55);
@@ -252,6 +259,68 @@ export function makeMountain(spec: MtnSpec): MtnSprite {
           g.stroke();
         }
       }
+      // 丹霞：赤、橙、米、紫红相间的岩层彩带，顶上一层绿意
+      if (style === 'danxia') {
+        const bands = ['#a83a26', '#d27a46', '#e8b884', '#b8483a', '#8a3a3a', '#d89060', '#c45a34'];
+        let k = Math.floor(rnd() * bands.length);
+        for (let yy = peakY + R(10, 20); yy < baseY - 4; ) {
+          const bh = R(6, 22);
+          g.fillStyle = rgba(bands[k % bands.length], isFar ? 0.12 : R(0.16, 0.34));
+          g.beginPath(); g.moveTo(0, yy);
+          for (let x = 0; x <= w; x += 14) g.lineTo(x, yy + (valueNoise(x / 46, yy, 4) - 0.5) * 7);
+          for (let x = w; x >= 0; x -= 14) g.lineTo(x, yy + bh + (valueNoise(x / 46, yy + bh, 4) - 0.5) * 7);
+          g.closePath(); g.fill();
+          g.strokeStyle = rgba(pal.ink, 0.16); g.lineWidth = 0.9;
+          g.beginPath(); g.moveTo(0, yy + bh); for (let x = 0; x <= w; x += 14) g.lineTo(x, yy + bh + (valueNoise(x / 46, yy + bh, 4) - 0.5) * 7); g.stroke();
+          yy += bh + R(2, 9); k += 1 + Math.floor(rnd() * 2);
+        }
+        // 赤壁竖向水痕（丹霞崖壁的黑色垂痕）
+        for (let i = 0; i < Math.floor(w / 26); i++) {
+          const x = rnd() * w, ry = baseY - ridge(x); if (baseY - ry < 30) continue;
+          const y0 = ry + R(4, 20), len = (baseY - ry) * R(0.25, 0.7);
+          const sg = g.createLinearGradient(0, y0, 0, y0 + len);
+          sg.addColorStop(0, rgba('#2a1410', 0.34)); sg.addColorStop(1, rgba('#2a1410', 0));
+          g.fillStyle = sg; g.fillRect(x, y0, R(1.5, 5), len);
+        }
+        // 顶上的灌木与松
+        for (let i = 0; i < Math.floor(w / 9); i++) {
+          const x = rnd() * w, ry = baseY - ridge(x); if (baseY - ry < mh * 0.35) continue;
+          g.fillStyle = rgba(rnd() < 0.5 ? pal.moss : '#5a7a3a', R(0.6, 0.9));
+          g.beginPath(); g.ellipse(x, ry + R(1, 6), R(3, 9), R(2, 4.5), 0, 0, Math.PI * 2); g.fill();
+        }
+        // 峰顶的一层绿冠（丹霞“顶平、身陡、麓缓”，顶上林木葱郁）
+        if (!isFar) for (let i = 0; i < xs.length; i++) {
+          if (baseY - ys[i] < mh * 0.4) continue;
+          const sl = Math.abs((ys[Math.min(xs.length - 1, i + 1)] - ys[Math.max(0, i - 1)]) / (2 * STEP));
+          if (sl > 0.9) continue;
+          g.fillStyle = rgba(i % 3 ? '#4a6a34' : '#6a8a44', 0.55);
+          g.beginPath(); g.ellipse(xs[i], ys[i] + R(2, 5), STEP * R(0.9, 1.6), R(3, 6), 0, 0, Math.PI * 2); g.fill();
+        }
+        if (!isFar) for (let i = 0; i < Math.floor(w / 120); i++) { const x = R(0.1, 0.9) * w, ry = baseY - ridge(x); if (baseY - ry > mh * 0.5) drawTinyPine(g, x, ry + R(2, 6), R(8, 14), false, rnd); }
+      }
+      // 坠魔谷火山：熔岩自裂口淌下，灰烬覆顶
+      if (style === 'volcano') {
+        for (let i = 0; i < 5 + Math.floor(w / 300); i++) {
+          let x = R(0.2, 0.8) * w, y = baseY - ridge(x) + R(2, 10);
+          const pts: [number, number][] = [[x, y]];
+          const end = baseY - R(0, 0.3) * (baseY - y);
+          while (y < end) { x += R(-7, 7); y += R(6, 14); pts.push([x, y]); }
+          for (const [lw, col, a] of [[R(5, 9), '#ff5a1a', 0.22], [R(2, 3.5), '#ff8a30', 0.75], [R(0.8, 1.4), '#ffe08a', 0.85]] as [number, string, number][]) {
+            g.strokeStyle = rgba(col, a); g.lineWidth = lw;
+            g.beginPath(); g.moveTo(pts[0][0], pts[0][1]); for (const [px, py] of pts) g.lineTo(px, py); g.stroke();
+          }
+        }
+        // 峰顶灰烬
+        for (const p of L.peaks) {
+          const px = p.cx, py = baseY - ridge(px);
+          const ag = g.createRadialGradient(px, py, 0, px, py, p.wid * 0.5);
+          ag.addColorStop(0, 'rgba(120,110,104,0.55)'); ag.addColorStop(1, 'rgba(120,110,104,0)');
+          g.fillStyle = ag; g.fillRect(px - p.wid, py - 4, p.wid * 2, p.wid * 0.6);
+          const lg = g.createRadialGradient(px, py + 2, 0, px, py + 2, p.wid * 0.18);
+          lg.addColorStop(0, 'rgba(255,170,60,0.85)'); lg.addColorStop(1, 'rgba(255,90,30,0)');
+          g.fillStyle = lg; g.fillRect(px - p.wid * 0.2, py - p.wid * 0.1, p.wid * 0.4, p.wid * 0.25);
+        }
+      }
       // 魔山裂隙红光
       if (style === 'demon') {
         for (let i = 0; i < 6; i++) {
@@ -322,7 +391,7 @@ export function makeMountain(spec: MtnSpec): MtnSprite {
         for (let k = 0; k < m; k++) { g.beginPath(); g.ellipse(x + R(-4, 4), y + R(-1, 3), R(1.2, 2.6), R(0.8, 1.6), 0, 0, Math.PI * 2); g.fill(); }
       }
       // 松树点缀
-      if (style !== 'desert' && style !== 'demon') {
+      if (style !== 'desert' && style !== 'demon' && style !== 'volcano') {
         const np = Math.floor(R(2, 7) * (w / 400));
         for (let i = 0; i < np; i++) {
           const x = R(0.08, 0.92) * w, ry = baseY - ridge(x);
@@ -354,7 +423,7 @@ export function makeMountain(spec: MtnSpec): MtnSprite {
         for (let k = 0; k < 6; k++) {
           const x = cx + R(-cw / 2, cw / 2), y = cy + R(-6, 6), rx = cw * R(0.15, 0.3), ry = rx * R(0.16, 0.26);
           const cg = g.createRadialGradient(x, y, 0, x, y, rx);
-          cg.addColorStop(0, style === 'demon' ? 'rgba(90,60,80,0.5)' : 'rgba(250,248,240,0.82)'); cg.addColorStop(1, 'rgba(250,248,240,0)');
+          cg.addColorStop(0, style === 'demon' ? 'rgba(90,60,80,0.5)' : style === 'volcano' ? 'rgba(84,66,60,0.55)' : 'rgba(250,248,240,0.82)'); cg.addColorStop(1, 'rgba(250,248,240,0)');
           g.fillStyle = cg; g.save(); g.translate(x, y); g.scale(1, ry / rx); g.beginPath(); g.arc(0, 0, rx, 0, Math.PI * 2); g.fill(); g.restore();
         }
       }

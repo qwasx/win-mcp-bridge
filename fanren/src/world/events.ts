@@ -44,9 +44,9 @@ export const CANON_EVENTS: CanonEvent[] = [
     intro: '禁地禁制缓缓开启，血雾弥漫。七派弟子一拥而入——这里没有同门，只有灵药和敌人。\n\n你察觉到不止一道不怀好意的神识，正黏在你身上。',
     win: '你带着满袋灵药走出血雾。身后，有人没能出来。', lose: '', missed: '血色禁地关闭了。据说这一次，七派弟子十不存三。',
     waves: (g) => { const r = lvR(g); return [
-      { list: [['spider', 3], ['greensnake', 2]] },
+      { list: [['spider', 2], ['heilin', 3]] },
       { list: [['bandit', 2], ['zhujixiu', r.realm >= 2 ? 1 : 0]] },
-      { list: [['facespider', 1], ['python', 1]], boss: { def: 'seaserpent', name: '禁地墨蛟', realm: Math.max(1, r.realm), stage: 2, hp: 3 } },
+      { list: [['facespider', 1], ['python', 1]], boss: { def: 'mojiao', name: '禁地墨蛟', realm: Math.max(1, r.realm), stage: 2, hp: 3 } },
     ]; },
     reward: (g) => { const h = g.hero; C.addItem(h, 'herb_zihou', 1, 120 + rint(0, 200)); C.addItem(h, 'herb_tianling', 1, 120 + rint(0, 200)); C.addItem(h, 'herb_huangjing', 3, 110 + rint(0, 100)); if (Math.random() < 0.35) C.addItem(h, 'pill_zhuji', 1); return '百年紫猴花、天灵果、黄精（筑基丹主材）'; },
   },

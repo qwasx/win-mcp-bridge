@@ -820,13 +820,15 @@ export class Combat {
       const rk = dangerRealm(dz.d, Math.random);
       const band = lvOf(rk.realm, rk.stage);
       // 越阶妖兽（高一级）只在危险度 ≥1.5 处偶尔出没，新手地带不至于撞上筑基妖兽
-      const place = (e: EnemyDef) => !e.lair && (!e.regions || e.regions.includes(dz.region)) && (sea ? e.zone === 'sea' || e.flying : e.zone !== 'sea') && (!e.zone || e.zone === zone);
+      const place = (e: EnemyDef) => !e.lair && !e.lm && (!e.regions || e.regions.includes(dz.region)) && (sea ? e.zone === 'sea' || e.flying : e.zone !== 'sea') && (!e.zone || e.zone === zone);
       const cands = ENEMY_LIST.filter((e) => place(e) && (e.lv ? lvWeight(e, band, dz.d >= 1.5) > 0 : e.minDanger <= dz.d + 0.4 && dz.d <= e.maxDanger + 0.5));
       if (!cands.length) continue;
       // 珍稀妖兽（见人即逃 / 擅隐匿）出现得少
       const w = cands.map((e) => (e.zone && e.zone === zone ? 3 : 1) * (e.kind === 'human' ? 0.6 : 1) * (e.lv ? lvWeight(e, band, dz.d >= 1.5) : 1) * (e.behave === 'flee' ? (e.lv && e.lv[0] >= 4 ? 0.12 : 0.35) : e.behave === 'call' ? 0.5 : 1));
       let r = Math.random() * w.reduce((a, b) => a + b, 0), def = cands[0];
       for (let i = 0; i < cands.length; i++) { r -= w[i]; if (r <= 0) { def = cands[i]; break; } }
+      // 第十九步：原著名地里多半是本地特有的妖物
+      if (!sea && Math.random() < 0.8) { const nat = g.landmarks?.pick(x, y, band); if (nat) def = nat; }
       const n = def.pack ? rint(def.pack[0], def.pack[1]) : 1;
       for (let i = 0; i < n; i++) {
         const ex = x + rand(-90, 90), ey = y + rand(-60, 60);
@@ -847,7 +849,7 @@ export class Combat {
     const d = clamp(dz.d + dAdd, 0, 6);
     const rk = dangerRealm(d, Math.random);
     const band = lvOf(rk.realm, rk.stage);
-    const ok = (e: EnemyDef) => !e.lair && e.kind !== 'human' && e.kind !== 'ghost' && (!e.regions || e.regions.includes(dz.region)) && (sea ? e.zone === 'sea' : e.zone !== 'sea') && (!e.zone || e.zone === zone) && (!opt.noFlee || (e.behave !== 'flee' && e.behave !== 'shy')) && (opt.flying === undefined || !!e.flying === opt.flying);
+    const ok = (e: EnemyDef) => !e.lair && !e.lm && e.kind !== 'human' && e.kind !== 'ghost' && (!e.regions || e.regions.includes(dz.region)) && (sea ? e.zone === 'sea' : e.zone !== 'sea') && (!e.zone || e.zone === zone) && (!opt.noFlee || (e.behave !== 'flee' && e.behave !== 'shy')) && (opt.flying === undefined || !!e.flying === opt.flying);
     let cands = ENEMY_LIST.filter((e) => ok(e) && (e.lv ? lvWeight(e, band, true) > 0 : e.minDanger <= d + 0.6 && d <= e.maxDanger + 0.8));
     if (!cands.length) cands = ENEMY_LIST.filter((e) => ok(e) && !!e.lv);
     if (!cands.length) return null;

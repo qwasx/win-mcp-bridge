@@ -2,9 +2,11 @@
 type G = CanvasRenderingContext2D;
 type RGB = [number, number, number];
 const TAU = Math.PI * 2;
+import { toad, ant, mantis, corpse, yaksha, demon, quadWing } from './beast19';
 
 export type BeastBody = 'wolf' | 'fox' | 'boar' | 'tiger' | 'bear' | 'ape' | 'snake' | 'jiao' | 'centipede' | 'spider' | 'scorpion' | 'eagle' | 'bat' | 'ghost' | 'turtle'
-  | 'rat' | 'deer' | 'ox' | 'croc' | 'horse' | 'pangolin' | 'fish' | 'carp' | 'shark' | 'urchin' | 'jelly';
+  | 'rat' | 'deer' | 'ox' | 'croc' | 'horse' | 'pangolin' | 'fish' | 'carp' | 'shark' | 'urchin' | 'jelly'
+  | 'toad' | 'ant' | 'mantis' | 'corpse' | 'yaksha' | 'demon';
 export interface BeastLook {
   body: BeastBody; color: RGB; belly?: RGB; accent?: RGB; eye?: string;
   size: number;          // 1 ≈ 狼大小
@@ -69,6 +71,12 @@ export function drawBeast(g: G, L: BeastLook, x: number, y: number, facing: numb
     case 'fish': case 'carp': case 'shark': fish(g, L, col, A); break;
     case 'urchin': urchin(g, L, col, A); break;
     case 'jelly': jelly(g, L, col, A); break;
+    case 'toad': toad(g, L, col, A); break;
+    case 'ant': ant(g, L, col, A); break;
+    case 'mantis': mantis(g, L, col, A); break;
+    case 'corpse': corpse(g, L, col, A); break;
+    case 'yaksha': yaksha(g, L, col, A); break;
+    case 'demon': demon(g, L, col, A); break;
     default: quad(g, L, col, A);
   }
   g.restore();
@@ -148,6 +156,7 @@ function quad(g: G, L: BeastLook, col: RGB, A: BeastAnim) {
     g.lineWidth = 2.5; g.beginPath(); g.moveTo(hipX + 2, topY + 8); g.quadraticCurveTo(hipX - 10, topY + 10 + tw * 10, hipX - 8, topY + 20); g.stroke();
   }
   legs(true);
+  if (L.wings) quadWing(g, L, col, A, shX - P.len * 0.25, topY + 4, true);
   // 躯干
   g.beginPath();
   g.moveTo(hipX, midY);
@@ -174,6 +183,7 @@ function quad(g: G, L: BeastLook, col: RGB, A: BeastAnim) {
     g.fillStyle = css(L.accent ?? shade(col, 0.4));
     for (let i = 0; i < 7; i++) { const sx = hipX + 6 + i * P.len / 7, sy = topY - (P.hump ?? 0) * (i / 7) + 2; g.beginPath(); g.moveTo(sx - 4, sy + 2); g.lineTo(sx, sy - 12); g.lineTo(sx + 4, sy + 2); g.fill(); }
   }
+  if (L.wings) quadWing(g, L, col, A, shX - P.len * 0.3, topY + 6, false);
   // 毛笔触
   g.strokeStyle = css(shade(col, 0.55), 0.5); g.lineWidth = 1;
   for (let i = 0; i < 6; i++) { const sx = hipX + 8 + i * P.len / 6.5; g.beginPath(); g.moveTo(sx, topY + 4); g.lineTo(sx + 5, topY + 8); g.stroke(); }

@@ -2,17 +2,17 @@
 import { makeCanvas, shade, rgba, mix } from '../core/canvas';
 import { mulberry32 } from '../core/rng';
 
-export type Species = 'pine' | 'broad' | 'willow' | 'bamboo' | 'maple' | 'ymaple' | 'plum' | 'peach' | 'cypress' | 'snowpine' | 'dead' | 'palm';
+export type Species = 'pine' | 'broad' | 'willow' | 'bamboo' | 'maple' | 'ymaple' | 'plum' | 'peach' | 'cypress' | 'snowpine' | 'dead' | 'palm' | 'apricot';
 export type Season = 0 | 1 | 2 | 3; // 春 夏 秋 冬
-export const SPECIES_LIST: Species[] = ['pine', 'broad', 'willow', 'bamboo', 'maple', 'ymaple', 'plum', 'peach', 'cypress', 'snowpine', 'dead', 'palm'];
+export const SPECIES_LIST: Species[] = ['pine', 'broad', 'willow', 'bamboo', 'maple', 'ymaple', 'plum', 'peach', 'cypress', 'snowpine', 'dead', 'palm', 'apricot'];
 export const SPECIES_NAME: Record<Species, string> = {
   pine: '松', broad: '槐', willow: '柳', bamboo: '竹', maple: '枫', ymaple: '黄枫', plum: '梅', peach: '桃',
-  cypress: '柏', snowpine: '雪松', dead: '枯树', palm: '椰',
+  cypress: '柏', snowpine: '雪松', dead: '枯树', palm: '椰', apricot: '杏',
 };
 /** 世界坐标中的典型高度 */
 export const TREE_SIZE: Record<Species, number> = {
   pine: 210, broad: 190, willow: 190, bamboo: 220, maple: 185, ymaple: 185, plum: 140, peach: 145,
-  cypress: 215, snowpine: 235, dead: 150, palm: 230,
+  cypress: 215, snowpine: 235, dead: 150, palm: 230, apricot: 150,
 };
 
 export interface TreeSprite { canvas: HTMLCanvasElement; w: number; h: number; ax: number; ay: number }
@@ -165,6 +165,10 @@ function foliageColors(sp: Species, season: Season, rnd: () => number): [string,
       if (season === 3) return T('#8a6a28', '#b8923a', '#d8b860');
       if (season === 2) return T('#a06a10', '#dca024', '#f6d050');
       return T('#7a7a20', '#bfae34', '#e8d460');
+    case 'apricot':
+      if (season === 0) return T('#d8a2a6', '#f2cccc', '#fff2ee');
+      if (season === 2) return T('#8a6a24', '#c49a3a', '#e8c868');
+      return T('#3a5e36', '#5e8e4a', '#94b86c');
     case 'peach':
       if (season === 0) return T('#c86a80', '#ec9aaa', '#fbd0d6');
       if (season === 2) return T('#6a6a28', '#a0943a', '#cfc06a');
@@ -186,7 +190,7 @@ function broadLike(g: CanvasRenderingContext2D, sp: Species, season: Season, rnd
   const maxD = bare ? 5 : 4;
   grow(rnd, bx, by, -Math.PI / 2 + (rnd() - 0.5) * 0.25, trunkH, W * (0.075 + rnd() * 0.03), 0, maxD,
     { spread: 0.55 + rnd() * 0.25, decay: 0.7, up: 0.18, gnarl: sp === 'maple' ? 0.5 : 0.35, kids: 2 }, segs, tips);
-  const bark = sp === 'ymaple' ? '#6a5236' : sp === 'peach' ? '#5a3a2e' : '#5c4a38';
+  const bark = sp === 'ymaple' ? '#6a5236' : sp === 'peach' || sp === 'apricot' ? '#5a3a2e' : '#5c4a38';
   const cols = foliageColors(sp, season, rnd);
   if (bare) {
     drawBranches(g, segs, bark, rnd, true);
@@ -202,10 +206,12 @@ function broadLike(g: CanvasRenderingContext2D, sp: Species, season: Season, rnd
   clumps.sort((a, b) => a.y - b.y);
   const dotCol = sp === 'maple' || sp === 'ymaple' ? rgba(shade(cols[0], -0.25), 0.7) : rgba(shade(cols[0], -0.35), 0.55);
   drawClumps(g, clumps, cols, rnd, dotCol, sp === 'maple' || sp === 'ymaple' ? 'star' : 'round');
-  if (sp === 'peach' && season === 0) {
+  if ((sp === 'peach' || sp === 'apricot') && season === 0) {
     const pts: Pt[] = [];
-    for (const c of clumps) for (let i = 0; i < 4; i++) pts.push({ x: c.x + (rnd() - 0.5) * c.r * 1.4, y: c.y + (rnd() - 0.5) * c.r * 1.1 });
-    flowerDots(g, pts, ['#fff0f2', '#f6b6c2', '#e8869a'], 3.4, rnd);
+    for (const c of clumps) for (let i = 0; i < 9; i++) pts.push({ x: c.x + (rnd() - 0.5) * c.r * 1.6, y: c.y + (rnd() - 0.5) * c.r * 1.25 });
+    flowerDots(g, pts, sp === 'peach' ? ['#fff0f2', '#f6b6c2', '#e8869a', '#d85a7a'] : ['#ffffff', '#fff4f0', '#f8d4d0', '#e8a8a8'], 3.6, rnd);
+    // 树下落英
+    for (let i = 0; i < 26; i++) { g.fillStyle = sp === 'peach' ? `rgba(240,150,170,${0.35 + rnd() * 0.4})` : `rgba(255,236,232,${0.4 + rnd() * 0.4})`; g.beginPath(); g.ellipse(bx + (rnd() - 0.5) * W * 0.8, by - 2 + (rnd() - 0.5) * 10, 1.6, 1.0, rnd() * 3, 0, Math.PI * 2); g.fill(); }
   }
   if (sp === 'ymaple' && season === 3) snowCaps(g, clumps, rnd, 0.8);
 }

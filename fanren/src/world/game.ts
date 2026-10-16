@@ -27,6 +27,7 @@ import { SiteSys } from './sites';
 import { HomeSys } from './home';
 import { PetSys } from './pets';
 import { Happen } from './happen';
+import { LandmarkSys } from './landmarks';
 import { HeartLife } from './heartsx';
 import { XinMo } from './xinmo';
 import { WorldState, newWorldState } from './worldstate';
@@ -110,7 +111,7 @@ export class Game {
   towns!: Towns;
   events!: Events;
   story!: Story;
-  sites!: SiteSys; home!: HomeSys; pets!: PetSys; happen!: Happen; heartx!: HeartLife; xinmo!: XinMo;
+  landmarks!: LandmarkSys; sites!: SiteSys; home!: HomeSys; pets!: PetSys; happen!: Happen; heartx!: HeartLife; xinmo!: XinMo;
   modal: Modal | null = null;
   private modalStack: Modal[] = [];
   modalListeners = new Set<() => void>();
@@ -144,6 +145,7 @@ export class Game {
     this.towns = new Towns(this);
     this.events = new Events(this);
     this.story = new Story(this);
+    this.landmarks = new LandmarkSys(this);
     this.sites = new SiteSys(this); this.home = new HomeSys(this); this.pets = new PetSys(this); this.happen = new Happen(this); this.heartx = new HeartLife(this); this.xinmo = new XinMo(this);
     this.travel = new Travel(this);
     this.hookCombat();
@@ -262,6 +264,7 @@ export class Game {
       [this.happen.focus ? this.happen.focusD : 1e9, () => this.happen.interact()],
       [this.happen.heraldFocus ? 150 : 1e9, () => this.happen.heraldInteract()],
       [this.pets.focus ? this.pets.focusD : 1e9, () => this.pets.interact()],
+      [this.landmarks.focus ? this.landmarks.focusD + 30 : 1e9, () => this.landmarks.interact()],
     ];
     cands.sort((a, b) => a[0] - b[0]);
     for (const [d, f] of cands) { if (d >= 1e9) break; if (d === dn && !n) continue; if (d === de && !e) continue; if (f()) return; }
@@ -353,7 +356,7 @@ export class Game {
       this.hero.stats = Object.assign(C.newHero().stats, this.hero.stats ?? {});
       this.nodes.fromSave(d.nodes);
       this.destination = null; this.currentRegionId = ''; this.gathering = null;
-      this.combat.reset(); this.pursuit?.reset(); this.sites?.reset(); this.happen?.reset(); this.pets?.reset();
+      this.combat.reset(); this.pursuit?.reset(); this.landmarks?.reset(); this.sites?.reset(); this.happen?.reset(); this.pets?.reset();
       // 第三步存档迁移
       const nh = C.newHero();
       if (!Array.isArray(this.hero.arts) || !this.hero.arts.length) this.hero.arts = nh.arts;
@@ -427,6 +430,7 @@ export class Game {
     let r = this.baseSenseRadius;
     if (this.senseBurstT > 0) r *= 2;
     if (this.concealed) r *= 0.6;
+    if (this.landmarks) r *= this.landmarks.senseK;   // 第十九步：坠魔谷迷雾等压制神识
     return r;
   }
   // ---------- 神识秘术 ----------
@@ -728,6 +732,7 @@ export class Game {
       this.travel.update(dt);
       this.events.update(dt);
       this.story.update(dt);
+      this.landmarks.update(dt);
       this.sites.update(dt); this.home.update(dt); this.happen.update(dt); this.pets.update(dt); this.heartx.update(dt);
       // 采集
       if (this.gathering) {
@@ -807,7 +812,7 @@ export class Game {
   passDays(n: number) { const msgs: Msg[] = []; C.passDays(this.hero, n, false, 1, msgs); this.day += n; this.flushMsgs(msgs.filter((m) => m.kind)); }
   /** 第十八步：地图上的通用标记（世界坐标） */
   mapMarks(): { x: number; y: number; glyph: string; color: string; ring?: number; name: string }[] {
-    const out = [...this.sites.marks(), ...this.happen.marks(), ...this.heartx.marks()];
+    const out = [...this.sites.marks(), ...this.happen.marks(), ...this.heartx.marks(), ...this.landmarks.marks()];
     const h = this.ws.home; if (h && h.map === ACTIVE_MAP) out.push({ x: h.x, y: h.y, glyph: '府', color: '#ffd890', name: h.name });
     return out;
   }

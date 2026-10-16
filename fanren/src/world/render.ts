@@ -3,7 +3,8 @@
 import { grassSprite, grassRes } from '../gfx/grass';
 import type { Game } from './game';
 import { FOG_CELL, FOG_W, FOG_H } from './game';
-import { CHUNK, Deco, TreeDeco, MtnDeco } from './terrain';
+import { CHUNK, Deco, TreeDeco, MtnDeco, FallDeco } from './terrain';
+import { makeFallCliff, fallGeometry, drawFallAnim, type FallMeta } from '../gfx/waterfall';
 import { LOCATIONS, LocDef, WORLD_SCALE, WORLD_W, WORLD_H, BIG_LABELS } from '../data/world';
 import { hash2, clamp } from '../core/rng';
 import { sprites, resBucket, Spr } from '../gfx/sprites';
@@ -29,7 +30,7 @@ const LOC_SEAL: Record<string, string> = { city: '城', town: '镇', sect: '宗'
 const LOC_SEAL_COLOR: Record<string, string> = { city: '#9a3b2c', town: '#8a6a3a', sect: '#2f6b5e', danger: '#5a1f2a', secret: '#3a5a8a', isle: '#2f6a80' };
 export const PLAYER_SCALE = 1.12;
 export const TREE_K = 0.76; // 野外树木整体比例
-const SP_INDEX: Record<string, number> = { pine: 1, broad: 2, willow: 3, bamboo: 4, maple: 5, ymaple: 6, plum: 7, peach: 8, cypress: 9, snowpine: 10, dead: 11, palm: 12 };
+const SP_INDEX: Record<string, number> = { pine: 1, broad: 2, willow: 3, bamboo: 4, maple: 5, ymaple: 6, plum: 7, peach: 8, cypress: 9, snowpine: 10, dead: 11, palm: 12, apricot: 13 };
 
 interface Particle { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; color: string }
 interface MtnMeta { falls: { x: number; y: number; w: number; h: number }[]; seen: number; refl?: boolean }
@@ -395,6 +396,8 @@ export class Renderer {
     // ---------- 2. 水波（GPU 地表自带流水、浪花、粼光）----------
     if (z >= 0.35 && !GROUND) this.drawWater(left, top, right, bottom, t);
     // ---------- 2b. 草丛 ----------
+    // 第十九步：原著名地的地面贴花（熔岩湖、血潭、白玉广场……）
+    game.landmarks.drawGround(ctx, { left, top, right, bottom }, z, dpr, t);
     if (z >= 0.42) this.drawGrass(left, top, right, bottom, t, season, z);
 
     // ---------- 3. 收集装饰 ----------
@@ -425,6 +428,8 @@ export class Renderer {
             if (td._refl === undefined) td._refl = !T.isLand(d.x, d.y + 30) ? 1 : 0;
             if (td._refl) reflect.push(d);
           }
+        } else if (d.kind === 'fall') {
+          if (!(d.x + d.w < left || d.x - d.w > right || d.y - d.h - 100 > bottom || d.y + d.w * 0.4 < top)) { nM++; list.push({ y: d.y, draw: () => this.drawFall(d, t) }); }
         } else {
           if (!vis || z < 0.3) continue;
           nD++;
@@ -501,6 +506,7 @@ export class Renderer {
     game.npcs.collect(list, view, t, dt);
     game.events.collect(list, view, t, dt);
     game.story.collect(list, view, t, dt);
+    game.landmarks.collect(list, view, t);
     game.sites.collect(list, view, t, dt); game.home.collect(list, view, t); game.happen.collect(list, view, t, dt); game.pets.collect(list); game.heartx.collect(list);
     list.push({ y: p.flying ? p.y + 200000 : p.y, draw: () => this.drawPlayer(dt) });   // 御器飞行：在山树之上
 
@@ -508,6 +514,9 @@ export class Renderer {
     for (const d of list) d.draw(ctx);
     this.world();
 
+    // 第十九步：名地的雾、光罩、余烬、名字
+    game.landmarks.drawOver(ctx, view, t);
+    this.world();
     // 遮挡时的人影（透过树木建筑仍可见）
     this.drawPlayerGhost();
 
@@ -960,6 +969,19 @@ export class Renderer {
       if (!meta) { meta = { falls: m.falls ?? [], seen: this.game.time }; this.mtnMeta.set(d.id, meta); if (this.mtnMeta.size > 2000) this.mtnMeta.clear(); }
       meta.falls = m.falls ?? [];
     });
+  }
+  private fallMeta = new Map<string, FallMeta>();
+  private drawFall(d: FallDeco, t: number) {
+    const z = this.game.cam.zoom;
+    const spec = { seed: d.seed, w: d.w, h: d.h, tiers: d.tiers };
+    const res = Math.round(Math.min(resBucket(z * this.dpr, 1), Math.sqrt(2.2e6 / (d.w * 1.3 * (d.h + d.w * 0.4)))) * 100) / 100;
+    const s = sprites.get('WF:' + d.id, res, (r) => makeFallCliff(spec, r) as Spr);
+    if (!s) return;
+    let m = this.fallMeta.get(d.id); if (!m) { m = fallGeometry(spec); this.fallMeta.set(d.id, m); if (this.fallMeta.size > 300) this.fallMeta.clear(); }
+    const ctx = this.ctx;
+    ctx.drawImage(s.canvas, d.x - s.ax, d.y - s.ay, s.w, s.h);
+    drawFallAnim(ctx, m, d.x, d.y, t, clamp(this.game.light, 0, 1) * (1 - clamp(this.game.weather.gloom * 2, 0, 1)), z > 0.45);
+    this.world();
   }
   private drawMountain(d: MtnDeco, t: number) {
     const z = this.game.cam.zoom;

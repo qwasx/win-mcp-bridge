@@ -350,7 +350,7 @@ function ChroniclePanel({ game }: { game: Game }) {
 }
 
 // ---------------------------------------------------------------- 帮助
-export const VERSION = 'v0.18 · 让游戏好玩起来';
+export const VERSION = 'v0.19 · 符合原著（名地篇）';
 function HelpPanel({ game }: { game: Game }) {
   const [tab, setTab] = useState(0);
   const T = ['操作', '修炼', '战斗', '人界', '神识', '机缘'];

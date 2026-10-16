@@ -1035,6 +1035,7 @@ export function layoutLocation(loc: LocDef): LocLayout {
     add('paifang', 0, 200, { w: 140, h: 80, stoneGate: true, plaque: '#3a3a3a' });
     if (loc.id === 'kunwu' || loc.id === 'xutian') { add('hall', 0, -150, { w: 240, d: 100, h: 46, tiers: 2, ph: 24, pal: { roof: '#5a6070', wall: '#d8d4c8', pillar: '#7a7470' } }); block(0, -150, 260, 100); }
     add('stele', -120, 140); add('stele', 120, 150);
+    if (loc.id === 'xuese') add('pagoda', 0, -170, { levels: 9, w: 72, lit: true }); // 百丈宝塔
     for (let k = 0; k < 6; k++) add('rock', R(-300, 300), R(-260, 260), { w: 50 + rnd() * 40, h: 30 + rnd() * 30 });
     L.barrier = { x: 0, y: 0, rx: 380, ry: 300, color: col };
     L.gw = 900; L.gh = 800;
