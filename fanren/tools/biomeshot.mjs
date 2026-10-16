@@ -12,6 +12,7 @@ const b = await puppeteer.launch({ executablePath: await chromium.executablePath
   headless: true, defaultViewport: { width: 1280, height: 800, deviceScaleFactor: 1 } });
 const p = await b.newPage();
 p.on('pageerror', (e) => console.log('[pageerror] ' + e.message));
+if (process.env.NOMAT) await p.evaluateOnNewDocument(() => { window.__FANREN_NOMAT = true; });
 await p.goto(`http://localhost:4173/?auto=new&map=${map}`, { waitUntil: 'load' });
 await p.waitForFunction(() => !!window.__game && window.__game.renderer, { timeout: 180000 });
 await p.addStyleTag({ content: '.hud, .hotbar, .minimap, .loc-card, .toast-wrap, .topbar, .keys-bar, .side-btns, .player-card, .date-card { display: none !important; }' });

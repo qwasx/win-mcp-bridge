@@ -17,6 +17,7 @@ const b = await puppeteer.launch({
 const p = await b.newPage();
 p.on('pageerror', (e) => console.log('[pageerror] ' + e.message));
 p.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') console.log('[' + m.type() + '] ' + m.text()); });
+if (flag('nomat', '')) await p.evaluateOnNewDocument(() => { window.__FANREN_NOMAT = true; });
 await p.goto(flag('url', 'http://localhost:4173/?auto=new'), { waitUntil: 'load' });
 await p.waitForFunction(() => !!window.__game && window.__game.renderer, { timeout: 90000 });
 await p.evaluate(() => { const g = window.__game; g.story.skipAll(); g.story.openT = -1; g.modal = null; g.emitModal(); g.revealAll = true; g.debugSeeAll = true; setInterval(() => { g.hero.hp = 1; g.hero.dead = false; g.combat.enemies = []; }, 150); });

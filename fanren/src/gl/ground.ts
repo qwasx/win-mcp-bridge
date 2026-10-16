@@ -1,3 +1,4 @@
+import { loadGroundTex, groundImages, GROUND_TEX_SIZE, GROUND_AVG } from './groundTex';
 // 第十一步：GPU 地表（全分辨率、程序化、无平铺痕迹）
 // 取代旧的 Canvas2D 低分辨率分块底图（每 1024 世界像素只有 384 像素，放大后发糊、像塑料）。
 // 每帧一次全屏着色器，按世界坐标逐像素计算：
@@ -34,6 +35,8 @@ uniform vec2 uMacro; uniform float uScale;
 uniform vec2 uCam; uniform float uTPW; uniform vec2 uRes; uniform int uSeason; // uCam=缓存中心（世界），uTPW=每世界像素的纹素数
 uniform int uNRiv, uNRoad; // 线段数据纹理：行0/1 河段（端点 / 宽,累计长），行2/3 路段（端点 / 宽,官道）
 uniform vec4 uTown[${MAX_TOWN}]; uniform ivec4 uTownS[${MAX_TOWN}]; uniform int uNTown;
+// 第二十步：画材图块（水墨淡彩四方连续），未加载时 uMatOn=0，退回纯程序地表
+uniform highp sampler2DArray uMat; uniform float uMatOn; uniform vec3 uMatAvg[12];
 layout(location=0) out vec4 oA; layout(location=1) out vec4 oB;
 
 ${GLSL_COMMON}
@@ -43,6 +46,22 @@ vec3 voro(vec2 p,int s){ vec2 fi=floor(p); ivec2 ip=ivec2(fi); vec2 f=p-fi; floa
     vec2 o=vec2(float(i),float(j))+vec2(hashU(cx,cy,s),hashU(cx,cy,s+1))*0.8+0.1; float d=length(o-f);
     if(d<d1){ d2=d1; d1=d; id=hashU(cx,cy,s+2); } else if(d<d2) d2=d; }
   return vec3(d1,d2-d1,id); }
+
+// ---------- 画材采样：世界坐标 / 周期（世界像素），iq 的“去平铺”——低频噪声在若干随机偏移之间渐变切换，看不出重复
+vec3 matT(vec2 w, float per, int layer){
+  vec2 x=w/per;
+  float k=N4(x/1.6+vec2(float(layer)*3.7,1.3)).a*0.6+N4(x/0.55+vec2(9.1,float(layer)*2.3)).b*0.4;
+  float l=k*9.0; float ia=floor(l), f=fract(l);
+  vec2 oa=sin(vec2(3.0,7.0)*ia), ob=sin(vec2(3.0,7.0)*(ia+1.0));
+  vec2 dx=dFdx(x), dy=dFdy(x); float ly=float(layer);
+  vec3 a=textureGrad(uMat,vec3(x+oa,ly),dx,dy).rgb, b=textureGrad(uMat,vec3(x+ob,ly),dx,dy).rgb;
+  return mix(a,b,smoothstep(0.2,0.8,f-0.1*dot(a-b,vec3(1.0))));
+}
+/** 去掉平均色后的“笔触调制”（均值 ≈ 1），乘到程序配色上 */
+vec3 matRel(vec2 w, float per, int layer){ return matT(w,per,layer)/uMatAvg[layer]; }
+/** 压缩笔触反差：k<1 时亮处 / 暗处向 1 收拢（对数空间，避免浅色落叶被放大成“白斑”） */
+vec3 soft(vec3 r, float k){ return exp(log(clamp(r,vec3(0.08),vec3(4.0)))*k); }
+vec3 lumK(vec3 r){ float l=dot(r,vec3(0.3,0.59,0.11)); return mix(vec3(l),r,0.55); }
 
 // 宏观地图：A=(陆地,海拔,干旱,寒冷) B=(森林,水深,-,-)，iq 平滑插值（去掉双线性折痕）
 vec4 smoothTex(sampler2D t, vec2 m){ vec2 p=m+1.0; vec2 i=floor(p); vec2 f=fract(p); f=f*f*(3.0-2.0*f); return texture(t,(i+f-0.5)/uMacro); }
@@ -115,12 +134,22 @@ void main(){
   float lush=clamp(pM*1.25-0.12+(pC-0.5)*0.18,0.0,1.0);
   float dryK=clamp((arid-0.25)*1.3,0.0,1.0)*0.8 + smoothstep(0.62,0.85,1.0-pM)*0.2;
   vec3 col=seasonGrass(lush,clamp(dryK,0.0,1.0));
+  float MT=uMatOn;   // 画材开关
+  if(MT>0.5){
+    // 两张草甸图块按低频噪声交替；秋冬换季节图块。图块的色相 / 笔触保留，大块明度与干湿跟随程序配色
+    int la=uSeason==2?2:(uSeason==3?3:0), lb=uSeason==2?2:(uSeason==3?3:1);
+    vec3 tA=matT(w,980.0,la), tB=matT(RT*w+vec2(311.0,173.0),860.0,lb);
+    float ab=smoothstep(0.38,0.62,fbm2(w/2100.0+vec2(7.0,3.0)));
+    vec3 tex=mix(tA,tB,ab), avg=mix(uMatAvg[la],uMatAvg[lb],ab);
+    vec3 rel=tex/avg;
+    col=mix(col*rel, tex*mix(vec3(1.0),col/seasonGrass(0.6,0.0),0.7), 0.55);
+  }
   // 第十七步：平坡用“横擦”——沿水平方向拉长的淡彩晕染（山水画里坡地的画法），不再是一团团的噪声斑
   vec2 hq0=w+vec2(0.0,(fbm2(w/1700.0)-0.5)*420.0);
   float hs1=fbm3(vec2(hq0.x/1150.0,hq0.y/150.0)+vec2(13.0,5.0));
   float hs2=fbm2(vec2(hq0.x/430.0,hq0.y/46.0)+vec2(3.0,29.0));
   float washA=smoothstep(0.50,0.68,hs1);
-  col=mix(col,col*vec3(0.85,0.91,0.81),washA*0.6);                     // 深一层的青绿：坡脚背阴
+  col=mix(col,col*vec3(0.85,0.91,0.81),washA*mix(0.6,0.35,MT));                     // 深一层的青绿：坡脚背阴
   col*=1.0-exp(-pow((hs1-0.515)/0.02,2.0))*0.06;                        // 水痕：晕染边缘积色
   col=mix(col,mix(col,vec3(0.87,0.87,0.67),0.4),smoothstep(0.42,0.26,hs1)*0.55);   // 向阳坡：浅黄绿
   col=mix(col,col*vec3(0.93,0.96,0.89),smoothstep(0.56,0.74,hs2)*0.4);
@@ -138,7 +167,7 @@ void main(){
   float b1=N4(vec2(w.x/5.0+w.y/38.0, w.y/24.0)).g;
   float b2=N4(vec2(w.x/4.2-w.y/52.0, w.y/19.0)+vec2(0.37,0.71)).b;
   float blades=(b1+b2)*0.5;
-  col*=0.975+0.05*blades;
+  col*=0.975+0.05*blades*(1.0-MT*0.6);
   // 手绘草丛：两层网格（小丛密、大丛疏），叶根深、叶尖亮
   float tufCov=0.0;
   if(near>0.01){
@@ -158,13 +187,14 @@ void main(){
     vec3 dark=col*vec3(0.50,0.62,0.48), lite=min(col*vec3(1.12,1.12,0.96)+vec3(0.06,0.06,0.0),vec3(1.0));
     vec3 tc=mix(dark,lite,smoothstep(0.15,0.95,tt.y)*(0.35+0.65*tt.z));
     tufCov=tt.x*near;
-    col=mix(col,tc,tufCov*0.9);
+    col=mix(col,tc,tufCov*mix(0.9,0.38,MT));
   }
 
   // 裸土斑（踩秃的地、鼠穴、旧火塘）
   float soilN=fbm3(w/250.0+vec2(77.0,13.0));
   float soil=smoothstep(0.78,0.86,soilN-lush*0.12+(N4(vec2(w.x/40.0,w.y/6.0)).r-0.5)*0.1);
   vec3 soilC=mix(vec3(0.72,0.66,0.50),vec3(0.80,0.75,0.59),N4(vec2(w.x/120.0,w.y/30.0)).a);
+  if(MT>0.5) soilC*=soft(lumK(matRel(w,520.0,11)),0.6);
 
   // 野花（春夏），落叶（秋）
   float flowers=0.0; vec3 flowerC=vec3(1.0);
@@ -183,6 +213,7 @@ void main(){
   if(uSeason==2) forestC=mix(forestC,vec3(0.56,0.40,0.20),0.45);
   float litter=smoothstep(0.62,0.7,N4(w/7.0).r)*near;
   forestC=mix(forestC, uSeason==2?vec3(0.78,0.48,0.20):vec3(0.46,0.40,0.26), litter*0.5);
+  if(MT>0.5){ vec3 fr=soft(lumK(matRel(RT*w+vec2(53.0,91.0),900.0,1)),0.85)*soft(lumK(matRel(w,640.0,4)),0.2); forestC=mix(forestC*fr,forestC,litter*0.4); }
   forestC*=1.0+bump*0.12;
   col=mix(col,forestC*(1.0-tufCov*0.12),fW*0.7);
   // 苔点：三五成群的横点（墨绿），点在草根、坡脚、林下——山水画的“点苔”
@@ -190,7 +221,7 @@ void main(){
     float dz=smoothstep(0.52,0.78,fbm2(w/260.0+vec2(41.0,7.0))+fW*0.2)*(1.0-arid*0.8)*(1.0-smoothstep(0.5,0.8,cold));
     vec2 dc=floor(w/13.0); int ix=int(dc.x), iy=int(dc.y);
     float hd=hashU(ix,iy,501);
-    if(hd<dz*0.6){
+    if(hd<dz*mix(0.6,0.22,MT)){
       vec2 pc=(dc+vec2(0.2+0.6*hashU(ix,iy,502),0.2+0.6*hashU(ix,iy,503)))*13.0;
       vec2 q=(w-pc)*vec2(1.0,2.0);
       float r=1.5+hashU(ix,iy,504)*1.9;
@@ -211,7 +242,8 @@ void main(){
     else if(uSeason==2){ sA=vec3(0.76,0.66,0.38); sB=vec3(0.86,0.76,0.48); }
     else { sA=vec3(0.72,0.68,0.54); sB=vec3(0.82,0.78,0.64); }
     vec3 stC=mix(sA,sB,smoothstep(0.3,0.75,pM+(pb-0.5)*0.4))*(0.92+0.12*sw+0.06*sw2);
-    stC=mix(stC,stC*vec3(0.8,0.86,0.72),tufCov*0.6);
+    if(MT>0.5){ vec3 sr=matRel(RT*w,1150.0,5); float sl=dot(sr,vec3(0.3,0.59,0.11)); stC*=pow(max(sl,0.1),0.42)*mix(vec3(1.0),sr/max(sl,0.2),0.3); }
+    stC=mix(stC,stC*vec3(0.8,0.86,0.72),tufCov*0.6*(1.0-MT*0.5));
     stC*=1.0+bump*0.35;
     col=mix(col,stC,steppe);
   }
@@ -224,7 +256,8 @@ void main(){
     float ds=dot(normalize(vec3((dh-dhx)*9.0,(dh-dhy)*9.0,1.0)),LD)-LD.z;
     float rip=sin(dw.y/9.0+dw.x/40.0+fbm2(dw/120.0)*6.0)*0.5+0.5;
     vec3 dC=mix(vec3(0.84,0.72,0.52),vec3(0.93,0.84,0.64),dh);
-    dC*=1.0+ds*0.9+(rip-0.5)*0.05*near;
+    if(MT>0.5){ dC*=soft(matRel(dw,960.0,6),0.55); }
+    dC*=1.0+ds*0.9+(rip-0.5)*0.05*near*(1.0-MT*0.7);
     col=mix(col,dC,desert);
   }
   // ---------- 山地：碎石、岩缝、地衣
@@ -232,6 +265,7 @@ void main(){
   if(rock>0.001){
     float rn=fbm3(w/90.0+vec2(31.0,7.0));
     vec3 rC=mix(vec3(0.62,0.60,0.53),vec3(0.76,0.73,0.64),rn);
+    if(MT>0.5) rC*=soft(lumK(matRel(w,560.0,7)),0.55);
     // 裸露的岩板：细胞噪声分块，块面各自明暗，缝隙积暗；只在部分区域露出，其余是碎石土
     vec2 vp=w/150.0+vec2(fbm2(w/220.0),fbm2(w/220.0+7.0))*1.3;
     vec3 vr=voro(vp,121);
@@ -257,6 +291,7 @@ void main(){
     float ss=dot(normalize(vec3((sd-sdx)*9.0,(sd-sdy)*9.0,1.0)),LD)-LD.z;
     vec3 sC=mix(vec3(0.80,0.84,0.89),vec3(0.965,0.965,0.96),clamp(0.7+ss*2.6,0.0,1.0));
     sC*=1.0-exp(-pow((sd-0.55)/0.025,2.0))*0.05;
+    if(MT>0.5){ vec3 sr=matRel(w,700.0,8); sC*=mix(vec3(1.0),mix(vec3(dot(sr,vec3(0.33))),sr,0.4),0.7); }
     sC=mix(sC,vec3(0.985,0.98,0.97),smoothstep(0.66,0.8,N4(vec2(w.x/110.0,w.y/7.0)+vec2(0.7,0.2)).b)*0.3);   // 风吹雪的细痕
     // 冰晶闪烁
     vec2 sc=floor(w/5.0); float sp=hashU(int(sc.x),int(sc.y),91);
@@ -323,6 +358,7 @@ void main(){
     vec2 tdir=normalize(bestB-bestA+1e-4);
     float across=dot(rel-bestA,vec2(-tdir.y,tdir.x));
     vec3 base=mix(vec3(0.72,0.64,0.48),vec3(0.80,0.73,0.57),fbm2(w/70.0));
+    if(MT>0.5) base*=soft(lumK(bestRW.y>0.5?matRel(w,420.0,9):matRel(w,460.0,11)),0.65);
     float ruts=bestRW.y>0.5? (1.0-smoothstep(1.5,4.5,abs(abs(across)-rw*0.42)))*0.18 : 0.0;
     base*=1.0-ruts;
     base=mix(base,base*1.08,1.0-smoothstep(0.0,rw*0.25,abs(across)));      // 中间被踩亮
@@ -369,6 +405,7 @@ void main(){
     // 河岸：湿泥 → 卵石滩 → 草
     float bank=1.0-smoothstep(hw+6.0,hw+26.0+smoothstep(0.45,0.75,fbm2(w/420.0+vec2(8.0,8.0)))*70.0+fbm2(w/80.0)*20.0,d);
     vec3 bankC=mix(vec3(0.66,0.62,0.52),vec3(0.74,0.70,0.60),N4(w/14.0).g);
+    if(MT>0.5) bankC*=soft(lumK(matRel(w,380.0,10)),0.6);
     if(near>0.01){ vec2 c2=floor(w/9.0); float hp=hashU(int(c2.x),int(c2.y),55);
       vec2 pc=(c2+0.5+vec2(hashU(int(c2.x),int(c2.y),56),hashU(int(c2.x),int(c2.y),57))*0.5-0.25)*9.0;
       float r=length((w-pc)*vec2(1.0,1.3)); float pr=2.0+hp*2.2;
@@ -405,6 +442,7 @@ void main(){
   float beach=(1.0-smoothstep(0.0,0.045+fbm2(w/400.0)*0.04,shore))*(1.0-rock*0.6)*(1.0-snow*0.8);
   vec3 sandC=mix(vec3(0.82,0.76,0.60),vec3(0.90,0.85,0.70),N4(w/50.0).a);
   sandC*=0.96+0.08*N4(w/4.0).r*near;
+  if(MT>0.5) sandC*=soft(lumK(matRel(w+vec2(97.0,41.0),640.0,6)),0.45);
   col=mix(col,sandC,beach);
   float wetS=1.0-smoothstep(0.0,0.012,shore);
   col=mix(col,sandC*vec3(0.74,0.74,0.72),wetS*0.8);
@@ -548,9 +586,19 @@ export class Ground {
   /** 画质：缓存分辨率（每 CSS 像素纹素数）的上限倍率 */
   quality = 1;
 
+  /** 画材纹理数组（未加载时是 1×1 占位） */
+  private mat: WebGLTexture; private matOn = false; private matOk = false;
+  private matAvg = new Float32Array(GROUND_AVG.flat());
+
   constructor(gl: WebGL2RenderingContext) {
     this.gl = gl;
     this.prog = compile(gl, VS, FS);
+    this.mat = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.mat);
+    gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA8, 1, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([200, 200, 180, 255]));
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    loadGroundTex();
     this.noise = this.makeNoise();
     this.segTex = gl.createTexture()!;
     gl.bindTexture(gl.TEXTURE_2D, this.segTex);
@@ -637,8 +685,32 @@ export class Ground {
   }
 
   /** 每帧调用：必要时启动/推进缓存重画。返回 false 表示暂无可用地表 */
+  /** 画材加载完成 → 上传为纹理数组（带 mipmap、四方连续），作废旧缓存 */
+  private uploadMat() {
+    const im = groundImages(); if (!im) return;
+    const gl = this.gl, N = GROUND_TEX_SIZE, levels = Math.floor(Math.log2(N)) + 1;
+    try {
+      const t = gl.createTexture()!;
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, t);
+      gl.texStorage3D(gl.TEXTURE_2D_ARRAY, levels, gl.RGBA8, N, N, im.length);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      im.forEach((img, i) => gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, i, N, N, 1, gl.RGBA, gl.UNSIGNED_BYTE, img));
+      gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
+      gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.REPEAT);
+      const ext = gl.getExtension('EXT_texture_filter_anisotropic');
+      if (ext) gl.texParameterf(gl.TEXTURE_2D_ARRAY, ext.TEXTURE_MAX_ANISOTROPY_EXT, 4);
+      gl.deleteTexture(this.mat); this.mat = t; this.matOk = true;
+    } catch (e) { console.warn('地表画材上传失败', e); }
+    this.matOn = true;
+    this.invalidate();
+  }
+
   update(v: GroundView, provider: SegProvider, vao: WebGLVertexArrayObject, maxTex: number): boolean {
     if (!this.T || !this.ta) return false;
+    if (!this.matOn && groundImages() && !(globalThis as any).__FANREN_NOMAT) this.uploadMat();
     this.stripsThisFrame = 0;
     // 镜头速度（预判前进方向，把缓存中心往前放）
     if (this.lastCam) { const k = 0.15; this.vel.x += ((v.camX - this.lastCam.x) - this.vel.x) * k; this.vel.y += ((v.camY - this.lastCam.y) - this.vel.y) * k; }
@@ -696,6 +768,8 @@ export class Ground {
     const S = job.segs;
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, this.segTex);
     gl.uniform1i(pr.u('uSeg'), 3);
+    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.mat); gl.uniform1i(pr.u('uMat'), 4);
+    gl.uniform1f(pr.u('uMatOn'), this.matOk ? 1 : 0); gl.uniform3fv(pr.u('uMatAvg[0]'), this.matAvg);
     if (S.nTown) { gl.uniform4fv(pr.u('uTown[0]'), S.town, 0, S.nTown * 4); gl.uniform4iv(pr.u('uTownS[0]'), S.townS, 0, S.nTown * 4); }
     gl.uniform1i(pr.u('uNTown'), S.nTown);
     gl.uniform2f(pr.u('uMacro'), T.W, T.H); gl.uniform1f(pr.u('uScale'), T.scale);
