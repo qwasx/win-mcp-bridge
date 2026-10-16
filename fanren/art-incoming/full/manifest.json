@@ -1,0 +1,1979 @@
+{
+  "version": "full",
+  "style": "Song-dynasty ink-wash and light mineral color (round1b standard)",
+  "total_png_assets": 163,
+  "assets": [
+    {
+      "id": "D01_grasstuft",
+      "file": "ground/D01_grasstuft.png",
+      "category": "ground",
+      "width": 180,
+      "height": 140,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D01_grasstuft_a",
+      "file": "ground/D01_grasstuft_a.png",
+      "category": "ground",
+      "width": 180,
+      "height": 140,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D01_grasstuft_b",
+      "file": "ground/D01_grasstuft_b.png",
+      "category": "ground",
+      "width": 180,
+      "height": 140,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D02_wildflowers",
+      "file": "ground/D02_wildflowers.png",
+      "category": "ground",
+      "width": 180,
+      "height": 140,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D02_wildflowers_a",
+      "file": "ground/D02_wildflowers_a.png",
+      "category": "ground",
+      "width": 180,
+      "height": 140,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D02_wildflowers_b",
+      "file": "ground/D02_wildflowers_b.png",
+      "category": "ground",
+      "width": 180,
+      "height": 140,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D03_moss",
+      "file": "ground/D03_moss.png",
+      "category": "ground",
+      "width": 320,
+      "height": 240,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D03_moss_a",
+      "file": "ground/D03_moss_a.png",
+      "category": "ground",
+      "width": 320,
+      "height": 240,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D03_moss_b",
+      "file": "ground/D03_moss_b.png",
+      "category": "ground",
+      "width": 320,
+      "height": 240,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D04_stones",
+      "file": "ground/D04_stones.png",
+      "category": "ground",
+      "width": 260,
+      "height": 200,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D04_stones_a",
+      "file": "ground/D04_stones_a.png",
+      "category": "ground",
+      "width": 260,
+      "height": 200,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D04_stones_b",
+      "file": "ground/D04_stones_b.png",
+      "category": "ground",
+      "width": 260,
+      "height": 200,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D05_puddle",
+      "file": "ground/D05_puddle.png",
+      "category": "ground",
+      "width": 360,
+      "height": 260,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D05_puddle_a",
+      "file": "ground/D05_puddle_a.png",
+      "category": "ground",
+      "width": 360,
+      "height": 260,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D05_puddle_b",
+      "file": "ground/D05_puddle_b.png",
+      "category": "ground",
+      "width": 360,
+      "height": 260,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D06_leaves",
+      "file": "ground/D06_leaves.png",
+      "category": "ground",
+      "width": 260,
+      "height": 200,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D06_leaves_a",
+      "file": "ground/D06_leaves_a.png",
+      "category": "ground",
+      "width": 260,
+      "height": 200,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D06_leaves_b",
+      "file": "ground/D06_leaves_b.png",
+      "category": "ground",
+      "width": 260,
+      "height": 200,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D07_reed",
+      "file": "ground/D07_reed.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D07_reed_a",
+      "file": "ground/D07_reed_a.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D07_reed_b",
+      "file": "ground/D07_reed_b.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D08_waterlily",
+      "file": "ground/D08_waterlily.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D08_waterlily_a",
+      "file": "ground/D08_waterlily_a.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D08_waterlily_b",
+      "file": "ground/D08_waterlily_b.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D09_mushroom",
+      "file": "ground/D09_mushroom.png",
+      "category": "ground",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D09_mushroom_a",
+      "file": "ground/D09_mushroom_a.png",
+      "category": "ground",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D09_mushroom_b",
+      "file": "ground/D09_mushroom_b.png",
+      "category": "ground",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D10_stump",
+      "file": "ground/D10_stump.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D10_stump_a",
+      "file": "ground/D10_stump_a.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D10_stump_b",
+      "file": "ground/D10_stump_b.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D11_deadwood",
+      "file": "ground/D11_deadwood.png",
+      "category": "ground",
+      "width": 512,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D11_deadwood_a",
+      "file": "ground/D11_deadwood_a.png",
+      "category": "ground",
+      "width": 512,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D11_deadwood_b",
+      "file": "ground/D11_deadwood_b.png",
+      "category": "ground",
+      "width": 512,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D12_bones",
+      "file": "ground/D12_bones.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D12_bones_a",
+      "file": "ground/D12_bones_a.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D12_bones_b",
+      "file": "ground/D12_bones_b.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D13_herb",
+      "file": "ground/D13_herb.png",
+      "category": "ground",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D13_herb_a",
+      "file": "ground/D13_herb_a.png",
+      "category": "ground",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D13_herb_b",
+      "file": "ground/D13_herb_b.png",
+      "category": "ground",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D13_herb_c",
+      "file": "ground/D13_herb_c.png",
+      "category": "ground",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D14_wildflower_b",
+      "file": "ground/D14_wildflower_b.png",
+      "category": "ground",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D14_wildflower_b_a",
+      "file": "ground/D14_wildflower_b_a.png",
+      "category": "ground",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D14_wildflower_b_b",
+      "file": "ground/D14_wildflower_b_b.png",
+      "category": "ground",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D15_stones_b",
+      "file": "ground/D15_stones_b.png",
+      "category": "ground",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D15_stones_b_a",
+      "file": "ground/D15_stones_b_a.png",
+      "category": "ground",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D15_stones_b_b",
+      "file": "ground/D15_stones_b_b.png",
+      "category": "ground",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D16_moss_b",
+      "file": "ground/D16_moss_b.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D16_moss_b_a",
+      "file": "ground/D16_moss_b_a.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D16_moss_b_b",
+      "file": "ground/D16_moss_b_b.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D17_ditch",
+      "file": "ground/D17_ditch.png",
+      "category": "ground",
+      "width": 512,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D17_ditch_a",
+      "file": "ground/D17_ditch_a.png",
+      "category": "ground",
+      "width": 512,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D17_ditch_b",
+      "file": "ground/D17_ditch_b.png",
+      "category": "ground",
+      "width": 512,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D18_steps",
+      "file": "ground/D18_steps.png",
+      "category": "ground",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D18_steps_a",
+      "file": "ground/D18_steps_a.png",
+      "category": "ground",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D18_steps_b",
+      "file": "ground/D18_steps_b.png",
+      "category": "ground",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D19_mudrut",
+      "file": "ground/D19_mudrut.png",
+      "category": "ground",
+      "width": 512,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D19_mudrut_a",
+      "file": "ground/D19_mudrut_a.png",
+      "category": "ground",
+      "width": 512,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D19_mudrut_b",
+      "file": "ground/D19_mudrut_b.png",
+      "category": "ground",
+      "width": 512,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D20_leafpile",
+      "file": "ground/D20_leafpile.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D20_leafpile_a",
+      "file": "ground/D20_leafpile_a.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D20_leafpile_b",
+      "file": "ground/D20_leafpile_b.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D21_snowpatch",
+      "file": "ground/D21_snowpatch.png",
+      "category": "ground",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D21_snowpatch_a",
+      "file": "ground/D21_snowpatch_a.png",
+      "category": "ground",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D21_snowpatch_b",
+      "file": "ground/D21_snowpatch_b.png",
+      "category": "ground",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D22_shells",
+      "file": "ground/D22_shells.png",
+      "category": "ground",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D22_shells_a",
+      "file": "ground/D22_shells_a.png",
+      "category": "ground",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D22_shells_b",
+      "file": "ground/D22_shells_b.png",
+      "category": "ground",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D23_miasma_moss",
+      "file": "ground/D23_miasma_moss.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D23_miasma_moss_a",
+      "file": "ground/D23_miasma_moss_a.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D23_miasma_moss_b",
+      "file": "ground/D23_miasma_moss_b.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D24_charred_bones",
+      "file": "ground/D24_charred_bones.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D24_charred_bones_a",
+      "file": "ground/D24_charred_bones_a.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D24_charred_bones_b",
+      "file": "ground/D24_charred_bones_b.png",
+      "category": "ground",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D25_footprints_mud",
+      "file": "ground/D25_footprints_mud.png",
+      "category": "ground",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D25_footprints_snow",
+      "file": "ground/D25_footprints_snow.png",
+      "category": "ground",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D26_incense_ash",
+      "file": "ground/D26_incense_ash.png",
+      "category": "ground",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D26_incense_ash_a",
+      "file": "ground/D26_incense_ash_a.png",
+      "category": "ground",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "D26_incense_ash_b",
+      "file": "ground/D26_incense_ash_b.png",
+      "category": "ground",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "id": "G01_grass_a",
+      "file": "ground/G01_grass_a.png",
+      "category": "ground",
+      "width": 2048,
+      "height": 2048,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G01_grass_b",
+      "file": "ground/G01_grass_b.png",
+      "category": "ground",
+      "width": 2048,
+      "height": 2048,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G01p_grass_spring",
+      "file": "ground/G01p_grass_spring.png",
+      "category": "ground",
+      "width": 2048,
+      "height": 2048,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G01s_grass_autumn",
+      "file": "ground/G01s_grass_autumn.png",
+      "category": "ground",
+      "width": 2048,
+      "height": 2048,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G01w_grass_winter",
+      "file": "ground/G01w_grass_winter.png",
+      "category": "ground",
+      "width": 2048,
+      "height": 2048,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G02_forest_a",
+      "file": "ground/G02_forest_a.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G02_forest_b",
+      "file": "ground/G02_forest_b.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G02s_forest_autumn",
+      "file": "ground/G02s_forest_autumn.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G03a_paddy",
+      "file": "ground/G03a_paddy.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G03as_paddy_autumn",
+      "file": "ground/G03as_paddy_autumn.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G03b_field",
+      "file": "ground/G03b_field.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G04_dirtpath",
+      "file": "ground/G04_dirtpath.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G05_road",
+      "file": "ground/G05_road.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G06_gravel",
+      "file": "ground/G06_gravel.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G07_riverbank_a",
+      "file": "ground/G07_riverbank_a.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G07_riverbank_b",
+      "file": "ground/G07_riverbank_b.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G08_beach_a",
+      "file": "ground/G08_beach_a.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G08_beach_b",
+      "file": "ground/G08_beach_b.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G09_desert_a",
+      "file": "ground/G09_desert_a.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G09_desert_b",
+      "file": "ground/G09_desert_b.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G10_snow_a",
+      "file": "ground/G10_snow_a.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G10_snow_b",
+      "file": "ground/G10_snow_b.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G11_swamp_a",
+      "file": "ground/G11_swamp_a.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G11_swamp_b",
+      "file": "ground/G11_swamp_b.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G12_steppe_a",
+      "file": "ground/G12_steppe_a.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G12_steppe_b",
+      "file": "ground/G12_steppe_b.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G12s_steppe_autumn",
+      "file": "ground/G12s_steppe_autumn.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G12w_steppe_winter",
+      "file": "ground/G12w_steppe_winter.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G13_scorched_a",
+      "file": "ground/G13_scorched_a.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G13_scorched_b",
+      "file": "ground/G13_scorched_b.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G14_townsoil_a",
+      "file": "ground/G14_townsoil_a.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G14_townsoil_b",
+      "file": "ground/G14_townsoil_b.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G15_flagstone",
+      "file": "ground/G15_flagstone.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G15b_flagstone",
+      "file": "ground/G15b_flagstone.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G16_jadeplaza_a",
+      "file": "ground/G16_jadeplaza_a.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G16_jadeplaza_b",
+      "file": "ground/G16_jadeplaza_b.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G17_volcanic_a",
+      "file": "ground/G17_volcanic_a.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G17_volcanic_b",
+      "file": "ground/G17_volcanic_b.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G18_loess_a",
+      "file": "ground/G18_loess_a.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G18_loess_b",
+      "file": "ground/G18_loess_b.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G19_ice_a",
+      "file": "ground/G19_ice_a.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G19_ice_b",
+      "file": "ground/G19_ice_b.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G20_redsoil",
+      "file": "ground/G20_redsoil.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G21_rock_a",
+      "file": "ground/G21_rock_a.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G21_rock_b",
+      "file": "ground/G21_rock_b.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G22_reef",
+      "file": "ground/G22_reef.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G23_courtyard",
+      "file": "ground/G23_courtyard.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "G24_market",
+      "file": "ground/G24_market.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "tileable": true,
+      "person_px": 215
+    },
+    {
+      "id": "L01_lava_pool",
+      "file": "ground/L01_lava_pool.png",
+      "category": "ground",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "tileable": false,
+      "feathered_edge": true,
+      "person_px": 215
+    },
+    {
+      "id": "L02_lava_cracks",
+      "file": "ground/L02_lava_cracks.png",
+      "category": "ground",
+      "width": 2048,
+      "height": 1024,
+      "alpha": true,
+      "tileable": false,
+      "feathered_edge": true,
+      "person_px": 215
+    },
+    {
+      "id": "L03_ash_tile",
+      "file": "ground/L03_ash_tile.png",
+      "category": "ground",
+      "width": 2048,
+      "height": 2048,
+      "alpha": false,
+      "tileable": true,
+      "feathered_edge": false,
+      "person_px": 215
+    },
+    {
+      "id": "L04_blood_pool",
+      "file": "ground/L04_blood_pool.png",
+      "category": "ground",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "tileable": false,
+      "feathered_edge": true,
+      "person_px": 215
+    },
+    {
+      "id": "L05_quarry_pit",
+      "file": "ground/L05_quarry_pit.png",
+      "category": "ground",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "tileable": false,
+      "feathered_edge": true,
+      "person_px": 215
+    },
+    {
+      "id": "L06_flower_bed_a",
+      "file": "ground/L06_flower_bed_a.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "tileable": false,
+      "feathered_edge": true,
+      "person_px": 215
+    },
+    {
+      "id": "L06_flower_bed_b",
+      "file": "ground/L06_flower_bed_b.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "tileable": false,
+      "feathered_edge": true,
+      "person_px": 215
+    },
+    {
+      "id": "L06_flower_bed_c",
+      "file": "ground/L06_flower_bed_c.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "tileable": false,
+      "feathered_edge": true,
+      "person_px": 215
+    },
+    {
+      "id": "L07_black_pool",
+      "file": "ground/L07_black_pool.png",
+      "category": "ground",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "tileable": false,
+      "feathered_edge": true,
+      "person_px": 215
+    },
+    {
+      "id": "L08_ghost_ground",
+      "file": "ground/L08_ghost_ground.png",
+      "category": "ground",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "tileable": false,
+      "feathered_edge": true,
+      "person_px": 215
+    },
+    {
+      "id": "L09_crystal_path",
+      "file": "ground/L09_crystal_path.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 2048,
+      "alpha": true,
+      "tileable": true,
+      "feathered_edge": true,
+      "person_px": 215
+    },
+    {
+      "id": "L10_lava_road",
+      "file": "ground/L10_lava_road.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 2048,
+      "alpha": true,
+      "tileable": true,
+      "feathered_edge": true,
+      "person_px": 215
+    },
+    {
+      "id": "L11_jade_plaza",
+      "file": "ground/L11_jade_plaza.png",
+      "category": "ground",
+      "width": 2048,
+      "height": 2048,
+      "alpha": true,
+      "tileable": false,
+      "feathered_edge": true,
+      "person_px": 215
+    },
+    {
+      "id": "L12_seal_abyss",
+      "file": "ground/L12_seal_abyss.png",
+      "category": "ground",
+      "width": 2048,
+      "height": 2048,
+      "alpha": true,
+      "tileable": false,
+      "feathered_edge": true,
+      "person_px": 215
+    },
+    {
+      "id": "L13_taiji_plaza",
+      "file": "ground/L13_taiji_plaza.png",
+      "category": "ground",
+      "width": 2048,
+      "height": 2048,
+      "alpha": true,
+      "tileable": false,
+      "feathered_edge": true,
+      "person_px": 215
+    },
+    {
+      "id": "L14_miasma_bog",
+      "file": "ground/L14_miasma_bog.png",
+      "category": "ground",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "tileable": false,
+      "feathered_edge": true,
+      "person_px": 215
+    },
+    {
+      "id": "L15_demon_lake",
+      "file": "ground/L15_demon_lake.png",
+      "category": "ground",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "tileable": false,
+      "feathered_edge": true,
+      "person_px": 215
+    },
+    {
+      "id": "L16_spirit_field",
+      "file": "ground/L16_spirit_field.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "tileable": false,
+      "feathered_edge": true,
+      "person_px": 215
+    },
+    {
+      "id": "L17_battlefield_scar",
+      "file": "ground/L17_battlefield_scar.png",
+      "category": "ground",
+      "width": 2048,
+      "height": 1024,
+      "alpha": true,
+      "tileable": false,
+      "feathered_edge": true,
+      "person_px": 215
+    },
+    {
+      "id": "L18_meteor_crater",
+      "file": "ground/L18_meteor_crater.png",
+      "category": "ground",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "tileable": false,
+      "feathered_edge": true,
+      "person_px": 215
+    },
+    {
+      "id": "L19_hot_spring",
+      "file": "ground/L19_hot_spring.png",
+      "category": "ground",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "tileable": false,
+      "feathered_edge": true,
+      "person_px": 215
+    },
+    {
+      "id": "L20_array_circle",
+      "file": "ground/L20_array_circle.png",
+      "category": "ground",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "tileable": false,
+      "feathered_edge": true,
+      "person_px": 215
+    },
+    {
+      "id": "L21_coral_shoal",
+      "file": "ground/L21_coral_shoal.png",
+      "category": "ground",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "tileable": false,
+      "feathered_edge": true,
+      "person_px": 215
+    },
+    {
+      "id": "huochan_attack",
+      "file": "beasts/huochan_attack.png",
+      "category": "beasts",
+      "width": 780,
+      "height": 382,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "huochan_idle",
+      "file": "beasts/huochan_idle.png",
+      "category": "beasts",
+      "width": 660,
+      "height": 429,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "mojiao_attack",
+      "file": "beasts/mojiao_attack.png",
+      "category": "beasts",
+      "width": 1360,
+      "height": 607,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "mojiao_idle",
+      "file": "beasts/mojiao_idle.png",
+      "category": "beasts",
+      "width": 1280,
+      "height": 667,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "wolf_attack",
+      "file": "beasts/wolf_attack.png",
+      "category": "beasts",
+      "width": 740,
+      "height": 358,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "wolf_idle",
+      "file": "beasts/wolf_idle.png",
+      "category": "beasts",
+      "width": 680,
+      "height": 380,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "yinhun_attack",
+      "file": "beasts/yinhun_attack.png",
+      "category": "beasts",
+      "width": 720,
+      "height": 382,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "yinhun_idle",
+      "file": "beasts/yinhun_idle.png",
+      "category": "beasts",
+      "width": 680,
+      "height": 480,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "B01_sect_hall",
+      "file": "buildings/B01_sect_hall.png",
+      "category": "buildings",
+      "width": 1840,
+      "height": 1229,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1325,
+        430
+      ],
+      "door": [
+        920,
+        1008
+      ]
+    },
+    {
+      "id": "B02_house",
+      "file": "buildings/B02_house.png",
+      "category": "buildings",
+      "width": 960,
+      "height": 552,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        691,
+        193
+      ],
+      "door": [
+        480,
+        453
+      ]
+    },
+    {
+      "id": "B03_shop",
+      "file": "buildings/B03_shop.png",
+      "category": "buildings",
+      "width": 1040,
+      "height": 776,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        749,
+        272
+      ],
+      "door": [
+        520,
+        636
+      ]
+    },
+    {
+      "id": "B04_sect_gate",
+      "file": "buildings/B04_sect_gate.png",
+      "category": "buildings",
+      "width": 1380,
+      "height": 773,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        994,
+        271
+      ],
+      "door": [
+        690,
+        634
+      ]
+    },
+    {
+      "id": "B05_citywall",
+      "file": "buildings/B05_citywall.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 720,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        252
+      ],
+      "door": [
+        512,
+        590
+      ]
+    },
+    {
+      "id": "mockup_ground",
+      "file": "mockups/mockup_ground.png",
+      "category": "mockups",
+      "width": 1920,
+      "height": 1080,
+      "alpha": false
+    }
+  ]
+}
