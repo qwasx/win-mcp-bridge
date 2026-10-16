@@ -20,3 +20,7 @@
 ## Rework Batch R3 — 法宝与飞行器 (`artifacts/` 48 张)
 - **保留 6 张通过法宝**：`art_qingzhu.png`（已按要求旋转为水平剑尖朝右）、`art_wuxing.png`、`art_shenfeng.png`、`art_shenfeng_ride.png`、`art_yinzhong.png`、`art_zhangtian.png`。
 - **重画其余全部 42 张法宝**：逐一对照任务书 F1~F3 表格绘制（`art_xutian` 三足两耳虚天鼎、`art_jinguangzhuan` 金光砖、`art_wuguang_arrow` 乌光箭、`art_huergu/ziren` 金蚨子母刃、`art_dayan` 傀儡核、`art_huazhen` 颠倒五行阵盘、`art_zhenqi` 无字通用阵旗等），彻底消除重复凑数文件，所有飞剑/刀/枪/戟/针/箭/尺统一水平横放尖端朝右并在 `manifest.json` 标注 `orient`。
+
+## Rework Batch R4 — 原著独有名地构件 (`landmarks/` 35 张)
+- **严格按任务书表 E 全部重画**：`E01_platform` 升仙大会比武高台、`E02_gate_pillar` 血色禁地入口双石柱、`E03_altar_broken` 上古残坛、`E04/E04b` 古传送阵（完好/残破）、`E05` 虚天殿铁索桥段、`E06` 冰火道、`E07` 虚天殿内殿三层青白玉圆台、`E08` 韩立高台、`E09` 灵石矿洞口、`E10` 越京皇宫禁制塔、`E11a/b/c` 上古盘龙柱、`E12a` 昆吾山镇魔锁石柱（无字）、`E12b` 昆吾剑亭、`E13` 坠魔谷残碑（只画裂纹无字）、`E14` 昆吾镇魔碑（古符纹无汉字）、`E15` 古魔封印台、`E16` 灵眼之泉、`E17` 地火口、`E18a~d` 洞府四件、`E19` 灵眼之玉、`E20` 灵眼之树、`E21` 海蚀巨石迷阵、`E22` 海眼石环、`E23` 碧灵岛矿脉露头、`E24` 慕兰圣火坛、`E25` 黑暗祭坛、`E26a/b` 海船（小渔船/跨海楼船）、`E27` 北冥冰缝栈道。
+- **统一正面 + 俯视 30° 视角**：除 `E20` 灵眼之树外绝不画山、树、瀑布，只画人工/特殊名地构件本体。

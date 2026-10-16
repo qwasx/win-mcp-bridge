@@ -18010,6 +18010,299 @@
         128,
         128
       ]
+    },
+    {
+      "file": "landmarks/E01_platform.png",
+      "type": "landmark",
+      "id": "E01",
+      "width": 1800,
+      "height": 1225,
+      "baseline_y": 1197
+    },
+    {
+      "file": "landmarks/E02_gate_pillar.png",
+      "type": "landmark",
+      "id": "E02",
+      "width": 1000,
+      "height": 933,
+      "baseline_y": 905,
+      "door": [
+        390,
+        565,
+        220,
+        340
+      ]
+    },
+    {
+      "file": "landmarks/E03_altar_broken.png",
+      "type": "landmark",
+      "id": "E03",
+      "width": 900,
+      "height": 551,
+      "baseline_y": 523
+    },
+    {
+      "file": "landmarks/E04_teleport_ancient.png",
+      "type": "landmark",
+      "id": "E04",
+      "width": 850,
+      "height": 614,
+      "baseline_y": 586
+    },
+    {
+      "file": "landmarks/E04_teleport_broken.png",
+      "type": "landmark",
+      "id": "E04b",
+      "width": 850,
+      "height": 703,
+      "baseline_y": 675
+    },
+    {
+      "file": "landmarks/E05_xutian_bridge.png",
+      "type": "landmark",
+      "id": "E05",
+      "width": 1024,
+      "height": 351,
+      "baseline_y": 327,
+      "tileable_x": true
+    },
+    {
+      "file": "landmarks/E06_xutian_Icefire_road.png",
+      "type": "landmark",
+      "id": "E06",
+      "width": 1600,
+      "height": 484,
+      "baseline_y": 456
+    },
+    {
+      "file": "landmarks/E07_xutian_inner_hall.png",
+      "type": "landmark",
+      "id": "E07",
+      "width": 2000,
+      "height": 1262,
+      "baseline_y": 1234
+    },
+    {
+      "file": "landmarks/E08_hanli_platform.png",
+      "type": "landmark",
+      "id": "E08",
+      "width": 600,
+      "height": 468,
+      "baseline_y": 440
+    },
+    {
+      "file": "landmarks/E09_mine_entrance.png",
+      "type": "landmark",
+      "id": "E09",
+      "width": 900,
+      "height": 725,
+      "baseline_y": 697,
+      "door": [
+        351,
+        407,
+        198,
+        290
+      ]
+    },
+    {
+      "file": "landmarks/E10_magic_tower.png",
+      "type": "landmark",
+      "id": "E10",
+      "width": 700,
+      "height": 1510,
+      "baseline_y": 1482
+    },
+    {
+      "file": "landmarks/E11a_pillar_intact.png",
+      "type": "landmark",
+      "id": "E11a",
+      "width": 320,
+      "height": 893,
+      "baseline_y": 865
+    },
+    {
+      "file": "landmarks/E11b_pillar_half.png",
+      "type": "landmark",
+      "id": "E11b",
+      "width": 320,
+      "height": 759,
+      "baseline_y": 731
+    },
+    {
+      "file": "landmarks/E11c_pillar_fallen.png",
+      "type": "landmark",
+      "id": "E11c",
+      "width": 450,
+      "height": 156,
+      "baseline_y": 128
+    },
+    {
+      "file": "landmarks/E12a_seal_chain.png",
+      "type": "landmark",
+      "id": "E12a",
+      "width": 1100,
+      "height": 947,
+      "baseline_y": 919
+    },
+    {
+      "file": "landmarks/E12b_sword_pavilion.png",
+      "type": "landmark",
+      "id": "E12b",
+      "width": 900,
+      "height": 850,
+      "baseline_y": 822
+    },
+    {
+      "file": "landmarks/E13_valley_stele.png",
+      "type": "landmark",
+      "id": "E13",
+      "width": 480,
+      "height": 931,
+      "baseline_y": 903
+    },
+    {
+      "file": "landmarks/E14_kunwu_stele.png",
+      "type": "landmark",
+      "id": "E14",
+      "width": 550,
+      "height": 1048,
+      "baseline_y": 1020
+    },
+    {
+      "file": "landmarks/E15_devil_seal_altar.png",
+      "type": "landmark",
+      "id": "E15",
+      "width": 1600,
+      "height": 1340,
+      "baseline_y": 1312
+    },
+    {
+      "file": "landmarks/E16_lingqu_pool.png",
+      "type": "landmark",
+      "id": "E16",
+      "width": 700,
+      "height": 532,
+      "baseline_y": 504
+    },
+    {
+      "file": "landmarks/E17_earth_fire_mouth.png",
+      "type": "landmark",
+      "id": "E17",
+      "width": 600,
+      "height": 586,
+      "baseline_y": 558
+    },
+    {
+      "file": "landmarks/E18a_cave_bed.png",
+      "type": "landmark",
+      "id": "E18a",
+      "width": 450,
+      "height": 275,
+      "baseline_y": 247
+    },
+    {
+      "file": "landmarks/E18b_cave_table.png",
+      "type": "landmark",
+      "id": "E18b",
+      "width": 400,
+      "height": 239,
+      "baseline_y": 211
+    },
+    {
+      "file": "landmarks/E18c_herb_plot.png",
+      "type": "landmark",
+      "id": "E18c",
+      "width": 600,
+      "height": 316,
+      "baseline_y": 288
+    },
+    {
+      "file": "landmarks/E18d_insect_room.png",
+      "type": "landmark",
+      "id": "E18d",
+      "width": 500,
+      "height": 718,
+      "baseline_y": 690
+    },
+    {
+      "file": "landmarks/E19_spirit_eye_spring.png",
+      "type": "landmark",
+      "id": "E19",
+      "width": 650,
+      "height": 468,
+      "baseline_y": 440
+    },
+    {
+      "file": "landmarks/E20_spirit_eye_tree.png",
+      "type": "landmark",
+      "id": "E20",
+      "width": 1100,
+      "height": 1186,
+      "baseline_y": 1158
+    },
+    {
+      "file": "landmarks/E21_unknown_altar.png",
+      "type": "landmark",
+      "id": "E21",
+      "width": 1200,
+      "height": 818,
+      "baseline_y": 790
+    },
+    {
+      "file": "landmarks/E22_sea_vortex_marker.png",
+      "type": "landmark",
+      "id": "E22",
+      "width": 700,
+      "height": 555,
+      "baseline_y": 527
+    },
+    {
+      "file": "landmarks/E23_biling_mine.png",
+      "type": "landmark",
+      "id": "E23",
+      "width": 1000,
+      "height": 641,
+      "baseline_y": 613
+    },
+    {
+      "file": "landmarks/E24_mulan_holy_fire.png",
+      "type": "landmark",
+      "id": "E24",
+      "width": 900,
+      "height": 611,
+      "baseline_y": 583
+    },
+    {
+      "file": "landmarks/E25_heilian_altar.png",
+      "type": "landmark",
+      "id": "E25",
+      "width": 1100,
+      "height": 996,
+      "baseline_y": 968
+    },
+    {
+      "file": "landmarks/E26a_ship_small.png",
+      "type": "landmark",
+      "id": "E26a",
+      "width": 900,
+      "height": 735,
+      "baseline_y": 707
+    },
+    {
+      "file": "landmarks/E26b_ship_large.png",
+      "type": "landmark",
+      "id": "E26b",
+      "width": 1800,
+      "height": 1206,
+      "baseline_y": 1178
+    },
+    {
+      "file": "landmarks/E27_ice_wall_gap.png",
+      "type": "landmark",
+      "id": "E27",
+      "width": 1400,
+      "height": 568,
+      "baseline_y": 540
     }
   ]
 }
