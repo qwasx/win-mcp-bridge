@@ -370,6 +370,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
             <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('seclude'); }}>关<small>闭关</small></button>
             <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('map'); }}>图<small>地图</small></button>
             <button className="round-btn small" onClick={() => { audio.sfx('open'); game.openModal({ kind: 'hearts' }); }}>缘<small>红颜</small>{game.heartx?.unread > 0 && <i className="btn-badge">{game.heartx.unread}</i>}</button>
+            <button className="round-btn small" onClick={() => { audio.sfx('open'); game.openModal({ kind: 'relations' }); }}>人<small>人脉</small>{(() => { const n = game.rel?.hunters().filter((d) => d.hunting).length ?? 0; return n > 0 ? <i className="btn-badge">{n}</i> : null; })()}</button>
             <button className="round-btn small" onClick={() => { audio.sfx('open'); game.openModal({ kind: 'chronicle' }); }}>记<small>大事</small></button>
             <button className="round-btn small" onClick={() => { click(); setPanel('settings'); }}>设<small>设置</small></button>
             <button className="round-btn small" onClick={() => { audio.sfx('open'); game.openModal({ kind: 'help' }); }}>？<small>指南</small></button>

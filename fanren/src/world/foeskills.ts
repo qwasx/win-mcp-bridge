@@ -346,6 +346,7 @@ export class FoeAI {
         if (okMove) { e.x = nx; e.y = ny; }
         if (Math.random() < 0.8) c.sparks.push({ x: px, y: e.y - 20, vx: -Math.cos(cs.ang) * 120, vy: -40, t: 0, max: 0.4, size: 5, color: EL_COL[sk.el] });
         const p = g.player;
+        if (!cs.hit) for (const t of c.tanks) if (t.k !== 'p' && t.k !== 'decoy' && Math.hypot(t.x - e.x, t.y - e.y) < 70 + (sk.w ?? 80) * 0.3) { cs.hit = true; c.tankHit(t, e.atk * sk.pow * (1 + e.rage * 0.15), e.realm, sk.status, e.x, e.y); break; }
         if (!cs.hit && Math.hypot(p.x - e.x, p.y - e.y) < 70 + (sk.w ?? 80) * 0.3) {
           cs.hit = true;
           c.hitPlayer(e.atk * sk.pow * (1 + e.rage * 0.15), e.realm, sk.status, e.x, e.y, e);
@@ -444,6 +445,7 @@ export class FoeAI {
         h.fired = true;
         if (h.dmg > 0) {
           if (this.inside(h, p.x, p.y)) { c.hitPlayer(h.dmg, h.realm, h.status, h.x, h.y, h.src); h.hitDone = true; }
+          for (const t of c.tanks) if (t.k !== 'p' && t.k !== 'decoy' && this.inside(h, t.x, t.y)) c.tankHit(t, h.dmg, h.realm, h.status, h.x, h.y);
           this.boom(h);
         }
       }
@@ -456,7 +458,7 @@ export class FoeAI {
       if (h.fired && h.pool && h.dmg > 0 && h.k === 'circle') {
         h.pooling = true;
         h.tick -= dt;
-        if (h.tick <= 0) { h.tick = 0.5; if (this.inside(h, p.x, p.y)) c.hitPlayer(h.dmg * 0.18, h.realm, h.status, h.x, h.y, h.src); }
+        if (h.tick <= 0) { h.tick = 0.5; if (this.inside(h, p.x, p.y)) c.hitPlayer(h.dmg * 0.18, h.realm, h.status, h.x, h.y, h.src); for (const t of c.tanks) if (t.k !== 'p' && t.k !== 'decoy' && this.inside(h, t.x, t.y)) c.tankHit(t, h.dmg * 0.18, h.realm, h.status, h.x, h.y); }
         return h.t < h.tele + h.pool;
       }
       return h.t < h.tele + Math.max(0.35, h.k === 'line' ? h.dur + 0.2 : 0.35);

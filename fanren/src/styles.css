@@ -673,3 +673,34 @@ img.sk-glyph.sk-ico { width: 38px; height: 38px; filter: drop-shadow(0 0 3px var
 .hl-text { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .hl-day { color: #8a7a68; font-size: 10px; }
 .btn-badge { position: absolute; top: -3px; right: -3px; min-width: 16px; height: 16px; line-height: 16px; border-radius: 8px; background: #c8402a; color: #fff; font-size: 10px; font-style: normal; text-align: center; padding: 0 3px; box-shadow: 0 0 0 2px rgba(250,240,220,0.9); }
+
+/* 第二十九步：人脉录 */
+.rel-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.rel-tab { font-family: var(--title-font); font-size: 16px; padding: 4px 16px; border: 1px solid rgba(60,50,40,0.3); border-radius: 16px; background: rgba(255,252,244,0.5); color: var(--ink); cursor: pointer; }
+.rel-tab.on { background: #3a3024; color: #f4ead4; border-color: #3a3024; }
+.rel-tab.alarm:not(.on) { border-color: #b8302a; color: #b8302a; animation: relPulse 1.4s ease-in-out infinite; }
+@keyframes relPulse { 50% { box-shadow: 0 0 0 3px rgba(184,48,42,0.18); } }
+.rel-body { display: grid; grid-template-columns: 300px 1fr; gap: 16px; min-height: 360px; max-height: 62vh; }
+.rel-list { overflow: auto; padding-right: 4px; }
+.rel-row { display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 6px 8px; margin-bottom: 4px; border: 1px solid rgba(60,50,40,0.15); border-radius: 6px; background: rgba(255,252,244,0.55); cursor: pointer; color: var(--ink); font-family: var(--body-font); }
+.rel-row:hover { background: rgba(255,248,230,0.9); } .rel-row.on { border-color: #8a6a3a; box-shadow: 0 0 0 1px #8a6a3a inset; }
+.rel-row.hunt { border-left: 3px solid #c0302a; }
+.rel-row b { font-weight: 600; font-size: 14px; } .rel-realm { font-size: 11px; color: var(--ink-soft); } .rel-where { font-size: 11px; color: #8a7a64; }
+.rel-row.hunt .rel-where { color: #c0302a; }
+.rel-chip { display: inline-block; font-size: 11px; line-height: 18px; padding: 0 6px; border-radius: 9px; color: #1e1a14; white-space: nowrap; }
+.rel-detail { display: grid; grid-template-columns: 170px 1fr; gap: 14px; overflow: auto; }
+.rel-bust { background: radial-gradient(ellipse at 50% 40%, rgba(255,250,236,0.9), rgba(220,208,180,0.5)); border-radius: 8px; min-height: 220px; display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
+.rel-bust > * { max-width: 100%; }
+.rel-bond { font-size: 13px; color: #2f6b5e; margin: 4px 0; } .rel-why { font-size: 13px; color: #a8352a; margin: 4px 0; }
+.rel-ties { margin-top: 10px; } .rel-ties small { color: #a8352a; font-size: 11px; }
+.rel-tie { display: inline-flex; align-items: baseline; gap: 5px; margin: 3px 6px 3px 0; padding: 3px 9px; border-radius: 12px; border: 1px solid rgba(60,50,40,0.2); background: rgba(255,252,244,0.6); cursor: pointer; font-family: var(--body-font); color: var(--ink); }
+.rel-tie .rt-r { font-size: 11px; color: #8a6a3a; } .rel-tie b { font-size: 13px; font-weight: 600; } .rel-tie small { font-size: 10px; color: var(--ink-soft); }
+.rel-tie.kin { border-color: rgba(184,128,42,0.6); } .rel-tie.lover { border-color: rgba(208,80,120,0.6); } .rel-tie.master, .rel-tie.disciple { border-color: rgba(60,110,160,0.6); } .rel-tie.foe { border-color: rgba(176,48,42,0.6); background: rgba(176,48,42,0.06); }
+.rel-tie.gone { opacity: 0.45; text-decoration: line-through; }
+.rel-dead { margin-top: 12px; } .rel-gone { font-size: 13px; color: var(--ink-soft); padding: 2px 0; } .rel-gone small { margin-left: 8px; font-size: 11px; }
+.rel-sects { max-height: 62vh; overflow: auto; }
+.rel-sect { display: grid; grid-template-columns: 130px 1fr 90px; align-items: center; gap: 12px; padding: 6px 4px; border-bottom: 1px dashed rgba(60,50,40,0.15); }
+.rel-sect b { font-family: var(--title-font); font-weight: 400; font-size: 17px; } .rel-sect small { font-size: 11px; color: #2f6b5e; } .rel-sect span { font-size: 12px; text-align: right; }
+.rel-wanted { font-size: 13px; padding: 4px 0; border-bottom: 1px dashed rgba(60,50,40,0.15); } .rel-wanted b { color: #a8352a; } .rel-wanted small { float: right; color: var(--ink-soft); font-size: 11px; }
+.rel-log { max-height: 62vh; overflow: auto; }
+@media (max-width: 760px) { .rel-body { grid-template-columns: 1fr; max-height: none; } .rel-detail { grid-template-columns: 110px 1fr; } .rel-bust { min-height: 150px; } }

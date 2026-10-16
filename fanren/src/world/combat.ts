@@ -54,6 +54,10 @@ export class Enemy {
   sea: boolean;
   npcId?: string;      // 第四步：由人界 NPC 转化而来的敌人
   spar?: boolean;      // 切磋：不致死
+  /** 第二十九步：血量跌破此比例时求饶（0 = 死战到底） */
+  yieldAt?: number;
+  /** 第二十九步：仇恨目标（玩家 / 替身 / 灵宠 / 傀儡 / 虫群 / 同伴） */
+  tankRef?: any; tankT = 0;
   boss?: boolean;      // 事件首领
   /** 妖兽等阶 1–10（无等阶的鬼物 / 修士为 0） */
   blv = 0;
@@ -98,14 +102,15 @@ interface Proj {
   fac: 'p' | 'e'; x: number; y: number; vx: number; vy: number; life: number; max: number;
   fx: Fx; color: string; dmg: number; realm: number; status?: StatusSpec; stCh: number;
   pierce: boolean; homing: boolean; hit: Set<number>; r: number; aoe: number; school?: School;
-  evil?: number; size: number; trail: [number, number][]; tick?: number; lv: number; target?: Enemy | null; skill?: string;
+  evil?: number; size: number; trail: [number, number][]; tick?: number; lv: number; target?: Enemy | null; skill?: string; tk?: any;
 }
 interface Field { x: number; y: number; r: number; t: number; dur: number; fx: Fx; color: string; dmg: number; tick: number; status?: StatusSpec; stCh: number; school?: School; heal?: boolean; follow?: boolean; lv: number; realm: number; evil?: number }
 interface Vfx { kind: 'ring' | 'beam' | 'chain' | 'strike' | 'cone' | 'flash' | 'warn' | 'slash' | 'aura' | 'blinkfx' | 'bigsword' | 'pillar'; x: number; y: number; x2?: number; y2?: number; r: number; t: number; dur: number; color: string; fx?: Fx; ang?: number; spread?: number; pts?: [number, number][]; seed?: number; w?: number }
 interface Txt { x: number; y: number; s: string; color: string; t: number; big?: boolean; vy: number }
 interface Loot { x: number; y: number; id: string; n: number; t: number }
-interface Summon { cs?: CharState; kind: 'bugs' | 'puppet' | 'fox' | 'tihun' | 'demon' | 'jiao' | 'quhun'; x: number; y: number; t: number; dmg: number; cd: number; target: Enemy | null; phase: number; facing: number; n: number; evil?: number; status?: StatusSpec; dots?: { a: number; r: number; s: number }[] }
+interface Summon { hp?: number; cs?: CharState; kind: 'bugs' | 'puppet' | 'fox' | 'tihun' | 'demon' | 'jiao' | 'quhun'; x: number; y: number; t: number; dmg: number; cd: number; target: Enemy | null; phase: number; facing: number; n: number; evil?: number; status?: StatusSpec; dots?: { a: number; r: number; s: number }[] }
 interface Strike { x: number; y: number; t: number; dmg: number; r: number; status?: StatusSpec; stCh: number; school?: School; fx: Fx; color: string; realm: number; evil?: number; lv: number }
+interface Tank { k: 'p' | 'decoy' | 'summon' | 'swarm' | 'pet' | 'ally'; x: number; y: number; w: number; ref?: any }
 interface Spark { x: number; y: number; vx: number; vy: number; t: number; max: number; size: number; color: string }
 
 export class Combat {
@@ -720,12 +725,19 @@ export class Combat {
     // 异状
     if (src.status && Math.random() < src.stCh) this.applyStatus(e.st, src.status, d, e, fx, fy);
     if (e.spar && e.hp < e.maxHp * 0.15) { e.hp = e.maxHp * 0.15; e.dead = true; e.deathT = 0.9; if (this.lock === e) this.lock = null; this.onSparEnd?.(e, true); return; }
+    if (e.yieldAt && e.npcId && e.hp < e.maxHp * e.yieldAt && e.hp > -e.maxHp * 0.25 && this.onYield) { e.yieldAt = 0; e.hp = Math.max(1, e.maxHp * 0.06); e.cast = null; if (this.onYield(e)) return; }
     if (e.hp > 0) this.foe.phase(e);
     if (e.hp <= 0) this.kill(e);
   }
   /** 第四/五步：外部钩子 */
   onKill?: (e: Enemy) => void;
   onSparEnd?: (e: Enemy, playerWon: boolean) => void;
+  /** 第二十九步：NPC 求饶（返回 true 表示已接管） */
+  onYield?: (e: Enemy) => boolean;
+  /** 求饶后被斩 */
+  finish(e: Enemy) { if (!e.dead) { e.hp = 0; this.kill(e); } }
+  /** 求饶后被放走：不算击杀，原地化光遁走 */
+  release(e: Enemy) { e.dead = true; e.spar = true; e.deathT = 0.9; e.aggro = false; if (this.lock === e) this.lock = null; }
   /** 同伴 / 红颜出手：对敌人造成伤害（带简单特效） */
   allyStrike(fromX: number, fromY: number, e: Enemy, dmg: number, color: string, realm: number) {
     if (e.dead) return;
@@ -1128,8 +1140,77 @@ export class Combat {
     }
   }
 
+  // ------------------------------------------------------------ 第二十九步：仇恨 / 嘲讽
+  tanks: Tank[] = [];
+  private buildTanks(dt: number) {
+    const g = this.game, p = g.player, h = g.hero, L: Tank[] = [{ k: 'p', x: p.x, y: p.y, w: 1 }];
+    if (this.decoy) L.push({ k: 'decoy', x: this.decoy.x, y: this.decoy.y, w: 99 });
+    for (const sm of this.summons) {
+      if (sm.kind === 'tihun') continue;
+      sm.hp ??= 1;
+      if (sm.hp > 0 && sm.t > 0) L.push({ k: 'summon', x: sm.x, y: sm.y, w: sm.kind === 'puppet' ? 2.2 : sm.kind === 'bugs' ? 1.2 : 1.5, ref: sm });
+    }
+    const sw = this.swarm; if (sw && !sw.done && sw.mode !== 'recall' && sw.n > 8) L.push({ k: 'swarm', x: sw.cx, y: sw.cy, w: sw.mode === 'cover' ? 2.4 : 1.3, ref: sw });
+    const pe: any = g.pets?.ent;
+    if (pe && g.pets.active) {
+      pe.hp ??= 1; pe.down = Math.max(0, (pe.down ?? 0) - dt);
+      if (!this.inCombat) pe.hp = Math.min(1, pe.hp + dt * 0.04);
+      if (pe.down <= 0 && pe.hp > 0) L.push({ k: 'pet', x: pe.x, y: pe.y, w: g.pets.active.kind === 'shijin' ? 1.0 : 1.3, ref: pe });
+    }
+    for (const a of g.npcs.followers()) {
+      const A: any = a; A.downT = Math.max(0, (A.downT ?? 0) - dt);
+      if (!this.inCombat || A.downT > 0) a.hp = Math.min(1, a.hp + dt * 0.03);
+      if (A.downT <= 0 && a.hp > 0) L.push({ k: 'ally', x: a.st.x, y: a.st.y, w: 1.5, ref: a });
+    }
+    void h; this.tanks = L;
+  }
+  private pickTank(e: Enemy, dt: number): Tank {
+    const L = this.tanks, key = (t: Tank) => t.ref ?? t.k;
+    let cur = e.tankRef !== undefined ? L.find((t) => key(t) === e.tankRef) : undefined;
+    e.tankT -= dt;
+    if (!cur || e.tankT <= 0) {
+      e.tankT = 0.8 + Math.random() * 0.4;
+      let best = L[0], bs = -1;
+      for (const t of L) {
+        let w = t.w;
+        if (t.k === 'p' && this.game.time - e.lastHitBy < 3) w *= 1.6;
+        if (isBoss(e) && t.k !== 'decoy' && t.k !== 'p') w *= 0.6;
+        if (t === cur) w *= 1.35;
+        const sc = w / (Math.hypot(t.x - e.x, t.y - e.y) + 200);
+        if (sc > bs) { bs = sc; best = t; }
+      }
+      if (best !== cur && best.k !== 'p' && best.k !== 'decoy' && e.aggro && Math.random() < 0.4) this.texts.push({ x: e.x, y: e.y - 120, s: '!', color: '#ffb070', t: 0, vy: -30 });
+      cur = best; e.tankRef = key(best);
+    }
+    return cur;
+  }
+  /** 敌人的攻击落在仇恨目标上 */
+  tankHit(t: Tank, raw: number, realm: number, status: StatusSpec | undefined, fx: number, fy: number, e?: Enemy) {
+    const g = this.game, h = g.hero, ps = this.pStats;
+    if (t.k === 'p') { this.hitPlayer(raw, realm, status, fx, fy, e); return; }
+    if (t.k === 'decoy') { if (this.decoy) this.decoy.t -= 0.6; return; }
+    const R = t.k === 'ally' ? t.ref.d.realm : h.realm;
+    let base = ps.hp * (t.k === 'pet' ? 0.9 : t.k === 'summon' ? (t.ref.kind === 'puppet' ? 0.8 : 0.45) : 1);
+    if (t.k === 'ally') { const RR = REALMS[t.ref.d.realm]; base = RR.hp[Math.min(t.ref.d.stage, RR.hp.length - 1)] * 1.2; }
+    const frac = raw * realmTakeK(realm - R) / Math.max(1, base);
+    this.sparks.push({ x: t.x + rand(-10, 10), y: t.y - 40, vx: rand(-80, 80), vy: rand(-120, -40), t: 0, max: 0.35, size: 5, color: '255,200,150' });
+    if (t.k === 'swarm') {
+      const sw = t.ref as Swarm, k = Math.max(1, Math.round(frac * 140));
+      sw.n = Math.max(0, sw.n - k);
+      this.texts.push({ x: t.x, y: t.y - 90, s: `虫 -${k}`, color: '#e8c070', t: 0, vy: -40 });
+      if (sw.n <= 8) { sw.mode = 'recall'; g.toast('噬金虫群死伤惨重，飞回了灵兽袋。', 'warn'); }
+      return;
+    }
+    const ref = t.ref; ref.hp = (ref.hp ?? 1) - frac;
+    this.texts.push({ x: t.x + rand(-10, 10), y: t.y - 100, s: '-' + Math.max(1, Math.round(frac * 100)) + '%', color: '#ffb890', t: 0, vy: -50 });
+    if (ref.hp > 0) return;
+    if (t.k === 'summon') { ref.t = 0; this.texts.push({ x: t.x, y: t.y - 120, s: ref.kind === 'puppet' ? '傀儡碎裂' : '消散', color: '#d0c0a0', t: 0, vy: -30, big: true }); this.burstShards(t.x, t.y - 30, '200,190,170'); }
+    else if (t.k === 'pet') { ref.hp = 0.4; ref.down = 18; g.toast(`${g.pets.active?.name ?? '灵宠'}受了重伤，退到你身后舔舐伤口。`, 'warn'); }
+    else if (t.k === 'ally') { ref.hp = 0.25; ref.downT = 20; ref.bubble = { text: '我……先退下调息！', t: 2.5 }; g.toast(`${ref.d.name}身受重伤，暂退一旁调息。`, 'warn'); }
+  }
   private updateEnemies(dt: number, stealth: boolean) {
     const g = this.game, p = g.player, T = g.terrain, h = g.hero;
+    this.buildTanks(dt);
     const concealK = g.concealed ? 0.45 : 1;
     const playerSafe = this.safeAt(p.x, p.y);
     for (const e of this.enemies) {
@@ -1141,7 +1222,8 @@ export class Combat {
       if (e.hp <= 0) { this.kill(e); continue; }
       const frozen = !!(e.st.freeze || e.st.stun || e.st.shock);
       const rooted = frozen || !!e.st.root;
-      const tx = this.decoy ? this.decoy.x : p.x, ty = this.decoy ? this.decoy.y : p.y;
+      const tg: Tank = e.aggro && !e.spar ? this.pickTank(e, dt) : this.decoy ? { k: 'decoy', x: this.decoy.x, y: this.decoy.y, w: 99 } : this.tanks[0];
+      const tx = tg.x, ty = tg.y;
       const dx = tx - e.x, dy = ty - e.y, dist = Math.hypot(dx, dy);
       // 第十八步：沉睡的守护兽 —— 贴得太近（敛息时近得多）才会惊醒；相争的妖兽眼里只有对手
       if (e.sleep) {
@@ -1202,7 +1284,7 @@ export class Combat {
           e.windup -= dt; e.anim.atk = 1 - e.windup / 0.4;
           if (e.windup <= 0) {
             e.anim.atk = 0;
-            if (m && dist < m.range + 40) { if (this.decoy) { this.decoy.t -= 0.6; } else this.hitPlayer(e.atk * m.power, e.realm, m.status, e.x, e.y, e); }
+            if (m && dist < m.range + 40) this.tankHit(tg, e.atk * m.power, e.realm, m.status, e.x, e.y, e);
           }
         } else if (m && dist < m.range && e.cdMelee <= 0) { e.windup = 0.4; e.cdMelee = m.cd; }
         else if (r && dist < r.range && dist > (m ? m.range * 1.2 : 0) && e.cdRanged <= 0) {
@@ -1212,7 +1294,7 @@ export class Combat {
           for (let i = 0; i < n; i++) {
             const ang = Math.atan2(ty - 40 - (e.y - 40), tx - e.x) + (n > 1 ? (i / (n - 1) - 0.5) * 0.5 : 0);
             const spd = r.speed ?? 500;
-            this.projs.push({ fac: 'e', x: e.x, y: e.y - (e.anim.flying ? 70 : 40), vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 0, max: r.range / spd + 0.2, fx: r.fx, color: r.color, dmg: e.atk * r.power, realm: e.realm, status: r.status, stCh: r.status?.ch ?? 0, pierce: false, homing: false, hit: new Set(), r: 26, aoe: r.radius ?? 0, size: 0.9, trail: [], lv: 0 });
+            this.projs.push({ fac: 'e', x: e.x, y: e.y - (e.anim.flying ? 70 : 40), vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 0, max: r.range / spd + 0.2, fx: r.fx, color: r.color, dmg: e.atk * r.power, realm: e.realm, status: r.status, stCh: r.status?.ch ?? 0, pierce: false, homing: false, hit: new Set(), r: 26, aoe: r.radius ?? 0, size: 0.9, trail: [], lv: 0, tk: tg.k === 'p' || tg.k === 'decoy' ? undefined : (tg.ref ?? tg.k) });
           }
         } else {
           // 追击 / 保持距离
@@ -1291,6 +1373,10 @@ export class Combat {
         // 慢速持续弹道：周期性清除已命中记录
         if (pr.pierce && (pr.fx === 'tornado' || pr.fx === 'water' || pr.fx === 'dragon')) { pr.tick = (pr.tick ?? 0) + dt; if (pr.tick > 0.4) { pr.tick = 0; pr.hit.clear(); } }
       } else {
+        if (pr.tk !== undefined) {
+          const t = this.tanks.find((x) => (x.ref ?? x.k) === pr.tk);
+          if (t && Math.hypot(t.x - pr.x, t.y - 40 - pr.y) < pr.r + 30) { this.tankHit(t, pr.dmg, pr.realm, pr.status, pr.x, pr.y); this.vfx.push({ kind: 'flash', x: pr.x, y: pr.y, r: 30, t: 0, dur: 0.3, color: pr.color, fx: pr.fx, seed: Math.random() * 6 }); return false; }
+        }
         if (Math.hypot(p.x - pr.x, p.y - 46 - pr.y) < pr.r + 24) {
           if (pr.aoe) this.vfx.push({ kind: 'ring', x: pr.x, y: pr.y + 40, r: pr.aoe, t: 0, dur: 0.4, color: pr.color, fx: pr.fx });
           this.hitPlayer(pr.dmg, pr.realm, pr.status, pr.x, pr.y);

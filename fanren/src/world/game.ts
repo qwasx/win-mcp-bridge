@@ -14,6 +14,8 @@ import { NodeField, GatherNode } from './nodes';
 import { itemDef } from '../data/items';
 import * as C from './cultivation';
 import { PursuitSys } from './pursuit';
+import { Relations } from './relations';
+import { OrigStory } from './origstory';
 import { talentById } from '../data/skills';
 import { Combat, Enemy } from './combat';
 import { ENEMY_LIST } from '../data/enemies';
@@ -103,6 +105,10 @@ export class Game {
   combat: Combat;
   /** 第十四步：追杀 */
   pursuit: PursuitSys;
+  /** 第二十九步：人情世故 */
+  rel: Relations;
+  orig: OrigStory;
+  private relAcc = 0;
   /** 高空：0 地面 – 1 高空疾遁（镜头拉远、云层掠过） */
   alt = 0;
   private boostSfxT = 0;
@@ -143,6 +149,8 @@ export class Game {
     this.nodes = new NodeField(terrain);
     this.combat = new Combat(this);
     this.pursuit = new PursuitSys(this);
+    this.rel = new Relations(this);
+    this.orig = new OrigStory(this);
     this.npcs = new NpcWorld(this);
     this.npcs.newWorld();
     this.hearts = new Hearts(this);
@@ -202,11 +210,12 @@ export class Game {
     const c = this.combat as any;
     const prevKill = c.onKill, prevSpar = c.onSparEnd;
     c.onKill = (e: any) => { prevKill?.(e); this.npcs.onEnemyKilled(e); this.towns.onKill(e.def.id); this.events.onKill(e); this.sites.onKill(e); this.pets.onKill(e); this.happen.onKill(e); };
+    c.onYield = (e: any) => this.npcs.onYield(e);
     c.onSparEnd = (e: any, won: boolean) => { prevSpar?.(e, won); if (!this.events.onSpar(e, won) && !this.happen.onSpar(e, won)) this.npcs.onSpar(e, won); };
   }
   get halted() { return this.paused || !!this.modal; }
   openModal(m: Modal) {
-    if (this.modal && (this.modal.kind === 'town' || this.modal.kind === 'hearts' || this.modal.kind === 'chronicle')) this.modalStack.push(this.modal);
+    if (this.modal && (this.modal.kind === 'town' || this.modal.kind === 'hearts' || this.modal.kind === 'chronicle' || this.modal.kind === 'relations')) this.modalStack.push(this.modal);
     this.modal = m; this.stand(); this.input.keys.clear(); this.emitModal();
   }
   openDialog(node: DNode) {
@@ -289,6 +298,7 @@ export class Game {
     if (this.travel.tryPortal()) return;
     const l = this.nearbyLocation();
     if (!l || !this.towns.canEnter(l)) { this.toast('附近没有可以进入的城镇或宗门。', 'warn'); return; }
+    if (l.type === 'sect' && this.rel.sectRep(l.id) <= -45 && this.ws.sect?.id !== l.id) { this.toast(`山门弟子横剑拦住了你：「${l.name}与你仇深似海，休想踏进山门半步！」`, 'warn'); return; }
     this.towns.open(l);
   }
   private townZoom: number | null = null;
@@ -574,7 +584,7 @@ export class Game {
     if (f.auctionMark !== undefined && !inZone) {
       const ago = this.day - (f.auctionMark as number);
       delete f.auctionMark;
-      if (ago < 20) { this.pursuit.cd = 0; this.pursuit.schedule({ reason: '拍卖会上露了富，出城不久便被人尾随', gap: Math.random() < 0.6 ? 1 : 0, delay: 4 + Math.random() * 6 }); }
+      if (ago < 20 && !(Math.random() < 0.5 && this.rel.tail())) { this.pursuit.cd = 0; this.pursuit.schedule({ reason: '拍卖会上露了富，出城不久便被人尾随', gap: Math.random() < 0.6 ? 1 : 0, delay: 4 + Math.random() * 6 }); }
     }
     // 险地游荡：身怀重宝时偶尔被更强者盯上
     this.roamPursuitT -= dt;
@@ -766,6 +776,7 @@ export class Game {
       this.pursuit.update(dt);
       this.pursuitTriggers(dt);
       this.npcs.update(dt);
+      this.rel.update(dt);
       this.travel.update(dt);
       this.events.update(dt);
       this.story.update(dt);
@@ -782,6 +793,7 @@ export class Game {
       this.timeScale = p.sitting ? MEDITATE_SPEED : 1;
       const days = dt * DAYS_PER_SEC * this.timeScale;
       this.day += days;
+      this.relAcc += days; if (this.relAcc >= 0.5) { this.rel.daily(this.relAcc); this.orig.daily(this.relAcc); this.relAcc = 0; }
       const msgs: Msg[] = [];
       const hadTalent = !!h.pendingTalent;
       const expB = this.hearts.bonus('exp'), e0 = h.exp;
@@ -955,7 +967,7 @@ export class Game {
   get forgeFire() { const t = this.nearbyLocation()?.type; return t === 'city' || t === 'town' || t === 'sect' || t === 'isle'; }
   brew(r: import('../data/recipes').Recipe) {
     const res = C.brew(this.hero, r, this.forgeFire);
-    if (res.days) { const msgs: Msg[] = []; C.passDays(this.hero, res.days, false, 1, msgs); this.day += res.days; this.flushMsgs(msgs.filter((m) => m.kind)); }
+    if (res.days) { const msgs: Msg[] = []; C.passDays(this.hero, res.days, false, 1, msgs); this.day += res.days; this.rel.daily(Math.min(res.days, 30)); this.flushMsgs(msgs.filter((m) => m.kind)); }
     audio.sfx(res.ok ? 'break' : 'fail');
     this.updateUI(true);
     return res;
@@ -1173,7 +1185,7 @@ export class Game {
       const t = e.target as HTMLElement;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
       const k = e.key.toLowerCase();
-      if (e.repeat && 'mfzecblpqrkthjg?'.includes(k)) return;
+      if (e.repeat && 'mfzecblpqrkthjgn?'.includes(k)) return;
       if (this.modal) return;
       this.input.keys.add(k);
       if (k === 'm') this.onOpenMap?.();
@@ -1195,6 +1207,7 @@ export class Game {
       if (k === 'g') this.enterTown();
       if (k === 'h') this.openModal({ kind: 'hearts' });
       if (k === 'j') this.openModal({ kind: 'chronicle' });
+      if (k === 'n') this.openModal({ kind: 'relations' });
       if (k === '?' || k === 'f1' || k === '/') { e.preventDefault(); this.openModal({ kind: 'help' }); }
       if (k === '=' || k === '+') this.zoomBy(1.2);
       if (k === '-') this.zoomBy(1 / 1.2);

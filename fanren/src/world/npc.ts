@@ -13,6 +13,8 @@ import * as C from './cultivation';
 import { ITEM_LIST, itemDef } from '../data/items';
 import type { DNode, DOpt, ShopStock } from './modal';
 import { BEAUTY_BY_ID, BEAUTIES, beautyLook } from '../data/beauties';
+import type { Tie, Bond } from './relations';
+import { TIER_COLOR, relWord as relWordOf } from './relations';
 
 type G = CanvasRenderingContext2D;
 export type Pers = 'righteous' | 'greedy' | 'cautious' | 'arrogant' | 'kind' | 'ruthless' | 'aloof';
@@ -29,6 +31,9 @@ export interface NpcData {
   canon?: boolean; title?: string; beauty?: string; robe?: string; stay?: boolean;
   taught?: boolean; lastTalk?: number; deathNote?: string; spar?: number; hidden?: boolean;
   map?: MapId;              // 所在地图（缺省为天南）
+  // ---------- 第二十九步：人脉与恩怨 ----------
+  ties?: Tie[]; why?: string; huntAt?: number; hunting?: boolean; huntStart?: number; vend?: string; oath?: boolean;
+  bond?: Bond; bondUntil?: number; helpUntil?: number; lastParley?: number; lunDao?: number; home0?: string; orig?: boolean; vow?: boolean;
 }
 export const npcMap = (d: NpcData): MapId => d.map ?? 'tiannan';
 /** 各图常住修士 / 凡人数量 */
@@ -41,6 +46,9 @@ interface Active {
   duel?: { foe: Active; hp: number; cd: number; t: number };
   hp: number; bubble?: { text: string; t: number }; bolts: { x: number; y: number; x2: number; y2: number; t: number; col: string }[];
   ally?: Enemy | null; allyCd: number;
+  /** 第二十九步：日常（钓鱼 / 摆摊 / 闲聊 / 围观） */
+  life?: { k: 'fish' | 'stall' | 'chat' | 'watch'; dir: number; with?: Active; lines?: string[]; li?: number; lt?: number; cx?: number; cy?: number; ware?: number };
+  parley?: boolean;
 }
 
 const SECT_ROBE: Record<string, string> = {
@@ -68,7 +76,7 @@ const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const TAU = Math.PI * 2;
 
 // ---------------------------------------------------------------- 原著人物（自由发展：性格还原，命运由你改写）
-interface CanonDef { id: string; name: string; sex: 'm' | 'f'; home: string; realm: number; stage: number; pers: Pers; faction: Faction; title: string; role: NpcRole; robe?: string; stay?: boolean; age: number }
+interface CanonDef { id: string; name: string; sex: 'm' | 'f'; home: string; realm: number; stage: number; pers: Pers; faction: Faction; title: string; role: NpcRole; robe?: string; stay?: boolean; age: number; orig?: boolean; favor?: number }
 const CANON: CanonDef[] = [
   { id: 'modaifu', name: '墨大夫', sex: 'm', home: 'qixuan', realm: 1, stage: 4, pers: 'ruthless', faction: 'rogue', title: '七玄门神手谷', role: 'elder', robe: '#4a4a44', stay: true, age: 62 },
   { id: 'lifeiyu', name: '厉飞雨', sex: 'm', home: 'qixuan', realm: 0, stage: 0, pers: 'righteous', faction: 'mortal', title: '七玄门弟子', role: 'guard', robe: '#3a4a5a', age: 18 },
@@ -89,6 +97,20 @@ const CANON: CanonDef[] = [
   { id: 'mulan_shi', name: '慕兰神师', sex: 'm', home: 'mulan', realm: 3, stage: 1, pers: 'arrogant', faction: 'sect', title: '慕兰法士', role: 'monk', robe: '#8a4a2a', age: 350 },
   { id: 'caomengrong', name: '曹梦容', sex: 'f', home: 'caojia', realm: 0, stage: 0, pers: 'kind', faction: 'mortal', title: '朔州曹家', role: 'female', robe: '#c8a0a0', stay: true, age: 16 },
   { id: 'wuchou', name: '吴丑', sex: 'm', home: 'qingniu', realm: 0, stage: 0, pers: 'kind', faction: 'mortal', title: '青牛镇', role: 'farmer', age: 50 },
+  // 第二十九步：原著人物各归其地
+  { id: 'nanlonghou', name: '南陇侯', sex: 'm', home: 'zhuimo', realm: 4, stage: 0, pers: 'cautious', faction: 'rogue', title: '天南元婴修士', role: 'elder', robe: '#5a4a3a', stay: true, age: 700 },
+  { id: 'baiyaoyi', name: '白瑶怡', sex: 'f', home: 'kunwu', realm: 4, stage: 0, pers: 'cautious', faction: 'rogue', title: '昆吾山探宝的元婴女修', role: 'female', robe: '#e8e4dc', stay: true, age: 420 },
+  // 第二十九步：原创人物（非原著）
+  { id: 'o_mengtieyi', name: '孟铁衣', sex: 'm', home: 'jiayuan', realm: 1, stage: 7, pers: 'righteous', faction: 'rogue', title: '嘉元城散修', role: 'guard', robe: '#5a5a4a', stay: true, age: 24, orig: true },
+  { id: 'o_mengtieshan', name: '孟铁山', sex: 'm', home: 'tainan', realm: 1, stage: 11, pers: 'ruthless', faction: 'rogue', title: '太南山劫修', role: 'guard', robe: '#3a3028', age: 31, orig: true },
+  { id: 'o_luqingya', name: '陆青崖', sex: 'm', home: 'huangfeng', realm: 1, stage: 6, pers: 'arrogant', faction: 'sect', title: '黄枫谷弟子', role: 'cultivator', robe: '#b8923a', stay: true, age: 19, orig: true },
+  { id: 'o_huiming', name: '慧明', sex: 'm', home: 'yuejing', realm: 2, stage: 3, pers: 'kind', faction: 'rogue', title: '游方僧', role: 'monk', robe: '#a8763a', stay: true, age: 66, orig: true },
+  { id: 'o_gusonghe', name: '顾松鹤', sex: 'm', home: 'luoyun', realm: 3, stage: 4, pers: 'aloof', faction: 'rogue', title: '隐居散修', role: 'elder', robe: '#6a7a6a', stay: true, age: 410, orig: true },
+  { id: 'o_zhaowuji', name: '赵无忌', sex: 'm', home: 'huangfeng', realm: 1, stage: 9, pers: 'arrogant', faction: 'sect', title: '红拂门下', role: 'cultivator', robe: '#a83a3a', stay: true, age: 22, orig: true },
+  { id: 'o_leijiu', name: '雷九', sex: 'm', home: 'jiayuan', realm: 1, stage: 8, pers: 'greedy', faction: 'merchant', title: '黑市掮客', role: 'merchant', robe: '#4a3a2a', stay: true, age: 45, orig: true },
+  { id: 'o_liusanniang', name: '柳三娘', sex: 'f', home: 'yuejing', realm: 2, stage: 1, pers: 'cautious', faction: 'rogue', title: '越京茶楼老板娘', role: 'female', robe: '#8a3a4a', stay: true, age: 38, orig: true },
+  { id: 'o_baixiao', name: '白枭', sex: 'm', home: 'yuanwu', realm: 2, stage: 1, pers: 'ruthless', faction: 'rogue', title: '赏金客', role: 'guard', robe: '#2a2a30', age: 35, orig: true },
+  { id: 'o_ayu', name: '阿妤', sex: 'f', home: 'qingniu', realm: 0, stage: 0, pers: 'kind', faction: 'mortal', title: '青牛镇', role: 'female', robe: '#c87a7a', stay: true, age: 11, orig: true, favor: 20 },
 ];
 
 // 原著人物台词（自由发展，只取其性格）
@@ -112,6 +134,10 @@ const CANON_LINES: Record<string, string[]> = {
   caomengrong: ['（少女好奇地打量你）你是从南边草原来的吗？听说那边常有仙师斗法。', '舜江的水一年四季都冷得刺骨，去年还漂下来一块好大的冰呢。', '爹爹说修仙的人都很凶，可你看起来不像。'],
   mulan_shi: ['天南的修士，又来草原做什么？', '我慕兰法士，从不惧天南七派。'],
   wuchou: ['小立子回来啦？你爹娘可想你了。', '今年收成不错，就是山里的狼又多了。'],
+  nanlonghou: ['（南陇侯神色凝重）坠魔谷的迷雾又浓了几分……里面的东西，不是你我能碰的。', '小友修为不高，胆子倒不小。谷中空间裂缝随时会变，切莫贪功冒进。', '老夫在此守了许多年，为的是谷中一样东西。至于是什么……你不必知道。'],
+  baiyaoyi: ['（白衣女修淡淡瞥了你一眼）昆吾山的禁制未破，你来得早了。', '昆吾殿下镇着的东西，传说是上古魔物。道友若无把握，还是莫要靠近。', '尸狼、银翅夜叉……这山里的东西，越往深处越凶。'],
+  o_baixiao: ['……', '没人出钱的时候，我对你没兴趣。'],
+  o_mengtieshan: ['（刀疤汉子横刀拦路）此山是我开——算了，你走吧。', '看什么看？'],
 };
 
 const GREET: Record<Pers, string[]> = {
@@ -130,7 +156,7 @@ export class NpcWorld {
   list: NpcData[] = [];
   byId = new Map<string, NpcData>();
   active = new Map<string, Active>();
-  private simT = 0; private lastDay = -1; private noticeT = 0; private duelT = 4;
+  private simT = 0; private lastDay = -1; private noticeT = 0; private duelT = 4; private watchT = 2;
   focus: Active | null = null;   // 最近可交谈者
 
   constructor(game: Game) { this.game = game; }
@@ -148,7 +174,7 @@ export class NpcWorld {
     for (const c of CANON) {
       const loc = LOC_BY_ID.get(c.home); if (!loc) continue;   // 三张图的原著人物都在册，各居其地
       const p = at(loc, 420);
-      this.list.push({ id: c.id, name: c.name, sex: c.sex, role: c.role, realm: c.realm, stage: c.stage, faction: c.faction, sect: c.faction === 'sect' || c.faction === 'demon' ? c.home : undefined, home: c.home, pers: c.pers, favor: c.id === 'lifeiyu' || c.id === 'wuchou' ? 40 : 0, grudge: 0, met: false, alive: true, age: c.age, life: REALMS[c.realm].life * 1.1, x: p.x, y: p.y, tx: p.x, ty: p.y, goal: 'stay', until: 0, wealth: 30 + c.realm * c.realm * 400, seed: Math.floor(rnd() * 1e9), canon: true, title: c.title, robe: c.robe, stay: c.stay });
+      this.list.push({ id: c.id, name: c.name, sex: c.sex, role: c.role, realm: c.realm, stage: c.stage, faction: c.faction, sect: c.faction === 'sect' || c.faction === 'demon' ? c.home : undefined, home: c.home, pers: c.pers, favor: c.favor ?? (c.id === 'lifeiyu' || c.id === 'wuchou' ? 40 : 0), grudge: 0, met: false, alive: true, age: c.age, life: REALMS[c.realm].life * 1.1, x: p.x, y: p.y, tx: p.x, ty: p.y, goal: 'stay', until: 0, wealth: 30 + c.realm * c.realm * 400, seed: Math.floor(rnd() * 1e9), canon: true, title: c.title, robe: c.robe, stay: c.stay, orig: c.orig });
     }
     for (const b of BEAUTIES) {
       const loc = LOC_BY_ID.get(b.home); if (!loc) continue;
@@ -167,6 +193,7 @@ export class NpcWorld {
       for (let i = 0; i < POP[m]; i++) this.list.push(this.spawnRandom(rnd, pickHome(), pre + i));
     }
     this.reindex();
+    this.game.rel?.genTies(this.list, rnd, true);
   }
   private spawnRandom(rnd: () => number, loc: LocDef, id: string): NpcData {
     const isSect = loc.type === 'sect', demon = DEMON_SECTS.has(loc.id);
@@ -204,8 +231,9 @@ export class NpcWorld {
     this.list = a.map((n) => ({ ...n, x: n.x * wk, y: n.y * wk, tx: n.tx * wk, ty: n.ty * wk }));
     // 新版本加入的原著人物 / 红颜补齐
     const tmp = new NpcWorld(this.game); tmp.newWorld();
-    for (const n of tmp.list) if (n.canon && !this.list.some((m) => m.id === n.id)) this.list.push(n);
+    for (const n of tmp.list) if (n.canon && !this.list.some((m) => m.id === n.id)) { n.ties = undefined; this.list.push(n); }
     this.reindex();
+    this.game.rel?.ensureTies();
   }
 
   /** 旧版统一大地图存档 → 三图：重建众生，保留原著人物与红颜的状态（境界、好感、仇怨、生死、相识） */
@@ -237,6 +265,8 @@ export class NpcWorld {
   hostileTo(d: NpcData) {
     const rep = this.game.ws.rep;
     if (d.grudge > 0) return true;
+    if (d.bond || d.helpUntil) return false;
+    if (this.game.rel?.hostileExtra(d)) return true;
     if (d.faction === 'demon' && (d.pers === 'ruthless' || d.pers === 'greedy')) return true;
     if ((d.pers === 'greedy' || d.pers === 'ruthless') && d.faction === 'rogue') return true;
     if (d.pers === 'righteous' && rep < -40) return true;
@@ -277,6 +307,9 @@ export class NpcWorld {
     if (this.noticeT <= 0) { this.noticeT = 0.7; this.senseCheck(); }
     this.duelT -= dt;
     if (this.duelT <= 0) { this.duelT = 3 + Math.random() * 4; this.maybeDuel(); }
+    // 围观韩立斗法
+    this.watchT -= dt;
+    if (this.watchT <= 0) { this.watchT = 3; if (g.combat.inCombat && !g.combat.safeAt(p.x, p.y)) this.gatherWatchers(p.x, p.y, [], true); }
   }
 
   /** 光阴流逝（含闭关）：境界增长、衰老、坐化、补员 */
@@ -336,11 +369,19 @@ export class NpcWorld {
     const a = this.active.get(d.id);
     if (a) this.active.delete(d.id);
     if (d.met && (d.favor > 30 || d.canon)) this.game.news(`噩耗：${d.name}${why}。`, 'personal');
+    const R = this.game.rel;
+    if (R) {
+      if (d.bond === 'sworn' || d.bond === 'master' || d.bond === 'disciple' || d.bond === 'companion') { this.game.toast(`噩耗：你的${({ sworn: '结义' + (d.sex === 'f' ? '姐姐' : '兄长'), master: '师父', disciple: '徒儿', companion: '同伴' } as any)[d.bond]}${d.name}${why}！`, 'warn'); R.log(`${d.name}${why}。`, 'bad'); }
+      if ((d.grudge ?? 0) >= 2 && d.met) R.log(`仇人${d.name}${why}。`, 'info');
+      R.S.wanted = R.S.wanted.filter((w) => w.by !== d.id);
+      d.hunting = false;
+    }
   }
 
   private coarse(dt: number) {
     for (const d of this.list) {
       if (!d.alive || this.active.has(d.id)) continue;
+      if (d.hunting && npcMap(d) === ACTIVE_MAP) { d.tx = this.game.player.x; d.ty = this.game.player.y; }
       const dx = d.tx - d.x, dy = d.ty - d.y, dd = Math.hypot(dx, dy);
       if (dd < 60) {
         if (d.until <= this.game.day) {
@@ -348,7 +389,7 @@ export class NpcWorld {
         }
         continue;
       }
-      const sp = (d.realm >= 2 ? REALMS[d.realm].speed * 1.8 : REALMS[d.realm].speed) * dt;
+      const sp = (d.realm >= 2 ? REALMS[d.realm].speed * 1.8 : REALMS[d.realm].speed) * dt * (d.hunting ? 1.6 : 1);
       d.x += dx / dd * Math.min(sp, dd); d.y += dy / dd * Math.min(sp, dd);
     }
   }
@@ -433,14 +474,23 @@ export class NpcWorld {
     }
     // 劫道：靠近玩家
     if (a.act === 'approach') {
+      if (a.parley && !g.modal) { a.parley = false; this.toEnemy(a, true); return; }   // 对峙时一言不发地走开：视同动手
       const dx = p.x - st.x, dy = p.y - st.y, dd = Math.hypot(dx, dy);
       const sp = d.realm >= 2 ? 420 : 200;
       st.faceToward(dx, dy); st.setAction(d.realm >= 2 ? 'fly' : 'run'); st.speed = sp;
       st.lift += ((d.realm >= 2 ? 40 : 0) - st.lift) * Math.min(1, dt * 3);
       st.x += dx / dd * sp * dt; st.y += dy / dd * sp * dt;
       d.x = st.x; d.y = st.y; st.update(dt);
-      if (dd < 520) this.toEnemy(a, true);
-      if (dd > 4200) a.act = 'idle';
+      if (dd < 520) {
+        const R = g.rel;
+        if (R && !a.parley && R.canParley(d) && !g.modal && !g.combat.inCombat && !g.hero.dead) {
+          a.parley = true; st.setAction('idle');
+          g.openDialog(R.parleyNode(d, a.look, () => { a.parley = false; this.toEnemy(a, true); }, () => { a.parley = false; a.act = 'idle'; a.wait = 2; d.hunting = false; this.pickTarget(d); }));
+          return;
+        }
+        if (!a.parley) this.toEnemy(a, true);
+      }
+      if (dd > 4200 && !d.hunting) a.act = 'idle';
       return;
     }
     if (a.act === 'flee') {
@@ -452,13 +502,17 @@ export class NpcWorld {
       if (dd > 3000) { a.act = 'idle'; this.pickTarget(d); }
       return;
     }
+    // 追杀：循迹而来（玩家在城中安全处时，候在原地）
+    if (d.hunting && !g.combat.safeAt(p.x, p.y)) { d.tx = p.x; d.ty = p.y; if (a.wait > 0.5) a.wait = 0.5; a.life = undefined; }
     // 日常
     if (a.wait > 0) {
       a.wait -= dt;
       st.speed = 0; st.lift += (0 - st.lift) * Math.min(1, dt * 3);
       st.setAction(a.act === 'sit' ? 'sit' : a.act === 'gather' ? 'gather' : 'idle');
+      if (a.life) this.lifeTick(a, dt);
       st.update(dt); return;
     }
+    if (a.life && a.life.k !== 'watch') a.life = undefined;
     // 第二十二步：沿街巷绕行（被屋舍挡住时才求路）
     const path = (a as any).path as [number, number][] | undefined;
     if (path && path.length) {
@@ -469,6 +523,8 @@ export class NpcWorld {
     let dx = (goal ? goal[0] : d.tx) - st.x, dy = (goal ? goal[1] : d.ty) - st.y; const dd0 = Math.hypot(dx, dy);
     const dd = goal ? Math.max(dd0, 41) : dd0;
     if (dd < 40) {
+      if (a.life?.k === 'watch') { a.act = 'idle'; a.wait = 2.5; return; }
+      if (!goal && this.pickLife(a)) return;
       // 到达：打坐 / 采药 / 闲立
       const r = Math.random();
       if (d.goal === 'gather' || (d.faction !== 'mortal' && r < 0.25)) { a.act = 'gather'; a.wait = 3 + Math.random() * 5; }
@@ -505,6 +561,127 @@ export class NpcWorld {
     st.update(dt);
   }
 
+  // ------------------------------------------------------------ 第二十九步：市井日常
+  /** 到达落脚点时，偶尔做点凡俗事：摆摊、钓鱼、与人闲聊 */
+  private pickLife(a: Active): boolean {
+    const g = this.game, d = a.d, st = a.st, T = g.terrain, r = Math.random();
+    if (d.bond || d.hunting) return false;
+    // 摆摊：城镇里的行商、贪财散修、凡人小贩
+    if ((d.faction === 'merchant' || (d.faction === 'rogue' && d.pers === 'greedy') || (d.faction === 'mortal' && d.seed % 4 === 0)) && r < 0.45) {
+      const inTown = locsOf(ACTIVE_MAP).some((l) => (l.type === 'town' || l.type === 'city') && Math.hypot(l.x * WORLD_SCALE - st.x, l.y * WORLD_SCALE - st.y) < 1500);
+      if (inTown && !g.space?.blocked(st.x, st.y + 40)) {
+        a.life = { k: 'stall', dir: Math.PI / 2, ware: d.faction === 'mortal' ? 4 : d.seed % 4 }; a.act = 'sit'; a.wait = 25 + Math.random() * 40;
+        st.faceToward(0, 1); return true;
+      }
+    }
+    // 钓鱼：水边的凡人与闲散修士
+    if ((d.faction === 'mortal' || d.pers === 'aloof' || d.pers === 'kind' || d.faction === 'rogue') && r < 0.35) {
+      const a0 = Math.random() * TAU;
+      for (let k = 0; k < 10; k++) {
+        const ang = a0 + k * TAU / 10;
+        const wet = (R: number) => { const x = st.x + Math.cos(ang) * R, y = st.y + Math.sin(ang) * R * 0.75; return !T.isLand(x, y) || T.riverEdge(x, y) < 0; };
+        if (!wet(30) && (wet(150) || wet(220))) {
+          a.life = { k: 'fish', dir: ang }; a.act = 'sit'; a.wait = 18 + Math.random() * 35;
+          st.faceToward(Math.cos(ang), Math.sin(ang)); return true;
+        }
+      }
+    }
+    // 闲聊
+    if (r < 0.5) {
+      const mortal = d.faction === 'mortal';
+      for (const b of this.active.values()) {
+        if (b === a || !b.d.alive || b.enemy || b.duel || b.life || b.d.bond || (b.act !== 'idle' && b.act !== 'walk' && b.act !== 'sit') || (b.d.faction === 'mortal') !== mortal) continue;
+        const dd = Math.hypot(b.st.x - st.x, b.st.y - st.y); if (dd > 340 || dd < 40) continue;
+        const lines = this.chatLines(d, b.d);
+        const dur = lines.length * 2.7 + 1.5;
+        a.life = { k: 'chat', dir: 0, with: b, lines, li: 0, lt: 0.4 }; b.life = { k: 'chat', dir: 0, with: a };
+        a.act = b.act = 'idle'; a.wait = b.wait = dur; (b as any).path = undefined;
+        st.faceToward(b.st.x - st.x, b.st.y - st.y); b.st.faceToward(st.x - b.st.x, st.y - b.st.y);
+        return true;
+      }
+    }
+    return false;
+  }
+  private chatLines(A: NpcData, B: NpcData): string[] {
+    const g = this.game, R = g.rel, tie = R?.tieOf(A, B.id), pk = <T,>(x: T[]) => x[Math.floor(Math.random() * x.length)];
+    const r = Math.random();
+    if (tie && tie.k === 'kin' && r < 0.5) return [`${relWordOf(tie.r)}，近来可好？`, pk(['老样子。你呢？', '好着呢，就是挂念你。', '还不是那样，凑合过。']), pk(['那就好。', '有空回家看看。', '回头一起喝一杯。'])];
+    if (tie && tie.k === 'lover' && r < 0.5) return ['山上风大，你多添件衣裳。', '知道啦，你也是。'];
+    if (tie && tie.k === 'master' && r < 0.5) return ['师父，弟子这几日功课……', '心浮气躁，再去练三个时辰。', '……是。'];
+    if (A.met && r < 0.45) {
+      if (A.grudge > 0 || A.favor <= -30) return ['你可知道韩立那厮？', '嘘——小声些！', '哼，早晚叫他好看。'];
+      if (A.favor >= 50) return ['你认得韩立么？', '听说过，怎么？', '是个靠得住的人，上回还帮过我。'];
+      if (A.favor >= 15) return ['前些天遇见个姓韩的道友。', '如何？', '面相平平，深不可测。'];
+    }
+    const tot = R?.wantedTotal() ?? 0;
+    if (tot >= 300 && r < 0.6 && A.faction !== 'mortal') return ['听说有人悬赏一个姓韩的。', '多少灵石？', `${tot}！`, '……啧，我可不敢去赚这个钱。'];
+    const ev = g.events.rumorFor(A); if (ev && r < 0.7) return [ev.length > 18 ? ev.slice(0, 17) + '……' : ev, '当真？', '千真万确！'];
+    if (A.faction === 'mortal') return pk([['今年雨水足，收成该好。', '但愿别闹蝗灾。'], ['城里来了个说书的。', '讲的什么？', '讲仙人斗法！'], ['山里的狼又多了。', '夜里把门闩好。'], ['东家的闺女要出嫁了。', '好事，好事！'], ['昨夜天上飞过一道光。', '怕是仙师路过。', '咱们可别去招惹。']]);
+    return pk([['坊市的丹药又涨价了。', '可不是，一颗难求。'], ['最近劫修多，结伴走稳妥些。', '嗯，正有此意。'], ['你那门功法修到第几层了？', '惭愧，刚摸到门槛。'], ['昨夜那道遁光你可瞧见了？', '瞧见了，怕是结丹前辈。'], ['这一带灵草被采得差不多了。', '往深山里走走罢。'], ['筑基丹……唉。', '别急，机缘总会来的。'], ['听说北边有处洞府现世。', '真的假的？', '去的人可不少。']]);
+  }
+  /** 日常进行中：说话、钓鱼浮漂、围观喝彩 */
+  private lifeTick(a: Active, dt: number) {
+    const L = a.life!, st = a.st, g = this.game;
+    if (L.k === 'chat') {
+      const b = L.with;
+      if (!b || !b.d.alive || b.enemy || !this.active.has(b.d.id) || b.life?.with !== a) { a.life = undefined; a.wait = Math.min(a.wait, 0.5); return; }
+      st.faceToward(b.st.x - st.x, b.st.y - st.y);
+      if (L.lines) {
+        L.lt = (L.lt ?? 0) - dt;
+        if (L.lt <= 0 && (L.li ?? 0) < L.lines.length) {
+          const who = (L.li! % 2 === 0) ? a : b; who.bubble = { text: L.lines[L.li!], t: 2.4 }; who.st.setAction('idle');
+          L.li!++; L.lt = 2.7;
+        }
+      }
+      if (a.wait <= dt) { a.life = undefined; if (b.life?.with === a) b.life = undefined; }
+      return;
+    }
+    if (L.k === 'watch') {
+      st.faceToward((L.cx ?? st.x) - st.x, (L.cy ?? st.y) - st.y);
+      const live = L.ware ? g.combat.inCombat && Math.hypot(g.player.x - (L.cx ?? 0), g.player.y - (L.cy ?? 0)) < 1400 : [...this.active.values()].some((o) => o.duel && Math.hypot(o.st.x - (L.cx ?? 0), o.st.y - (L.cy ?? 0)) < 700);
+      if (live) { a.wait = Math.max(a.wait, 1); if (L.ware) { L.cx = g.player.x; L.cy = g.player.y; } }
+      L.lt = (L.lt ?? Math.random() * 3) - dt;
+      if (L.lt <= 0 && live) {
+        L.lt = 3 + Math.random() * 5;
+        if (Math.random() < 0.45) {
+          const m = a.d.faction === 'mortal';
+          const T = m ? ['我的娘哎……', '仙人打架啦！', '快看快看！', '别靠太近！'] : L.ware ? ['此人是谁？好生了得！', '好凌厉的手段……', '这般神通，怕不是结丹前辈？', '韩……韩立？'] : ['好！', '这一手漂亮！', '押一块灵石，左边那位赢。', '离远些，当心被波及。', '啧啧，有看头。'];
+          a.bubble = { text: T[Math.floor(Math.random() * T.length)], t: 2.2 };
+        }
+      }
+      if (!live && a.wait <= dt) a.life = undefined;
+      return;
+    }
+    if (L.k === 'fish') {
+      st.setAction('sit'); st.faceToward(Math.cos(L.dir), Math.sin(L.dir));
+      L.lt = (L.lt ?? 6 + Math.random() * 8) - dt;
+      if (L.lt <= 0) { L.lt = 8 + Math.random() * 10; L.li = g.time; if (Math.random() < 0.35) a.bubble = { text: Math.random() < 0.5 ? '上钩了！' : '……又跑了。', t: 1.8 }; }
+    }
+    if (L.k === 'stall') {
+      st.setAction('sit');
+      L.lt = (L.lt ?? 4 + Math.random() * 6) - dt;
+      if (L.lt <= 0) { L.lt = 7 + Math.random() * 9; if (Math.hypot(g.player.x - st.x, g.player.y - st.y) < 700 || Math.random() < 0.3) a.bubble = { text: (['上好的丹药，童叟无欺！', '新到的符箓，便宜卖了！', '百年灵草，走过路过莫错过！', '趁手的法器，来看看！', '热乎的炊饼，两文一个！'])[L.ware ?? 4], t: 2.4 }; }
+      if (a.wait <= dt) a.life = undefined;
+    }
+    if (a.wait <= dt && L.k === 'fish') a.life = undefined;
+  }
+  /** 斗法引来围观：修士围成一圈指指点点，凡人远远探头 */
+  gatherWatchers(cx: number, cy: number, skip: Active[], player = false) {
+    let n = 0;
+    for (const o of this.active.values()) {
+      if (n >= (player ? 4 : 6)) break;
+      if (skip.includes(o) || !o.d.alive || o.enemy || o.duel || o.d.bond || o.d.beauty || o.act === 'follow' || o.act === 'approach' || o.act === 'flee' || o.life?.k === 'watch' || o.life?.k === 'chat') continue;
+      if (player && this.hostileTo(o.d)) continue;
+      const dd = Math.hypot(o.st.x - cx, o.st.y - cy); if (dd > 1300 || dd < 60) continue;
+      const ring = (o.d.faction === 'mortal' ? 760 : player ? 560 : 430) + Math.random() * 80;
+      const ang = Math.atan2(o.st.y - cy, o.st.x - cx) + (Math.random() - 0.5) * 0.5;
+      o.d.tx = cx + Math.cos(ang) * ring; o.d.ty = cy + Math.sin(ang) * ring * 0.75;
+      (o as any).path = undefined; o.wait = 0; o.act = 'walk';
+      o.life = { k: 'watch', dir: 0, cx, cy, ware: player ? 1 : 0 };
+      n++;
+    }
+  }
+
   /** 互相以神识感知：发现玩家后的反应 */
   private senseCheck() {
     const g = this.game, p = g.player, pl = this.playerLv();
@@ -520,10 +697,13 @@ export class NpcWorld {
       if (g.combat.safeAt(p.x, p.y) || g.combat.safeAt(a.st.x, a.st.y)) continue;
       if (this.hostileTo(d) && d.realm > 0 && !d.beauty && !d.stay) {
         const novice = g.day < 420 && g.hero.realm <= 1 && g.hero.stage < 4 && d.grudge <= 0;   // 新手保护：开局一年内劫修少见且不会碾压
-        if (gap >= -2 || d.grudge > 0) {
-          if (Math.random() < (novice ? (gap > 2 ? 0 : 0.15) : 0.5)) {
-            a.act = 'approach';
-            a.bubble = { text: d.grudge > 0 ? '冤家路窄！今日便了结旧账！' : d.faction === 'demon' ? '桀桀……送上门的血食。' : '道友，留下储物袋，饶你不死！', t: 3.5 };
+        const forced = !!d.hunting || d.grudge >= 2 || !!d.why?.startsWith('奉');
+        if (gap >= -2 || d.grudge > 0 || forced) {
+          if (forced || Math.random() < (novice ? (gap > 2 ? 0 : 0.15) : 0.5)) {
+            a.act = 'approach'; a.life = undefined;
+            a.bubble = { text: g.rel?.approachLine(d) || (d.grudge > 0 ? '冤家路窄！今日便了结旧账！' : d.faction === 'demon' ? '桀桀……送上门的血食。' : '道友，留下储物袋，饶你不死！'), t: 3.5 };
+            // 围剿：同伙一起扑上来
+            if (d.why?.startsWith('奉')) for (const o of this.active.values()) if (o !== a && o.d.why === d.why && !o.enemy && o.act !== 'approach') { o.act = 'approach'; o.life = undefined; o.bubble = { text: '结阵！', t: 2 }; }
             if (g.life.vis({ x: a.st.x, y: a.st.y }) > 0.2) g.toast(`神识中：${d.name}（${this.realmText(d)}）向你疾驰而来，来者不善！`, 'warn');
             else { g.toast('一道陌生的神识锁定了你……', 'warn'); g.renderer?.sense && (g.renderer.sense.alarm = 1); }
           }
@@ -549,13 +729,19 @@ export class NpcWorld {
       if (g.combat.safeAt(A.st.x, A.st.y)) continue;
       const evil = (x: NpcData) => x.faction === 'demon' || x.pers === 'ruthless' || x.pers === 'greedy';
       const good = (x: NpcData) => x.faction === 'sect' || x.pers === 'righteous';
-      if (!((evil(A.d) && good(B.d)) || (evil(B.d) && good(A.d)) || (evil(A.d) && evil(B.d) && Math.random() < 0.3))) continue;
-      if (Math.random() > 0.35) continue;
+      const feud = A.d.vend === B.d.id || B.d.vend === A.d.id || !!g.rel?.tieOf(A.d, B.d.id)?.k.match(/^foe$/);
+      if (!feud) {
+        if (!((evil(A.d) && good(B.d)) || (evil(B.d) && good(A.d)) || (evil(A.d) && evil(B.d) && Math.random() < 0.3))) continue;
+        if (Math.random() > 0.35) continue;
+      }
+      if (A.d.bond || B.d.bond) continue;
       A.duel = { foe: B, hp: 1, cd: 0.6, t: 0 }; B.duel = { foe: A, hp: 1, cd: 1.1, t: 0 };
       A.act = B.act = 'duel';
       const atk = evil(A.d) ? A : B;
-      atk.bubble = { text: ['此宝有德者居之！', '找死！', '狭路相逢，休怪我心狠！'][Math.floor(Math.random() * 3)], t: 3 };
-      (atk === A ? B : A).bubble = { text: ['魔修休得猖狂！', '你我素无仇怨，何必相逼！', '来得好！'][Math.floor(Math.random() * 3)], t: 3 };
+      atk.bubble = { text: feud ? (A.d.vend === B.d.id || B.d.vend === A.d.id ? '血海深仇，今日了断！' : '老冤家，又见面了！') : ['此宝有德者居之！', '找死！', '狭路相逢，休怪我心狠！'][Math.floor(Math.random() * 3)], t: 3 };
+      (atk === A ? B : A).bubble = { text: feud ? '来得正好！' : ['魔修休得猖狂！', '你我素无仇怨，何必相逼！', '来得好！'][Math.floor(Math.random() * 3)], t: 3 };
+      A.life = B.life = undefined;
+      this.gatherWatchers((A.st.x + B.st.x) / 2, (A.st.y + B.st.y) / 2, [A, B]);
       if (g.life.vis({ x: A.st.x, y: A.st.y }) > 0.3 || g.life.vis({ x: B.st.x, y: B.st.y }) > 0.3) g.toast(`神识中：${A.d.name}与${B.d.name}斗起法来！（靠近按 T 可插手）`, 'info');
       return;
     }
@@ -567,12 +753,15 @@ export class NpcWorld {
     const lethal = win.d.faction === 'demon' || win.d.pers === 'ruthless' || Math.random() < 0.35;
     if (lethal) {
       if (seen) g.toast(`${win.d.name}斩杀了${lose.d.name}，遗落的储物袋还在原地……`, 'warn');
+      if (lose.d.vend === win.d.id) lose.d.vend = undefined; if (win.d.vend === lose.d.id) win.d.vend = undefined;
       g.combat.dropLoot(lose.st.x, lose.st.y, 'mat_lingshi', Math.max(3, Math.round(lose.d.wealth * 0.5)));
       if (Math.random() < 0.4) { const sk = g.combat.randomScroll(Math.min(4, lose.d.realm)); if (sk) g.combat.dropLoot(lose.st.x, lose.st.y, sk, 1); }
       this.die(lose.d, `死于${win.d.name}之手`);
       win.d.wealth += Math.round(lose.d.wealth * 0.3);
+      this.game.rel?.onNpcKill(lose.d, win.d);
     } else {
       if (seen) g.toast(`${lose.d.name}不敌${win.d.name}，化作遁光逃走了。`);
+      if (win.d.vend === lose.d.id && Math.random() < 0.5) win.d.vend = undefined;
       lose.act = 'flee'; lose.d.wealth = Math.round(lose.d.wealth * 0.6);
     }
   }
@@ -587,6 +776,11 @@ export class NpcWorld {
     if (d.realm === 0) { e.maxHp = e.hp = 40; e.atk *= 0.5; }
     if (d.realm >= 3) { e.maxHp = e.hp = Math.round(e.hp * 1.3); }
     e.look = a.look; e.cs = a.st; e.name = d.name; e.npcId = d.id; e.aggro = aggro; e.spar = spar;
+    if (aggro && !spar && d.realm > 0 && !d.beauty) {
+      const oy = g.orig?.yieldAt(d);
+      const P: Record<Pers, number> = { kind: 0.85, cautious: 0.85, greedy: 0.8, righteous: 0.5, aloof: 0.4, arrogant: 0.3, ruthless: 0.25 };
+      if (oy) e.yieldAt = oy; else if (Math.random() < P[d.pers] * (d.grudge >= 2 ? 0.5 : 1)) e.yieldAt = 0.16;
+    }
     g.combat.enemies.push(e);
     a.enemy = e; a.act = 'idle'; a.duel = undefined;
     return e;
@@ -603,13 +797,23 @@ export class NpcWorld {
     else {
       g.ws.rep = clamp(g.ws.rep - (d.faction === 'sect' ? 18 : 10), -100, 100);
       g.toast(`你杀害了${d.name}——正道声望大跌。`, 'warn');
-      // 同门记仇
-      for (const o of this.list) if (o.alive && o.sect && o.sect === d.sect && Math.random() < 0.25) o.grudge = Math.max(o.grudge, 1);
     }
-    if (d.canon) g.news(`${d.name}陨落于韩立之手。`, 'canon');
+    g.rel?.onPlayerKill(d, wasHostile);
+    if (d.canon) g.news(`${d.name}陨落于韩立之手。`, d.orig ? 'rumor' : 'canon');
+  }
+  /** 第二十九步：打到半死，对方求饶 */
+  onYield(e: Enemy): boolean {
+    const g = this.game, d = e.npcId ? this.byId.get(e.npcId) : null;
+    if (!d || !d.alive || g.modal || g.hero.dead || !g.rel) return false;
+    const a = this.active.get(d.id) ?? null, look = a?.look ?? this.look(d);
+    const node = g.orig?.yieldNode(d, e, look, a) ?? g.rel.yieldNode(d, e, look, a);
+    if (a) a.bubble = { text: '住手！我认栽！', t: 2 };
+    g.openDialog(node);
+    return true;
   }
   onSpar(e: Enemy, won: boolean) {
     const g = this.game, d = e.npcId ? this.byId.get(e.npcId) : null; if (!d) return;
+    g.orig?.onSpar(d, won);
     const gap = this.power(d) - this.playerLv();
     d.spar = g.day;
     if (won) {
@@ -668,9 +872,14 @@ export class NpcWorld {
 
   greeting(d: NpcData) {
     const gap = this.power(d) - this.playerLv();
-    if (d.canon && CANON_LINES[d.id]) { const L = CANON_LINES[d.id]; return L[Math.floor(Math.random() * L.length)]; }
+    const ol = this.game.orig?.greeting(d); if (ol) return ol;
+    if (d.canon && CANON_LINES[d.id] && !(d.grudge > 0)) { const L = CANON_LINES[d.id]; return L[Math.floor(Math.random() * L.length)]; }
     if (d.faction === 'mortal') return MORTAL_GREET[Math.floor(Math.random() * MORTAL_GREET.length)];
+    if (d.grudge >= 2) return `（${d.name}的手按在了储物袋上，指节发白）${d.why ? d.why + '……' : ''}韩立，你还敢站到我面前？`;
     if (d.grudge > 0) return '（对方冷冷地盯着你）你还敢出现在我面前？';
+    if (d.bond === 'sworn') return ['兄弟！快坐，今日不醉不归！', '（对方大笑着迎上来）好兄弟，近来可好？'][d.seed % 2];
+    if (d.bond === 'master') return '（师父微微颔首）功课可曾落下？';
+    if (d.bond === 'disciple') return '师父！徒儿这些日子可一刻也没偷懒！';
     if (d.favor >= 50) return ['道友！别来无恙？', '哈哈，又见面了，来来来，坐下说话。', '是你啊——上次的事，我一直记着。'][d.seed % 3];
     const L = GREET[d.pers];
     let s = L[Math.floor(Math.random() * L.length)].replace('{realm}', realmName(this.game.hero.realm, this.game.hero.stage));
@@ -681,8 +890,10 @@ export class NpcWorld {
     const g = this.game, d = a.d;
     const gap = this.power(d) - this.playerLv();
     const sectName = d.sect ? LOC_BY_ID.get(d.sect)?.name : '';
-    const title = `${this.realmText(d)}${sectName ? ' · ' + sectName : d.faction === 'rogue' ? ' · 散修' : d.faction === 'merchant' ? ' · 行商' : ''}${d.title && !sectName ? ' · ' + d.title : ''} · ${PERS_NAME[d.pers]} · 好感 ${Math.round(d.favor)}`;
+    const tier = g.rel ? g.rel.tier(d) : '';
+    const title = `${this.realmText(d)}${sectName ? ' · ' + sectName : d.faction === 'rogue' ? ' · 散修' : d.faction === 'merchant' ? ' · 行商' : ''}${d.title && !sectName ? ' · ' + d.title : ''} · ${PERS_NAME[d.pers]} · ${tier && tier !== '陌生' ? tier + ' ' : ''}好感 ${Math.round(d.favor)}`;
     const opts: DOpt[] = [];
+    const so = g.orig?.opts(a, title, () => this.mainNode(a)); if (so) opts.push(...so);
     opts.push({ label: '打听消息', act: () => ({ speaker: d.name, title, look: a.look, text: this.rumor(d), options: [{ label: '还有别的事', act: () => this.mainNode(a) }, { label: '告辞', act: () => null }] }) });
     if (d.faction === 'merchant' || (d.faction !== 'mortal' && d.wealth > 60 && d.pers !== 'aloof')) opts.push({ label: '交易', act: () => { g.openShop({ title: `${d.name}的货物`, desc: d.pers === 'greedy' ? '（价格偏高）' : d.pers === 'kind' ? '（价格公道）' : '', stock: this.stock(d), sellRate: d.pers === 'greedy' ? 0.35 : 0.5 }); return null; } });
     if (d.realm > 0 && gap >= -4 && d.favor >= 15) opts.push({ label: '请教修炼', hint: d.taught ? '已请教过' : '', disabled: !!d.taught, act: () => this.teach(a, title) });
@@ -692,6 +903,7 @@ export class NpcWorld {
       a.bubble = { text: '请！', t: 2 };
       this.toEnemy(a, true, true); g.toast(`与${d.name}切磋，点到为止。`); return null;
     } });
+    if (g.rel) opts.push(...g.rel.talkOpts(a, title, () => this.mainNode(a)));
     opts.push({ label: '出手抢夺', tone: 'bad', act: () => ({ speaker: '心念', text: d.faction === 'demon' || this.hostileTo(d) ? `${d.name}身上魔气隐隐，除之也不算坏事。` : `${d.name}并无恶意。若无故出手，传扬出去必然声名狼藉，其同门也会记恨于你。`, options: [{ label: '动手！', tone: 'bad', act: () => { this.toEnemy(a, true); a.bubble = { text: '你——找死！', t: 3 }; return null; } }, { label: '算了', act: () => this.mainNode(a) }] }) });
     opts.push({ label: '告辞', act: () => null });
     return { speaker: d.name, title, look: a.look, text: this.greeting(d), options: opts };
@@ -707,7 +919,12 @@ export class NpcWorld {
     const g = this.game, d = a.d, h = g.hero;
     const amt = Math.max(10, 10 * Math.pow(3, d.realm));
     const pills = h.bag.filter((b) => itemDef(b.id).type === 'pill').slice(0, 4);
-    const give = (gain: number, line: string) => { d.favor = clamp(d.favor + gain, -100, 100); if (d.grudge > 0 && d.favor > 0) d.grudge = 0; return { speaker: d.name, title, look: a.look, text: line, options: [{ label: '还有别的事', act: () => this.mainNode(a) }, { label: '告辞', act: () => null }] } as DNode; };
+    const give = (gain: number, line: string) => {
+      if (d.grudge >= 2) { gain = Math.round(gain * 0.25); line = '（对方看也不看，随手收下）……这点东西，换不回一条命。'; }
+      d.favor = clamp(d.favor + gain, -100, 100);
+      if (d.grudge === 1 && d.favor > 0) { d.grudge = 0; d.why = undefined; d.hunting = false; }
+      if (d.grudge >= 2 && d.favor > -20) d.grudge = 1;
+      return { speaker: d.name, title, look: a.look, text: line, options: [{ label: '还有别的事', act: () => this.mainNode(a) }, { label: '告辞', act: () => null }] } as DNode; };
     const opts: DOpt[] = [{ label: `赠灵石 ${amt}`, disabled: C.bagCount(h, 'mat_lingshi') < amt, act: () => { C.removeItem(h, 'mat_lingshi', amt); return give(d.pers === 'greedy' ? 16 : d.pers === 'aloof' ? 3 : 8, d.pers === 'greedy' ? '（对方眼睛一亮，飞快收下）道友真是爽快人！' : d.pers === 'aloof' ? '……身外之物罢了。' : '无功不受禄……那便多谢道友了。'); } }];
     for (const b of pills) { const it = itemDef(b.id); opts.push({ label: `赠${it.name}`, act: () => { C.removeItem(h, b.id, 1); return give(6 + it.tier * 6, `${it.name}？道友有心了！`); } }); }
     opts.push({ label: '算了', act: () => this.mainNode(a) });
@@ -765,6 +982,60 @@ export class NpcWorld {
       out.push({ y: st.lift > 12 ? st.y + 200000 : st.y, draw: (ctx) => this.drawOne(ctx, a, v, t, dt) });   // 御器飞行时在山树之上
     }
   }
+  private drawRod(ctx: G, a: Active, t: number) {
+    const st = a.st, L = a.life!, c = Math.cos(L.dir), s = Math.sin(L.dir);
+    const bx = st.x + c * 16, by = st.y - 40 + s * 6;
+    const tx = st.x + c * 128, ty = st.y - 108 + s * 46;
+    const fx = st.x + c * 190, fy = st.y + s * 120 + Math.sin(t * 2.2 + a.d.seed) * 1.6;
+    ctx.save(); ctx.lineCap = 'round';
+    // 涟漪
+    const rip = ((t + a.d.seed * 0.37) % 2.6) / 2.6, bite = L.li && t - L.li < 1.2;
+    ctx.strokeStyle = `rgba(240,248,255,${0.5 * (1 - rip)})`; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.ellipse(fx, fy + 2, 6 + rip * 26, (6 + rip * 26) * 0.35, 0, 0, TAU); ctx.stroke();
+    // 钓竿
+    ctx.strokeStyle = '#4a3420'; ctx.lineWidth = 3.2; ctx.beginPath(); ctx.moveTo(bx, by); ctx.quadraticCurveTo((bx + tx) / 2, (by + ty) / 2 - 8, tx, ty); ctx.stroke();
+    ctx.strokeStyle = '#7a5a34'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo((bx * 2 + tx) / 3, (by * 2 + ty) / 3 - 3); ctx.quadraticCurveTo((bx + tx) / 2, (by + ty) / 2 - 8, tx, ty); ctx.stroke();
+    // 钓线
+    ctx.strokeStyle = 'rgba(235,235,225,0.75)'; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(tx, ty); ctx.quadraticCurveTo(tx + c * 30, (ty + fy) / 2 + 20, fx, fy - (bite ? 0 : 3)); ctx.stroke();
+    // 浮漂
+    const dy = bite ? 4 + Math.sin(t * 20) * 2 : 0;
+    ctx.fillStyle = '#c8402a'; ctx.beginPath(); ctx.ellipse(fx, fy - 4 + dy, 2.6, 4.2, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#f4efe2'; ctx.beginPath(); ctx.ellipse(fx, fy - 1 + dy, 2.6, 2, 0, 0, TAU); ctx.fill();
+    // 鱼篓
+    ctx.fillStyle = '#8a6a3a'; ctx.strokeStyle = '#5a4020'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.ellipse(st.x - c * 34 + 18, st.y + 8, 11, 6, 0, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(st.x - c * 34 + 8, st.y + 8); ctx.quadraticCurveTo(st.x - c * 34 + 18, st.y - 18, st.x - c * 34 + 28, st.y + 8); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+  private drawStall(ctx: G, a: Active) {
+    const st = a.st, L = a.life!, x = st.x, y = st.y + 34, w = 118, h = 36, sk = 10;
+    ctx.save();
+    // 布摊
+    ctx.fillStyle = 'rgba(30,24,16,0.22)'; ctx.beginPath(); ctx.ellipse(x, y + h / 2 + 4, w * 0.6, 8, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = ['#6a3a2c', '#3a4a5c', '#4a5a36', '#5a4a3a', '#7a5a3a'][L.ware ?? 4];
+    ctx.beginPath(); ctx.moveTo(x - w / 2 + sk, y - h / 2); ctx.lineTo(x + w / 2 + sk, y - h / 2); ctx.lineTo(x + w / 2 - sk, y + h / 2); ctx.lineTo(x - w / 2 - sk, y + h / 2); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(240,220,170,0.55)'; ctx.lineWidth = 1.4; ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(x - w / 2 + sk + 4, y - h / 2 + 4); ctx.lineTo(x + w / 2 + sk - 4, y - h / 2 + 4); ctx.lineTo(x + w / 2 - sk - 4, y + h / 2 - 4); ctx.lineTo(x - w / 2 - sk + 4, y + h / 2 - 4); ctx.closePath(); ctx.stroke(); ctx.setLineDash([]);
+    // 货品
+    const seed = a.d.seed;
+    for (let i = 0; i < 5; i++) {
+      const gx = x - 44 + i * 22 + ((seed >> i) & 3), gy = y - 4 + ((i % 2) ? 6 : -4);
+      const k = L.ware ?? 4;
+      if (k === 0) { ctx.fillStyle = ['#7aa898', '#c8b080', '#a86a4a'][i % 3]; ctx.beginPath(); ctx.ellipse(gx, gy, 6, 7, 0, 0, TAU); ctx.fill(); ctx.fillStyle = '#c84a2a'; ctx.fillRect(gx - 3, gy - 10, 6, 4); }
+      else if (k === 1) { ctx.fillStyle = '#e8d070'; ctx.fillRect(gx - 5, gy - 8, 10, 16); ctx.strokeStyle = '#b02a1a'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(gx, gy - 6); ctx.lineTo(gx, gy + 6); ctx.moveTo(gx - 3, gy - 2); ctx.lineTo(gx + 3, gy - 2); ctx.stroke(); }
+      else if (k === 2) { ctx.fillStyle = ['#5a9a4a', '#7ab45a', '#4a7a3a'][i % 3]; for (let j = 0; j < 3; j++) { ctx.beginPath(); ctx.ellipse(gx + (j - 1) * 4, gy - 2, 3, 7, (j - 1) * 0.5, 0, TAU); ctx.fill(); } }
+      else if (k === 3) { ctx.strokeStyle = '#c8d0d8'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(gx - 8, gy + 4); ctx.lineTo(gx + 8, gy - 6); ctx.stroke(); ctx.strokeStyle = '#6a4a2a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(gx - 9, gy + 5); ctx.lineTo(gx - 5, gy + 2.5); ctx.stroke(); }
+      else { ctx.fillStyle = ['#c89a5a', '#e8dcc0', '#8a6a4a'][i % 3]; ctx.beginPath(); ctx.ellipse(gx, gy, 7, 4, 0, 0, TAU); ctx.fill(); }
+    }
+    // 幌子
+    const px = x + w / 2 + 6, py = y + 4;
+    ctx.strokeStyle = '#4a3420'; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py - 120); ctx.stroke();
+    ctx.fillStyle = '#efe4c8'; ctx.strokeStyle = 'rgba(80,50,30,0.6)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.rect(px - 22, py - 116, 20, 40); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#a8302a'; ctx.font = '15px "Noto Serif SC","Songti SC",serif'; ctx.textAlign = 'center';
+    ctx.fillText(['丹', '符', '药', '器', '杂'][L.ware ?? 4], px - 12, py - 90);
+    ctx.restore();
+  }
   private drawOne(ctx: G, a: Active, v: number, t: number, dt: number) {
     const st = a.st, d = a.d, z = this.game.cam.zoom;
     ctx.save();
@@ -776,7 +1047,9 @@ export class NpcWorld {
     if (st.lift > 12) drawSwordUnderFeet(ctx, st.x, st.y - st.lift, st.yaw, S, t, a.look.swordColor ?? (d.faction === 'demon' ? '#ff6a7a' : '#9fe8ff'));
     // 斗法护体光
     if (a.duel) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= 0.25 + 0.1 * Math.sin(t * 8); ctx.fillStyle = d.faction === 'demon' ? '#ff3050' : '#80d0ff'; ctx.beginPath(); ctx.ellipse(st.x, st.y - 60 - st.lift, 36, 70, 0, 0, TAU); ctx.fill(); ctx.restore(); }
+    if (a.life?.k === 'fish' && a.wait > 0) this.drawRod(ctx, a, t);
     drawCharacter(ctx, a.look, st, S, dt);
+    if (a.life?.k === 'stall' && a.wait > 0) this.drawStall(ctx, a);
     // 法术光弹
     if (a.bolts.length) {
       ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
@@ -797,9 +1070,11 @@ export class NpcWorld {
       const fs = Math.max(11, 13 / Math.max(0.5, z));
       ctx.font = `${fs}px "Noto Serif SC","Songti SC",serif`; ctx.textAlign = 'center';
       const y = st.y - 150 * S - st.lift;
-      const label = d.beauty ? `❀ ${d.name}` : d.realm === 0 ? d.name : `${d.name}·${this.realmText(d)}`;
+      const tier = this.game.rel?.tier(d);
+      const tag = tier && tier !== '陌生' && tier !== '相识' && !d.beauty ? `〔${tier}〕` : '';
+      const label = (d.beauty ? `❀ ${d.name}` : d.realm === 0 ? d.name : `${d.name}·${this.realmText(d)}`) + tag;
       ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(20,16,12,0.7)'; ctx.strokeText(label, st.x, y);
-      ctx.fillStyle = d.beauty ? '#ffc8d8' : col; ctx.fillText(label, st.x, y);
+      ctx.fillStyle = d.beauty ? '#ffc8d8' : tag && (tier === '仇人' || tier === '死敌' || tier === '厌恶') ? TIER_COLOR[tier] : col; ctx.fillText(label, st.x, y);
       if (this.focus === a) { ctx.fillStyle = 'rgba(255,240,200,0.95)'; ctx.font = `${fs * 0.85}px "Noto Serif SC",serif`; ctx.fillText('【T】交谈', st.x, y - fs * 1.2); }
     }
     if (a.bubble) {
@@ -816,6 +1091,8 @@ export class NpcWorld {
   /** 小地图 / 世界地图：神识范围内的人 */
   visibleDots() { const g = this.game; const out: { x: number; y: number; c: string }[] = []; for (const a of this.active.values()) if (!a.enemy && g.life.vis({ x: a.st.x, y: a.st.y }) > 0.3) out.push({ x: a.st.x, y: a.st.y, c: a.d.beauty ? '#ff9ac0' : this.hostileTo(a.d) ? '#ff6a5a' : '#e8e0cc' }); return out; }
   activeOf(id: string) { return this.active.get(id) ?? null; }
+  /** 第二十九步：随行者（可替你挡刀） */
+  followers() { const out: Active[] = []; for (const a of this.active.values()) if (a.act === 'follow' && !a.enemy && a.d.alive) out.push(a); return out; }
   /** 让某人出现在玩家身旁（红颜同行） */
   summon(id: string) {
     const d = this.byId.get(id); if (!d) return null;

@@ -12,6 +12,10 @@ import { SECT_RANKS, repName } from '../world/worldstate';
 import * as C from '../world/cultivation';
 import { audio } from '../world/audio';
 import { ItemGlyph } from './ItemIcon';
+import { TIER_COLOR as REL_COLOR } from '../world/relations';
+import type { Tier } from '../world/relations';
+import type { NpcData } from '../world/npc';
+import { PERS_NAME } from '../world/npc';
 
 const TIER_COLOR = ['#5a544a', '#2f6b5e', '#2b5a8a', '#7a3a9a', '#b8802a', '#a8352a', '#d04a20'];
 const TYPE_NAME: Record<string, string> = { pill: '丹药', herb: '灵草', material: '材料', talisman: '符箓', scroll: '功法', artifact: '法宝', misc: '杂物' };
@@ -28,6 +32,7 @@ export function ModalLayer({ game }: { game: Game }) {
   if (m.kind === 'auction') return <AuctionPanel game={game} loc={m.loc} />;
   if (m.kind === 'hearts') return <HeartsPanel game={game} />;
   if (m.kind === 'chronicle') return <ChroniclePanel game={game} />;
+  if (m.kind === 'relations') return <RelationsPanel game={game} />;
   if (m.kind === 'help') return <HelpPanel game={game} />;
   return null;
 }
@@ -332,6 +337,98 @@ function HeartsPanel({ game }: { game: Game }) {
   );
 }
 
+// ---------------------------------------------------------------- 第二十九步：人脉录
+const FACTION_NAME: Record<string, string> = { sect: '宗门', rogue: '散修', demon: '魔道', mortal: '凡人', merchant: '行商' };
+const BOND_TEXT: Record<string, string> = { sworn: '义结金兰', master: '授业恩师', disciple: '座下弟子', companion: '结伴同行', guard: '雇佣护法' };
+function RelationsPanel({ game }: { game: Game }) {
+  const [, force] = useState(0); const re = () => force((x) => x + 1);
+  const R = game.rel, S = R.S;
+  const [tab, setTab] = useState<'friend' | 'foe' | 'sect' | 'log'>(() => R.hunters().length ? 'foe' : 'friend');
+  const known = R.known();
+  const friends = known.filter((d) => d.alive && !d.grudge && d.favor > -15 && !d.beauty).sort((a, b) => (+!!b.bond - +!!a.bond) || b.favor - a.favor);
+  const foes = known.filter((d) => d.alive && (d.grudge || d.favor <= -15 || d.hunting)).sort((a, b) => (+!!b.hunting - +!!a.hunting) || (b.grudge - a.grudge) || a.favor - b.favor);
+  const dead = known.filter((d) => !d.alive && (d.bond || d.favor >= 30 || d.grudge)).slice(-12);
+  const list = tab === 'friend' ? friends : tab === 'foe' ? foes : [];
+  const [sel, setSel] = useState<string | null>(null);
+  const cur: NpcData | undefined = (sel ? game.npcs.byId.get(sel) : undefined) ?? list[0];
+  const sects = Object.entries(S.sect).filter(([, v]) => Math.abs(v) >= 1).sort((a, b) => a[1] - b[1]);
+  const mySect = game.ws.sect?.id;
+  const huntN = R.hunters().filter((d) => d.hunting).length;
+  const sub = <span>声望 {repName(game.ws.rep)}（{game.ws.rep}）　·　亲友 {friends.length}　·　仇敌 {foes.length}{huntN ? <b style={{ color: '#c0302a' }}>　·　{huntN} 人正在追杀你</b> : null}{R.wantedTotal() ? <b style={{ color: '#a8352a' }}>　·　悬赏 {R.wantedTotal()} 灵石</b> : null}</span>;
+  const Chip = ({ d }: { d: NpcData }) => { const t = R.tier(d) as Tier; return <span className="rel-chip" style={{ background: REL_COLOR[t] }}>{t}</span>; };
+  const row = (d: NpcData) => (
+    <button key={d.id} className={'rel-row' + (cur?.id === d.id ? ' on' : '') + (d.hunting ? ' hunt' : '')} onClick={() => { click(); setSel(d.id); }}>
+      <Chip d={d} /><b>{d.name}</b><span className="rel-realm">{d.realm ? realmName(d.realm, d.stage) : '凡人'}</span>
+      <span className="rel-where">{d.hunting ? '正循迹而来' : R.locName(d.home)}</span>
+    </button>
+  );
+  return (
+    <Scroll title="人脉录" sub={sub} onClose={() => game.closeModal()} wide cls="rel-panel">
+      <div className="rel-tabs">
+        {([['friend', `亲友 ${friends.length}`], ['foe', `仇敌 ${foes.length}`], ['sect', '宗门'], ['log', '江湖恩怨']] as const).map(([k, l]) => <button key={k} className={'rel-tab' + (tab === k ? ' on' : '') + (k === 'foe' && huntN ? ' alarm' : '')} onClick={() => { click(); setTab(k); setSel(null); }}>{l}</button>)}
+      </div>
+      {(tab === 'friend' || tab === 'foe') && (
+        <div className="rel-body">
+          <div className="rel-list">
+            {list.length === 0 && <div className="hint">{tab === 'friend' ? '尚无相熟之人。与人交谈、赠礼、论道、并肩御敌，都能结下交情。' : '眼下没有仇家——愿你一直这样走下去。'}</div>}
+            {list.map(row)}
+            {tab === 'friend' && dead.length > 0 && <div className="rel-dead"><div className="sec-title">故人</div>{dead.map((d) => <div key={d.id} className="rel-gone">{d.name}<small>{d.deathNote ?? '已故'}</small></div>)}</div>}
+          </div>
+          {cur && (() => {
+            const t = R.tier(cur) as Tier, ties = R.tiesText(cur);
+            const sectN = cur.sect ? LOC_BY_ID.get(cur.sect)?.name : '';
+            return (
+              <div className="rel-detail">
+                <div className="rel-bust"><Bust look={(game.npcs as any).look(cur)} /></div>
+                <div className="rel-info">
+                  <div className="hd-name">{cur.name}<small>{cur.title ?? ''}</small></div>
+                  <div className="hd-sub">{cur.realm ? realmName(cur.realm, cur.stage) : '凡人'} · {sectN || FACTION_NAME[cur.faction]} · {PERS_NAME[cur.pers]} · <span style={{ color: REL_COLOR[t] }}>{t}</span></div>
+                  <div className="favor"><div className="favor-bar"><i style={{ width: `${(cur.favor + 100) / 2}%`, background: cur.favor >= 0 ? 'linear-gradient(90deg,#9fd08a,#3f9a5a)' : 'linear-gradient(90deg,#d88a5a,#b8302a)' }} /></div><span>好感 {Math.round(cur.favor)}</span></div>
+                  {cur.bond && <div className="rel-bond">◈ {BOND_TEXT[cur.bond]}{cur.bondUntil && (cur.bond === 'companion' || cur.bond === 'guard') ? `（余 ${Math.max(0, Math.ceil(cur.bondUntil - game.day))} 日）` : ''}</div>}
+                  {cur.why && (cur.grudge > 0 || cur.hunting) && <div className="rel-why">✕ {cur.grudge >= 2 ? '血仇' : cur.hunting ? '追杀' : '旧怨'}：{cur.why}</div>}
+                  {cur.vow && <div className="rel-bond">◈ 已对你立下心魔誓，此生不与你为敌</div>}
+                  {cur.oath && <div className="rel-why">◈ 你曾对此人立誓：若伤其或其亲族，心魔反噬</div>}
+                  <div className="rel-ties">
+                    <div className="hd-lt-title">人脉（{ties.length}）{ties.some((x) => x.k !== 'foe') ? <small>　杀了{cur.sex === 'f' ? '她' : '他'}，这些人会记恨你</small> : null}</div>
+                    {ties.length === 0 && <div className="hint">孑然一身。</div>}
+                    {ties.map(({ o, r, k }) => { const ot = R.tier(o) as Tier; return (
+                      <button key={o.id} className={'rel-tie ' + k + (o.alive ? '' : ' gone')} onClick={() => { if (R.known().includes(o)) { click(); setSel(o.id); if (o.grudge || o.favor <= -15) setTab('foe'); else setTab('friend'); } }}>
+                        <span className="rt-r">{r}</span><b>{o.met || o.alive === false ? o.name : o.name}</b>
+                        <small>{!o.alive ? '已故' : o.met || o.grudge ? ot : '未曾谋面'}</small>
+                      </button>
+                    ); })}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+      {tab === 'sect' && (
+        <div className="rel-sects">
+          <div className="hint">宗门声望由你对其门人的所作所为累积。跌破 -45，门人见你便动手；跌破 -60，执法堂会派人围剿。</div>
+          {sects.length === 0 && <div className="hint">你与各大宗门尚无瓜葛。</div>}
+          {sects.map(([id, v]) => (
+            <div key={id} className="rel-sect">
+              <b>{LOC_BY_ID.get(id)?.name ?? id}{id === mySect ? <small>（本门）</small> : null}</b>
+              <div className="favor-bar"><i style={{ width: `${(v + 100) / 2}%`, background: v >= 0 ? 'linear-gradient(90deg,#9fd08a,#3f9a5a)' : 'linear-gradient(90deg,#d88a5a,#b8302a)' }} /></div>
+              <span style={{ color: v <= -60 ? '#c0302a' : v <= -45 ? '#d06a3a' : v >= 30 ? '#3f9a5a' : '#7a6a58' }}>{v <= -60 ? '围剿' : v <= -45 ? '敌视' : v <= -15 ? '冷淡' : v >= 30 ? '友善' : '中立'} {Math.round(v)}</span>
+            </div>
+          ))}
+          {S.wanted.length > 0 && <><div className="sec-title" style={{ marginTop: 14 }}>悬赏榜</div>{S.wanted.map((w, i) => <div key={i} className="rel-wanted"><b>{w.amount} 灵石</b>　{w.name}悬赏：{w.reason}<small>第{Math.floor(w.day / 360) + 1}年</small></div>)}</>}
+        </div>
+      )}
+      {tab === 'log' && (
+        <div className="rel-log">
+          {S.log.length === 0 && <div className="hint">江湖平静。</div>}
+          {S.log.slice().reverse().map((l, i) => <div key={i} className={'news ' + (l.kind === 'bad' ? 'canon' : l.kind === 'good' ? 'personal' : '')}><span>第{Math.floor(l.day / 360) + 1}年{Math.floor((l.day % 360) / 30) + 1}月</span>{l.text}</div>)}
+        </div>
+      )}
+      <div className="hint" style={{ marginTop: 8 }}>与仇人狭路相逢时可赔礼、立誓或请人说和；把人打到半死，对方可能求饶。　·　<span onClick={re} style={{ cursor: 'pointer' }}>↻</span></div>
+    </Scroll>
+  );
+}
+
 // ---------------------------------------------------------------- 大事记
 function ChroniclePanel({ game }: { game: Game }) {
   const ev = game.events.chronicle();
@@ -362,14 +459,14 @@ function ChroniclePanel({ game }: { game: Game }) {
 }
 
 // ---------------------------------------------------------------- 帮助
-export const VERSION = 'v0.28 · 我方特效重做';
+export const VERSION = 'v0.29 · 人情世故';
 function HelpPanel({ game }: { game: Game }) {
   const [tab, setTab] = useState(0);
   const T = ['操作', '修炼', '战斗', '人界', '神识', '机缘'];
   const body = [
     <div className="keys" key={0}>
       <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / 方向键 / 点击地面 移动　·　<kbd>Shift</kbd> 疾行　·　<kbd>空格</kbd> 闪避（无敌帧，躲开红色预警）<br />
-      <kbd>T</kbd> 交谈 / 查看奇遇　·　<kbd>G</kbd> 进城 / 入宗门　·　<kbd>H</kbd> 红颜录　·　<kbd>J</kbd> 大事记<br />
+      <kbd>T</kbd> 交谈 / 查看奇遇　·　<kbd>G</kbd> 进城 / 入宗门　·　<kbd>H</kbd> 红颜录　·　<kbd>N</kbd> 人脉录　·　<kbd>J</kbd> 大事记<br />
       <kbd>Z</kbd> 打坐　·　<kbd>E</kbd> 采集　·　<kbd>C</kbd> 角色 / 冲关　·　<kbd>B</kbd> 储物袋　·　<kbd>L</kbd> 丹房　·　<kbd>P</kbd> 闭关<br />
       <kbd>1</kbd>–<kbd>9</kbd> 施法　·　<kbd>K</kbd> 法术书　·　<kbd>Q</kbd> 神识外放　·　<kbd>R</kbd> 敛息<br />
       <kbd>Y</kbd> 回洞府（需回府符）　·　<kbd>U</kbd> 灵宠　·　<kbd>T</kbd> 也用于机缘、悬赏、灵宠、洞府<br />

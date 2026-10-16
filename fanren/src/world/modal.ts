@@ -37,4 +37,5 @@ export type Modal =
   | { kind: 'sect' }
   | { kind: 'hearts' }
   | { kind: 'chronicle' }
+  | { kind: 'relations' }
   | { kind: 'help' };
