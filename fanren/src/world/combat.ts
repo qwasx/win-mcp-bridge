@@ -109,10 +109,12 @@ interface Field { x: number; y: number; r: number; t: number; dur: number; fx: F
 interface Vfx { kind: 'ring' | 'beam' | 'chain' | 'strike' | 'cone' | 'flash' | 'warn' | 'slash' | 'aura' | 'blinkfx' | 'bigsword' | 'pillar'; x: number; y: number; x2?: number; y2?: number; r: number; t: number; dur: number; color: string; fx?: Fx; ang?: number; spread?: number; pts?: [number, number][]; seed?: number; w?: number }
 interface Txt { x: number; y: number; s: string; color: string; t: number; big?: boolean; vy: number }
 interface Loot { x: number; y: number; id: string; n: number; t: number }
-interface Summon { hp?: number; cs?: CharState; kind: 'bugs' | 'puppet' | 'fox' | 'tihun' | 'demon' | 'jiao' | 'quhun'; x: number; y: number; t: number; dmg: number; cd: number; target: Enemy | null; phase: number; facing: number; n: number; evil?: number; status?: StatusSpec; dots?: { a: number; r: number; s: number }[] }
+interface Summon { hp?: number; cs?: CharState; lv?: number; age?: number; maxT?: number; atk?: number; ax?: number; ay?: number; slot?: number; big?: number; mv?: number; gone?: boolean; boomed?: boolean; kind: 'bugs' | 'puppet' | 'fox' | 'tihun' | 'demon' | 'jiao' | 'quhun'; x: number; y: number; t: number; dmg: number; cd: number; target: Enemy | null; phase: number; facing: number; n: number; evil?: number; status?: StatusSpec; dots?: { a: number; r: number; s: number }[] }
 interface Strike { x: number; y: number; t: number; dmg: number; r: number; status?: StatusSpec; stCh: number; school?: School; fx: Fx; color: string; realm: number; evil?: number; lv: number }
 interface Tank { k: 'p' | 'decoy' | 'summon' | 'swarm' | 'pet' | 'ally'; x: number; y: number; w: number; ref?: any }
 interface Spark { x: number; y: number; vx: number; vy: number; t: number; max: number; size: number; color: string }
+
+const SUMMON_COLOR: Record<string, string> = { fox: '200,230,255', puppet: '220,190,140', tihun: '210,170,255', demon: '255,80,70', jiao: '120,240,180', quhun: '140,255,180', bugs: '255,215,90' };
 
 export class Combat {
   game: Game;
@@ -195,7 +197,7 @@ export class Combat {
   }
 
   reset() {
-    this.enemies = []; this.projs = []; this.fields = []; this.vfx = []; this.texts = []; this.loot = []; this.summons = []; this.strikes = []; this.sparks = []; this.foe?.reset(); this.scorch = []; this.swarm = null; this.petSwarm = null; this.wing = null; this.ghosts = [];
+    this.enemies = []; this.projs = []; this.fields = []; this.vfx = []; this.texts = []; this.loot = []; this.summons = []; this.laterQ = []; this.strikes = []; this.sparks = []; this.foe?.reset(); this.scorch = []; this.swarm = null; this.petSwarm = null; this.wing = null; this.ghosts = [];
     this.cds.clear(); this.pst = {}; this.shield = null; this.orbit = null; this.heal = null; this.dash = null; this.decoy = null; this.acts?.reset();
     this.buffs = { atk: 0, def: 0, speed: 0, regen: 0, stealth: 0, decoy: 0, until: {} };
   }
@@ -545,12 +547,24 @@ export class Combat {
           this.impact(p.x, p.y, 1, '255,215,90');
           break;
         }
-        const n = (sm.kind as string) === 'bugs' ? 1 : sm.n + (lv >= 3 && sm.n === 1 ? 1 : 0);
+        // 第三十步：心魔合体——五魔合一，体形更大、出手更狠
+        const merge = sm.kind === 'demon' && lv >= 3;
+        const n = (sm.kind as string) === 'bugs' ? 1 : merge ? 1 : sm.n + (lv >= 3 && sm.n === 1 ? 1 : 0);
+        const slot0 = this.summons.length;
         for (let i = 0; i < n; i++) {
-          const an = Math.random() * TAU;
-          this.summons.push({ cs: sm.kind === 'quhun' ? new CharState(p.x + Math.cos(an) * 60, p.y + Math.sin(an) * 40) : undefined, kind: sm.kind, x: p.x + Math.cos(an) * 60, y: p.y + Math.sin(an) * 40, t: (s.dur ?? 20) * (1 + lv * 0.1), dmg: dmg * (sm.kind === 'demon' ? 0.5 : 1), cd: 0, target: null, phase: 0, facing: 1, n: (sm.kind as string) === 'bugs' ? sm.n + lv * 4 : 1, evil: s.vsEvil, status: s.status, dots: (sm.kind as string) === 'bugs' ? Array.from({ length: sm.n + lv * 4 }, () => ({ a: Math.random() * TAU, r: rand(8, 40), s: rand(3, 7) })) : undefined });
+          const an = (i / n) * TAU + Math.random() * 0.6;
+          this.summons.push({ cs: sm.kind === 'quhun' ? new CharState(p.x + Math.cos(an) * 60, p.y + Math.sin(an) * 40) : undefined, kind: sm.kind, x: p.x + Math.cos(an) * 60, y: p.y + Math.sin(an) * 40, t: (s.dur ?? 20) * (1 + lv * 0.1), dmg: dmg * (sm.kind === 'demon' ? 0.5 : 1), cd: 0, target: null, phase: 0, facing: 1, n: (sm.kind as string) === 'bugs' ? sm.n + lv * 4 : 1, evil: s.vsEvil, status: s.status, dots: (sm.kind as string) === 'bugs' ? Array.from({ length: sm.n + lv * 4 }, () => ({ a: Math.random() * TAU, r: rand(8, 40), s: rand(3, 7) })) : undefined, lv, age: 0, atk: 0, slot: slot0 + i, big: merge ? 1.7 : 1 });
+          const S = this.summons[this.summons.length - 1]; S.maxT = S.t;
+          if (merge) { S.dmg *= 5 * 0.9; S.t *= 1.1; S.maxT = S.t; this.texts.push({ x: S.x, y: S.y - 170, s: '五魔合一', color: '#ff7a70', t: 0, vy: -30, big: true }); }
         }
         this.vfx.push({ kind: 'aura', x: p.x, y: p.y, r: 100, t: 0, dur: 0.8, color: s.color });
+        // 第三十步：啼魂长啸——震慑全场（三重）
+        if (sm.kind === 'tihun' && lv >= 3) {
+          const S = this.summons[this.summons.length - 1];
+          for (const e of this.enemies) if (!e.dead && Math.hypot(e.x - S.x, e.y - S.y) < 520) { this.applyStatus(e.st, { k: 'stun', dur: isBoss(e) ? 0.6 : 1.6, ch: 1 }, 0, e, S.x, S.y); if (e.def.evil) this.hitEnemy(e, dmg * 0.6, { realm: this.game.hero.realm, stCh: 0, school: '御', evil: s.vsEvil }, S.x, S.y); }
+          this.fxq.push({ k: 'roar', x: S.x, y: S.y });
+          this.game.juice(0.06, 0.4);
+        }
         break;
       }
     }
@@ -1087,7 +1101,7 @@ export class Combat {
     this.foe.update(dt);
     this.updateProjs(dt);
     this.updateFields(dt);
-    this.updateSummons(dt);
+    this.updateSummons(dt); this.runLater(dt);
     this.acts.update(dt);
     if (this.swarm) { this.swarm.update(dt); if (this.swarm.done) this.swarm = null; }
     // 风雷翅：展翅期间移动留下雷遁残影
@@ -1416,27 +1430,81 @@ export class Combat {
 
   private updateSummons(dt: number) {
     const g = this.game, p = g.player, h = g.hero;
+    // 第三十步：召唤物——随行队形（排在韩立身后左右两翼）、追敌、按种类出手；消散 / 自爆有收尾
+    const fwdX = Math.sin(p.st?.yaw ?? 0), fwdY = Math.cos(p.st?.yaw ?? 0);
+    let idx = 0;
     this.summons = this.summons.filter((s) => {
-      s.t -= dt; s.cd -= dt; s.phase += dt * 8;
-      if (!s.target || s.target.dead || Math.hypot(s.target.x - p.x, s.target.y - p.y) > 900) s.target = this.nearest(p.x, p.y, 700, new Set());
-      let tx = p.x + Math.cos(g.time + s.n) * 70, ty = p.y + 30;
-      if (s.target) { tx = s.target.x; ty = s.target.y; }
-      const dx = tx - s.x, dy = ty - s.y, d = Math.hypot(dx, dy);
-      const sp = s.kind === 'bugs' ? 340 : s.kind === 'puppet' || s.kind === 'quhun' ? 210 : 260;
-      const reach = s.kind === 'bugs' ? 40 : 60;
-      const moving = d > reach;
-      if (moving) { s.x += dx / d * sp * dt; s.y += dy / d * sp * dt; s.facing = dx > 0 ? 1 : -1; }
-      if (s.cs) { s.cs.x = s.x; s.cs.y = s.y; s.cs.speed = moving ? sp : 0; s.cs.vx = moving ? dx / d * sp : 0; s.cs.vy = moving ? dy / d * sp : 0; if (d > 1) s.cs.faceToward(dx, dy, false); s.cs.setAction(s.cd > 0.75 ? 'cast' : moving ? 'run' : 'idle'); s.cs.update(dt); }
-      if (s.target && d < reach + 20) {
-        if (s.kind === 'bugs') { if (s.cd <= 0) { s.cd = 0.4; this.hitEnemy(s.target, s.dmg * (s.n / 14), { realm: h.realm, status: s.status, stCh: s.status?.ch ?? 0, school: '御' }, s.x, s.y); } }
-        else if (s.cd <= 0) {
-          s.cd = s.kind === 'demon' ? 0.9 : 1.1;
-          this.hitEnemy(s.target, s.dmg, { realm: h.realm, stCh: 0.3, status: s.kind === 'fox' ? { k: 'burn', dur: 3, ch: 0.3 } : s.kind === 'tihun' ? { k: 'stun', dur: 1, ch: 0.5 } : s.kind === 'quhun' ? { k: 'knock', dur: 0.3, ch: 0.5 } : undefined, school: s.kind === 'fox' ? '火' : '御', evil: s.evil }, s.x, s.y);
-          if (s.kind === 'tihun' && s.target.def.evil) h.mp = Math.min(1, h.mp + 0.03);
-        }
+      s.t -= dt; s.cd -= dt; s.age = (s.age ?? 0) + dt; s.atk = Math.max(0, (s.atk ?? 0) - dt * 2.6);
+      const lv = s.lv ?? 0, slot = s.kind === 'bugs' ? 0 : idx++;
+      const ranged = s.kind === 'fox' && lv >= 2;
+      if (!s.target || s.target.dead || Math.hypot(s.target.x - p.x, s.target.y - p.y) > 900 || (s.target as any).spar) s.target = this.nearestFoe(s.x, s.y, p.x, p.y);
+      let tx: number, ty: number, reach: number;
+      if (s.target) {
+        const e = s.target, ang = Math.atan2(s.y - e.y, s.x - e.x), keep = ranged ? 240 : 52 * (s.big ?? 1);
+        tx = e.x + Math.cos(ang) * keep; ty = e.y + Math.sin(ang) * keep * 0.6; reach = 14;
+      } else {
+        // 队形：身后一排，两翼错开；绕着各自的站位缓缓游走
+        const side = slot % 2 ? 1 : -1, row = Math.floor(slot / 2);
+        const back = 85 + row * 55, lat = (55 + row * 25) * side;
+        tx = p.x - fwdX * back + fwdY * lat * 0.9 + Math.sin(g.time * 0.7 + slot) * 10;
+        ty = p.y - fwdY * back * 0.7 - fwdX * lat * 0.6 + 18 + Math.cos(g.time * 0.6 + slot) * 6;
+        reach = 18;
       }
-      return s.t > 0;
+      let dx = tx - s.x, dy = ty - s.y, d = Math.hypot(dx, dy);
+      if (d > 1500) { s.x = tx; s.y = ty; dx = dy = 0; d = 0; this.fxq.push({ k: 'sumpop', x: s.x, y: s.y, color: SUMMON_COLOR[s.kind] }); }
+      const base = s.kind === 'bugs' ? 340 : s.kind === 'puppet' || s.kind === 'quhun' ? 230 : 280;
+      const sp = Math.min(d * 4, base * (d > 320 ? 2.2 : d > 160 ? 1.4 : 1) * (g.isFlying ? 1.8 : 1));
+      const moving = d > reach;
+      s.mv = (s.mv ?? 0) + ((moving ? Math.min(1, sp / 200) : 0) - (s.mv ?? 0)) * Math.min(1, dt * 8);
+      if (moving) { s.x += dx / d * sp * dt; s.y += dy / d * sp * dt; if (Math.abs(dx) > 3) s.facing = dx > 0 ? 1 : -1; s.phase += dt * Math.min(12, 4 + sp / 40); }
+      else if (s.target) s.facing = s.target.x > s.x ? 1 : -1;
+      if (s.cs) { s.cs.x = s.x; s.cs.y = s.y; s.cs.speed = moving ? sp : 0; s.cs.vx = moving ? dx / d * sp : 0; s.cs.vy = moving ? dy / d * sp : 0; if (d > 1) s.cs.faceToward(dx, dy, false); else if (s.target) s.cs.faceToward(s.target.x - s.x, s.target.y - s.y, false); s.cs.setAction((s.atk ?? 0) > 0.45 ? 'cast' : moving ? 'run' : 'idle'); s.cs.update(dt); }
+      const e = s.target;
+      if (e && s.cd <= 0 && s.kind !== 'bugs') {
+        const de = Math.hypot(e.x - s.x, e.y - s.y), range = ranged ? 330 : 95 * (s.big ?? 1);
+        if (de < range) {
+          s.cd = (s.kind === 'demon' ? 0.9 : s.kind === 'puppet' ? 1.25 : 1.1) * rand(0.9, 1.1);
+          s.atk = 1; s.ax = e.x; s.ay = e.y; s.facing = e.x > s.x ? 1 : -1;
+          const status: StatusSpec | undefined = s.kind === 'fox' ? { k: 'burn', dur: 3, ch: 0.3 } : s.kind === 'tihun' ? { k: 'stun', dur: 1, ch: 0.5 } : s.kind === 'quhun' && lv >= 1 ? { k: 'knock', dur: 0.3, ch: 0.6 } : s.kind === 'puppet' ? { k: 'stun', dur: 0.5, ch: 0.25 } : undefined;
+          const src = { realm: h.realm, stCh: 0.3, status, school: (s.kind === 'fox' ? '火' : '御') as School, evil: s.evil };
+          if (ranged) this.fxq.push({ k: 'foxfire', x: s.x, y: s.y - 40, x2: e.x, y2: e.y - 30, color: '150,200,255' });
+          else this.fxq.push({ k: 'sumhit', x: e.x, y: e.y, x2: s.x, y2: s.y, kind: s.kind, big: (s.big ?? 1) > 1.2 });
+          const mul = s.kind === 'fox' && lv >= 1 ? 1.25 : 1;
+          if (ranged) { const tgt = e, dd = s.dmg * mul; this.later(0.22, () => { if (!tgt.dead) { this.hitEnemy(tgt, dd, src, tgt.x - 1, tgt.y); this.fxq.push({ k: 'sumhit', kind: 'foxland', x: tgt.x, y: tgt.y }); } }); }
+          else if (s.kind === 'puppet') { for (const f of this.enemies) if (!f.dead && Math.hypot(f.x - e.x, (f.y - e.y) * 1.3) < 90) this.hitEnemy(f, s.dmg * (f === e ? 1 : 0.5), src, s.x, s.y); }
+          else this.hitEnemy(e, s.dmg * mul, src, s.x, s.y);
+          if (s.kind === 'tihun') { if (e.def.evil) h.mp = Math.min(1, h.mp + (lv >= 2 ? 0.05 : 0.03)); else if (lv >= 2) h.mp = Math.min(1, h.mp + 0.012); }
+        }
+      } else if (e && s.kind === 'bugs' && d < 60 && s.cd <= 0) { s.cd = 0.4; this.hitEnemy(e, s.dmg * (s.n / 14), { realm: h.realm, status: s.status, stCh: s.status?.ch ?? 0, school: '御' }, s.x, s.y); }
+      if (s.t > 0) return true;
+      // —— 收尾：傀儡 / 心魔二重起自爆，其余化作烟墨散去
+      if (!s.boomed && lv >= 2 && (s.kind === 'puppet' || s.kind === 'demon')) {
+        s.boomed = true;
+        const r = s.kind === 'puppet' ? 170 : 130 * (s.big ?? 1);
+        this.aoe(s.x, s.y, r, s.dmg * (s.kind === 'puppet' ? 2.2 : 1.6), { realm: h.realm, stCh: 0.5, status: { k: s.kind === 'puppet' ? 'knock' : 'burn', dur: 2, ch: 0.6 }, school: '御', evil: s.evil });
+        this.impact(s.x, s.y, 2, s.kind === 'puppet' ? '255,190,110' : '255,70,60');
+        this.fxq.push({ k: 'sumboom', x: s.x, y: s.y, kind: s.kind, r });
+      } else this.fxq.push({ k: 'sumgone', x: s.x, y: s.y, kind: s.kind, color: SUMMON_COLOR[s.kind] });
+      return false;
     });
+  }
+  /** 召唤物找目标：只找已经与你交手（或被锁定）的敌人，离召唤物近的优先 */
+  private nearestFoe(x: number, y: number, px: number, py: number): Enemy | null {
+    let best: Enemy | null = null, bd = 1e9;
+    for (const e of this.enemies) {
+      if (e.dead || (e as any).spar || (!e.aggro && this.lock !== e)) continue;
+      const dp = Math.hypot(e.x - px, e.y - py); if (dp > 700) continue;
+      const d = Math.hypot(e.x - x, e.y - y) + dp * 0.5;
+      if (d < bd) { bd = d; best = e; }
+    }
+    return best;
+  }
+  private laterQ: { t: number; f: () => void }[] = [];
+  later(t: number, f: () => void) { this.laterQ.push({ t, f }); }
+  private runLater(dt: number) {
+    if (!this.laterQ.length) return;
+    const q = this.laterQ; this.laterQ = [];
+    for (const it of q) { it.t -= dt; if (it.t <= 0) it.f(); else this.laterQ.push(it); }
   }
 
   /** 战斗中的动作覆盖 */

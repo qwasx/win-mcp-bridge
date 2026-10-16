@@ -47,7 +47,19 @@ export function collectCombat(c: Combat, out: Drawable[], view: { left: number; 
   for (const s of c.summons) {
     if (s.kind === 'bugs') continue;
     if (s.kind === 'quhun' && s.cs) { const cs = s.cs; out.push({ y: s.y, draw: (g) => { g.save(); g.globalAlpha *= Math.min(1, s.t * 2); drawCharacter(g, QUHUN_LOOK, cs, 1.12, 0); g.globalCompositeOperation = 'lighter'; g.fillStyle = 'rgba(120,255,170,0.5)'; g.beginPath(); g.arc(s.x, s.y - 150, 3, 0, Math.PI * 2); g.fill(); g.restore(); } }); continue; }
-    out.push({ y: s.kind === 'demon' ? s.y + AIR_Y : s.y, draw: (g) => { const A = { move: 1, phase: s.phase, atk: s.cd > 0.7 ? 1 - (s.cd - 0.7) / 0.4 : 0, hit: 0, t: s.phase / 8, flying: s.kind === 'demon' }; if (!drawBeastSprite(g, 's:' + s.kind, s.x, s.y, s.facing, A, 1)) drawBeast(g, SUMMON_LOOK[s.kind] ?? SUMMON_LOOK.fox, s.x, s.y, s.facing, A, 1); } });
+    // 第三十步：现身时由小到大、由淡到浓；出手时朝目标前扑；将散时闪烁；心魔合体放大
+    out.push({ y: s.kind === 'demon' ? s.y + AIR_Y : s.y, draw: (g) => {
+      const age = s.age ?? 9, atk = s.atk ?? 0, B = s.big ?? 1;
+      const grow = age < 0.35 ? 0.4 + 0.6 * (1 - Math.pow(1 - age / 0.35, 3)) : 1;
+      const lunge = atk > 0 ? Math.sin(Math.min(1, (1 - atk) * 2.2) * Math.PI) * 22 * B : 0;
+      const dir = s.ax !== undefined ? Math.atan2(s.ay - s.y, s.ax - s.x) : 0;
+      const x = s.x + Math.cos(dir) * lunge, y = s.y + Math.sin(dir) * lunge * 0.6;
+      const A = { move: Math.min(1, (s.mv ?? 1) + atk * 0.5), phase: s.phase, atk: atk > 0.2 ? Math.min(1, atk * 1.4) : 0, hit: 0, t: s.phase / 8, flying: s.kind === 'demon' };
+      g.save();
+      g.globalAlpha *= Math.min(1, age * 3) * (s.t < 2.5 ? 0.65 + 0.35 * Math.cos(s.t * 14) : 1) * Math.min(1, s.t * 3 + 0.2);
+      if (!drawBeastSprite(g, 's:' + s.kind, x, y, s.facing, A, grow * B)) drawBeast(g, SUMMON_LOOK[s.kind] ?? SUMMON_LOOK.fox, x, y, s.facing, A, grow * B);
+      g.restore();
+    } });
   }
   for (const l of c.loot) {
     const a = enemyVis(c, l);

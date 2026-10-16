@@ -178,8 +178,18 @@ export function WorldMapPanel({ game, onClose }: { game: Game; onClose: () => vo
       const hov = hoverRef.current;
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
       g.fillStyle = '#d9cdb0'; g.fillRect(0, 0, size.w, size.h);
-      g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
-      g.drawImage(game.overview, X(0), Y(0), MACRO_W * k, MACRO_H * k);
+      g.imageSmoothingEnabled = true; g.imageSmoothingQuality = Z > 2 ? 'medium' : 'high';
+      // 只取可见部分的源矩形来画（放大 8 倍时不再让整张底图参与缩放，省下大量填充）
+      const mx0v = Math.max(0, v.cx - W2 / k), my0v = Math.max(0, v.cy - H2 / k), mx1v = Math.min(MACRO_W, v.cx + W2 / k), my1v = Math.min(MACRO_H, v.cy + H2 / k);
+      const drawVis = (img: CanvasImageSource, iw: number, ih: number) => {
+        const fx = iw / MACRO_W, fy = ih / MACRO_H;
+        const sx0 = Math.max(0, Math.floor(mx0v * fx) - 1), sy0 = Math.max(0, Math.floor(my0v * fy) - 1);
+        const sx1 = Math.min(iw, Math.ceil(mx1v * fx) + 1), sy1 = Math.min(ih, Math.ceil(my1v * fy) + 1);
+        if (sx1 <= sx0 || sy1 <= sy0) return;
+        g.drawImage(img, sx0, sy0, sx1 - sx0, sy1 - sy0, X(sx0 / fx), Y(sy0 / fy), (sx1 - sx0) / fx * k, (sy1 - sy0) / fy * k);
+      };
+      const t0 = performance.now();
+      drawVis(game.overview, game.overview.width, game.overview.height);
       // 放大后：局部高清底图（每帧最多新画 4 块，其余先用缩略图顶着）
       if (k * dpr > 2.4 && game.terrain?.overviewVectors) {
         const scale = k * dpr > 4.6 ? 8 : k * dpr > 3.2 ? 6 : 4, T = scale >= 6 ? 24 : 32, budget = { n: 4 };
@@ -190,7 +200,7 @@ export function WorldMapPanel({ game, onClose }: { game: Game; onClose: () => vo
           g.drawImage(tl.cv, X(tx * T) - 0.5, Y(ty * T) - 0.5, T * k + 1, T * k + 1);
         }
       }
-      g.drawImage(fog, X(0), Y(0), MACRO_W * k, MACRO_H * k);
+      drawVis(fog, fog.width, fog.height);
       // 大区域名（放大后变淡，免得挡住细节）
       g.textAlign = 'center'; g.textBaseline = 'middle';
       for (const L of BIG_LABELS) {
@@ -264,6 +274,7 @@ export function WorldMapPanel({ game, onClose }: { game: Game; onClose: () => vo
       g.strokeStyle = `rgba(168,53,42,${1 - pulse})`; g.lineWidth = 2; g.beginPath(); g.arc(px, py, 6 + pulse * 18, 0, Math.PI * 2); g.stroke();
       g.fillStyle = '#a8352a'; g.beginPath(); g.arc(px, py, 5, 0, Math.PI * 2); g.fill();
       g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.stroke();
+      (window as any).__wmMs = performance.now() - t0;
       raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);

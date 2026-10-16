@@ -219,15 +219,14 @@ class DingAct extends Act {
     if (this.slamFx > 0.98) {
       this.slamFx = 0.97;
       F.flash(x, y - 60, 160, bronze, 0.3);
-      F.shockRing(x, y, R * 1.5, bronze, 0.6, 0.55, 1);
-      F.shockRing(x, y, R * 1.1, jade, 0.5, 0.55, 0.8);
-      F.shockRing(x, y, R * 0.7, WHITE, 0.4, 0.55, 0.6);
+      F.shockRing(x, y, R * 1.5, bronze, 0.6, 0.55, 0.7);
+      F.shockRing(x, y, R * 1.1, jade, 0.5, 0.55, 0.5);
       F.shock(x, y, R * 2.2, 30, 0.8);
       F.ink(x, y + 6, R * 0.9, 0.5, [0.18, 0.14, 0.1]);
       F.smoke(x, y - 10, 26, [0.5, 0.44, 0.34], 0.45, R * 0.7, 120);
       for (let i = 0; i < 40; i++) { const a = Math.random() * TAU, v = rnd(200, 700); F.emit({ x, y: y - 10, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.5 - rnd(80, 260), life: rnd(0.5, 1), s0: rnd(4, 9), s1: 2, c: mix(bronze, WHITE, 0.3), grav: 600, drag: 1, cell: A.Shard, rot: Math.random() * TAU, vr: rnd(-8, 8) }); }
       for (const e of this.caught) if (e.dead) for (let i = 0; i < 14; i++) F.emit({ x: e.x, y: e.y - 40, vx: (x - e.x) * rnd(1.5, 2.6), vy: (y - 200 - e.y) * rnd(1.5, 2.6), life: 0.5, s0: 10, s1: 3, c: mix(jade, WHITE, 0.4), cell: A.Glow });
-      if (this.ice) { const ic: RGB = [0.45, 0.7, 1]; F.shockRing(x, y, R * 1.3, ic, 0.7, 0.55, 0.9); for (let i = 0; i < 26; i++) { const a = (i / 26) * TAU; F.emit({ x: x + Math.cos(a) * 30, y: y + Math.sin(a) * 15 - 20, vx: Math.cos(a) * rnd(300, 520), vy: Math.sin(a) * rnd(150, 260) - 60, life: rnd(0.6, 0.9), s0: rnd(26, 40), s1: 6, c: ic, cell: A.Flame, rot: a + Math.PI / 2 }); } }
+      if (this.ice) { const ic: RGB = [0.45, 0.7, 1]; F.shockRing(x, y, R * 1.3, ic, 0.7, 0.55, 0.6); for (let i = 0; i < 26; i++) { const a = (i / 26) * TAU; F.emit({ x: x + Math.cos(a) * 30, y: y + Math.sin(a) * 15 - 20, vx: Math.cos(a) * rnd(300, 520), vy: Math.sin(a) * rnd(150, 260) - 60, life: rnd(0.6, 0.9), s0: rnd(26, 40), s1: 6, c: ic, cell: A.Flame, rot: a + Math.PI / 2 }); } }
     }
     if (this.ph === 3) {
       F.ground(A.Crack, x, y, R * 0.75, x * 0.01, [0.16, 0.12, 0.08], 0.38 * (1 - this.pt / 0.75), 0, 0.55);

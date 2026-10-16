@@ -1221,7 +1221,10 @@ export class Terrain {
     g.save(); g.scale(scale, scale); g.translate(-x0, -y0);
     // 河流
     g.lineCap = 'round'; g.lineJoin = 'round';
+    // 第三十步：按包围盒剔除——放大地图时每块只描与之相交的河 / 路（整条描边、尤其是虚线，很贵）
+    const off = (o: any) => { let b = o._bb; if (!b) { b = o._bb = [1e9, 1e9, -1e9, -1e9]; for (const [x, y] of o.pts) { if (x < b[0]) b[0] = x; if (y < b[1]) b[1] = y; if (x > b[2]) b[2] = x; if (y > b[3]) b[3] = y; } } return b[2] < ux0 - 4 || b[0] > ux1 + 4 || b[3] < uy0 - 4 || b[1] > uy1 + 4; };
     for (const rv of this.rivers) {
+      if (off(rv)) continue;
       g.beginPath(); rv.pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
       g.strokeStyle = 'rgba(120,150,155,0.9)'; g.lineWidth = 0.9 * rv.w; g.stroke();
     }
@@ -1230,6 +1233,7 @@ export class Terrain {
     const fine = scale >= 3, iconK = fine ? 0.4 : 1, step = fine ? 3 : 6, jit = fine ? 2 : 4;
     g.setLineDash([2 / Math.max(1, scale / 3), 2 / Math.max(1, scale / 3)]);
     for (const rd of this.roads) {
+      if (off(rd)) continue;
       g.beginPath(); rd.pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
       g.strokeStyle = 'rgba(120,96,60,0.55)'; g.lineWidth = (rd.major ? 1.1 : 0.7) / Math.max(1, scale / 2); g.stroke();
     }

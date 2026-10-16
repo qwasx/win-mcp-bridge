@@ -2,6 +2,7 @@
 import type { Combat } from '../world/combat';
 import { FxSys, col, mixc, RGB } from './fx';
 import { C } from './atlas';
+import { SUMMON_EVENTS, summonEvent, drawSummonsGL } from './summongl';
 import { enemyVis } from '../world/combatfx';
 import { drawFoeGL } from './foegl';
 import { drawHeroGL, drawOrbitGL } from './herogl';
@@ -16,7 +17,7 @@ const SMOKE: RGB = [0.13, 0.11, 0.1];
 /** 每秒发射 rate 个：返回本帧数量（带随机余数） */
 const nEmit = (rate: number, dt: number) => { const f = rate * dt; return Math.floor(f) + (Math.random() < f % 1 ? 1 : 0); };
 
-export interface FxEvent { k: 'hit' | 'kill' | 'phit' | 'cast' | 'block' | 'dodge' | 'xueying' | 'impact'; x: number; y: number; x2?: number; y2?: number; color?: string; power?: number; crit?: boolean; dir?: number; big?: boolean }
+export interface FxEvent { k: 'hit' | 'kill' | 'phit' | 'cast' | 'block' | 'dodge' | 'xueying' | 'impact' | 'roar' | 'sumpop' | 'foxfire' | 'sumhit' | 'sumboom' | 'sumgone'; x: number; y: number; x2?: number; y2?: number; color?: string; power?: number; crit?: boolean; dir?: number; big?: boolean; kind?: string; r?: number }
 
 const boostTrail: [number, number][] = [];
 /** 飞行疾遁：遁光拖尾（雷遁电蛇 / 血光遁血雾 / 寻常遁光）+ 掠过的风线 */
@@ -146,6 +147,7 @@ export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
       F.hit(ev.x, ev.y, cc, Math.min(ev.power ?? 1, near ? 1 : 3), ev.crit && !near, ev.dir);
     }
     else if (ev.k === 'impact') impactFx(F, ev.x, ev.y, ev.power ?? 1, cc);
+    else if (SUMMON_EVENTS.has(ev.k)) summonEvent(F, ev);
     else if (ev.k === 'kill') {
       F.explode(ev.x, ev.y, 46, cc, { smoke: true, shock: true });
       F.ink(ev.x, ev.y + 30, 120, 0.45);
@@ -218,6 +220,7 @@ export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
   c.acts.drawGL(F, t, dt);
   // ---- 第二十八步：噬金虫群（虫群算法）
   c.swarm?.draw(F, t); c.petSwarm?.draw(F, t);
+  drawSummonsGL(F, c, t, dt);   // 第三十步：召唤物特效
   drawHeroGL(F, c, t, dt);
   // ---- 噬金虫
   for (const s of c.summons) if (s.kind === 'bugs' && s.dots) {
