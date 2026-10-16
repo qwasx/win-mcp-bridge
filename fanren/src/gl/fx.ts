@@ -129,9 +129,9 @@ export class FxSys {
     for (let i = 0; i < n; i++) { flat[i * 2] = pts[i][0]; flat[i * 2 + 1] = pts[i][1]; }
     this.B.strip(cell, flat, n, (i) => w * (1 - taper + taper * (i / (n - 1))), (i) => a * Math.pow(i / (n - 1), 1.3), c[0], c[1], c[2], add);
   }
-  beam(x1: number, y1: number, x2: number, y2: number, w: number, c: RGB, a: number, cell: number = C.Beam) {
+  beam(x1: number, y1: number, x2: number, y2: number, w: number, c: RGB, a: number, cell: number = C.Beam, add = 1) {
     const flat = [x1, y1, x2, y2];
-    this.B.strip(cell, flat, 2, () => w, () => a, c[0], c[1], c[2], 1);
+    this.B.strip(cell, flat, 2, () => w, () => a, c[0], c[1], c[2], add);
   }
   /** 闪电：分形折线（seed 决定形状），带外晕与白芯 */
   bolt(x1: number, y1: number, x2: number, y2: number, seed: number, amp: number, w: number, c: RGB, a: number, segs = 12, branches = true) {

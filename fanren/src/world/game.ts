@@ -546,6 +546,9 @@ export class Game {
 
   // ---------- 打击感 ----------
   hitStop = 0; trauma = 0; hurtFlash = 0;
+  /** 慢镜头（真实秒）：大招结算的一瞬 */
+  slowT = 0;
+  slowmo(sec: number) { this.slowT = Math.max(this.slowT, Math.min(0.6, sec)); }
   showPerf = false;
   perf = { frames: 0, acc: 0, upd: 0, ren: 0, fps: 0, updMs: 0, renMs: 0, worst: 0, worstMs: 0 };
   /** 顿帧（秒）与震屏（0..1 创伤值，叠加） */
@@ -616,6 +619,7 @@ export class Game {
       // 顿帧：命中瞬间时间几近停滞
       let dt = rdt;
       if (this.hitStop > 0) { this.hitStop -= rdt; dt = rdt * 0.05; }
+      else if (this.slowT > 0) { this.slowT -= rdt; dt *= 0.3; }
       this.trauma = Math.max(0, this.trauma - rdt * 1.8);
       this.hurtFlash = Math.max(0, this.hurtFlash - rdt * 2.2);
       const u0 = performance.now();

@@ -1,4 +1,5 @@
 // 战斗绘制：敌人、召唤物、掉落、弹道、法术特效、血条与伤害数字
+import { EL_COL } from './foeskills';
 import type { Combat, Enemy } from './combat';
 import { YAODAN_COL } from './combat';
 import type { Drawable } from './life';
@@ -80,6 +81,8 @@ function drawEnemy(g: G, c: Combat, e: Enemy, alpha: number, t: number, dt: numb
   }
   // 窥破蓄力：红色警示
   if (e.windup > 0) { g.fillStyle = `rgba(220,40,30,${0.25 * (1 - e.windup / 0.4)})`; g.beginPath(); g.ellipse(e.x, e.y, 70, 26, 0, 0, TAU); g.fill(); }
+  // 跃起（扑击）：地面留影，身形抬高
+  if (e.lift > 0) { g.fillStyle = `rgba(20,16,12,${Math.max(0.08, 0.3 - e.lift / 900)})`; g.beginPath(); g.ellipse(e.x, e.y + 2, 30 + e.lift * 0.05, 9 + e.lift * 0.015, 0, 0, TAU); g.fill(); g.translate(0, -e.lift); }
   if (e.look && e.cs) {
     g.fillStyle = 'rgba(30,30,24,0.26)'; g.beginPath(); g.ellipse(e.x, e.y + 2, 22, 7, 0, 0, TAU); g.fill();
     drawCharacter(g, e.look, e.cs, 1.06, e.dead ? 0 : dt);
@@ -475,11 +478,41 @@ function drawVfx(g: G, v: any, t: number) {
 }
 
 /** 发光特效层（夜色之后绘制，故夜里亦明亮） */
+/** 第二十七步：敌招预警（Canvas 后备） */
+function drawFoeCanvas(g: G, c: Combat, t: number) {
+  g.save();
+  for (const h of c.foe.hz) {
+    const cc = EL_COL[h.el];
+    if (h.fired) {
+      if (!h.pooling) continue;
+      g.fillStyle = `rgba(${cc},0.22)`; g.beginPath(); g.ellipse(h.x, h.y, h.r, h.r * 0.55, 0, 0, TAU); g.fill();
+      continue;
+    }
+    const u = Math.min(1, h.t / h.tele), pulse = 0.75 + 0.25 * Math.sin(t * 14);
+    const wc = h.dmg > 0 ? '235,60,40' : '240,150,50';
+    g.strokeStyle = `rgba(${wc},${0.8 * pulse})`; g.lineWidth = 2.5;
+    g.fillStyle = `rgba(${wc},0.12)`;
+    g.beginPath();
+    if (h.k === 'circle') { g.ellipse(h.x, h.y, h.r, h.r * 0.55, 0, 0, TAU); g.fill(); g.stroke(); g.fillStyle = `rgba(${wc},0.25)`; g.beginPath(); g.ellipse(h.x, h.y, h.r * u, h.r * 0.55 * u, 0, 0, TAU); g.fill(); }
+    else if (h.k === 'cone') {
+      const A0 = Math.atan2(Math.sin(h.ang) / 0.7, Math.cos(h.ang));
+      const path = (d: number) => { g.beginPath(); g.moveTo(h.x, h.y); for (let i = 0; i <= 16; i++) { const a = A0 - h.spread + i / 16 * h.spread * 2; g.lineTo(h.x + Math.cos(a) * d, h.y + Math.sin(a) * d * 0.7); } g.closePath(); };
+      path(h.r); g.fill(); g.stroke(); g.fillStyle = `rgba(${wc},0.25)`; path(h.r * u); g.fill();
+    } else {
+      g.save(); g.translate(h.x, h.y); g.rotate(h.ang);
+      g.rect(0, -h.w / 2, h.len, h.w); g.fill(); g.stroke(); g.fillStyle = `rgba(${wc},0.25)`; g.fillRect(0, -h.w / 2, h.len * u, h.w);
+      g.restore();
+    }
+  }
+  g.restore();
+}
+
 export function drawCombatFx(g: G, c: Combat, t: number) {
   const p = c.game.player;
   g.save();
   // 区域（地面，普通混合）
   for (const f of c.fields) drawField(g, f, t);
+  drawFoeCanvas(g, c, t);
   g.globalCompositeOperation = 'lighter';
   for (const v of c.vfx) drawVfx(g, v, t);
   for (const pr of c.projs) drawProj(g, pr, t);
@@ -531,6 +564,19 @@ export function drawCombatFx(g: G, c: Combat, t: number) {
 export function drawCombatUI(g: G, c: Combat, t: number, z: number) {
   const h = c.game.hero;
   const k = 1 / Math.max(0.45, z);
+  // 第二十七步：首领大招蓄力——四周压暗泛红；结算一刻全屏闪白
+  const uc = c.foe.ultCharge(), fl = c.foe.ultFlash;
+  if (uc > 0 || fl > 0) {
+    const W = g.canvas.width, H = g.canvas.height;
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
+    if (uc > 0) {
+      const a = Math.min(1, uc) * 0.6, gr = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.2, W / 2, H / 2, Math.max(W, H) * 0.62);
+      gr.addColorStop(0, 'rgba(40,0,0,0)'); gr.addColorStop(1, `rgba(40,4,2,${a})`);
+      g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    }
+    if (fl > 0) { g.globalCompositeOperation = 'lighter'; g.fillStyle = `rgba(${c.foe.ultCol},${(fl / 0.35) * 0.32})`; g.fillRect(0, 0, W, H); }
+    g.restore();
+  }
   g.save();
   g.textAlign = 'center'; g.textBaseline = 'middle';
   for (const e of c.enemies) {

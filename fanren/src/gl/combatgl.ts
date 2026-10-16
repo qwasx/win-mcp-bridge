@@ -3,6 +3,7 @@ import type { Combat } from '../world/combat';
 import { FxSys, col, mixc, RGB } from './fx';
 import { C } from './atlas';
 import { enemyVis } from '../world/combatfx';
+import { drawFoeGL } from './foegl';
 
 const TAU = Math.PI * 2;
 const WHITE: RGB = [1, 1, 1];
@@ -94,6 +95,7 @@ export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
   const p = c.game.player;
   drawBoost(F, c, dt);
   drawReach(F, c, t, dt);
+  drawFoeGL(F, c, t, dt);
   // ---- 事件（命中/击杀/受伤）
   // 同一帧多次命中同一处（剑阵、飞针）：只完整播放前几次，其余减弱，避免叠加过曝
   const hitSeen: [number, number, number][] = [];

@@ -14,6 +14,7 @@ import { audio } from './audio';
 const REACH_CASTS = new Set<string>(['bolt', 'fan', 'burst', 'strike', 'beam', 'chain', 'field']);
 import type { FxEvent } from '../gl/combatgl';
 import { ArtActs, lookOf } from './artacts';
+import { FoeAI, FoeSkill, isBoss } from './foeskills';
 
 /** 各系命中光色 */
 const SCHOOL_COL: Partial<Record<School, string>> = { 火: '255,140,60', 冰: '150,220,255', 雷: '170,190,255', 风: '200,255,230', 土: '220,180,110', 木: '150,230,110', 剑: '210,255,240', 体: '255,220,160', 御: '255,210,120', 魔: '230,60,80', 识: '210,170,255', 阵: '255,230,140', 身: '200,240,255', 符: '255,210,110' };
@@ -59,12 +60,15 @@ export class Enemy {
   called = false;      // 云翅鸟：已示警
   /** 第十八步：沉睡的守护兽（贴近或受击才醒）/ 正与同类相争的妖兽（不理会旁人）*/
   sleep?: boolean; busy?: boolean; tag?: string;
+  /** 第二十七步：招式 */
+  kit?: FoeSkill[]; skCd: Record<string, number> = {}; skT = 1.2 + Math.random() * 2; cast: any = null;
+  lift = 0; guardT = 0; rage = 0; used?: Record<string, boolean>; dodgeCd = 1 + Math.random() * 2; minion?: boolean;
   constructor(def: EnemyDef, x: number, y: number, realm: number, stage: number, sea = false) {
     this.def = def; this.x = this.hx = x; this.y = this.hy = y;
     this.realm = realm; this.stage = stage; this.level = realm * 13 + stage;
     const R = REALMS[realm];
     const s = Math.min(stage, R.hp.length - 1);
-    this.maxHp = this.hp = Math.round(R.hp[s] * def.hp * 0.8);
+    this.maxHp = this.hp = Math.round(R.hp[s] * def.hp * 0.8 * (def.lair ? 1.5 : 1));
     this.atk = R.atk[s] * def.atk * 0.85;
     this.dfn = R.def[s] * def.def;
     this.speed = def.speed;
@@ -144,10 +148,22 @@ export class Combat {
 
   /** 第十三步：法器出手（实体 + 光效） */
   acts: ArtActs;
-  constructor(game: Game) { this.game = game; this.acts = new ArtActs(this); }
+  /** 第二十七步：敌人招式与地面预警 */
+  foe: FoeAI;
+  constructor(game: Game) { this.game = game; this.acts = new ArtActs(this); this.foe = new FoeAI(this); }
+  /** 召唤来的援兵（略弱于施术者） */
+  makeMinion(def: EnemyDef, x: number, y: number, src: Enemy): Enemy | null {
+    const realm = def === src.def ? src.realm : Math.max(1, src.realm - (def.kind === 'ghost' ? 0 : 1));
+    const stage = def === src.def ? Math.max(0, src.stage - 3) : Math.max(0, src.stage - 2);
+    const m = new Enemy(def, x, y, realm, stage, src.sea);
+    m.aggro = true; m.minion = true; m.hx = src.hx; m.hy = src.hy;
+    m.maxHp = m.hp = Math.round(m.maxHp * 0.6);
+    this.enemies.push(m);
+    return m;
+  }
 
   reset() {
-    this.enemies = []; this.projs = []; this.fields = []; this.vfx = []; this.texts = []; this.loot = []; this.summons = []; this.strikes = []; this.sparks = [];
+    this.enemies = []; this.projs = []; this.fields = []; this.vfx = []; this.texts = []; this.loot = []; this.summons = []; this.strikes = []; this.sparks = []; this.foe?.reset();
     this.cds.clear(); this.pst = {}; this.shield = null; this.orbit = null; this.heal = null; this.dash = null; this.decoy = null; this.acts?.reset();
     this.buffs = { atk: 0, def: 0, speed: 0, regen: 0, stealth: 0, decoy: 0, until: {} };
   }
@@ -601,7 +617,8 @@ export class Combat {
   }
   hitEnemy(e: Enemy, raw: number, src: { realm: number; status?: StatusSpec; stCh: number; school?: School; evil?: number; skill?: string }, fx: number, fy: number) {
     if (e.dead) return;
-    let d = raw;
+    let d = raw * (e.guardT > 0 ? 0.35 : 1);
+    if (e.guardT > 0 && Math.random() < 0.3) this.texts.push({ x: e.x + rand(-14, 14), y: e.y - 100, s: '护体', color: '#f0d890', t: 0, vy: -36 });
     let combo = '';
     const st = e.st;
     if (st.freeze && src.school === '雷') { d *= 2.2; delete st.freeze; combo = '冰裂雷爆'; this.vfx.push({ kind: 'flash', x: e.x, y: e.y - 30, r: 120, t: 0, dur: 0.4, color: '200,230,255' }); this.burstShards(e.x, e.y - 30, '200,235,255'); }
@@ -637,6 +654,7 @@ export class Combat {
     // 异状
     if (src.status && Math.random() < src.stCh) this.applyStatus(e.st, src.status, d, e, fx, fy);
     if (e.spar && e.hp < e.maxHp * 0.15) { e.hp = e.maxHp * 0.15; e.dead = true; e.deathT = 0.9; if (this.lock === e) this.lock = null; this.onSparEnd?.(e, true); return; }
+    if (e.hp > 0) this.foe.phase(e);
     if (e.hp <= 0) this.kill(e);
   }
   /** 第四/五步：外部钩子 */
@@ -984,6 +1002,7 @@ export class Combat {
       if (o.t <= 0) this.orbit = null;
     }
     this.updateEnemies(dt, stealth);
+    this.foe.update(dt);
     this.updateProjs(dt);
     this.updateFields(dt);
     this.updateSummons(dt);
@@ -1077,12 +1096,33 @@ export class Combat {
       if (e.aggro && (stealth || playerSafe || dist > 2600 || Math.hypot(e.x - e.hx, e.y - e.hy) > 3200)) e.aggro = false;
       if (!e.flee && e.def.kind === 'beast' && e.hp < e.maxHp * 0.15 && Math.random() < 0.01) e.flee = true;
       let mvx = 0, mvy = 0, sp = e.speed * (e.st.slow ? 0.5 : 1);
-      if (frozen) { e.windup = 0; }
+      if (frozen) { e.windup = 0; if (e.cast) this.foe.interrupt(e); }
       else if (e.flee) { mvx = -dx / (dist || 1); mvy = -dy / (dist || 1); sp *= 1.2; if (dist > 1500) { e.flee = false; e.aggro = false; } }
       else if (e.aggro) {
         e.cdMelee -= dt; e.cdRanged -= dt;
         const m = e.def.melee, r = e.def.ranged;
-        if (e.windup > 0) {
+        // 闪避：看见迎面飞来的法术，侧身一闪（妖兽二级以上 / 修士）
+        e.dodgeCd -= dt;
+        if (e.dodgeCd <= 0 && !e.cast && !rooted && (e.blv >= 2 || e.def.kind === 'human' || e.realm >= 2)) {
+          e.dodgeCd = 0.25;
+          for (const pr of this.projs) {
+            if (pr.fac !== 'p' || pr.homing || pr.hit.has(e.id)) continue;
+            const rx = e.x - pr.x, ry = e.y - 30 - pr.y, rd = Math.hypot(rx, ry);
+            if (rd > 280 || rd < 30) continue;
+            const sp = Math.hypot(pr.vx, pr.vy) || 1;
+            if ((rx * pr.vx + ry * pr.vy) / (rd * sp) < 0.92) continue;
+            e.dodgeCd = rand(2.5, 4.5) / (1 + e.rage * 0.3);
+            if (Math.random() < (isBoss(e) ? 0.45 : e.def.kind === 'human' ? 0.4 : 0.28)) {
+              const side = Math.random() < 0.5 ? 1 : -1;
+              e.kx += -pr.vy / sp * side * 620; e.ky += pr.vx / sp * side * 420;
+              this.texts.push({ x: e.x, y: e.y - 110, s: '闪', color: '#d8e8ff', t: 0, vy: -40 });
+              this.sparks.push({ x: e.x, y: e.y - 40, vx: pr.vy / sp * side * 200, vy: -pr.vx / sp * side * 120, t: 0, max: 0.3, size: 6, color: '220,230,255' });
+            }
+            break;
+          }
+        }
+        if (!e.flee && this.foe.tick(e, dt, tx, ty, dist)) { e.windup = 0; }
+        else if (e.windup > 0) {
           e.windup -= dt; e.anim.atk = 1 - e.windup / 0.4;
           if (e.windup <= 0) {
             e.anim.atk = 0;
@@ -1101,12 +1141,16 @@ export class Combat {
         } else {
           // 追击 / 保持距离
           const want = r && !m ? r.range * 0.6 : (m?.range ?? 60) * 0.8;
-          if (dist > want) { mvx = dx / dist; mvy = dy / dist; }
+          if (dist > want) {
+            mvx = dx / dist; mvy = dy / dist;
+            // 近战群敌：分头包抄，而不是排成一列直冲
+            if (m && dist > want * 1.6 && dist < 700) { const off = ((e.id % 5) - 2) * 0.45 * Math.min(1, (dist - want) / 300), cs = Math.cos(off), sn = Math.sin(off); const ax = mvx * cs - mvy * sn; mvy = mvx * sn + mvy * cs; mvx = ax; }
+          }
           else if (r && !m && dist < want * 0.6) { mvx = -dx / dist * 0.6; mvy = -dy / dist * 0.6; }
           // 侧移
           if (r && !m) { const side = Math.sin(e.anim.t * 0.8 + e.id * 10); mvx += -dy / (dist || 1) * side * 0.5; mvy += dx / (dist || 1) * side * 0.5; }
         }
-        if (e.windup <= 0) e.anim.atk = Math.max(0, e.anim.atk - dt * 3);
+        if (e.windup <= 0 && !e.cast) e.anim.atk = Math.max(0, e.anim.atk - dt * 3);
       } else {
         // 游荡
         e.wanderT -= dt;
