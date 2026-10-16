@@ -17434,6 +17434,582 @@
         384,
         652
       ]
+    },
+    {
+      "file": "artifacts/art_almbowl.png",
+      "type": "artifact",
+      "id": "art_almbowl",
+      "orient": "up",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_axe.png",
+      "type": "artifact",
+      "id": "art_axe",
+      "orient": "right",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_baigu_shield.png",
+      "type": "artifact",
+      "id": "art_baigu_shield",
+      "orient": "up",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "artifacts/art_banner.png",
+      "type": "artifact",
+      "id": "art_banner",
+      "orient": "up",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_beads.png",
+      "type": "artifact",
+      "id": "art_beads",
+      "orient": "up",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_bell.png",
+      "type": "artifact",
+      "id": "art_bell",
+      "orient": "up",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_blade_broad.png",
+      "type": "artifact",
+      "id": "art_blade_broad",
+      "orient": "right",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_blood_cloak.png",
+      "type": "artifact",
+      "id": "art_blood_cloak",
+      "orient": "up",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "artifacts/art_cloud_ride.png",
+      "type": "artifact",
+      "id": "art_cloud_ride",
+      "orient": "right",
+      "width": 512,
+      "height": 256,
+      "anchor": [
+        256,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_dayan.png",
+      "type": "artifact",
+      "id": "art_dayan",
+      "orient": "up",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "artifacts/art_fenglei.png",
+      "type": "artifact",
+      "id": "art_fenglei",
+      "orient": "up",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "artifacts/art_flying_sword_ride.png",
+      "type": "artifact",
+      "id": "art_flying_sword_ride",
+      "orient": "right",
+      "width": 512,
+      "height": 192,
+      "anchor": [
+        256,
+        96
+      ]
+    },
+    {
+      "file": "artifacts/art_gourd.png",
+      "type": "artifact",
+      "id": "art_gourd",
+      "orient": "up",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_guiwu_luo.png",
+      "type": "artifact",
+      "id": "art_guiwu_luo",
+      "orient": "up",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "artifacts/art_halberd.png",
+      "type": "artifact",
+      "id": "art_halberd",
+      "orient": "right",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_hammer.png",
+      "type": "artifact",
+      "id": "art_hammer",
+      "orient": "right",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_huazhen.png",
+      "type": "artifact",
+      "id": "art_huazhen",
+      "orient": "up",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "artifacts/art_huergu.png",
+      "type": "artifact",
+      "id": "art_huergu",
+      "orient": "right",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_jinguangzhuan.png",
+      "type": "artifact",
+      "id": "art_jinguangzhuan",
+      "orient": "right",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_jinlei_bamboo.png",
+      "type": "artifact",
+      "id": "art_jinlei_bamboo",
+      "orient": "right",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_leaf_boat.png",
+      "type": "artifact",
+      "id": "art_leaf_boat",
+      "orient": "right",
+      "width": 512,
+      "height": 256,
+      "anchor": [
+        256,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_needle.png",
+      "type": "artifact",
+      "id": "art_needle",
+      "orient": "right",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_net.png",
+      "type": "artifact",
+      "id": "art_net",
+      "orient": "up",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "artifacts/art_pagoda.png",
+      "type": "artifact",
+      "id": "art_pagoda",
+      "orient": "up",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_pingtian_ruler.png",
+      "type": "artifact",
+      "id": "art_pingtian_ruler",
+      "orient": "right",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_qingzhu.png",
+      "type": "artifact",
+      "id": "art_qingzhu",
+      "orient": "right",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "artifacts/art_qingzhu_swarm.png",
+      "type": "artifact",
+      "id": "art_qingzhu_swarm",
+      "orient": "right",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "artifacts/art_qiyan_shan.png",
+      "type": "artifact",
+      "id": "art_qiyan_shan",
+      "orient": "up",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "artifacts/art_seal.png",
+      "type": "artifact",
+      "id": "art_seal",
+      "orient": "up",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_shenfeng.png",
+      "type": "artifact",
+      "id": "art_shenfeng",
+      "orient": "right",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "artifacts/art_shenfeng_ride.png",
+      "type": "artifact",
+      "id": "art_shenfeng_ride",
+      "orient": "right",
+      "width": 768,
+      "height": 512,
+      "anchor": [
+        384,
+        256
+      ]
+    },
+    {
+      "file": "artifacts/art_silk.png",
+      "type": "artifact",
+      "id": "art_silk",
+      "orient": "right",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_spear.png",
+      "type": "artifact",
+      "id": "art_spear",
+      "orient": "right",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_sword_dark.png",
+      "type": "artifact",
+      "id": "art_sword_dark",
+      "orient": "right",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_sword_fire.png",
+      "type": "artifact",
+      "id": "art_sword_fire",
+      "orient": "right",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_sword_gold.png",
+      "type": "artifact",
+      "id": "art_sword_gold",
+      "orient": "right",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_sword_ice.png",
+      "type": "artifact",
+      "id": "art_sword_ice",
+      "orient": "right",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_sword_iron.png",
+      "type": "artifact",
+      "id": "art_sword_iron",
+      "orient": "right",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_umbrella.png",
+      "type": "artifact",
+      "id": "art_umbrella",
+      "orient": "up",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "artifacts/art_wheel.png",
+      "type": "artifact",
+      "id": "art_wheel",
+      "orient": "up",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_wuguang_arrow.png",
+      "type": "artifact",
+      "id": "art_wuguang_arrow",
+      "orient": "right",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_wuxing.png",
+      "type": "artifact",
+      "id": "art_wuxing",
+      "orient": "up",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "artifacts/art_xuanhuang.png",
+      "type": "artifact",
+      "id": "art_xuanhuang",
+      "orient": "up",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "artifacts/art_xutian.png",
+      "type": "artifact",
+      "id": "art_xutian",
+      "orient": "up",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "artifacts/art_yinzhong.png",
+      "type": "artifact",
+      "id": "art_yinzhong",
+      "orient": "up",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "artifacts/art_zhangtian.png",
+      "type": "artifact",
+      "id": "art_zhangtian",
+      "orient": "up",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "artifacts/art_zhenqi.png",
+      "type": "artifact",
+      "id": "art_zhenqi",
+      "orient": "up",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
+    },
+    {
+      "file": "artifacts/art_ziren.png",
+      "type": "artifact",
+      "id": "art_ziren",
+      "orient": "right",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        128
+      ]
     }
   ]
 }

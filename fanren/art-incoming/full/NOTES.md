@@ -16,3 +16,7 @@
 - **清理全部假动作帧**：删除全部程序仿射缩放生成的假 `*_attack.png` 与 `amb_*_walk.png`（仅保留 1b 原生 `wolf_attack.png`、`mojiao_attack.png`、`yinhun_attack.png`），删除不在任务书附录 B 中的自造 ID。
 - **重画 12 只错画妖兽 + 3 只灵宠/召唤物**：将原金色 `dujiao_idle.png` 改名为 `python_idle.png`（金冠巨蟒），全新绘制紫黑色 `dujiao_idle.png`（独角蟒）、`icebear_idle.png`（冰原白熊）、`mangshou_idle.png`（莽兽）、`spider_idle.png`（赤火蛛）、`centipede_idle.png`（百足魔蚣）、`bloodbat_idle.png`（血蝠）、`yinchi_idle.png`（银翅夜叉）、`fengxi_idle.png`（风希裂风兽）、`shuanggong_idle.png`（双首白玉蜈蚣）、`guijiang_idle.png`（鬼将）、`mo_soul_idle.png`（魔魂）、`yu_soul_idle.png`（元婴残魂），以及 `pet_ape_idle.png`（啼魂小猴）、`sum_tihun_idle.png`（啼魂三目巨猿）、`sum_xuanwu_idle.png`（玄武龟蛇虚影）。
 - **补齐附录 B 全部 42 个缺号妖兽**：B.1 凡兽与山精 9 只（`boar`~`horned_wolf`）、B.2 天南妖兽 12 只（`tiebei`~`heisha_guard`）、B.3 乱星海海兽 11 只（`iron_crab`~`huajing_shark`）、B.4 大晋与北冥 10 只（`snow_wolf`~`true_demon`）。
+
+## Rework Batch R3 — 法宝与飞行器 (`artifacts/` 48 张)
+- **保留 6 张通过法宝**：`art_qingzhu.png`（已按要求旋转为水平剑尖朝右）、`art_wuxing.png`、`art_shenfeng.png`、`art_shenfeng_ride.png`、`art_yinzhong.png`、`art_zhangtian.png`。
+- **重画其余全部 42 张法宝**：逐一对照任务书 F1~F3 表格绘制（`art_xutian` 三足两耳虚天鼎、`art_jinguangzhuan` 金光砖、`art_wuguang_arrow` 乌光箭、`art_huergu/ziren` 金蚨子母刃、`art_dayan` 傀儡核、`art_huazhen` 颠倒五行阵盘、`art_zhenqi` 无字通用阵旗等），彻底消除重复凑数文件，所有飞剑/刀/枪/戟/针/箭/尺统一水平横放尖端朝右并在 `manifest.json` 标注 `orient`。
