@@ -4,6 +4,7 @@ import { bldTex } from '../gfx/bldTex';
 import { CharState, drawCharacter, drawSwordUnderFeet, randomLook, Look, NpcRole } from '../gfx/character';
 import { LOCATIONS, WORLD_SCALE } from '../data/world';
 import { clamp } from '../core/rng';
+import { drawAmb } from '../gfx/ambTex';
 
 type G = CanvasRenderingContext2D;
 const TAU = Math.PI * 2;
@@ -28,7 +29,7 @@ abstract class Ent {
 class Flock extends Ent {
   kind = 'flock';
   vx: number; vy: number; birds: { ox: number; oy: number; ph: number }[] = []; alt: number; life = 0; size: number;
-  constructor(x: number, y: number, ang: number, crane = false) {
+  constructor(x: number, y: number, ang: number, crane = false, gull = false) {
     super(); this.x = x; this.y = y;
     const sp = crane ? rand(60, 90) : rand(110, 170);
     this.vx = Math.cos(ang) * sp; this.vy = Math.sin(ang) * sp * 0.6;
@@ -41,6 +42,13 @@ class Flock extends Ent {
       this.birds.push(v ? { ox: -k * 34, oy: side * k * 26, ph: Math.random() * TAU } : { ox: rand(-90, 90), oy: rand(-60, 60), ph: Math.random() * TAU });
     }
     if (crane) this.kind = 'crane';
+    if (gull) {
+      // 海鸥：海边三五只，低空盘旋般斜掠
+      this.kind = 'gull'; this.alt = rand(140, 240); this.size = 0.9; this.birds = [];
+      const sp = rand(70, 110); this.vx = Math.cos(ang) * sp; this.vy = Math.sin(ang) * sp * 0.6;
+      const m = 2 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < m; i++) this.birds.push({ ox: rand(-140, 140), oy: rand(-90, 90), ph: Math.random() * TAU });
+    }
   }
   update(dt: number) { this.x += this.vx * dt; this.y += this.vy * dt; this.life += dt; if (this.life > 60) this.dead = true; }
   private pos(b: { ox: number; oy: number }) {
@@ -59,6 +67,12 @@ class Flock extends Ent {
       const f = Math.sin(t * (crane ? 3.2 : 9) + b.ph);
       const S = crane ? 1.5 : 1;
       const dir = this.vx >= 0 ? 1 : -1;
+      // 第二十五步：仙鹤用贴图，振翅靠纵向伸缩 + 身形微起伏
+      if (this.kind === 'gull') {
+        const fl = 0.5 + 0.5 * Math.sin(t * 2.6 + b.ph);
+        if (drawAmb(g, 'seagull', x, y + Math.sin(t * 0.9 + b.ph) * 12, { flip: dir < 0, s: 0.8, sy: 0.7 + 0.32 * fl, rot: dir * 0.12 * Math.sin(t * 0.7 + b.ph), ay: 0.5 })) continue;
+      }
+      if (crane && drawAmb(g, 'crane_fly', x, y, { flip: dir < 0, s: 0.95, sy: 0.78 + 0.24 * (0.5 + 0.5 * Math.sin(t * 3.2 + b.ph)), rot: dir * 0.04 * Math.sin(t * 1.1 + b.ph), ay: 0.5 })) continue;
       if (crane) {
         // 仙鹤：白身、黑翅尖、长颈红顶
         g.strokeStyle = '#f6f4ee'; g.lineWidth = 5 * S; g.lineCap = 'round';
@@ -83,37 +97,89 @@ class Flock extends Ent {
   }
 }
 
-// ---------------- 鹿 / 兔（受惊逃窜）----------------
+// ---------------- 野外走兽 / 涉禽（受惊逃窜；鹤与鹭受惊振翅飞走）----------------
+type CritKind = 'deer' | 'rabbit' | 'snowfox' | 'monkey' | 'egret' | 'crane' | 'camel' | 'yak' | 'turtle' | 'chicken' | 'dog' | 'ox' | 'sheep' | 'horse' | 'duck';
+// 每种的脾性：踱步速度、受惊距离、逃窜速度、投影大小、贴图名、步态起伏幅度、是否会飞
+const CRIT: Record<CritKind, { sp: number; scare: number; fs: number; sh: number; tex: string; bob: number; hop?: boolean; fly?: boolean }> = {
+  deer: { sp: 70, scare: 260, fs: 330, sh: 22, tex: 'deer', bob: 4 },
+  rabbit: { sp: 50, scare: 170, fs: 260, sh: 10, tex: 'rabbit', bob: 9, hop: true },
+  snowfox: { sp: 60, scare: 220, fs: 300, sh: 16, tex: 'snowfox', bob: 3 },
+  monkey: { sp: 60, scare: 200, fs: 280, sh: 14, tex: 'monkey', bob: 6, hop: true },
+  egret: { sp: 26, scare: 230, fs: 0, sh: 12, tex: 'egret', bob: 1.5, fly: true },
+  crane: { sp: 24, scare: 250, fs: 0, sh: 13, tex: 'crane_idle', bob: 1.5, fly: true },
+  camel: { sp: 40, scare: 150, fs: 160, sh: 40, tex: 'camel', bob: 3 },
+  yak: { sp: 34, scare: 150, fs: 170, sh: 34, tex: 'yak', bob: 2.5 },
+  turtle: { sp: 8, scare: 90, fs: 14, sh: 12, tex: 'turtle', bob: 0.5 },
+  // 城镇村落外的家畜：不怕人，只略略让开
+  chicken: { sp: 30, scare: 90, fs: 120, sh: 9, tex: 'chicken', bob: 3, hop: true },
+  dog: { sp: 55, scare: 0, fs: 0, sh: 15, tex: 'dog', bob: 3 },
+  ox: { sp: 22, scare: 0, fs: 0, sh: 36, tex: 'ox', bob: 2 },
+  sheep: { sp: 28, scare: 100, fs: 110, sh: 20, tex: 'sheep', bob: 2.5 },
+  horse: { sp: 40, scare: 120, fs: 180, sh: 34, tex: 'horse', bob: 3 },
+  duck: { sp: 20, scare: 110, fs: 80, sh: 12, tex: 'duck', bob: 1.5 },
+};
 class Critter extends Ent {
-  vx = 0; vy = 0; t = 0; wait = rand(0.5, 3); flee = 0; dir = 1; hop = 0;
-  constructor(x: number, y: number, kind: 'deer' | 'rabbit') { super(); this.x = x; this.y = y; this.kind = kind; }
+  vx = 0; vy = 0; t = Math.random() * 10; wait = rand(0.5, 3); flee = 0; dir = Math.random() < 0.5 ? -1 : 1; hop = 0; alt = 0;
+  constructor(x: number, y: number, kind: CritKind) { super(); this.x = x; this.y = y; this.kind = kind; }
+  get c() { return CRIT[this.kind as CritKind]; }
   update(dt: number, gm: Game) {
     this.t += dt;
-    const p = gm.player;
+    const p = gm.player, C = this.c;
     const d = Math.hypot(this.x - p.x, this.y - p.y);
-    const sp = this.kind === 'deer' ? 70 : 50;
-    if (d < (this.kind === 'deer' ? 260 : 170) && this.flee <= 0) {
+    if (d < C.scare && this.flee <= 0 && this.alt === 0) {
       this.flee = rand(1.6, 2.6);
       const a = Math.atan2(this.y - p.y, this.x - p.x) + rand(-0.4, 0.4);
-      const fs = this.kind === 'deer' ? 330 : 260;
+      const fs = C.fly ? 150 : C.fs;
       this.vx = Math.cos(a) * fs; this.vy = Math.sin(a) * fs;
+      if (C.fly) this.alt = 0.01;
+    }
+    if (this.alt > 0) {
+      // 振翅而起，越飞越高，飞出视野便散去
+      this.alt += dt * (60 + this.alt * 0.9); this.vx *= 1 + dt * 0.4; this.vy *= 1 + dt * 0.4;
+      this.x += this.vx * dt; this.y += this.vy * dt;
+      if (Math.abs(this.vx) > 1) this.dir = this.vx > 0 ? 1 : -1;
+      if (this.alt > 700) this.dead = true;
+      return;
     }
     if (this.flee > 0) { this.flee -= dt; if (this.flee <= 0) { this.vx = this.vy = 0; this.wait = rand(1, 3); } }
     else {
       this.wait -= dt;
       if (this.wait <= 0) {
         if (this.vx || this.vy) { this.vx = this.vy = 0; this.wait = rand(1.5, 5); }
-        else { const a = Math.random() * TAU; this.vx = Math.cos(a) * sp; this.vy = Math.sin(a) * sp * 0.7; this.wait = rand(0.8, 2.4); }
+        else { const a = Math.random() * TAU; this.vx = Math.cos(a) * C.sp; this.vy = Math.sin(a) * C.sp * 0.7; this.wait = rand(0.8, 2.4); }
       }
     }
     const nx = this.x + this.vx * dt, ny = this.y + this.vy * dt;
-    if (gm.terrain.isLand(nx, ny)) { this.x = nx; this.y = ny; } else { this.vx = -this.vx; this.vy = -this.vy; }
+    if (gm.terrain.isLand(nx, ny) || C.fly) { this.x = nx; this.y = ny; } else { this.vx = -this.vx; this.vy = -this.vy; }
     if (Math.abs(this.vx) > 1) this.dir = this.vx > 0 ? 1 : -1;
     const moving = Math.abs(this.vx) + Math.abs(this.vy) > 1;
     this.hop = moving ? this.hop + dt * (this.flee > 0 ? 14 : 8) : 0;
     if (d > 3200) this.dead = true;
   }
+  /** 贴图版：步态起伏、跳跃落地压缩、站立呼吸、振翅飞走 */
+  private drawTex(g: G): boolean {
+    const C = this.c, x = this.x, y = this.y, flip = this.dir < 0;
+    if (this.alt > 0) {
+      // 起飞：地上投影渐小，鸟身振翅上升
+      const k = Math.min(1, this.alt / 300);
+      g.fillStyle = `rgba(40,40,30,${0.2 * (1 - k * 0.7)})`; g.beginPath(); g.ellipse(x, y, C.sh * (1 - k * 0.4), C.sh * 0.3 * (1 - k * 0.4), 0, 0, TAU); g.fill();
+      const f = Math.sin(this.t * 13);
+      return drawAmb(g, 'crane_fly', x, y - this.alt * 0.6 - 10, { flip, s: this.kind === 'egret' ? 0.7 : 0.85, sy: 0.82 + 0.2 * f, rot: (flip ? 1 : -1) * 0.12 * Math.min(1, this.alt / 80), ay: 0.5 });
+    }
+    const moving = this.hop > 0;
+    let lift = 0, sx = 1, sy = 1, rot = 0;
+    if (moving) {
+      const ph = Math.sin(this.hop);
+      if (C.hop) { const a = Math.abs(ph); lift = a * C.bob * (this.flee > 0 ? 1.4 : 1); if (a < 0.25) { sx = 1.06; sy = 0.92; } else { sx = 0.97; sy = 1.04; } rot = (flip ? -1 : 1) * -0.12 * Math.cos(this.hop); }
+      else { lift = Math.abs(ph) * C.bob * (this.flee > 0 ? 1.5 : 1); rot = ph * 0.035; if (this.flee > 0) rot += (flip ? 0.06 : -0.06); }
+    } else { sy = 1 + 0.012 * Math.sin(this.t * 2.2); sx = 1 - 0.006 * Math.sin(this.t * 2.2); }
+    const sh = C.sh * (1 - lift / 40);
+    g.fillStyle = 'rgba(40,40,30,0.22)'; g.beginPath(); g.ellipse(x, y, sh, sh * 0.28, 0, 0, TAU); g.fill();
+    return drawAmb(g, C.tex, x, y - lift + 2, { flip, sx, sy, rot });
+  }
   drawGround(g: G, t: number) {
+    if (this.drawTex(g)) return;
+    if (this.kind !== 'deer' && this.kind !== 'rabbit') return;
     const x = this.x, y = this.y, s = this.dir;
     const moving = this.hop > 0;
     g.fillStyle = 'rgba(40,40,30,0.22)'; g.beginPath(); g.ellipse(x, y, this.kind === 'deer' ? 22 : 10, this.kind === 'deer' ? 6 : 3.5, 0, 0, TAU); g.fill();
@@ -175,7 +241,7 @@ class Firefly extends Ent {
 
 // ---------------- 鱼跃 ----------------
 class FishJump extends Ent {
-  kind = 'fish'; t = 0; dir = Math.random() < 0.5 ? -1 : 1;
+  kind = 'fish'; t = 0; dir = Math.random() < 0.5 ? -1 : 1; carp = Math.random() < 0.5 ? 'carp_a' : 'carp_b';
   constructor(x: number, y: number) { super(); this.x = x; this.y = y; }
   update(dt: number) { this.t += dt; if (this.t > 2.2) this.dead = true; }
   drawShadow(g: G) {
@@ -186,6 +252,8 @@ class FishJump extends Ent {
     if (this.t < 0.8) {
       const u = this.t / 0.8;
       const fx = this.x + (u - 0.5) * 40 * this.dir, fy = this.y - Math.sin(u * Math.PI) * 34;
+      // 第二十五步：锦鲤贴图，沿抛物线转身
+      if (drawAmb(g, this.carp, fx, fy, { flip: this.dir < 0, rot: (u - 0.5) * 2.0 * this.dir, ay: 0.5 })) return;
       g.fillStyle = '#c8a050';
       g.save(); g.translate(fx, fy); g.rotate((u - 0.5) * 2.4 * this.dir);
       g.beginPath(); g.ellipse(0, 0, 8, 3, 0, 0, TAU); g.fill();
@@ -361,6 +429,8 @@ export class Life {
       this.glowImg = c;
     }
   }
+  /** 调试：在主角周围放几只走兽（看比例） */
+  debugCritters(kinds: string[], x: number, y: number) { for (let i = this.ents.length - 1; i >= 0; i--) if (this.ents[i] instanceof Critter) this.ents.splice(i, 1); if (kinds[0] === 'gull') { const f = new Flock(x - 200, y + 150, 0, false, true); f.vx = 8; f.vy = 0; this.ents.push(f); return; } kinds.forEach((k, i) => { const c = new Critter(x - 330 + (i % 5) * 160, y - 120 + Math.floor(i / 5) * 170, k as CritKind); c.wait = 99; this.ents.push(c); }); }
   private count(kind: string) { let n = 0; for (const e of this.ents) if (e.kind === kind) n++; return n; }
   private every(key: string, dt: number, period: number) {
     this.timers[key] = (this.timers[key] ?? Math.random() * period) - dt;
@@ -379,6 +449,15 @@ export class Life {
       const sx = p.x - Math.cos(a) * (vw * 0.7 + 300), sy = p.y - Math.sin(a) * (vh * 0.7 + 300);
       this.ents.push(new Flock(sx, sy, a + rand(-0.3, 0.3)));
     }
+    // 海鸥：岸边或海上（四周有海水）
+    if (this.every('gull', dt, 8) && this.count('gull') < 2 && night < 0.5 && !rainy) {
+      let sea = 0;
+      for (let k = 0; k < 6; k++) { const a = (k / 6) * TAU; if (!T.isLand(p.x + Math.cos(a) * 1400, p.y + Math.sin(a) * 1400) && !T.nearRiver(p.x + Math.cos(a) * 1400, p.y + Math.sin(a) * 1400)) sea++; }
+      if (sea >= 2) {
+        const a = Math.random() * TAU;
+        this.ents.push(new Flock(p.x - Math.cos(a) * (vw * 0.6 + 200), p.y - Math.sin(a) * (vh * 0.6 + 200), a, false, true));
+      }
+    }
     // 仙鹤：宗门/高山附近
     if (this.every('crane', dt, 9) && this.count('crane') < 2 && night < 0.5) {
       const s = T.sample(p.x, p.y);
@@ -395,13 +474,30 @@ export class Life {
     }
     if (!zoomedOut) {
       // 鹿兔
-      if (this.every('critter', dt, 2.5) && this.count('deer') + this.count('rabbit') < 6) {
+      let nCrit = 0; for (const e of this.ents) if (e instanceof Critter) nCrit++;
+      if (this.every('critter', dt, 2.5) && nCrit < 7) {
         const x = rand(view.left, view.right), y = rand(view.top, view.bottom);
         const s = T.sample(x, y);
         const outOfView = Math.abs(x - p.x) > 300 || Math.abs(y - p.y) > 300;
-        if (outOfView && T.isLand(x, y) && !T.inLocZone(x, y, 200) && s.elev < 0.6 && s.cold < 0.7 && s.arid < 0.8) {
-          if (s.forest > 0.35 && Math.random() < 0.6) this.ents.push(new Critter(x, y, 'deer'));
-          else if (Math.random() < 0.7) this.ents.push(new Critter(x, y, 'rabbit'));
+        const town = outOfView && T.isLand(x, y) && !T.inLocZone(x, y, 200) && T.inLocZone(x, y, 900) && LOCATIONS.some((l) => (l.type === 'town' || l.type === 'city' || l.type === 'isle') && Math.hypot(l.x * WORLD_SCALE - x, l.y * WORLD_SCALE - y) < 4500);
+        if (town) {
+          // 城镇村落外：鸡、狗、牛、羊、马，水边有鸭（草原多马羊，雪地多牦牛）
+          const r = Math.random(), add = (k: CritKind) => this.ents.push(new Critter(x, y, k));
+          if (T.nearRiver(x, y) && r < 0.4) add('duck');
+          else if (s.cold >= 0.6) add(r < 0.6 ? 'yak' : 'dog');
+          else if (s.arid >= 0.6) add(r < 0.45 ? 'sheep' : r < 0.8 ? 'horse' : 'camel');
+          else add(r < 0.3 ? 'chicken' : r < 0.5 ? 'dog' : r < 0.7 ? 'ox' : r < 0.88 ? 'sheep' : 'horse');
+        } else if (outOfView && T.isLand(x, y) && !T.inLocZone(x, y, 200) && s.elev < 0.9) {
+          const r = Math.random();
+          const add = (k: CritKind) => this.ents.push(new Critter(x, y, k));
+          if (T.nearRiver(x, y) && s.cold < 0.6 && r < 0.45) add(r < 0.2 ? 'crane' : r < 0.4 ? 'egret' : 'turtle');   // 水边：鹤、白鹭、龟
+          else if (s.cold >= 0.6) { if (s.elev > 0.35 && r < 0.4) add('yak'); else if (r < 0.75) add('snowfox'); }   // 雪地：牦牛、雪狐
+          else if (s.arid >= 0.75) { if (r < 0.45) add('camel'); }                                                    // 荒漠：骆驼
+          else if (s.elev < 0.6) {
+            if (s.forest > 0.5 && s.elev > 0.3 && r < 0.25) add('monkey');                                           // 山林：猴
+            else if (s.forest > 0.35 && r < 0.6) add('deer');
+            else if (r < 0.7) add('rabbit');
+          }
         }
       }
       // 蝴蝶（春夏白天）
