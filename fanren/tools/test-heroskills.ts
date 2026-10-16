@@ -17,7 +17,7 @@ g.teleport(l.x * WORLD_SCALE + 900, l.y * WORLD_SCALE + 600);
 const cv: any = createCanvas(CW, CH); cv.clientWidth = CW; cv.clientHeight = CH; cv.getBoundingClientRect = () => ({ left: 0, top: 0, width: CW, height: CH });
 g.canvas = cv; g.renderer = new Renderer(g, cv); (g as any).paused = false;
 const spawn = () => ['wolf', 'wolf', 'redwolf', 'boar', 'wolf'].forEach((id, i) => { const a = i / 5 * Math.PI * 2; const e = new Enemy(ENEMIES[id], g.player.x + 300 + Math.cos(a) * 140, g.player.y + Math.sin(a) * 90, 1, 3); e.aggro = true; e.skT = 99; g.combat.enemies.push(e); });
-for (const id of (process.argv[2] || 'dageng,shijin,fengleichi,leidun,bixie,hutijiandun,xueyingdun').split(',')) {
+for (const id of (process.argv[2] || 'dageng,shijin,fengleichi,leidun,bixie,hutijiandun,xueyingdun,jianying,xutianding,dongxuan,dayanchong').split(',')) {
   g.combat.enemies = []; spawn();
   const t0 = Date.now();
   g.debugExec(id, 3);

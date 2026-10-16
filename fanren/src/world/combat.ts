@@ -16,6 +16,7 @@ import type { FxEvent } from '../gl/combatgl';
 import { ArtActs, lookOf } from './artacts';
 import { FoeAI, FoeSkill, isBoss } from './foeskills';
 import { DagengAct } from './dageng';
+import { spawnHeroAct } from './heroacts';
 import { Swarm } from './swarm';
 
 /** 各系命中光色 */
@@ -322,6 +323,8 @@ export class Combat {
     const count = s.count === undefined ? (s.lvCount ? s.lvCount[lv] : 1) : s.count + (s.lvCount ? s.lvCount[lv] - s.lvCount[0] : 0);
     const ox = p.x + a.dx * 26, oy = p.y - 46 + a.dy * 10;
     const base = { fac: 'p' as const, fx: s.fx, color: s.color, realm, status: s.status, stCh, school: s.school, evil: s.vsEvil, lv, skill: s.id };
+    // 第三十步：剑影分光术 / 虚天鼎 / 洞漩金光 / 大衍神识冲击——专属特效接管
+    if (spawnHeroAct(this, s, lv, dmg, base, a, radius, count)) return;
     switch (s.cast) {
       case 'bolt': case 'fan': {
         const n = Math.max(1, count);
@@ -396,12 +399,13 @@ export class Combat {
         let k = 1;
         while (cur && jumps-- > 0) {
           hit.add(cur.id);
-          this.vfx.push({ kind: 'chain', x: from.x, y: from.y, x2: cur.x, y2: cur.y - 30, r: 0, t: 0, dur: s.fx === 'goldthunder' ? 0.45 : 0.35, color: s.color, fx: s.fx, seed: Math.random() * 1e6, w: 2 + lv });
-          if (s.fx === 'goldthunder') this.impact(cur.x, cur.y, k > 0.9 ? 2 : 1, s.color);
+          this.vfx.push({ kind: 'chain', x: from.x, y: from.y, x2: cur.x, y2: cur.y - 30, r: 0, t: 0, dur: s.fx === 'goldthunder' ? 0.55 : 0.35, color: s.color, fx: s.fx, seed: Math.random() * 1e6, w: s.id === 'bixie' ? 5 + lv * 1.5 : 2 + lv });
+          if (s.id === 'bixie') this.vfx.push({ kind: 'chain', x: from.x, y: from.y, x2: cur.x, y2: cur.y - 30, r: 0, t: 0, dur: 0.4, color: '255,250,220', fx: s.fx, seed: Math.random() * 1e6, w: 2 + lv });
+          if (s.fx === 'goldthunder') this.impact(cur.x, cur.y, s.id === 'bixie' ? (k > 0.9 || lv >= 2 ? 3 : 2) : k > 0.9 ? 2 : 1, s.color);
           this.hitEnemy(cur, dmg * k, base, from.x, from.y);
           k *= 0.85;
           from = { x: cur.x, y: cur.y - 30 };
-          cur = this.nearest(cur.x, cur.y, 380, hit);
+          cur = this.nearest(cur.x, cur.y, s.id === 'bixie' ? 560 : 380, hit);
         }
         if (hit.size === 0) this.vfx.push({ kind: 'chain', x: from.x, y: from.y, x2: a.x, y2: a.y, r: 0, t: 0, dur: 0.3, color: s.color, seed: Math.random() * 1e6, w: 2 });
         break;
@@ -411,7 +415,7 @@ export class Combat {
           // 第二十八步：大庚剑阵（三段式，见 dageng.ts）
           const d = Math.min(s.range, Math.hypot(a.x - p.x, a.y - p.y));
           const art = itemDef('art_qingzhu').art!, L = lookOf('art_qingzhu');
-          this.acts.list.push(new DagengAct(this, { itemId: 'art_qingzhu', art, L, cc: [1, 0.86, 0.45], dmg, src: base, pieces: 36 + lv * 12, ax: a.x, ay: a.y, target: a.target }, p.x + a.dx * d, p.y + a.dy * d + 20, radius * 1.6, lv));
+          this.acts.list.push(new DagengAct(this, { itemId: 'art_qingzhu', art, L, cc: [1, 0.86, 0.45], dmg, src: base, pieces: 52 + lv * 18, ax: a.x, ay: a.y, target: a.target }, p.x + a.dx * d, p.y + a.dy * d + 20, radius * 2.35, lv));   // 第三十步：剑阵放大约 1.5 倍
           break;
         }
         const self = s.id === 'juling';
@@ -482,14 +486,14 @@ export class Combat {
         if (s.id === 'xueyingdun' || s.id === 'xuedun' || s.id === 'xueying') { this.fxq.push({ k: 'xueying', x: ox, y: oy, x2: p.x, y2: p.y, big: s.id === 'xueyingdun' }); this.game.juice(0.04, 0.35); audio.sfx('boom'); }
         // 第二十八步：雷遁——一路雷光残影，两端雷爆；血遁——血色残影
         if (s.id === 'leidun') {
-          this.addGhosts(ox, oy, p.x, p.y, 7, '170,200,255', 0.5);
-          for (let i = 0; i < 2; i++) this.vfx.push({ kind: 'chain', x: ox, y: oy - 50, x2: p.x, y2: p.y - 50, r: 0, t: 0, dur: 0.35, color: '200,215,255', seed: Math.random() * 1e6, w: 2 + i * 2 });
-          this.impact(p.x, p.y, 2, '170,200,255');
-          if (lv >= 1) this.impact(ox, oy, 1, '170,200,255');
+          this.addGhosts(ox, oy, p.x, p.y, 10, '170,200,255', 0.6);
+          for (let i = 0; i < 3; i++) this.vfx.push({ kind: 'chain', x: ox, y: oy - 50, x2: p.x, y2: p.y - 50, r: 0, t: 0, dur: 0.35, color: '200,215,255', seed: Math.random() * 1e6, w: 2 + i * 2 });
+          this.impact(p.x, p.y, 3, '170,200,255');
+          if (lv >= 1) this.impact(ox, oy, 2, '170,200,255');
           audio.sfx('thunder');
         } else if (s.id === 'xueyingdun' || s.id === 'xuedun' || s.id === 'xueying') {
-          this.addGhosts(ox, oy, p.x, p.y, s.id === 'xueying' ? 4 : 6, '230,40,55', 0.55);
-          if (s.id === 'xueyingdun') this.impact(ox, oy, 2, '220,40,50');
+          this.addGhosts(ox, oy, p.x, p.y, s.id === 'xueying' ? 4 : s.id === 'xueyingdun' ? 10 : 6, '230,40,55', 0.55);
+          if (s.id === 'xueyingdun') { this.impact(ox, oy, 3, '220,40,50'); this.impact(p.x, p.y, 2, '220,40,50'); }
         }
         this.invulnT = 0.3;
         break;
@@ -511,7 +515,7 @@ export class Combat {
           for (const e of this.enemies) {
             if (e.dead) continue;
             const dx = e.x - p.x, dy = e.y - p.y, d = Math.hypot(dx, dy) || 1;
-            if (d > 300) continue;
+            if (d > 460 + lv * 40) continue;   // 第三十步：振翅震退范围扩大
             this.hitEnemy(e, atk * (0.8 + lv * 0.3), { ...base, status: { k: 'shock', dur: 0.8, ch: 0.7 }, stCh: 0.7 }, p.x, p.y - 60);
             e.kx += dx / d * 900; e.ky += dy / d * 560;
           }
@@ -535,9 +539,9 @@ export class Combat {
         const sm = s.summon!;
         if (sm.kind === 'bugs') {
           // 第二十八步：虫群——数量随熟练度，成长阶段随熟练度（银 → 金斑 → 三色 → 纯金）
-          const n = 90 + lv * 50;
+          const n = 130 + lv * 70;   // 第三十步：虫群更大
           if (this.swarm) this.swarm.mode = 'recall';
-          this.swarm = new Swarm(this, { n, max: Math.min(460, n * 2), stage: Math.min(3, lv), life: (s.dur ?? 16) * (1 + lv * 0.1), dmg: dmg * (1 + lv * 0.3), src: base }, () => this.game.player);
+          this.swarm = new Swarm(this, { n, max: Math.min(640, n * 2), stage: Math.min(3, lv), life: (s.dur ?? 16) * (1 + lv * 0.1), dmg: dmg * (1 + lv * 0.3), src: base }, () => this.game.player);
           this.impact(p.x, p.y, 1, '255,215,90');
           break;
         }

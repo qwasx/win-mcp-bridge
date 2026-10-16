@@ -139,7 +139,7 @@ export class Swarm {
       }
     }
     // —— 吞噬法术：飞来的弹丸一口吃掉
-    const eatR = this.mode === 'cover' ? 120 : this.mode === 'sphere' ? 110 : 90;
+    const eatR = (this.mode === 'cover' ? 120 : this.mode === 'sphere' ? 110 : 90) * (this.o.pet ? 1 : 1.45);
     const ex = this.mode === 'dragon' ? this.head.x : this.cx, ey = this.mode === 'dragon' ? this.head.y : this.cy;
     const eatY = ey - (this.mode === 'cover' ? 50 : 40);
     if (this.mode !== 'recall' && this.mode !== 'devour') {
@@ -157,6 +157,7 @@ export class Swarm {
     let sx = 0, sy = 0, sz = 0;
     const tg = this.target, cp = this.corpse, pathN = this.path.length / 3;
     const K = this.mode === 'recall' ? 90 : 46, D = 7.5, J = this.mode === 'sphere' ? 520 : 380;
+    const BIG = this.o.pet ? 1 : 1.45;   // 第三十步：主角虫群整体放大（虫云、噬体球、龙身）
     for (let i = 0; i < n; i++) {
       const s = S[i], ph = s * 1000;
       let tx: number, ty: number, tz: number;
@@ -164,16 +165,16 @@ export class Swarm {
       const fy = 1 - 2 * ((i + 0.5) / n), fr = Math.sqrt(1 - fy * fy), fa = i * 2.39996 + t * (1.2 + s * 1.6);
       const ux = Math.cos(fa) * fr, uz = Math.sin(fa) * fr;
       if (this.mode === 'cover') {
-        const r = 62 + 10 * Math.sin(t * 2 + ph) + this.n * 0.06;
+        const r = (62 + 10 * Math.sin(t * 2 + ph) + this.n * 0.06) * BIG;
         tx = a.x + ux * r; ty = a.y + uz * r * 0.45; tz = 62 + fy * r * 0.8;
       } else if (this.mode === 'sphere' && tg) {
-        const r = (44 + 30 * (tg.def.look?.size ?? 1)) * (0.85 + 0.25 * Math.sin(t * 5 + ph)) + Math.min(40, this.n * 0.06);
+        const r = (44 + 30 * (tg.def.look?.size ?? 1)) * (0.85 + 0.25 * Math.sin(t * 5 + ph)) + Math.min(40, this.n * 0.06) * BIG;
         tx = tg.x + ux * r; ty = tg.y + uz * r * 0.45; tz = eh(tg) + fy * r * 0.8 - (tg.lift ? -tg.lift : 0);
       } else if (this.mode === 'dragon' && pathN > 1) {
         // 龙身：按编号沿轨迹分布，近首处粗、尾部细
         const q = i / n, k = Math.max(0, pathN - 1 - Math.floor(q * (pathN - 1)));
         const px = this.path[k * 3], py = this.path[k * 3 + 1], pz = this.path[k * 3 + 2];
-        const w = (q < 0.12 ? 46 : 34 * (1 - q) + 8);
+        const w = (q < 0.12 ? 46 : 34 * (1 - q) + 8) * BIG;
         tx = px + ux * w; ty = py + uz * w * 0.5; tz = pz + fy * w;
       } else if (this.mode === 'devour' && cp) {
         const r = 26 + 34 * Math.max(0, cp.t);

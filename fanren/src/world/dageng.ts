@@ -42,7 +42,7 @@ export class DagengAct extends Act {
       const p = this.p;
       this.sw.push({ ring: r, idx: i, a0: (i / rings[r]) * TAU + r * 0.3, x: p.x, y: p.y, h: 60, ang: -Math.PI / 2, delay: (k++ / n) * 0.75, arrived: 0, sx: p.x + rnd(-30, 30), sy: p.y + rnd(-10, 10), flash: 0 });
     }
-    c.game.cinema(cx, cy, 0.7, T_END - 0.6);
+    c.game.cinema(cx, cy, Math.max(0.5, Math.min(0.7, 430 / R)), T_END - 0.6);   // 第三十步：剑阵更大，镜头拉得更远
     c.game.toast(`青竹蜂云剑七十二口齐出——「大庚剑阵」！`, 'good');
     audio.sfx('sword'); audio.sfx('bell');
   }

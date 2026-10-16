@@ -56,6 +56,8 @@ export const HANLI_LOOK: Look = {
 export interface Pose {
   rootY: number; rootX: number; rootZ: number;
   lean: number; side: number; twist: number;
+  /** 第三十步：腾空（贴地之后再整体抬起，用于奔跑的腾空期） */
+  air: number;
   headPitch: number; headYaw: number; breath: number;
   lSh: number; lShR: number; lEl: number; lFr: number;
   rSh: number; rShR: number; rEl: number; rFr: number;
@@ -64,14 +66,14 @@ export interface Pose {
   lFoot: number; rFoot: number;
   sit: number; eyes: number; ground: number; // ground: 是否贴地（1）
 }
-const POSE_KEYS: (keyof Pose)[] = ['rootY', 'rootX', 'rootZ', 'lean', 'side', 'twist', 'headPitch', 'headYaw', 'breath', 'lSh', 'lShR', 'lEl', 'lFr', 'rSh', 'rShR', 'rEl', 'rFr', 'lHip', 'lHipR', 'lKn', 'rHip', 'rHipR', 'rKn', 'lFoot', 'rFoot', 'sit', 'eyes', 'ground'];
+const POSE_KEYS: (keyof Pose)[] = ['rootY', 'rootX', 'rootZ', 'lean', 'side', 'twist', 'headPitch', 'headYaw', 'breath', 'lSh', 'lShR', 'lEl', 'lFr', 'rSh', 'rShR', 'rEl', 'rFr', 'lHip', 'lHipR', 'lKn', 'rHip', 'rHipR', 'rKn', 'lFoot', 'rFoot', 'sit', 'eyes', 'ground', 'air'];
 
 function neutral(): Pose {
   return {
     rootY: 0, rootX: 0, rootZ: 0, lean: 0.02, side: 0, twist: 0, headPitch: 0, headYaw: 0, breath: 0,
     lSh: 0.04, lShR: 0.13, lEl: 0.2, lFr: 0.08, rSh: 0.04, rShR: 0.13, rEl: 0.2, rFr: 0.08,
     lHip: 0, lHipR: 0.04, lKn: 0.05, rHip: 0, rHipR: 0.04, rKn: 0.05, lFoot: 0, rFoot: 0,
-    sit: 0, eyes: 1, ground: 1,
+    sit: 0, eyes: 1, ground: 1, air: 0,
   };
 }
 
@@ -187,6 +189,44 @@ export class CharState {
 // ---------------------------------------------------------------- 动作 → 姿态
 function smooth01(t: number) { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); }
 
+/**
+ * 第三十步：主角专用的奔跑（只有韩立用；其余人物仍是原来的跑姿）。
+ * 一个步态周期 = 左右各一步：
+ *   · 腿：前摆高抬膝（大腿前 0.95 / 后 0.5，偏前），摆动期小腿大幅折叠、着地前伸直，蹬地时脚尖下压；
+ *   · 腾空：两腿前后分开时整体离地（贴地后再抬 air），着地瞬间重心最低（微屈膝缓冲）；
+ *   · 上身：前倾 ~0.36，随步频轻微起伏；肩与髋反向扭转，左右轻摆；头部稳住、目视前方；
+ *   · 手臂：与腿反向，前摆时屈肘收在胸前，后摆时略伸，手肘略外张——利落而不僵。
+ */
+function heroRun(p: Pose, st: CharState) {
+  const ph = st.phase, s = Math.sin(ph), c = Math.cos(ph);
+  const sp = Math.min(1.25, Math.max(0.7, st.speed / 260));   // 速度越快步幅越大
+  // 大腿：偏前的正弦，前摆（高抬膝）大于后摆
+  const hipL = 0.14 + (s > 0 ? 0.68 : 0.5) * s * sp, hipR = 0.14 - (s < 0 ? 0.68 : 0.5) * s * sp;
+  p.lHip = hipL; p.rHip = hipR;
+  // 小腿：离地后向后踢起、大腿前摆途中折到最紧；摆到最前时小腿仍近乎竖直（膝领先），随后向前下方伸出落地
+  const fold = (k: number) => Math.pow(Math.max(0, k), 1.3);
+  const reach = (sn: number, cs: number) => 0.62 * Math.pow(Math.max(0, sn), 2) * (0.5 + 0.5 * Math.max(-1, Math.min(1, cs * 3)));
+  p.lKn = 0.26 + 1.7 * fold(Math.cos(ph + 0.2)) * sp + reach(s, c); p.rKn = 0.26 + 1.7 * fold(-Math.cos(ph + 0.2)) * sp + reach(-s, -c);
+  // 着地缓冲：支撑中段（大腿接近竖直、向后划）多屈一点
+  p.lKn += 0.2 * Math.max(0, 1 - Math.abs(hipL - 0.05) * 3) * (c < 0 ? 1 : 0);
+  p.rKn += 0.2 * Math.max(0, 1 - Math.abs(hipR - 0.05) * 3) * (c > 0 ? 1 : 0);
+  // 脚：蹬地时脚尖下压，前摆时勾脚
+  p.lFoot = -0.55 * Math.max(0, -s) + 0.15 * Math.max(0, s); p.rFoot = -0.55 * Math.max(0, s) + 0.15 * Math.max(0, -s);
+  p.lHipR = 0.06; p.rHipR = 0.06;
+  // 手臂：与对侧腿同向（与同侧腿反向）
+  p.lSh = -0.78 * s * sp + 0.05; p.rSh = 0.78 * s * sp + 0.05;
+  p.lEl = 1.05 + 0.45 * Math.max(0, -s); p.rEl = 1.05 + 0.45 * Math.max(0, s);
+  p.lShR = 0.24; p.rShR = 0.24; p.lFr = -0.2; p.rFr = -0.2;
+  // 躯干
+  p.lean = 0.33 + 0.035 * Math.cos(ph * 2) + 0.04 * (sp - 1);
+  p.twist = 0.2 * s; p.side = 0.035 * c;
+  p.headPitch = -0.16; p.headYaw = -0.05 * s;
+  p.breath = 0.4 * Math.sin(ph * 2);
+  // 腾空：两腿分得最开（|s|≈1）时最高；着地（s≈0）时为 0
+  p.air = 2.2 * Math.pow(Math.abs(s), 2.2) * sp;
+  p.rootY = 0;
+}
+
 function poseFor(st: CharState, look: Look): Pose {
   const p = neutral();
   const t = st.t, a = st.action, at = st.actionT;
@@ -211,6 +251,8 @@ function poseFor(st: CharState, look: Look): Pose {
     p.twist = 0.07 * s; p.lean = 0.06; p.side = 0.025 * c;
     p.rootY = 0.5 * Math.cos(ph * 2);
     p.breath = br * 0.5;
+  } else if (a === 'run' && look.headTex) {
+    heroRun(p, st);
   } else if (a === 'run') {
     const ph = st.phase, s = Math.sin(ph), c = Math.cos(ph);
     const A = 0.72;
@@ -331,6 +373,7 @@ function solve(p: Pose, look: Look): Skel {
       const dy = -low;
       for (const q of [pelvis, chest, neck, head, lSh, rSh, lEl, rEl, lWr, rWr, lHa, rHa, lHip, rHip, lKn, rKn, lAn, rAn, lToe, rToe]) q.y += dy;
     }
+    if (p.air > 0.01) for (const q of [pelvis, chest, neck, head, lSh, rSh, lEl, rEl, lWr, rWr, lHa, rHa, lHip, rHip, lKn, rKn, lAn, rAn, lToe, rToe]) q.y += p.air;
   }
   return { pelvis, chest, neck, head, up, lSh, rSh, lEl, rEl, lWr, rWr, lHa, rHa, lHip, rHip, lKn, rKn, lAn, rAn, lToe, rToe, sw, hw, ww, td };
 }
@@ -394,9 +437,10 @@ export function drawCharacter(ctx: CanvasRenderingContext2D, look: Look, st: Cha
   const physDt = opts.ghost ? 0 : dt;
   // 风：与移动方向相反 + 环境风 + 飞行时的猎猎飘动
   const flying = st.action === 'fly';
-  const flutter = (flying ? 1 : st.action === 'run' ? 0.5 : 0.15) * Math.sin(st.t * 13 + st.seed);
-  const windX = -st.vx * 1.0 + st.windX + flutter * 40 * S;
-  const windY = -st.vy * 1.0 + st.windY + flutter * 20 * S;
+  const flutter = (flying ? 1 : st.action === 'run' ? (look.headTex ? 0.85 : 0.5) : 0.15) * Math.sin(st.t * 13 + st.seed);   // 第三十步：主角奔跑时衣袂飘得更开
+  const runK = st.action === 'run' && look.headTex ? 1.35 : 1;
+  const windX = -st.vx * runK + st.windX + flutter * 40 * S;
+  const windY = -st.vy * runK + st.windY + flutter * 20 * S;
   const grav = 520 * S;
 
   const strand = (key: string, n: number, len: number, ax: number, ay: number, drag = 2.2, gScale = 1) => {
@@ -531,11 +575,18 @@ export function drawCharacter(ctx: CanvasRenderingContext2D, look: Look, st: Cha
       return;
     }
     const long = look.robeLen === 'long';
-    const fl = (flying ? 1 : st.action === 'run' ? 0.6 : 0.2);
+    const heroRun = st.action === 'run' && !!look.headTex;
+    const fl = (flying ? 1 : heroRun ? 0.9 : st.action === 'run' ? 0.6 : 0.2);
     const half = (side: 1 | -1) => {
       const hip = side > 0 ? sk.lHip : sk.rHip, kn = side > 0 ? sk.lKn : sk.rKn, an = side > 0 ? sk.lAn : sk.rAn;
       // 衣摆高度：长袍到小腿下部，短褂到膝
-      const hemOn = long ? add(kn, add(an, kn, -1), 0.8) : add(hip, add(kn, hip, -1), 1.02);
+      let hemOn = long ? add(kn, add(an, kn, -1), 0.8) : add(hip, add(kn, hip, -1), 1.02);
+      // 第三十步：主角奔跑时下摆不再死跟着腿（避免"木板"感）——向两腿中点收拢、略微上提，由弹簧带出飘动
+      if (heroRun) {
+        const kn2 = side > 0 ? sk.rKn : sk.lKn, an2 = side > 0 ? sk.rAn : sk.lAn, hip2 = side > 0 ? sk.rHip : sk.lHip;
+        const other = long ? add(kn2, add(an2, kn2, -1), 0.8) : add(hip2, add(kn2, hip2, -1), 1.02);
+        hemOn = add(add(hemOn, add(other, hemOn, -1), 0.32), sk.up, 1.6);
+      }
       const waistC = add(sk.pelvis, sk.up, 8.5);
       const W = sk.ww + 0.6, D = sk.td + 0.2;
       const FX = long ? 7.6 : 6.4, FZ = long ? 7.2 : 6.0;

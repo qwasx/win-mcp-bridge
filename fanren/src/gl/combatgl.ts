@@ -159,20 +159,20 @@ export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
     else if (ev.k === 'xueying') {
       // 血影遁：原地一团血雾炸开，沿途血影残像，落点血光收拢
       const x2 = ev.x2 ?? ev.x, y2 = ev.y2 ?? ev.y, big = !!ev.big, BL: RGB = [0.86, 0.06, 0.12], DK: RGB = [0.3, 0.02, 0.04];
-      F.flash(ev.x, ev.y - 50, big ? 50 : 34, BL, 0.25); F.shockRing(ev.x, ev.y, big ? 220 : 140, BL, 0.5, 0.55, 0.5);
-      F.smoke(ev.x, ev.y - 30, big ? 18 : 10, DK, 0.9, 50, 120);
-      for (let i = 0; i < (big ? 40 : 22); i++) { const a = Math.random() * TAU, v = rnd(80, 380); F.emit({ x: ev.x, y: ev.y - 50, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6 - 40, life: rnd(0.4, 0.9), s0: rnd(6, 12), s1: 2, c: BL, drag: 2.5, grav: 120, cell: C.Glow, a: 0.8 }); }
+      F.flash(ev.x, ev.y - 50, big ? 70 : 34, BL, 0.25); F.shockRing(ev.x, ev.y, big ? 360 : 140, BL, 0.5, 0.6, 0.5); if (big) F.shockRing(ev.x, ev.y, 240, DK, 0.4, 0.7, 0.8);
+      F.smoke(ev.x, ev.y - 30, big ? 28 : 10, DK, 0.9, big ? 80 : 50, big ? 190 : 120);
+      for (let i = 0; i < (big ? 64 : 22); i++) { const a = Math.random() * TAU, v = rnd(80, big ? 560 : 380); F.emit({ x: ev.x, y: ev.y - 50, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6 - 40, life: rnd(0.4, 0.9), s0: rnd(6, 12), s1: 2, c: BL, drag: 2.5, grav: 120, cell: C.Glow, a: 0.8 }); }
       // 沿途：血雾长痕（暗红底 + 血光拉丝），越靠近落点越新、越浓
       const PL = Math.hypot(x2 - ev.x, y2 - ev.y) || 1, ux = (x2 - ev.x) / PL, uy = (y2 - ev.y) / PL;
       const n = Math.min(70, Math.max(8, Math.round(PL / (big ? 55 : 45))));
       for (let i = 1; i < n; i++) {
-        const u = i / n, side = rnd(-26, 26), x = ev.x + (x2 - ev.x) * u - uy * side, y = ev.y + (y2 - ev.y) * u - 50 + ux * side, age = 0.45 + u * 0.55;
-        F.emit({ x, y, vx: rnd(-20, 20), vy: rnd(-30, -5), life: rnd(0.8, 1.3) * age, s0: rnd(70, 100), s1: rnd(150, 210), c: DK, a: 0.36, add: 0, drag: 1.5, cell: C.Smoke, rot: Math.random() * TAU });
+        const u = i / n, side = rnd(-26, 26) * (big ? 1.7 : 1), x = ev.x + (x2 - ev.x) * u - uy * side, y = ev.y + (y2 - ev.y) * u - 50 + ux * side, age = 0.45 + u * 0.55;
+        F.emit({ x, y, vx: rnd(-20, 20), vy: rnd(-30, -5), life: rnd(0.8, 1.3) * age, s0: rnd(70, 100) * (big ? 1.5 : 1), s1: rnd(150, 210) * (big ? 1.5 : 1), c: DK, a: 0.36, add: 0, drag: 1.5, cell: C.Smoke, rot: Math.random() * TAU });
         F.emit({ x, y, life: rnd(0.4, 0.7) * age, s0: 90, s1: 60, c: BL, a: 0.16, cell: C.Glow });
         F.emit({ x, y, vx: ux * 160, vy: uy * 160, life: rnd(0.35, 0.6) * age, s0: rnd(10, 16), s1: 3, c: BL, a: 0.55, drag: 3, stretch: 5, cell: C.Glow });
         if (i % 3 === 0) F.emit({ x, y: y + rnd(-14, 14), life: 0.45 * age, s0: 46, s1: 14, c: BL, a: 0.35, cell: C.Wisp, rot: Math.atan2(uy, ux) });
       }
-      F.flash(x2, y2 - 50, big ? 40 : 28, BL, 0.3); F.shockRing(x2, y2, big ? 160 : 100, BL, 0.4, 0.55, 0.5);
+      F.flash(x2, y2 - 50, big ? 56 : 28, BL, 0.3); F.shockRing(x2, y2, big ? 260 : 100, BL, 0.4, 0.55, 0.5);
       for (let i = 0; i < 18; i++) { const a = i / 18 * TAU; F.emit({ x: x2 + Math.cos(a) * 120, y: y2 - 50 + Math.sin(a) * 60, vx: -Math.cos(a) * 300, vy: -Math.sin(a) * 150, life: 0.4, s0: 8, s1: 2, c: BL, cell: C.Glow, a: 0.8 }); }
     }
     else if (ev.k === 'cast') { const k = ev.power ?? 1; F.flash(ev.x, ev.y, 22 * k, cc, 0.16); F.shockRing(ev.x, ev.y + 40 * k, 70 * (0.6 + 0.4 * k), cc, 0.35, 0.55, 0.5); }
