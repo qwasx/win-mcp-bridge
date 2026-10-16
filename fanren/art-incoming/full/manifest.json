@@ -16210,6 +16210,1230 @@
       "width": 1920,
       "height": 1080,
       "alpha": false
+    },
+    {
+      "file": "beasts/baigu_king_idle.png",
+      "type": "beast",
+      "id": "baigu_king",
+      "pose": "idle",
+      "width": 768,
+      "height": 768,
+      "anchor": [
+        384,
+        652
+      ]
+    },
+    {
+      "file": "beasts/baigu_ske_idle.png",
+      "type": "beast",
+      "id": "baigu_ske",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/baize_fish_idle.png",
+      "type": "beast",
+      "id": "baize_fish",
+      "pose": "idle",
+      "width": 768,
+      "height": 768,
+      "anchor": [
+        384,
+        652
+      ]
+    },
+    {
+      "file": "beasts/biyan_idle.png",
+      "type": "beast",
+      "id": "biyan",
+      "pose": "idle",
+      "width": 768,
+      "height": 768,
+      "anchor": [
+        384,
+        652
+      ]
+    },
+    {
+      "file": "beasts/blackbear_idle.png",
+      "type": "beast",
+      "id": "blackbear",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/blood_puppet_idle.png",
+      "type": "beast",
+      "id": "blood_puppet",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/blood_python_idle.png",
+      "type": "beast",
+      "id": "blood_python",
+      "pose": "idle",
+      "width": 768,
+      "height": 768,
+      "anchor": [
+        384,
+        652
+      ]
+    },
+    {
+      "file": "beasts/bloodbat_idle.png",
+      "type": "beast",
+      "id": "bloodbat",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/boar_idle.png",
+      "type": "beast",
+      "id": "boar",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/centipede_idle.png",
+      "type": "beast",
+      "id": "centipede",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/chitong_idle.png",
+      "type": "beast",
+      "id": "chitong",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/coral_golem_idle.png",
+      "type": "beast",
+      "id": "coral_golem",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/devil_corpse_idle.png",
+      "type": "beast",
+      "id": "devil_corpse",
+      "pose": "idle",
+      "width": 768,
+      "height": 768,
+      "anchor": [
+        384,
+        652
+      ]
+    },
+    {
+      "file": "beasts/dujiao_idle.png",
+      "type": "beast",
+      "id": "dujiao",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/feitian_zombie_idle.png",
+      "type": "beast",
+      "id": "feitian_zombie",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/fengxi_idle.png",
+      "type": "beast",
+      "id": "fengxi",
+      "pose": "idle",
+      "width": 768,
+      "height": 768,
+      "anchor": [
+        384,
+        652
+      ]
+    },
+    {
+      "file": "beasts/fushou_idle.png",
+      "type": "beast",
+      "id": "fushou",
+      "pose": "idle",
+      "width": 768,
+      "height": 768,
+      "anchor": [
+        384,
+        652
+      ]
+    },
+    {
+      "file": "beasts/ghost_face_spider_idle.png",
+      "type": "beast",
+      "id": "ghost_face_spider",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/ghost_jellyfish_idle.png",
+      "type": "beast",
+      "id": "ghost_jellyfish",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/gold_beetle_idle.png",
+      "type": "beast",
+      "id": "gold_beetle",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/gold_puppet_idle.png",
+      "type": "beast",
+      "id": "gold_puppet",
+      "pose": "idle",
+      "width": 768,
+      "height": 768,
+      "anchor": [
+        384,
+        652
+      ]
+    },
+    {
+      "file": "beasts/gu_swarm_idle.png",
+      "type": "beast",
+      "id": "gu_swarm",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/guijiang_idle.png",
+      "type": "beast",
+      "id": "guijiang",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/gumo_xueyan_idle.png",
+      "type": "beast",
+      "id": "gumo_xueyan",
+      "pose": "idle",
+      "width": 1536,
+      "height": 1536,
+      "anchor": [
+        768,
+        1305
+      ]
+    },
+    {
+      "file": "beasts/heisha_guard_idle.png",
+      "type": "beast",
+      "id": "heisha_guard",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/horned_wolf_idle.png",
+      "type": "beast",
+      "id": "horned_wolf",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/huajing_shark_idle.png",
+      "type": "beast",
+      "id": "huajing_shark",
+      "pose": "idle",
+      "width": 768,
+      "height": 768,
+      "anchor": [
+        384,
+        652
+      ]
+    },
+    {
+      "file": "beasts/huochan_idle.png",
+      "type": "beast",
+      "id": "huochan",
+      "pose": "idle",
+      "width": 660,
+      "height": 429,
+      "anchor": [
+        330,
+        364
+      ]
+    },
+    {
+      "file": "beasts/ice_worm_idle.png",
+      "type": "beast",
+      "id": "ice_worm",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/icebear_idle.png",
+      "type": "beast",
+      "id": "icebear",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/iron_crab_idle.png",
+      "type": "beast",
+      "id": "iron_crab",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/jiguan_idle.png",
+      "type": "beast",
+      "id": "jiguan",
+      "pose": "idle",
+      "width": 900,
+      "height": 900,
+      "anchor": [
+        450,
+        765
+      ]
+    },
+    {
+      "file": "beasts/jinbeiyao_idle.png",
+      "type": "beast",
+      "id": "jinbeiyao",
+      "pose": "idle",
+      "width": 768,
+      "height": 768,
+      "anchor": [
+        384,
+        652
+      ]
+    },
+    {
+      "file": "beasts/lightning_eel_idle.png",
+      "type": "beast",
+      "id": "lightning_eel",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/lynx_idle.png",
+      "type": "beast",
+      "id": "lynx",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/mangshou_idle.png",
+      "type": "beast",
+      "id": "mangshou",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/miasma_toad_idle.png",
+      "type": "beast",
+      "id": "miasma_toad",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/mo_soul_idle.png",
+      "type": "beast",
+      "id": "mo_soul",
+      "pose": "idle",
+      "width": 768,
+      "height": 768,
+      "anchor": [
+        384,
+        652
+      ]
+    },
+    {
+      "file": "beasts/mojiao_attack.png",
+      "type": "beast",
+      "id": "mojiao",
+      "pose": "attack",
+      "width": 1360,
+      "height": 607,
+      "anchor": [
+        680,
+        515
+      ]
+    },
+    {
+      "file": "beasts/mojiao_idle.png",
+      "type": "beast",
+      "id": "mojiao",
+      "pose": "idle",
+      "width": 1280,
+      "height": 667,
+      "anchor": [
+        640,
+        566
+      ]
+    },
+    {
+      "file": "beasts/mtn_ape_idle.png",
+      "type": "beast",
+      "id": "mtn_ape",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/python_idle.png",
+      "type": "beast",
+      "id": "python",
+      "pose": "idle",
+      "width": 1200,
+      "height": 1200,
+      "anchor": [
+        600,
+        1020
+      ]
+    },
+    {
+      "file": "beasts/qingfeng_idle.png",
+      "type": "beast",
+      "id": "qingfeng",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/redwolf_idle.png",
+      "type": "beast",
+      "id": "redwolf",
+      "pose": "idle",
+      "width": 600,
+      "height": 600,
+      "anchor": [
+        300,
+        510
+      ]
+    },
+    {
+      "file": "beasts/sand_scorpion_idle.png",
+      "type": "beast",
+      "id": "sand_scorpion",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/seaturtle_idle.png",
+      "type": "beast",
+      "id": "seaturtle",
+      "pose": "idle",
+      "width": 900,
+      "height": 900,
+      "anchor": [
+        450,
+        765
+      ]
+    },
+    {
+      "file": "beasts/shuanggong_idle.png",
+      "type": "beast",
+      "id": "shuanggong",
+      "pose": "idle",
+      "width": 768,
+      "height": 768,
+      "anchor": [
+        384,
+        652
+      ]
+    },
+    {
+      "file": "beasts/snow_ape_idle.png",
+      "type": "beast",
+      "id": "snow_ape",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/snow_wolf_idle.png",
+      "type": "beast",
+      "id": "snow_wolf",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/spider_idle.png",
+      "type": "beast",
+      "id": "spider",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/spirit_fish_idle.png",
+      "type": "beast",
+      "id": "spirit_fish",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/stone_puppet_idle.png",
+      "type": "beast",
+      "id": "stone_puppet",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/swamp_croc_idle.png",
+      "type": "beast",
+      "id": "swamp_croc",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/tiebei_idle.png",
+      "type": "beast",
+      "id": "tiebei",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/true_demon_idle.png",
+      "type": "beast",
+      "id": "true_demon",
+      "pose": "idle",
+      "width": 768,
+      "height": 768,
+      "anchor": [
+        384,
+        652
+      ]
+    },
+    {
+      "file": "beasts/tujia_idle.png",
+      "type": "beast",
+      "id": "tujia",
+      "pose": "idle",
+      "width": 768,
+      "height": 768,
+      "anchor": [
+        384,
+        652
+      ]
+    },
+    {
+      "file": "beasts/venomous_snake_idle.png",
+      "type": "beast",
+      "id": "venomous_snake",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/vulture_idle.png",
+      "type": "beast",
+      "id": "vulture",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/wolf_attack.png",
+      "type": "beast",
+      "id": "wolf",
+      "pose": "attack",
+      "width": 740,
+      "height": 358,
+      "anchor": [
+        370,
+        304
+      ]
+    },
+    {
+      "file": "beasts/wolf_idle.png",
+      "type": "beast",
+      "id": "wolf",
+      "pose": "idle",
+      "width": 680,
+      "height": 380,
+      "anchor": [
+        340,
+        323
+      ]
+    },
+    {
+      "file": "beasts/xuangui_idle.png",
+      "type": "beast",
+      "id": "xuangui",
+      "pose": "idle",
+      "width": 768,
+      "height": 768,
+      "anchor": [
+        384,
+        652
+      ]
+    },
+    {
+      "file": "beasts/yinchi_idle.png",
+      "type": "beast",
+      "id": "yinchi",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "beasts/yinhun_attack.png",
+      "type": "beast",
+      "id": "yinhun",
+      "pose": "attack",
+      "width": 720,
+      "height": 382,
+      "anchor": [
+        360,
+        324
+      ]
+    },
+    {
+      "file": "beasts/yinhun_idle.png",
+      "type": "beast",
+      "id": "yinhun",
+      "pose": "idle",
+      "width": 680,
+      "height": 480,
+      "anchor": [
+        340,
+        408
+      ]
+    },
+    {
+      "file": "beasts/yinjiao_idle.png",
+      "type": "beast",
+      "id": "yinjiao",
+      "pose": "idle",
+      "width": 768,
+      "height": 768,
+      "anchor": [
+        384,
+        652
+      ]
+    },
+    {
+      "file": "beasts/yu_soul_idle.png",
+      "type": "beast",
+      "id": "yu_soul",
+      "pose": "idle",
+      "width": 768,
+      "height": 768,
+      "anchor": [
+        384,
+        652
+      ]
+    },
+    {
+      "file": "beasts/zombie_idle.png",
+      "type": "beast",
+      "id": "zombie",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "ambient/amb_butterfly_idle.png",
+      "type": "ambient",
+      "id": "amb_butterfly",
+      "pose": "idle",
+      "width": 192,
+      "height": 192,
+      "anchor": [
+        96,
+        163
+      ]
+    },
+    {
+      "file": "ambient/amb_camel_idle.png",
+      "type": "ambient",
+      "id": "amb_camel",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "ambient/amb_carp_a_idle.png",
+      "type": "ambient",
+      "id": "amb_carp_a",
+      "pose": "idle",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        217
+      ]
+    },
+    {
+      "file": "ambient/amb_carp_b_idle.png",
+      "type": "ambient",
+      "id": "amb_carp_b",
+      "pose": "idle",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        217
+      ]
+    },
+    {
+      "file": "ambient/amb_chicken_idle.png",
+      "type": "ambient",
+      "id": "amb_chicken",
+      "pose": "idle",
+      "width": 192,
+      "height": 192,
+      "anchor": [
+        96,
+        163
+      ]
+    },
+    {
+      "file": "ambient/amb_crane_fly.png",
+      "type": "ambient",
+      "id": "amb_crane_fly",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "ambient/amb_crane_idle.png",
+      "type": "ambient",
+      "id": "amb_crane",
+      "pose": "idle",
+      "width": 384,
+      "height": 384,
+      "anchor": [
+        192,
+        326
+      ]
+    },
+    {
+      "file": "ambient/amb_deer_idle.png",
+      "type": "ambient",
+      "id": "amb_deer",
+      "pose": "idle",
+      "width": 384,
+      "height": 384,
+      "anchor": [
+        192,
+        326
+      ]
+    },
+    {
+      "file": "ambient/amb_dog_idle.png",
+      "type": "ambient",
+      "id": "amb_dog",
+      "pose": "idle",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        217
+      ]
+    },
+    {
+      "file": "ambient/amb_duck_idle.png",
+      "type": "ambient",
+      "id": "amb_duck",
+      "pose": "idle",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        217
+      ]
+    },
+    {
+      "file": "ambient/amb_egret_idle.png",
+      "type": "ambient",
+      "id": "amb_egret",
+      "pose": "idle",
+      "width": 320,
+      "height": 320,
+      "anchor": [
+        160,
+        272
+      ]
+    },
+    {
+      "file": "ambient/amb_firefly_idle.png",
+      "type": "ambient",
+      "id": "amb_firefly",
+      "pose": "idle",
+      "width": 192,
+      "height": 192,
+      "anchor": [
+        96,
+        163
+      ]
+    },
+    {
+      "file": "ambient/amb_horse_idle.png",
+      "type": "ambient",
+      "id": "amb_horse",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "ambient/amb_monkey_idle.png",
+      "type": "ambient",
+      "id": "amb_monkey",
+      "pose": "idle",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        217
+      ]
+    },
+    {
+      "file": "ambient/amb_ox_idle.png",
+      "type": "ambient",
+      "id": "amb_ox",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "ambient/amb_rabbit_idle.png",
+      "type": "ambient",
+      "id": "amb_rabbit",
+      "pose": "idle",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        217
+      ]
+    },
+    {
+      "file": "ambient/amb_seagull_idle.png",
+      "type": "ambient",
+      "id": "amb_seagull",
+      "pose": "idle",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        217
+      ]
+    },
+    {
+      "file": "ambient/amb_sheep_idle.png",
+      "type": "ambient",
+      "id": "amb_sheep",
+      "pose": "idle",
+      "width": 320,
+      "height": 320,
+      "anchor": [
+        160,
+        272
+      ]
+    },
+    {
+      "file": "ambient/amb_snowfox_idle.png",
+      "type": "ambient",
+      "id": "amb_snowfox",
+      "pose": "idle",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        217
+      ]
+    },
+    {
+      "file": "ambient/amb_turtle_idle.png",
+      "type": "ambient",
+      "id": "amb_turtle",
+      "pose": "idle",
+      "width": 256,
+      "height": 256,
+      "anchor": [
+        128,
+        217
+      ]
+    },
+    {
+      "file": "ambient/amb_yak_idle.png",
+      "type": "ambient",
+      "id": "amb_yak",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "pets/pet_ape_idle.png",
+      "type": "pet",
+      "id": "pet_ape",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "pets/pet_crane_idle.png",
+      "type": "pet",
+      "id": "pet_crane",
+      "pose": "idle",
+      "width": 640,
+      "height": 640,
+      "anchor": [
+        320,
+        544
+      ]
+    },
+    {
+      "file": "pets/pet_fox1_idle.png",
+      "type": "pet",
+      "id": "pet_fox1",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "pets/pet_fox2_idle.png",
+      "type": "pet",
+      "id": "pet_fox2",
+      "pose": "idle",
+      "width": 640,
+      "height": 640,
+      "anchor": [
+        320,
+        544
+      ]
+    },
+    {
+      "file": "pets/pet_fox3_idle.png",
+      "type": "pet",
+      "id": "pet_fox3",
+      "pose": "idle",
+      "width": 768,
+      "height": 768,
+      "anchor": [
+        384,
+        652
+      ]
+    },
+    {
+      "file": "pets/pet_shijin_idle.png",
+      "type": "pet",
+      "id": "pet_shijin",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "pets/pet_wolf_idle.png",
+      "type": "pet",
+      "id": "pet_wolf",
+      "pose": "idle",
+      "width": 640,
+      "height": 640,
+      "anchor": [
+        320,
+        544
+      ]
+    },
+    {
+      "file": "summons/sum_baigu_idle.png",
+      "type": "summon",
+      "id": "sum_baigu",
+      "pose": "idle",
+      "width": 600,
+      "height": 600,
+      "anchor": [
+        300,
+        510
+      ]
+    },
+    {
+      "file": "summons/sum_ligui_idle.png",
+      "type": "summon",
+      "id": "sum_ligui",
+      "pose": "idle",
+      "width": 600,
+      "height": 600,
+      "anchor": [
+        300,
+        510
+      ]
+    },
+    {
+      "file": "summons/sum_motou_idle.png",
+      "type": "summon",
+      "id": "sum_motou",
+      "pose": "idle",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        435
+      ]
+    },
+    {
+      "file": "summons/sum_puppet_idle.png",
+      "type": "summon",
+      "id": "sum_puppet",
+      "pose": "idle",
+      "width": 640,
+      "height": 640,
+      "anchor": [
+        320,
+        544
+      ]
+    },
+    {
+      "file": "summons/sum_qingjiao_idle.png",
+      "type": "summon",
+      "id": "sum_qingjiao",
+      "pose": "idle",
+      "width": 768,
+      "height": 768,
+      "anchor": [
+        384,
+        652
+      ]
+    },
+    {
+      "file": "summons/sum_tihun_idle.png",
+      "type": "summon",
+      "id": "sum_tihun",
+      "pose": "idle",
+      "width": 768,
+      "height": 768,
+      "anchor": [
+        384,
+        652
+      ]
+    },
+    {
+      "file": "summons/sum_xuanwu_idle.png",
+      "type": "summon",
+      "id": "sum_xuanwu",
+      "pose": "idle",
+      "width": 768,
+      "height": 768,
+      "anchor": [
+        384,
+        652
+      ]
     }
   ]
 }
