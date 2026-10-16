@@ -916,6 +916,7 @@ export class Game {
     this.flushMsgs(r.msgs);
     audio.sfx(r.ok ? 'break' : 'fail');
     if (r.ok) this.renderer?.burst(this.player.x, this.player.y - 60, '#fff2b0', 60);
+    if (r.ok) (this.combat as any).vfx.push({ kind: 'aura', x: this.player.x, y: this.player.y, r: 130, t: 0, dur: 2.4, color: '255,240,180', fx: 'breakthrough' });
     this.updateUI(true);
     return r;
   }

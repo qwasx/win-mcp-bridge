@@ -6,6 +6,7 @@ import { itemDef } from '../data/items';
 import { REALMS } from '../data/realms';
 import { audio } from '../world/audio';
 import { ItemGlyph } from './ItemIcon';
+import { SKILL_ICON } from '../gfx/skillIconData';
 
 function slotInfo(id: string | null | undefined): { glyph: string; name: string; color: string; tier: number } | null {
   if (!id) return null;
@@ -53,7 +54,7 @@ export function Hotbar({ game, touch }: { game: Game; touch: boolean }) {
             title={inf ? `${inf.name}（${i + 1}）` : '空（按 K 放置法术）'}
             onPointerDown={(e) => { e.stopPropagation(); audio.unlock(); if (inf) game.combat.castSlot(i); else game.onPanel?.('skills', true); }}
             style={inf ? { ['--sc' as any]: inf.color } : undefined}>
-            {inf && (id!.startsWith('art:') || id!.startsWith('tal:')) ? <ItemGlyph id={id!.slice(4)} className="hb-glyph" /> : inf && <span className="hb-glyph">{inf.glyph}</span>}
+            {inf && (id!.startsWith('art:') || id!.startsWith('tal:')) ? <ItemGlyph id={id!.slice(4)} className="hb-glyph" /> : inf && SKILL_ICON[id!] ? <img className="hb-glyph art-ico sk-ico" src={SKILL_ICON[id!]} alt="" draggable={false} /> : inf && <span className="hb-glyph">{inf.glyph}</span>}
             {inf && !touch && <span className="hb-name">{inf.name}</span>}
             {id?.startsWith('tal:') && <span className="hb-count">{talCount(game, id.slice(4))}</span>}
             <div className="hb-cd" ref={(el) => (cdRefs.current[i] = el)} />
@@ -114,7 +115,7 @@ export function SkillPanel({ game, onClose }: { game: Game; onClose: () => void 
                 const l = profLevel(s.tier, a.xp);
                 return (
                   <button key={s.id} className={'skill-row' + (sel === s.id ? ' on' : '')} onClick={() => { setSel(s.id); audio.sfx('click'); }}>
-                    <span className="sk-glyph" style={{ background: SCHOOL_COLOR[s.school] }}>{s.name[0]}</span>
+                    {SKILL_ICON[s.id] ? <img className="sk-glyph art-ico sk-ico" src={SKILL_ICON[s.id]} alt="" draggable={false} style={{ ['--sc' as any]: SCHOOL_COLOR[s.school] }} /> : <span className="sk-glyph" style={{ background: SCHOOL_COLOR[s.school] }}>{s.name[0]}</span>}
                     <span className="sk-name">{s.name}<small style={{ color: TIER_COLOR[s.tier] }}>{TIER_NAME[s.tier]}</small></span>
                     <span className={'sk-prof p' + l}>{PROF_NAME[l]}</span>
                     {h.hotbar.includes(s.id) && <span className="sk-slot">{h.hotbar.indexOf(s.id) + 1}</span>}

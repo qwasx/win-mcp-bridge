@@ -513,7 +513,7 @@ export class Combat {
     if (g.player.sitting) g.stand();
     const a = this.aim(fake.range);
     p.st.faceToward(a.dx, a.dy, false);
-    this.vfx.push({ kind: 'flash', x: p.x + a.dx * 30, y: p.y - 50, r: 40, t: 0, dur: 0.25, color });
+    this.vfx.push({ kind: 'flash', x: p.x + a.dx * 30, y: p.y - 50, r: 40, t: 0, dur: 0.3, color, fx: 'hit' as Fx, seed: Math.random() * 6 });
     this.exec(fake, 0, a, atk, h.realm);
     audio.sfx(tal.kind === 'thunder' ? 'thunder' : 'whoosh');
     if (tal.kind === 'fubao') { g.trauma = Math.min(1, g.trauma + 0.35); const left = C.bagCount(h, itemId); g.toast(left > 0 ? `符宝金芒斩落！符纸上的灵光又黯淡了几分（余 ${left} 次）。` : '符宝金芒斩落——符纸化作飞灰，灵力耗尽了。', left > 0 ? 'info' : 'warn'); }
@@ -1165,7 +1165,7 @@ export class Combat {
             pr.hit.add(e.id);
             this.hitEnemy(e, pr.dmg, pr, pr.x, pr.y);
             if (pr.aoe) { this.explode(pr); return false; }
-            if (!pr.pierce) { this.vfx.push({ kind: 'flash', x: pr.x, y: pr.y, r: 40 * pr.size, t: 0, dur: 0.25, color: pr.color }); return false; }
+            if (!pr.pierce) { this.vfx.push({ kind: 'flash', x: pr.x, y: pr.y, r: 40 * pr.size, t: 0, dur: 0.38, color: pr.color, fx: pr.fx, seed: Math.random() * 6 }); return false; }
           }
         }
         // 慢速持续弹道：周期性清除已命中记录
@@ -1174,7 +1174,7 @@ export class Combat {
         if (Math.hypot(p.x - pr.x, p.y - 46 - pr.y) < pr.r + 24) {
           if (pr.aoe) this.vfx.push({ kind: 'ring', x: pr.x, y: pr.y + 40, r: pr.aoe, t: 0, dur: 0.4, color: pr.color, fx: pr.fx });
           this.hitPlayer(pr.dmg, pr.realm, pr.status, pr.x, pr.y);
-          this.vfx.push({ kind: 'flash', x: pr.x, y: pr.y, r: 34, t: 0, dur: 0.25, color: pr.color });
+          this.vfx.push({ kind: 'flash', x: pr.x, y: pr.y, r: 34, t: 0, dur: 0.36, color: pr.color, fx: pr.fx, seed: Math.random() * 6 });
           return false;
         }
         // 环绕剑盾格挡

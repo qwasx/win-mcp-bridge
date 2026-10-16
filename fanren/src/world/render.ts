@@ -17,7 +17,7 @@ import { artLook } from '../data/artlooks';
 import { drawNode } from './nodes';
 import type { Drawable } from './life';
 import { SenseFx, senseMods } from './sense';
-import { collectCombat, drawCombatFx, drawCombatUI } from './combatfx';
+import { collectCombat, drawCombatFx, drawCombatUI, drawCombatSprites } from './combatfx';
 import { REALMS } from '../data/realms';
 import { GLStage, PostParams } from '../gl/stage';
 import { loadBldTex } from '../gfx/bldTex';
@@ -686,6 +686,8 @@ export class Renderer {
       this.Z = z * this.uiDpr; this.ox = W * this.uiDpr / 2 - camX * this.Z; this.oy = H * this.uiDpr / 2 - camY * this.Z;
       this.world();
     }
+    // 法术特效关键图（GL 模式：画在透明 UI 画布上，粒子光晕在下）
+    if (GL) drawCombatSprites(this.ctx, game.combat, t);
     // 血条与伤害数字
     drawCombatUI(this.ctx, game.combat, t, z);
 
