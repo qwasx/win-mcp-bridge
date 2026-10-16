@@ -704,3 +704,13 @@ img.sk-glyph.sk-ico { width: 38px; height: 38px; filter: drop-shadow(0 0 3px var
 .rel-wanted { font-size: 13px; padding: 4px 0; border-bottom: 1px dashed rgba(60,50,40,0.15); } .rel-wanted b { color: #a8352a; } .rel-wanted small { float: right; color: var(--ink-soft); font-size: 11px; }
 .rel-log { max-height: 62vh; overflow: auto; }
 @media (max-width: 760px) { .rel-body { grid-template-columns: 1fr; max-height: none; } .rel-detail { grid-template-columns: 110px 1fr; } .rel-bust { min-height: 150px; } }
+/* 第三十步：大地图缩放 */
+.worldmap-wrap { position: relative; max-width: 100%; }
+.worldmap-canvas.zoomed { cursor: grab; }
+.worldmap-canvas.zoomed:active { cursor: grabbing; }
+.wm-zoom { position: absolute; right: 10px; top: 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; z-index: 2; }
+.wm-zoom button { width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(60,45,30,0.55); background: rgba(246,239,222,0.92); color: #2b2620; font-size: 18px; line-height: 30px; padding: 0; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.25); font-family: 'Ma Shan Zheng', serif; }
+.wm-zoom button:hover:not(:disabled) { background: #fffaf0; }
+.wm-zoom button:disabled { opacity: 0.4; cursor: default; }
+.wm-zoom .wm-me { font-size: 15px; }
+.wm-zl { font-size: 11px; color: #2b2620; background: rgba(246,239,222,0.85); padding: 1px 5px; border-radius: 8px; min-width: 30px; text-align: center; }

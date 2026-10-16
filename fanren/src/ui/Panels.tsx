@@ -100,10 +100,18 @@ export function loadAudio() {
 }
 
 // ---------- 世界地图 ----------
+// 第三十步：大地图可缩放（滚轮 / ＋－按钮 / 双指捏合 / 键盘 + -）与拖动平移；放大后叠加局部高清底图（河、路、山林矢量）
+const WM_ZMAX = 8;
 export function WorldMapPanel({ game, onClose }: { game: Game; onClose: () => void }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState({ w: 800, h: 560 });
   const [hover, setHover] = useState<string>('');
+  const [zl, setZl] = useState(1);
+  const view = useRef({ z: 1, cx: MACRO_W / 2, cy: MACRO_H / 2 });
+  const hoverRef = useRef(''); hoverRef.current = hover;
+  const drag = useRef<{ x: number; y: number; cx: number; cy: number; moved: boolean; id: number } | null>(null);
+  const pts = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ d: number; z: number } | null>(null);
 
   useEffect(() => {
     const fit = () => {
@@ -116,62 +124,115 @@ export function WorldMapPanel({ game, onClose }: { game: Game; onClose: () => vo
     return () => window.removeEventListener('resize', fit);
   }, []);
 
+  const clampView = () => {
+    const v = view.current;
+    v.z = Math.max(1, Math.min(WM_ZMAX, v.z));
+    const hw = MACRO_W / (2 * v.z), hh = MACRO_H / (2 * v.z);
+    v.cx = Math.max(hw, Math.min(MACRO_W - hw, v.cx)); v.cy = Math.max(hh, Math.min(MACRO_H - hh, v.cy));
+  };
+  /** 以屏幕点 (sx,sy)（CSS 像素，相对画布）为中心缩放 */
+  const zoomAt = (f: number, sx = size.w / 2, sy = size.h / 2) => {
+    const v = view.current, s = size.w / MACRO_W, k0 = s * v.z;
+    const mx = v.cx + (sx - size.w / 2) / k0, my = v.cy + (sy - size.h / 2) / k0;
+    v.z = Math.max(1, Math.min(WM_ZMAX, v.z * f));
+    const k1 = s * v.z;
+    v.cx = mx - (sx - size.w / 2) / k1; v.cy = my - (sy - size.h / 2) / k1;
+    clampView(); setZl(v.z);
+  };
+  const centerHero = (z?: number) => {
+    const v = view.current; if (z) v.z = z; else if (v.z < 3) v.z = 3;
+    v.cx = game.player.x / WORLD_SCALE; v.cy = game.player.y / WORLD_SCALE; clampView(); setZl(v.z);
+  };
+
   useEffect(() => {
     const cv = ref.current!; const dpr = Math.min(2, window.devicePixelRatio || 1);
     cv.width = size.w * dpr; cv.height = size.h * dpr;
     const g = cv.getContext('2d')!;
-    const fog = makeFogCanvas(game, undefined, 200);
+    // 迷雾：预先柔化一次（之后每帧只是缩放贴图，不再逐帧模糊）
+    const fog0 = makeFogCanvas(game, undefined, 200);
+    const fog = document.createElement('canvas'); fog.width = FOG_W * 6; fog.height = FOG_H * 6;
+    { const fg = fog.getContext('2d')!; fg.imageSmoothingEnabled = true; try { fg.filter = 'blur(5px)'; } catch { /* */ } fg.drawImage(fog0, 0, 0, fog.width, fog.height); }
+    const tiles = new Map<string, { cv: HTMLCanvasElement; used: number }>(); let frame = 0;
+    const tileFor = (tx: number, ty: number, scale: number, T: number, budget: { n: number }) => {
+      const key = `${tx},${ty},${scale}`;
+      let t = tiles.get(key);
+      if (!t) {
+        if (budget.n <= 0) return null; budget.n--;
+        const c = document.createElement('canvas'); c.width = c.height = T * scale;
+        const tg = c.getContext('2d')!; tg.imageSmoothingEnabled = true; tg.imageSmoothingQuality = 'high';
+        const base = game.terrain.overviewBase ?? game.overview;
+        tg.drawImage(base, tx * T - 1, ty * T - 1, T + 2, T + 2, -scale, -scale, (T + 2) * scale, (T + 2) * scale);
+        game.terrain.overviewVectors(tg, tx * T, ty * T, T * scale, T * scale, scale);
+        t = { cv: c, used: frame }; tiles.set(key, t);
+        if (tiles.size > 120) { let old: string | null = null, ou = Infinity; for (const [k2, v] of tiles) if (v.used < ou && v !== t) { ou = v.used; old = k2; } if (old) tiles.delete(old); }
+      }
+      t.used = frame; return t;
+    };
     let raf = 0;
-    const s = size.w / MACRO_W; // 宏观单位 → CSS 像素
+    const s = size.w / MACRO_W; // 宏观单位 → CSS 像素（全图时）
     const draw = (t: number) => {
+      frame++;
+      const v = view.current, Z = v.z, k = s * Z, W2 = size.w / 2, H2 = size.h / 2;
+      const X = (mx: number) => (mx - v.cx) * k + W2, Y = (my: number) => (my - v.cy) * k + H2;
+      const on = (x: number, y: number, m = 40) => x > -m && y > -m && x < size.w + m && y < size.h + m;
+      const hov = hoverRef.current;
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.fillStyle = '#d9cdb0'; g.fillRect(0, 0, size.w, size.h);
       g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
-      g.drawImage(game.overview, 0, 0, size.w, size.h);
-      // 迷雾（柔边）
-      g.save();
-      try { g.filter = `blur(${Math.max(2, s * 6)}px)`; } catch { /* */ }
-      g.drawImage(fog, 0, 0, size.w, size.h);
-      g.restore();
-      // 大区域名
+      g.drawImage(game.overview, X(0), Y(0), MACRO_W * k, MACRO_H * k);
+      // 放大后：局部高清底图（每帧最多新画 4 块，其余先用缩略图顶着）
+      if (k * dpr > 2.4 && game.terrain?.overviewVectors) {
+        const scale = k * dpr > 4.6 ? 8 : k * dpr > 3.2 ? 6 : 4, T = scale >= 6 ? 24 : 32, budget = { n: 4 };
+        const mx0 = v.cx - W2 / k, mx1 = v.cx + W2 / k, my0 = v.cy - H2 / k, my1 = v.cy + H2 / k;
+        for (let ty = Math.floor(my0 / T); ty <= Math.floor(my1 / T); ty++) for (let tx = Math.floor(mx0 / T); tx <= Math.floor(mx1 / T); tx++) {
+          if (tx < 0 || ty < 0 || tx * T >= game.terrain.W || ty * T >= game.terrain.H) continue;
+          const tl = tileFor(tx, ty, scale, T, budget); if (!tl) continue;
+          g.drawImage(tl.cv, X(tx * T) - 0.5, Y(ty * T) - 0.5, T * k + 1, T * k + 1);
+        }
+      }
+      g.drawImage(fog, X(0), Y(0), MACRO_W * k, MACRO_H * k);
+      // 大区域名（放大后变淡，免得挡住细节）
       g.textAlign = 'center'; g.textBaseline = 'middle';
       for (const L of BIG_LABELS) {
-        const fs = Math.max(13, L.size * 9 * s * 1.6);
+        const fs = Math.max(13, L.size * 9 * s * 1.6) * Math.min(1.8, Math.sqrt(Z));
         g.font = `${fs}px 'Ma Shan Zheng', serif`;
-        g.fillStyle = 'rgba(40,34,26,0.32)';
-        g.fillText(L.name.split('').join(' '), L.at[0] * s, L.at[1] * s);
+        g.fillStyle = `rgba(40,34,26,${0.32 / Math.max(1, Z * 0.55)})`;
+        g.fillText(L.name.split('').join(' '), X(L.at[0]), Y(L.at[1]));
       }
       // 陆路出口：图边的箭头
-      for (const ex of MAP_EXITS[ACTIVE_MAP]) {
+      if (Z < 1.5) for (const ex of MAP_EXITS[ACTIVE_MAP]) {
         const north = ex.edge === 'n', y = north ? 22 : size.h - 22;
         g.font = `${Math.max(13, 15 * s * 1.6)}px 'Ma Shan Zheng', serif`;
         g.fillStyle = 'rgba(120,40,30,0.75)';
         g.fillText(`${north ? '↑' : '↓'} ${ex.to === 'dajin' ? '天澜草原 · 大晋' : '慕兰草原 · 天南'} ${north ? '↑' : '↓'}`, size.w / 2, y);
       }
-      // 地点（先画已探索与重要地点，名字做简单避让）
+      // 地点（先画已探索与重要地点，名字做简单避让；放大后全部显示名字）
       const placed: [number, number, number, number][] = [];
-      const order = [...LOCATIONS].sort((a, b) => (b.id === hover ? 1 : 0) - (a.id === hover ? 1 : 0) || (b.major ? 1 : 0) - (a.major ? 1 : 0));
+      const order = [...LOCATIONS].sort((a, b) => (b.id === hov ? 1 : 0) - (a.id === hov ? 1 : 0) || (b.major ? 1 : 0) - (a.major ? 1 : 0));
+      const rz = Math.min(1.7, 1 + (Z - 1) * 0.14);
       for (const l of order) {
         const wx = l.x * WORLD_SCALE, wy = l.y * WORLD_SCALE;
         const known = game.isExplored(wx, wy);
         if (!known && !l.major) continue;
-        const x = l.x * s, y = l.y * s;
-        const r = Math.max(4, 7 * s * 1.4) * (l.major ? 1.15 : 0.85);
+        const x = X(l.x), y = Y(l.y);
+        if (!on(x, y)) continue;
+        const r = Math.max(4, 7 * s * 1.4) * (l.major ? 1.15 : 0.85) * rz;
         g.globalAlpha = known ? 1 : 0.5;
         g.fillStyle = SEAL_COLOR[l.type];
         g.fillRect(x - r, y - r, r * 2, r * 2);
         g.strokeStyle = 'rgba(250,240,220,0.9)'; g.lineWidth = 1; g.strokeRect(x - r + 1.5, y - r + 1.5, r * 2 - 3, r * 2 - 3);
         g.fillStyle = '#f7eedb'; g.font = `${r * 1.45}px 'Ma Shan Zheng', serif`;
         g.fillText(SEAL[l.type], x, y + r * 0.08);
-        if (l.major || s > 0.85 || hover === l.id) {
-          const fs = Math.max(11, 11 * s * 1.2);
+        if (l.major || k > 0.85 || hov === l.id) {
+          const fs = Math.max(11, 11 * s * 1.2) * Math.min(1.45, 1 + (Z - 1) * 0.1);
           g.font = `${fs}px 'Noto Serif SC', serif`;
           const label = known ? l.name : l.name + '（传闻）';
           const tw = g.measureText(label).width;
           const box: [number, number, number, number] = [x - tw / 2 - 3, y + r + 2, tw + 6, fs + 4];
           const hit = placed.some(([bx, by, bw, bh]) => box[0] < bx + bw && box[0] + box[2] > bx && box[1] < by + bh && box[1] + box[3] > by);
-          if (!hit || hover === l.id) {
+          if (!hit || hov === l.id) {
             placed.push(box);
-            g.fillStyle = hover === l.id ? 'rgba(255,248,230,0.98)' : 'rgba(246,239,222,0.85)'; g.fillRect(box[0], box[1], box[2], box[3]);
+            g.fillStyle = hov === l.id ? 'rgba(255,248,230,0.98)' : 'rgba(246,239,222,0.85)'; g.fillRect(box[0], box[1], box[2], box[3]);
             g.fillStyle = '#2b2620'; g.fillText(label, x, y + r + 4 + fs / 2);
           }
         }
@@ -179,24 +240,26 @@ export function WorldMapPanel({ game, onClose }: { game: Game; onClose: () => vo
       }
       // 第十八步：机缘 / 洞府 / 悬赏 / 异宝
       for (const m of game.mapMarks?.() ?? []) {
-        const x = (m.x / WORLD_SCALE) * s, y = (m.y / WORLD_SCALE) * s, r = Math.max(6, 8 * s);
-        if (m.ring) { g.strokeStyle = m.color; g.globalAlpha = 0.6; g.setLineDash([3, 3]); g.lineWidth = 1.2; g.beginPath(); g.arc(x, y, (m.ring / WORLD_SCALE) * s, 0, Math.PI * 2); g.stroke(); g.setLineDash([]); g.globalAlpha = 1; }
+        const x = X(m.x / WORLD_SCALE), y = Y(m.y / WORLD_SCALE), r = Math.max(6, 8 * s) * rz;
+        if (!on(x, y, 60 + (m.ring ? (m.ring / WORLD_SCALE) * k : 0))) continue;
+        if (m.ring) { g.strokeStyle = m.color; g.globalAlpha = 0.6; g.setLineDash([3, 3]); g.lineWidth = 1.2; g.beginPath(); g.arc(x, y, (m.ring / WORLD_SCALE) * k, 0, Math.PI * 2); g.stroke(); g.setLineDash([]); g.globalAlpha = 1; }
         g.fillStyle = 'rgba(30,24,18,0.8)'; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
         g.fillStyle = m.color; g.font = `${r * 1.4}px 'Ma Shan Zheng', serif`; g.fillText(m.glyph, x, y + r * 0.08);
-        if (s > 0.85) { g.font = `${Math.max(10, 10 * s)}px 'Noto Serif SC', serif`; g.fillStyle = 'rgba(40,30,20,0.85)'; g.fillText(m.name, x, y - r - 7); }
+        if (k > 0.85) { g.font = `${Math.max(10, 10 * s * rz)}px 'Noto Serif SC', serif`; g.fillStyle = 'rgba(40,30,20,0.85)'; g.fillText(m.name, x, y - r - 7); }
       }
       // 目的地
+      const px = X(game.player.x / WORLD_SCALE), py = Y(game.player.y / WORLD_SCALE);
       if (game.destination) {
-        const dx = (game.destination.x / WORLD_SCALE) * s, dy = (game.destination.y / WORLD_SCALE) * s;
+        const dx = X(game.destination.x / WORLD_SCALE), dy = Y(game.destination.y / WORLD_SCALE);
         g.strokeStyle = '#a8352a'; g.lineWidth = 2;
         g.beginPath(); g.moveTo(dx - 6, dy - 6); g.lineTo(dx + 6, dy + 6); g.moveTo(dx + 6, dy - 6); g.lineTo(dx - 6, dy + 6); g.stroke();
         g.setLineDash([4, 5]); g.lineWidth = 1.5; g.strokeStyle = 'rgba(168,53,42,0.7)';
-        g.beginPath(); g.moveTo((game.player.x / WORLD_SCALE) * s, (game.player.y / WORLD_SCALE) * s); g.lineTo(dx, dy); g.stroke(); g.setLineDash([]);
+        g.beginPath(); g.moveTo(px, py); g.lineTo(dx, dy); g.stroke(); g.setLineDash([]);
       }
       // 玩家与神识
-      const px = (game.player.x / WORLD_SCALE) * s, py = (game.player.y / WORLD_SCALE) * s;
-      const sr = (game.senseRadius / WORLD_SCALE) * s;
+      const sr = (game.senseRadius / WORLD_SCALE) * k;
       g.strokeStyle = 'rgba(63,160,140,0.8)'; g.lineWidth = 1.5; g.beginPath(); g.arc(px, py, Math.max(sr, 5), 0, Math.PI * 2); g.stroke();
+      if (Z > 2.5) { g.fillStyle = 'rgba(63,160,140,0.08)'; g.fill(); }
       const pulse = (t / 1000) % 1.6 / 1.6;
       g.strokeStyle = `rgba(168,53,42,${1 - pulse})`; g.lineWidth = 2; g.beginPath(); g.arc(px, py, 6 + pulse * 18, 0, Math.PI * 2); g.stroke();
       g.fillStyle = '#a8352a'; g.beginPath(); g.arc(px, py, 5, 0, Math.PI * 2); g.fill();
@@ -204,15 +267,34 @@ export function WorldMapPanel({ game, onClose }: { game: Game; onClose: () => vo
       raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
-    return () => cancelAnimationFrame(raf);
-  }, [size, hover]);
+    // 滚轮缩放（以指针为中心）——必须非被动监听才能阻止页面滚动
+    const wheel = (e: WheelEvent) => {
+      e.preventDefault(); e.stopPropagation();
+      const r = cv.getBoundingClientRect();
+      const f = Math.pow(1.0018, -Math.max(-240, Math.min(240, e.deltaY * (e.deltaMode === 1 ? 30 : 1))));
+      zoomAt(f, ((e.clientX - r.left) / r.width) * size.w, ((e.clientY - r.top) / r.height) * size.h);
+    };
+    cv.addEventListener('wheel', wheel, { passive: false });
+    const key = (e: KeyboardEvent) => {
+      if (e.key === '=' || e.key === '+') { zoomAt(1.4); e.preventDefault(); }
+      else if (e.key === '-' || e.key === '_') { zoomAt(1 / 1.4); e.preventDefault(); }
+      else if (e.key === '0') { view.current.z = 1; clampView(); setZl(1); }
+    };
+    window.addEventListener('keydown', key);
+    return () => { cancelAnimationFrame(raf); cv.removeEventListener('wheel', wheel); window.removeEventListener('keydown', key); };
+  }, [size]);
 
-  const toWorld = (e: React.PointerEvent) => {
+  const local = (e: React.PointerEvent) => {
     const r = ref.current!.getBoundingClientRect();
-    return { mx: ((e.clientX - r.left) / r.width) * MACRO_W, my: ((e.clientY - r.top) / r.height) * MACRO_H };
+    return { sx: ((e.clientX - r.left) / r.width) * size.w, sy: ((e.clientY - r.top) / r.height) * size.h };
+  };
+  const toWorld = (e: React.PointerEvent) => {
+    const { sx, sy } = local(e); const v = view.current, k = (size.w / MACRO_W) * v.z;
+    return { mx: v.cx + (sx - size.w / 2) / k, my: v.cy + (sy - size.h / 2) / k };
   };
   const pickLoc = (mx: number, my: number) => {
-    let best = '', bd = 14 * (1000 / size.w);
+    const k = (size.w / MACRO_W) * view.current.z;
+    let best = '', bd = 14 / k;
     for (const l of LOCATIONS) {
       if (!game.isExplored(l.x * WORLD_SCALE, l.y * WORLD_SCALE) && !l.major) continue;
       const d = Math.hypot(l.x - mx, l.y - my);
@@ -235,7 +317,46 @@ export function WorldMapPanel({ game, onClose }: { game: Game; onClose: () => vo
     }
     onClose();
   };
+  const onDown = (e: React.PointerEvent) => {
+    const { sx, sy } = local(e);
+    pts.current.set(e.pointerId, { x: sx, y: sy });
+    try { (e.target as Element).setPointerCapture(e.pointerId); } catch { /* */ }
+    if (pts.current.size === 2) {
+      const [a, b] = [...pts.current.values()];
+      pinch.current = { d: Math.hypot(a.x - b.x, a.y - b.y), z: view.current.z };
+      if (drag.current) drag.current.moved = true;
+    } else drag.current = { x: sx, y: sy, cx: view.current.cx, cy: view.current.cy, moved: false, id: e.pointerId };
+  };
+  const onMove = (e: React.PointerEvent) => {
+    const { sx, sy } = local(e);
+    if (pts.current.has(e.pointerId)) pts.current.set(e.pointerId, { x: sx, y: sy });
+    if (pinch.current && pts.current.size >= 2) {
+      const [a, b] = [...pts.current.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      const target = pinch.current.z * d / Math.max(10, pinch.current.d);
+      zoomAt(target / view.current.z, (a.x + b.x) / 2, (a.y + b.y) / 2);
+      return;
+    }
+    const D = drag.current;
+    if (D && D.id === e.pointerId) {
+      const dx = sx - D.x, dy = sy - D.y;
+      if (!D.moved && Math.hypot(dx, dy) > 5) D.moved = true;
+      if (D.moved) {
+        const k = (size.w / MACRO_W) * view.current.z;
+        view.current.cx = D.cx - dx / k; view.current.cy = D.cy - dy / k; clampView();
+      }
+      if (D.moved) return;
+    }
+    const { mx, my } = toWorld(e); const id = pickLoc(mx, my); if (id !== hover) setHover(id);
+  };
+  const onUp = (e: React.PointerEvent) => {
+    pts.current.delete(e.pointerId);
+    if (pts.current.size < 2) pinch.current = null;
+    const D = drag.current;
+    if (D && D.id === e.pointerId) { drag.current = null; if (!D.moved) onClick(e); }
+  };
   const hovered = LOCATIONS.find((l) => l.id === hover);
+  const zb = (f: number) => (e: React.MouseEvent) => { e.stopPropagation(); audio.sfx('click'); zoomAt(f); };
 
   return (
     <div className="modal-mask" onClick={onClose}>
@@ -244,13 +365,21 @@ export function WorldMapPanel({ game, onClose }: { game: Game; onClose: () => vo
           <div className="panel-title">人界舆图 · {MAP_NAME[ACTIVE_MAP]}</div>
           <div style={{ flex: 1, fontSize: 13, color: 'var(--ink-soft)' }}>
             {hovered ? <><b style={{ color: 'var(--ink)' }}>{hovered.name}</b>　{game.isExplored(hovered.x * WORLD_SCALE, hovered.y * WORLD_SCALE) ? hovered.desc : '只闻其名，尚未亲至。'}</>
-              : `已探索 ${(game.ui.explored * 100).toFixed(1)}%　·　点击地图设定目的地${game.debugTeleport ? '（体验：瞬移）' : ''}`}
+              : `已探索 ${(game.ui.explored * 100).toFixed(1)}%　·　滚轮 / ＋－ 缩放，拖动平移，点击设定目的地${game.debugTeleport ? '（体验：瞬移）' : ''}`}
           </div>
           <button className="close-btn" onClick={onClose}>×</button>
         </div>
-        <canvas ref={ref} className="worldmap-canvas" style={{ width: size.w, height: size.h }}
-          onPointerMove={(e) => { const { mx, my } = toWorld(e); const id = pickLoc(mx, my); if (id !== hover) setHover(id); }}
-          onPointerUp={onClick} />
+        <div className="worldmap-wrap" style={{ width: size.w, height: size.h }}>
+          <canvas ref={ref} className={'worldmap-canvas' + (zl > 1 ? ' zoomed' : '')} style={{ width: size.w, height: size.h }}
+            onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onPointerLeave={() => setHover('')} />
+          <div className="wm-zoom">
+            <button onClick={zb(1.5)} disabled={zl >= WM_ZMAX - 0.01} title="放大（滚轮 / +）">＋</button>
+            <div className="wm-zl">{zl < 1.05 ? '全图' : `${zl.toFixed(1)}×`}</div>
+            <button onClick={zb(1 / 1.5)} disabled={zl <= 1.001} title="缩小（滚轮 / -）">－</button>
+            <button className="wm-me" onClick={(e) => { e.stopPropagation(); audio.sfx('click'); centerHero(); }} title="以韩立为中心">韩</button>
+            <button className="wm-me" onClick={(e) => { e.stopPropagation(); audio.sfx('click'); view.current.z = 1; clampView(); setZl(1); }} title="看全图（0）">全</button>
+          </div>
+        </div>
         <div className="map-tabs">{MAP_IDS.map((m) => <span key={m} className={m === ACTIVE_MAP ? 'on' : ''} title={MAP_ROUTE[m]}><b>{MAP_NAME[m]}</b>{m === ACTIVE_MAP ? '（你在此）' : m === 'luanxing' ? (ACTIVE_MAP === 'tiannan' ? '　经上古传送阵' : '　须先回天南') : ACTIVE_MAP === 'luanxing' ? '　须先回天南' : '　横穿天澜草原'}</span>)}</div>
         <div className="map-legend">
           {Object.keys(SEAL).map((k) => <span key={k}><i style={{ background: SEAL_COLOR[k] }}>{SEAL[k]}</i>{LOC_TYPE_NAME[k as keyof typeof LOC_TYPE_NAME]}</span>)}

@@ -479,6 +479,29 @@ export const LOCATIONS: LocDef[] = M.locations;
 /** 三张图的全部地点（用于名称查询、跨图 NPC 与传闻） */
 export const ALL_LOCATIONS: LocDef[] = MAP_IDS.flatMap((m) => MAPS[m].locations);
 export const LOC_BY_ID = new Map(ALL_LOCATIONS.map((l) => [l.id, l] as const));
+/** 第三十步：地表地域底色——魔道宗门周边朱砂赤土（t=1），凶地 / 镇魔古山的灰紫阴土（t=2）。半径以原始图单位给，按本图缩放 */
+const ZONE_DEF: [string, number, number][] = [
+  ['guiling', 1, 30], ['hehuan', 1, 28], ['yuling', 1, 30], ['qianhuan', 1, 28], ['tiansha', 1, 30], ['yinluo', 1, 32],
+  ['tianmo', 1, 26], ['jiyin', 1, 13],
+  ['zhuimo', 2, 26], ['yinyang', 2, 16], ['kunwu', 2, 12],
+];
+let zoneCache: { x: number; y: number; r: number; t: number }[] | null = null;
+export function groundZones() {
+  if (zoneCache) return zoneCache;
+  const S = SPEC[ACTIVE_MAP], sk = Math.sqrt(S.sx * S.sy);
+  zoneCache = [];
+  for (const [id, t, r] of ZONE_DEF) {
+    const l = M.locations.find((q) => q.id === id); if (!l) continue;
+    zoneCache.push({ x: l.x * WORLD_SCALE, y: l.y * WORLD_SCALE, r: r * sk * WORLD_SCALE, t });
+  }
+  return zoneCache;
+}
+/** 某点的地域：0 无，1 魔道，2 阴地（取更强者），k=强度 0~1 */
+export function zoneAt(x: number, y: number): { t: number; k: number } {
+  let t = 0, k = 0;
+  for (const z of groundZones()) { const d = Math.hypot(x - z.x, y - z.y) / z.r; const m = d < 0.25 ? 1 : d > 1 ? 0 : 1 - (d - 0.25) / 0.75; if (m > k) { k = m; t = z.t; } }
+  return { t, k };
+}
 /** 当前地图上的地点（不在本图则 undefined）——凡要用坐标的地方都应该用它 */
 export function locHere(id: string | undefined | null): LocDef | undefined { const l = id ? LOC_BY_ID.get(id) : undefined; return l && l.map === ACTIVE_MAP ? l : undefined; }
 export function locsOf(map: MapId): LocDef[] { return MAPS[map].locations; }

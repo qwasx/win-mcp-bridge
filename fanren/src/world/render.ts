@@ -5,7 +5,7 @@ import type { Game } from './game';
 import { FOG_CELL, FOG_W, FOG_H } from './game';
 import { CHUNK, Deco, TreeDeco, MtnDeco, FallDeco } from './terrain';
 import { makeFallCliff, fallGeometry, drawFallAnim, type FallMeta } from '../gfx/waterfall';
-import { LOCATIONS, LocDef, WORLD_SCALE, WORLD_W, WORLD_H, BIG_LABELS } from '../data/world';
+import { LOCATIONS, LocDef, WORLD_SCALE, WORLD_W, WORLD_H, BIG_LABELS, groundZones, zoneAt } from '../data/world';
 import { hash2, clamp } from '../core/rng';
 import { sprites, resBucket, Spr } from '../gfx/sprites';
 import { makeTree, Season } from '../gfx/tree';
@@ -23,7 +23,7 @@ import { GLStage, PostParams } from '../gl/stage';
 import { loadBldTex } from '../gfx/bldTex';
 import { loadHeadTex } from '../gfx/headTex';
 import { loadBeastTex } from '../gfx/beastTex';
-import { MAX_SEG, MAX_TOWN, type GroundSegs, type GroundView, type SegProvider } from '../gl/ground';
+import { MAX_SEG, MAX_TOWN, MAX_ZONE, type GroundSegs, type GroundView, type SegProvider } from '../gl/ground';
 import { FxSys } from '../gl/fx';
 import { drawCombatGL } from '../gl/combatgl';
 import { TIERS } from './sense';
@@ -258,12 +258,15 @@ export class Renderer {
     for (let cy = Math.floor((top - 10) / CHUNK); cy <= Math.floor((bottom + 60) / CHUNK); cy++) for (let cx = Math.floor((left - 40) / CHUNK); cx <= Math.floor((right + 40) / CHUNK); cx++) {
       if (cx < 0 || cy < 0 || cx * CHUNK > WORLD_W || cy * CHUNK > WORLD_H) continue;
       if (!this.groundOn && !T.getChunk(cx, cy, false)) continue;
+      // 第三十步：魔道地界 / 阴地里的草是枯的（按块取一次地域）
+      const zq = zoneAt((cx + 0.5) * CHUNK, (cy + 0.5) * CHUNK);
+      const gs = zq.k > 0.45 ? (zq.t === 1 ? 2 : 3) : season;
       for (const c of T.getGrass(cx, cy)) {
         if (c.lod > lod) continue;
         // GPU 地表已有细密的手绘草丛：位图草只留较高、较显眼的几种，作为会摇、会分开的前景
         if (this.groundOn && (c.kind === 'sprig' || ((c.kind === 'tuft' || c.kind === 'clover') && c.ph > 1.6) || c.lod > 1)) continue;
         if (c.x < left - 40 || c.x > right + 40 || c.y < top - 5 || c.y > bottom + 60) continue;
-        const sp = grassSprite(c.kind, c.v, season, res);
+        const sp = grassSprite(c.kind, c.v, gs, res);
         const dx = c.x - px, dy = c.y - py;
         const d2 = dx * dx + dy * dy;
         let sk = wind * 0.12;
@@ -755,6 +758,7 @@ export class Renderer {
   // ---------------------------------------------------------------- GPU 地表参数
   private groundWanted = false; private groundSet = false; groundOn = false;
   private gSeg = new Float32Array(MAX_SEG * 16);
+  private gZone = new Float32Array(MAX_ZONE * 4);
   private gTown = new Float32Array(MAX_TOWN * 4); private gTownS = new Int32Array(MAX_TOWN * 4);
   /** 地表缓存需要重画时才调用：收集缓存范围内（中心 camX,camY，半宽 hw0/hh0）的河段、路段、城镇 */
   private segProvider: SegProvider = (camX, camY, hw0, hh0) => this.groundSegs(camX, camY, hw0, hh0);
@@ -788,7 +792,17 @@ export class Renderer {
       this.gTownS[o] = (l.x * 7) | 0; this.gTownS[o + 1] = (l.y * 13) | 0; this.gTownS[o + 2] = hole | 0;
       nTown++;
     }
-    return { seg: seg.slice(), nRiv, nRoad, town: this.gTown.slice(0, nTown * 4), townS: this.gTownS.slice(0, nTown * 4), nTown };
+    // 第三十步：魔道宗门 / 凶地周边的地域底色（取离缓存中心最近的若干个）
+    const zs: [number, number, number, number, number][] = [];
+    for (const z of groundZones()) {
+      const lx = z.x - camX, ly = z.y - camY;
+      if (Math.abs(lx) > hw + z.r * 1.2 || Math.abs(ly) > hh + z.r * 1.2) continue;
+      zs.push([lx, ly, z.r, z.t, lx * lx + ly * ly]);
+    }
+    zs.sort((a, b) => a[4] - b[4]);
+    const nZone = Math.min(MAX_ZONE, zs.length);
+    for (let i = 0; i < nZone; i++) { const o = i * 4; this.gZone[o] = zs[i][0]; this.gZone[o + 1] = zs[i][1]; this.gZone[o + 2] = zs[i][2]; this.gZone[o + 3] = zs[i][3]; }
+    return { seg: seg.slice(), nRiv, nRoad, town: this.gTown.slice(0, nTown * 4), townS: this.gTownS.slice(0, nTown * 4), nTown, zone: this.gZone.slice(0, nZone * 4), nZone };
   }
   private groundView(camX: number, camY: number, z: number, W: number, H: number): GroundView {
     return { camX, camY, zoom: z, cssW: W, cssH: H, season: this.game.season, scale: Math.min(this.groundScale, this.dpr) };

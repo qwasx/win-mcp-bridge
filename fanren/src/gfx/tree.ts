@@ -550,6 +550,8 @@ export function trimSprite(c: HTMLCanvasElement, res: number, axW: number, ayW: 
 /** 树种在不同生态中的选择 */
 export function pickSpecies(h: number, s: { arid: number; cold: number; elev: number; forest: number; nearWater: boolean; island: boolean; zone?: string }): Species {
   if (s.zone === 'ymaple') return h < 0.75 ? 'ymaple' : h < 0.88 ? 'pine' : 'bamboo';
+  if (s.zone === 'demon') return h < 0.45 ? 'maple' : h < 0.78 ? 'dead' : 'pine';
+  if (s.zone === 'ghost') return h < 0.5 ? 'dead' : h < 0.8 ? 'cypress' : 'pine';
   if (s.island) return h < 0.6 ? 'palm' : h < 0.8 ? 'broad' : 'bamboo';
   if (s.cold > 0.62) return h < 0.75 ? 'snowpine' : 'pine';
   if (s.arid > 0.8) return 'dead';

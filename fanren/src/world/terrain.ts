@@ -2,8 +2,7 @@
 import { fbm, hash2, valueNoise, mulberry32, clamp, hashU, pnoise } from '../core/rng';
 import {
   MACRO_W, MACRO_H, WORLD_SCALE, MAINLAND, LAKES, RANGES, RIVERS, ARID_ZONES, COLD_ZONES, FOREST_ZONES,
-  LOCATIONS, ISLAND_FIELD, EXTRA_ISLANDS, ISLAND_K, pointInPoly, toLegacy, P,
-} from '../data/world';
+  LOCATIONS, ISLAND_FIELD, EXTRA_ISLANDS, ISLAND_K, pointInPoly, toLegacy, P, zoneAt } from '../data/world';
 import type { MtnSpec, MtnStyle } from '../gfx/mountain';
 import { pickSpecies, Species, TREE_SIZE } from '../gfx/tree';
 import { getLayout, setLayoutEnv, LOC_SCALE } from '../gfx/building';
@@ -1131,7 +1130,8 @@ export class Terrain {
       if (this.inLocZone(gcx, gcy, 900)) dens *= 0.3; // 城镇宗门周边空旷
       if (h3 > dens) continue;
       const island = !pointInPoly(gcx / WORLD_SCALE, gcy / WORLD_SCALE, MAINLAND);
-      const zone = this.inLocZone(gcx, gcy, 2600)?.id === 'huangfeng' ? 'ymaple' : undefined;
+      const zq = zoneAt(gcx, gcy);   // 第三十步：魔道地界多枫与枯木，阴地多枯木与柏
+      const zone = this.inLocZone(gcx, gcy, 2600)?.id === 'huangfeng' ? 'ymaple' : zq.k > 0.3 ? (zq.t === 1 ? 'demon' : 'ghost') : undefined;
       const R = (90 + h4 * 230 + s.forest * 180) * (s.arid > 0.6 ? 0.5 : 1);
       const sp1 = pickSpecies(h4, { ...s, nearWater: nearW, island, zone });
       const sp2 = pickSpecies(hash2(gx, gy, 205), { ...s, nearWater: nearW, island, zone });
