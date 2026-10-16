@@ -1,6 +1,7 @@
 // 第三步：战斗系统 —— 法术施放、弹道、区域、召唤、异状与连携、敌人 AI、掉落、熟练度
 import type { Game } from './game';
 import { ARTS, ArtSkill, PROF_CD, PROF_CH, PROF_DMG, PROF_NAME, PROF_RAD, profLevel, StatusKind, StatusSpec, STATUS_NAME, Fx, School, ART_LIST } from '../data/arts';
+import { beastSpriteTop } from '../gfx/beastTex';
 import { ENEMY_LIST, ENEMIES, EnemyDef, dangerRealm, lvOf, lvRealm, lvName, lvWeight, LAIRS } from '../data/enemies';
 import { REALMS, realmName, expNeed } from '../data/realms';
 import { LOCATIONS, WORLD_SCALE, regionAt, LocDef, legacyHere } from '../data/world';
@@ -590,6 +591,14 @@ export class Combat {
   }
 
   /** 玩家方命中敌人：含连携判定 */
+  /** 受击特效高度：贴图妖兽按画面高度取身躯中段 */
+  hitY(e: Enemy) {
+    if (e.def.kind === 'human') return 62;
+    const top = beastSpriteTop('e:' + e.def.id, !!e.anim.flying);
+    if (!top) return e.anim.flying ? 75 : 36;
+    const alt = e.anim.flying ? 70 : 0;
+    return alt + Math.min(150, (top - alt) * 0.45);
+  }
   hitEnemy(e: Enemy, raw: number, src: { realm: number; status?: StatusSpec; stCh: number; school?: School; evil?: number; skill?: string }, fx: number, fy: number) {
     if (e.dead) return;
     let d = raw;
@@ -620,7 +629,7 @@ export class Combat {
     const kb = (gap > 0 ? 40 : 90 + Math.min(260, frac * 900)) * (e.def.hp >= 1.8 ? 0.35 : 1);
     e.kx += kdx / kd * kb; e.ky += kdy / kd * kb * 0.7;
     const power = Math.min(3, 0.6 + frac * 6 + (crit ? 0.8 : 0));
-    this.fxq.push({ k: 'hit', x: e.x + rand(-8, 8), y: e.y - (e.anim.flying ? 75 : e.def.kind === 'human' ? 62 : 36), color: SCHOOL_COL[src.school as School] ?? '255,236,200', power, crit, dir: Math.atan2(kdy, kdx) });
+    this.fxq.push({ k: 'hit', x: e.x + rand(-8, 8), y: e.y - this.hitY(e), color: SCHOOL_COL[src.school as School] ?? '255,236,200', power, crit, dir: Math.atan2(kdy, kdx) });
     this.game.juice(crit ? 0.055 : frac > 0.25 ? 0.04 : 0, crit ? 0.22 : 0.06 + Math.min(0.2, frac));
     if (gap > 0 && Math.random() < 0.3) this.texts.push({ x: e.x, y: e.y - 140, s: '境界压制', color: '#c0a8ff', t: 0, vy: -30 });
     this.texts.push({ x: e.x + rand(-14, 14), y: e.y - 80, s: String(d), color: crit ? '#ffd040' : combo ? '#ff9a5a' : '#fff4e0', t: 0, big: crit || !!combo, vy: -70 });
@@ -889,6 +898,13 @@ export class Combat {
   }
 
   /** 秘境 / 洞府守卫 */
+  /** 调试 / 截图：在指定处放一只妖兽（不惊动、不移动） */
+  debugSpawn(id: string, x: number, y: number) {
+    const def = ENEMIES[id]; if (!def) return null;
+    const lv = def.lv ? def.lv[0] : 1, rs = lvRealm(lv);
+    const e = new Enemy(def, x, y, rs.realm, rs.stage, !this.game.terrain.isLand(x, y));
+    this.enemies.push(e); return e;
+  }
   spawnGuards(loc: LocDef) {
     const dz = loc.danger ?? 1;
     const cands = ENEMY_LIST.filter((e) => e.minDanger <= dz && dz <= e.maxDanger && e.zone !== 'sea' && !e.behave && !e.lair);

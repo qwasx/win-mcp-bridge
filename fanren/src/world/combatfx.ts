@@ -4,6 +4,7 @@ import { YAODAN_COL } from './combat';
 import type { Drawable } from './life';
 import type { Fx } from '../data/arts';
 import { drawBeast, BeastLook } from '../gfx/beast';
+import { drawBeastSprite, beastSpriteTop, pumpBeastTex } from '../gfx/beastTex';
 import { drawCharacter } from '../gfx/character';
 import { itemDef, TIER_COLORS } from '../data/items';
 import { mulberry32 } from '../core/rng';
@@ -34,6 +35,7 @@ export function enemyVis(c: Combat, e: { x: number; y: number; def?: { hide?: bo
 
 /** 收集需 Y 排序的战斗实体 */
 export function collectCombat(c: Combat, out: Drawable[], view: { left: number; top: number; right: number; bottom: number }, t: number, dt: number) {
+  pumpBeastTex();
   for (const e of c.enemies) {
     if (e.x < view.left - 200 || e.x > view.right + 200 || e.y < view.top - 100 || e.y > view.bottom + 260) continue;
     const a = enemyVis(c, e);
@@ -43,7 +45,7 @@ export function collectCombat(c: Combat, out: Drawable[], view: { left: number; 
   for (const s of c.summons) {
     if (s.kind === 'bugs') continue;
     if (s.kind === 'quhun' && s.cs) { const cs = s.cs; out.push({ y: s.y, draw: (g) => { g.save(); g.globalAlpha *= Math.min(1, s.t * 2); drawCharacter(g, QUHUN_LOOK, cs, 1.12, 0); g.globalCompositeOperation = 'lighter'; g.fillStyle = 'rgba(120,255,170,0.5)'; g.beginPath(); g.arc(s.x, s.y - 150, 3, 0, Math.PI * 2); g.fill(); g.restore(); } }); continue; }
-    out.push({ y: s.kind === 'demon' ? s.y + AIR_Y : s.y, draw: (g) => { drawBeast(g, SUMMON_LOOK[s.kind] ?? SUMMON_LOOK.fox, s.x, s.y, s.facing, { move: 1, phase: s.phase, atk: s.cd > 0.7 ? 1 - (s.cd - 0.7) / 0.4 : 0, hit: 0, t: s.phase / 8, flying: s.kind === 'demon' }, 1); } });
+    out.push({ y: s.kind === 'demon' ? s.y + AIR_Y : s.y, draw: (g) => { const A = { move: 1, phase: s.phase, atk: s.cd > 0.7 ? 1 - (s.cd - 0.7) / 0.4 : 0, hit: 0, t: s.phase / 8, flying: s.kind === 'demon' }; if (!drawBeastSprite(g, 's:' + s.kind, s.x, s.y, s.facing, A, 1)) drawBeast(g, SUMMON_LOOK[s.kind] ?? SUMMON_LOOK.fox, s.x, s.y, s.facing, A, 1); } });
   }
   for (const l of c.loot) {
     const a = enemyVis(c, l);
@@ -84,7 +86,7 @@ function drawEnemy(g: G, c: Combat, e: Enemy, alpha: number, t: number, dt: numb
     if (e.def.evil) { g.globalCompositeOperation = 'lighter'; const gr = g.createRadialGradient(e.x, e.y - 50, 0, e.x, e.y - 50, 70); gr.addColorStop(0, 'rgba(200,30,40,0.18)'); gr.addColorStop(1, 'rgba(200,30,40,0)'); g.fillStyle = gr; g.fillRect(e.x - 70, e.y - 120, 140, 140); }
   } else if (e.def.look) {
     if (e.blv >= 5 && !e.dead) drawYaoqi(g, e, t);
-    drawBeast(g, e.def.look, e.x, e.y, e.facing, e.anim, 1);
+    if (!drawBeastSprite(g, 'e:' + e.def.id, e.x, e.y, e.facing, e.anim, 1)) drawBeast(g, e.def.look, e.x, e.y, e.facing, e.anim, 1);
   }
   // 异状表现
   if (e.st.freeze) { g.globalCompositeOperation = 'source-over'; g.fillStyle = 'rgba(190,230,255,0.45)'; g.strokeStyle = 'rgba(240,250,255,0.9)'; g.lineWidth = 1.5; g.beginPath(); const h = e.anim.flying ? 110 : 70; for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; g.lineTo(e.x + Math.cos(a) * 42, e.y - h / 2 + Math.sin(a) * h * 0.6); } g.closePath(); g.fill(); g.stroke(); }
@@ -497,7 +499,8 @@ export function drawCombatUI(g: G, c: Combat, t: number, z: number) {
       // 未交战：仅显示名牌（悬停般淡）
     }
     g.globalAlpha = a;
-    const top = e.y - (e.def.kind === 'human' ? 150 : e.anim.flying ? 150 : 100) * (e.def.look?.size ?? 1);
+    const st = e.def.kind === 'human' ? 0 : beastSpriteTop('e:' + e.def.id, !!e.anim.flying);
+    const top = st ? e.y - st - 18 : e.y - (e.def.kind === 'human' ? 150 : e.anim.flying ? 150 : 100) * (e.def.look?.size ?? 1);
     const w = 70 * k, hh = 6 * k;
     // 强弱颜色
     const gap = e.level - (h.realm * 13 + h.stage);

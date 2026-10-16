@@ -350,7 +350,7 @@ function ChroniclePanel({ game }: { game: Game }) {
 }
 
 // ---------------------------------------------------------------- 帮助
-export const VERSION = 'v0.20 · 画材篇（地表）';
+export const VERSION = 'v0.21 · 画材篇（妖兽 · 小地图）';
 function HelpPanel({ game }: { game: Game }) {
   const [tab, setTab] = useState(0);
   const T = ['操作', '修炼', '战斗', '人界', '神识', '机缘'];

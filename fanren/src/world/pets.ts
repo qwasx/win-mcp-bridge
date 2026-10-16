@@ -9,6 +9,7 @@ import { REALMS } from '../data/realms';
 import type { DNode, DOpt } from './modal';
 import type { PetState } from './worldstate';
 import { drawBeast, type BeastLook } from '../gfx/beast';
+import { drawBeastSprite } from '../gfx/beastTex';
 import { dirName, type SiteKind } from './sites';
 import type { Enemy } from './combat';
 
@@ -185,7 +186,9 @@ export class PetSys {
       if (pet.kind === 'shijin') this.drawBugs(ctx, e, flying, pet.lv);
       else if (k.look) {
         const look = pet.kind === 'huli' ? { ...k.look, tails: 1 + Math.floor(pet.lv / 3) } as BeastLook : k.look;
-        drawBeast(ctx, look, e.x, e.y, e.facing, { move: e.move, phase: e.phase, atk: e.atk, hit: 0, t: e.t, flying } as any, sc);
+        const sk = pet.kind === 'huli' ? `p:huli${pet.lv < 3 ? 1 : pet.lv < 6 ? 2 : 3}` : `p:${pet.kind}`;
+        const A = { move: e.move, phase: e.phase, atk: e.atk, hit: 0, t: e.t, flying } as any;
+        if (!drawBeastSprite(ctx, sk, e.x, e.y, e.facing, A, sc)) drawBeast(ctx, look, e.x, e.y, e.facing, A, sc);
       }
       if (e.alert > 0) {
         const a = Math.min(1, e.alert); ctx.save(); ctx.globalAlpha *= a;

@@ -1177,19 +1177,35 @@ export class Terrain {
   }
 
   // ---------- 全图（世界地图界面用） ----------
+  overviewBase: HTMLCanvasElement | null = null;
   buildOverview(scale = 1): HTMLCanvasElement {
     const W = this.W * scale, H = this.H * scale;
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const g = cv.getContext('2d')!;
     const img = g.createImageData(W, H);
-    const col = [0, 0, 0];
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-      this.colorAt(((x + 0.5) / scale) * WORLD_SCALE, ((y + 0.5) / scale) * WORLD_SCALE, col);
+    this.overviewRows(img, 0, 0, scale, 0, H);
+    g.putImageData(img, 0, 0);
+    // 不带图标的底色副本（小地图放大时先把它平滑放大，再在上面画清晰的矢量）
+    const base = document.createElement('canvas'); base.width = W; base.height = H; base.getContext('2d')!.drawImage(cv, 0, 0);
+    this.overviewBase = base;
+    this.overviewVectors(g, 0, 0, W, H, scale);
+    return cv;
+  }
+
+  /** 第二十步：小地图放大用的局部高清底图——逐行填像素（可分帧），x0/y0 为宏观单位，img 尺寸 = 区域 × scale */
+  overviewRows(img: ImageData, x0: number, y0: number, scale: number, rowFrom: number, rowTo: number) {
+    const W = img.width, col = [0, 0, 0];
+    for (let y = rowFrom; y < rowTo; y++) for (let x = 0; x < W; x++) {
+      this.colorAt((x0 + (x + 0.5) / scale) * WORLD_SCALE, (y0 + (y + 0.5) / scale) * WORLD_SCALE, col);
       const k = (y * W + x) * 4;
       img.data[k] = col[0]; img.data[k + 1] = col[1]; img.data[k + 2] = col[2]; img.data[k + 3] = 255;
     }
-    g.putImageData(img, 0, 0);
-    g.save(); g.scale(scale, scale);
+  }
+
+  /** 河流、道路、山林小图标（矢量），画到以 (x0,y0) 宏观单位为左上角、每单位 scale 像素的画布上 */
+  overviewVectors(g: CanvasRenderingContext2D, x0: number, y0: number, Wpx: number, Hpx: number, scale: number) {
+    const ux0 = x0 - 12, uy0 = y0 - 4, ux1 = x0 + Wpx / scale + 12, uy1 = y0 + Hpx / scale + 20;
+    g.save(); g.scale(scale, scale); g.translate(-x0, -y0);
     // 河流
     g.lineCap = 'round'; g.lineJoin = 'round';
     for (const rv of this.rivers) {
@@ -1197,20 +1213,23 @@ export class Terrain {
       g.strokeStyle = 'rgba(120,150,155,0.9)'; g.lineWidth = 0.9 * rv.w; g.stroke();
     }
     // 道路
-    g.setLineDash([2, 2]);
+    // 放大时山林图标更小更密（每 3 单位一格），免得一座山占半张小地图
+    const fine = scale >= 3, iconK = fine ? 0.4 : 1, step = fine ? 3 : 6, jit = fine ? 2 : 4;
+    g.setLineDash([2 / Math.max(1, scale / 3), 2 / Math.max(1, scale / 3)]);
     for (const rd of this.roads) {
       g.beginPath(); rd.pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
-      g.strokeStyle = 'rgba(120,96,60,0.55)'; g.lineWidth = rd.major ? 1.1 : 0.7; g.stroke();
+      g.strokeStyle = 'rgba(120,96,60,0.55)'; g.lineWidth = (rd.major ? 1.1 : 0.7) / Math.max(1, scale / 2); g.stroke();
     }
     g.setLineDash([]);
     // 山与林的小图标（代码绘制）
-    for (let y = 4; y < this.H; y += 6) for (let x = 4; x < this.W; x += 6) {
-      const jx = x + (hash2(x, y, 5) - 0.5) * 4, jy = y + (hash2(x, y, 6) - 0.5) * 4;
+    const gy0 = Math.max(4, 4 + Math.floor((uy0 - 4) / step) * step), gx0 = Math.max(4, 4 + Math.floor((ux0 - 4) / step) * step);
+    for (let y = gy0; y < this.H && y < uy1; y += step) for (let x = gx0; x < this.W && x < ux1; x += step) {
+      const jx = x + (hash2(x, y, 5) - 0.5) * jit, jy = y + (hash2(x, y, 6) - 0.5) * jit;
       const i = (jy | 0) * this.W + (jx | 0);
       if (this.land[i] < 0.55) continue;
       const e = this.elev[i];
       if (e > 0.45 && hash2(x, y, 8) < (e - 0.3) * 1.6) {
-        const w = 6 + e * 9, h = w * (0.55 + hash2(x, y, 9) * 0.4);
+        const w = (6 + e * 9) * iconK, h = w * (0.55 + hash2(x, y, 9) * 0.4);
         const snow = this.cold[i] > 0.42, desert = this.arid[i] > 0.75;
         const base = snow ? '#c8d0dc' : desert ? '#c09a62' : '#6f8a7a';
         g.beginPath(); g.moveTo(jx - w / 2, jy); g.quadraticCurveTo(jx - w * 0.15, jy - h * 0.7, jx, jy - h); g.quadraticCurveTo(jx + w * 0.2, jy - h * 0.6, jx + w / 2, jy); g.closePath();
@@ -1218,14 +1237,14 @@ export class Terrain {
         g.beginPath(); g.moveTo(jx, jy - h); g.quadraticCurveTo(jx + w * 0.2, jy - h * 0.6, jx + w / 2, jy); g.lineTo(jx + w * 0.05, jy); g.closePath();
         g.fillStyle = 'rgba(30,40,40,0.28)'; g.fill();
         if (snow || e > 0.95) { g.beginPath(); g.moveTo(jx - w * 0.12, jy - h * 0.75); g.lineTo(jx, jy - h); g.lineTo(jx + w * 0.1, jy - h * 0.78); g.closePath(); g.fillStyle = '#fafcff'; g.fill(); }
-        g.strokeStyle = 'rgba(40,40,36,0.6)'; g.lineWidth = 0.5;
+        g.strokeStyle = 'rgba(40,40,36,0.6)'; g.lineWidth = fine ? 0.22 : 0.5;
         g.beginPath(); g.moveTo(jx - w / 2, jy); g.quadraticCurveTo(jx - w * 0.15, jy - h * 0.7, jx, jy - h); g.quadraticCurveTo(jx + w * 0.2, jy - h * 0.6, jx + w / 2, jy); g.stroke();
       } else if (this.forest[i] > 0.5 && hash2(x, y, 7) < 0.7) {
         g.fillStyle = this.cold[i] > 0.5 ? 'rgba(50,80,70,0.7)' : 'rgba(60,100,60,0.65)';
-        for (let k = 0; k < 3; k++) { g.beginPath(); g.arc(jx + (k - 1) * 1.6, jy - (k % 2) * 1.2, 1.4, 0, Math.PI * 2); g.fill(); }
+        const fk = fine ? 0.5 : 1;
+        for (let k = 0; k < 3; k++) { g.beginPath(); g.arc(jx + (k - 1) * 1.6 * fk, jy - (k % 2) * 1.2 * fk, 1.4 * fk, 0, Math.PI * 2); g.fill(); }
       }
     }
     g.restore();
-    return cv;
   }
 }
