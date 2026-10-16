@@ -15,6 +15,8 @@ const REACH_CASTS = new Set<string>(['bolt', 'fan', 'burst', 'strike', 'beam', '
 import type { FxEvent } from '../gl/combatgl';
 import { ArtActs, lookOf } from './artacts';
 import { FoeAI, FoeSkill, isBoss } from './foeskills';
+import { DagengAct } from './dageng';
+import { Swarm } from './swarm';
 
 /** 各系命中光色 */
 const SCHOOL_COL: Partial<Record<School, string>> = { 火: '255,140,60', 冰: '150,220,255', 雷: '170,190,255', 风: '200,255,230', 土: '220,180,110', 木: '150,230,110', 剑: '210,255,240', 体: '255,220,160', 御: '255,210,120', 魔: '230,60,80', 识: '210,170,255', 阵: '255,230,140', 身: '200,240,255', 符: '255,210,110' };
@@ -141,6 +143,30 @@ export class Combat {
   fade = 0;
   /** 渲染特效事件队列（WebGL 层消费） */
   fxq: FxEvent[] = [];
+  /** 第二十八步：地面焦痕 */
+  /** 噬金虫群（功法）与灵宠虫群 */
+  swarm: Swarm | null = null; petSwarm: Swarm | null = null;
+  /** 风雷翅展开（秒）；雷遁 / 血遁残影 */
+  wing: { t: number; max: number; lv: number; flap: number } | null = null;
+  ghosts: { x: number; y: number; t: number; dur: number; color: string; yaw: number }[] = [];
+  private ghostT = 0;
+  addGhosts(x0: number, y0: number, x1: number, y1: number, n: number, color: string, dur = 0.5) {
+    const yaw = this.game.player.st.yaw;
+    for (let i = 0; i < n; i++) { const k = i / Math.max(1, n - 1); this.ghosts.push({ x: x0 + (x1 - x0) * k, y: y0 + (y1 - y0) * k, t: -k * 0.08, dur, color, yaw }); }
+    if (this.ghosts.length > 40) this.ghosts.splice(0, this.ghosts.length - 40);
+  }
+  scorch: { x: number; y: number; r: number; t: number; dur: number; rot: number; color: string }[] = [];
+  /** 统一打击感：1 小 / 2 中 / 3 大（大招）——顿帧、分级震屏、气浪、闪光、色差、焦痕、慢镜头 */
+  impact(x: number, y: number, tier: 1 | 2 | 3, color = '255,236,190') {
+    const g = this.game, near = Math.hypot(x - g.player.x, y - g.player.y) < 1400;
+    if (near) {
+      if (tier === 1) g.juice(0.03, 0.1);
+      else if (tier === 2) { g.juice(0.06, 0.3); g.aberrKick = Math.max(g.aberrKick, 0.35); }
+      else { g.juice(0.1, 0.75); g.aberrKick = 1; g.slowmo(0.45); }
+    }
+    if (tier >= 2 && this.scorch.length < 24) this.scorch.push({ x, y, r: tier === 3 ? 240 : 90, t: 0, dur: tier === 3 ? 10 : 6, rot: Math.random() * TAU, color });
+    this.fxq.push({ k: 'impact', x, y, color, power: tier });
+  }
   dodgeCd = 0;
   /** 威压：附近敌对高境界者带来的压制（0 无；1 = 高一大境界） */
   pressure = 0;
@@ -163,7 +189,7 @@ export class Combat {
   }
 
   reset() {
-    this.enemies = []; this.projs = []; this.fields = []; this.vfx = []; this.texts = []; this.loot = []; this.summons = []; this.strikes = []; this.sparks = []; this.foe?.reset();
+    this.enemies = []; this.projs = []; this.fields = []; this.vfx = []; this.texts = []; this.loot = []; this.summons = []; this.strikes = []; this.sparks = []; this.foe?.reset(); this.scorch = []; this.swarm = null; this.petSwarm = null; this.wing = null; this.ghosts = [];
     this.cds.clear(); this.pst = {}; this.shield = null; this.orbit = null; this.heal = null; this.dash = null; this.decoy = null; this.acts?.reset();
     this.buffs = { atk: 0, def: 0, speed: 0, regen: 0, stealth: 0, decoy: 0, until: {} };
   }
@@ -365,7 +391,8 @@ export class Combat {
         let k = 1;
         while (cur && jumps-- > 0) {
           hit.add(cur.id);
-          this.vfx.push({ kind: 'chain', x: from.x, y: from.y, x2: cur.x, y2: cur.y - 30, r: 0, t: 0, dur: 0.35, color: s.color, seed: Math.random() * 1e6, w: 2 + lv });
+          this.vfx.push({ kind: 'chain', x: from.x, y: from.y, x2: cur.x, y2: cur.y - 30, r: 0, t: 0, dur: s.fx === 'goldthunder' ? 0.45 : 0.35, color: s.color, fx: s.fx, seed: Math.random() * 1e6, w: 2 + lv });
+          if (s.fx === 'goldthunder') this.impact(cur.x, cur.y, k > 0.9 ? 2 : 1, s.color);
           this.hitEnemy(cur, dmg * k, base, from.x, from.y);
           k *= 0.85;
           from = { x: cur.x, y: cur.y - 30 };
@@ -375,6 +402,13 @@ export class Combat {
         break;
       }
       case 'field': {
+        if (s.id === 'dageng') {
+          // 第二十八步：大庚剑阵（三段式，见 dageng.ts）
+          const d = Math.min(s.range, Math.hypot(a.x - p.x, a.y - p.y));
+          const art = itemDef('art_qingzhu').art!, L = lookOf('art_qingzhu');
+          this.acts.list.push(new DagengAct(this, { itemId: 'art_qingzhu', art, L, cc: [1, 0.86, 0.45], dmg, src: base, pieces: 36 + lv * 12, ax: a.x, ay: a.y, target: a.target }, p.x + a.dx * d, p.y + a.dy * d + 20, radius * 1.6, lv));
+          break;
+        }
         const self = s.id === 'juling';
         const d = self ? 0 : Math.min(s.range, Math.hypot(a.x - p.x, a.y - p.y));
         const fx = p.x + a.dx * d, fy = p.y + (self ? 0 : a.dy * d + 30);
@@ -441,6 +475,17 @@ export class Combat {
         if (radius > 0 && s.power > 0) { this.vfx.push({ kind: 'ring', x: tx, y: ty, r: radius, t: 0, dur: 0.45, color: s.color, fx: s.fx }); this.aoe(tx, ty, radius, dmg, base); }
         if (s.id === 'tudun' || s.id === 'xuedun' || s.id === 'xueyingdun') { this.buffs.until.stealth = g.time + (s.id === 'tudun' ? 3 : s.id === 'xueyingdun' ? 4 : 2) + lv; for (const e of this.enemies) e.aggro = false; }
         if (s.id === 'xueyingdun' || s.id === 'xuedun' || s.id === 'xueying') { this.fxq.push({ k: 'xueying', x: ox, y: oy, x2: p.x, y2: p.y, big: s.id === 'xueyingdun' }); this.game.juice(0.04, 0.35); audio.sfx('boom'); }
+        // 第二十八步：雷遁——一路雷光残影，两端雷爆；血遁——血色残影
+        if (s.id === 'leidun') {
+          this.addGhosts(ox, oy, p.x, p.y, 7, '170,200,255', 0.5);
+          for (let i = 0; i < 2; i++) this.vfx.push({ kind: 'chain', x: ox, y: oy - 50, x2: p.x, y2: p.y - 50, r: 0, t: 0, dur: 0.35, color: '200,215,255', seed: Math.random() * 1e6, w: 2 + i * 2 });
+          this.impact(p.x, p.y, 2, '170,200,255');
+          if (lv >= 1) this.impact(ox, oy, 1, '170,200,255');
+          audio.sfx('thunder');
+        } else if (s.id === 'xueyingdun' || s.id === 'xuedun' || s.id === 'xueying') {
+          this.addGhosts(ox, oy, p.x, p.y, s.id === 'xueying' ? 4 : 6, '230,40,55', 0.55);
+          if (s.id === 'xueyingdun') this.impact(ox, oy, 2, '220,40,50');
+        }
         this.invulnT = 0.3;
         break;
       }
@@ -455,6 +500,19 @@ export class Combat {
         if (b.decoy) { this.decoy = { x: p.x + a.dx * 40, y: p.y + a.dy * 40, t: dur }; }
         this.vfx.push({ kind: 'aura', x: p.x, y: p.y, r: 90, t: 0, dur: 0.9, color: s.color, fx: s.fx });
         this.game.toast(`${s.name}！`);
+        if (s.id === 'fengleichi') {
+          // 第二十八步：青紫雷翼展开——振翅一扇，雷光震退四周之敌
+          this.wing = { t: dur, max: dur, lv, flap: 0.6 };
+          for (const e of this.enemies) {
+            if (e.dead) continue;
+            const dx = e.x - p.x, dy = e.y - p.y, d = Math.hypot(dx, dy) || 1;
+            if (d > 300) continue;
+            this.hitEnemy(e, atk * (0.8 + lv * 0.3), { ...base, status: { k: 'shock', dur: 0.8, ch: 0.7 }, stCh: 0.7 }, p.x, p.y - 60);
+            e.kx += dx / d * 900; e.ky += dy / d * 560;
+          }
+          this.impact(p.x, p.y, 2, '170,190,255');
+          audio.sfx('thunder');
+        }
         break;
       }
       case 'shield': {
@@ -470,10 +528,18 @@ export class Combat {
       }
       case 'summon': {
         const sm = s.summon!;
-        const n = sm.kind === 'bugs' ? 1 : sm.n + (lv >= 3 && sm.n === 1 ? 1 : 0);
+        if (sm.kind === 'bugs') {
+          // 第二十八步：虫群——数量随熟练度，成长阶段随熟练度（银 → 金斑 → 三色 → 纯金）
+          const n = 90 + lv * 50;
+          if (this.swarm) this.swarm.mode = 'recall';
+          this.swarm = new Swarm(this, { n, max: Math.min(460, n * 2), stage: Math.min(3, lv), life: (s.dur ?? 16) * (1 + lv * 0.1), dmg: dmg * (1 + lv * 0.3), src: base }, () => this.game.player);
+          this.impact(p.x, p.y, 1, '255,215,90');
+          break;
+        }
+        const n = (sm.kind as string) === 'bugs' ? 1 : sm.n + (lv >= 3 && sm.n === 1 ? 1 : 0);
         for (let i = 0; i < n; i++) {
           const an = Math.random() * TAU;
-          this.summons.push({ cs: sm.kind === 'quhun' ? new CharState(p.x + Math.cos(an) * 60, p.y + Math.sin(an) * 40) : undefined, kind: sm.kind, x: p.x + Math.cos(an) * 60, y: p.y + Math.sin(an) * 40, t: (s.dur ?? 20) * (1 + lv * 0.1), dmg: dmg * (sm.kind === 'demon' ? 0.5 : 1), cd: 0, target: null, phase: 0, facing: 1, n: sm.kind === 'bugs' ? sm.n + lv * 4 : 1, evil: s.vsEvil, status: s.status, dots: sm.kind === 'bugs' ? Array.from({ length: sm.n + lv * 4 }, () => ({ a: Math.random() * TAU, r: rand(8, 40), s: rand(3, 7) })) : undefined });
+          this.summons.push({ cs: sm.kind === 'quhun' ? new CharState(p.x + Math.cos(an) * 60, p.y + Math.sin(an) * 40) : undefined, kind: sm.kind, x: p.x + Math.cos(an) * 60, y: p.y + Math.sin(an) * 40, t: (s.dur ?? 20) * (1 + lv * 0.1), dmg: dmg * (sm.kind === 'demon' ? 0.5 : 1), cd: 0, target: null, phase: 0, facing: 1, n: (sm.kind as string) === 'bugs' ? sm.n + lv * 4 : 1, evil: s.vsEvil, status: s.status, dots: (sm.kind as string) === 'bugs' ? Array.from({ length: sm.n + lv * 4 }, () => ({ a: Math.random() * TAU, r: rand(8, 40), s: rand(3, 7) })) : undefined });
         }
         this.vfx.push({ kind: 'aura', x: p.x, y: p.y, r: 100, t: 0, dur: 0.8, color: s.color });
         break;
@@ -1007,6 +1073,16 @@ export class Combat {
     this.updateFields(dt);
     this.updateSummons(dt);
     this.acts.update(dt);
+    if (this.swarm) { this.swarm.update(dt); if (this.swarm.done) this.swarm = null; }
+    // 风雷翅：展翅期间移动留下雷遁残影
+    if (this.wing) {
+      const w = this.wing; w.t -= dt; w.flap = Math.max(0, w.flap - dt);
+      if (w.t <= 0) this.wing = null;
+      else if (Math.hypot(p.st.vx, p.st.vy) > 60) { this.ghostT -= dt; if (this.ghostT <= 0) { this.ghostT = 0.05; this.ghosts.push({ x: p.x, y: p.y, t: 0, dur: 0.32, color: '170,190,255', yaw: p.st.yaw }); } }
+    }
+    for (const gh of this.ghosts) gh.t += dt;
+    this.ghosts = this.ghosts.filter((gh) => gh.t < gh.dur);
+    if (this.petSwarm) this.petSwarm.update(dt);
     // 天降打击
     this.strikes = this.strikes.filter((s) => {
       s.t -= dt;

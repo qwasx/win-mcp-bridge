@@ -819,7 +819,7 @@ export class Renderer {
       flash: [0.92, 0.94, 1, wt.flash * 0.55],
       tint: tintM,
       vig: 1 + mind * 0.8, hurt: Math.min(0.8, hurt + mind * 0.18), fade: Math.min(1, game.combat.fade * 1.4),
-      aberr: game.trauma > 0.25 ? (game.trauma - 0.25) * 1.2 : 0,
+      aberr: (game.trauma > 0.25 ? (game.trauma - 0.25) * 1.2 : 0) + game.aberrKick * 0.9,
       bloom: 0.9, grain: 1,
       shocks: F.shocks.map((s) => ({ x: W / 2 + (s.x - camX) * z, y: H / 2 + (s.y - camY) * z, r: s.r * z, amp: s.amp * Math.min(1.5, z * 1.2) })),
       sat: 0,

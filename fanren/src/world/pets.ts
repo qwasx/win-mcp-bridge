@@ -2,6 +2,7 @@
 // - 灵卵/幼崽得自兽巢、潭底、遗府、藏宝；放进储物袋即自动温养，数十日后破壳
 // - 至多四只，一只随行：跟着你走、跟你一起飞、替你出手；会循着气味替你找到神识外的机缘
 // - 斩妖、喂妖丹可升级（1–10 级）；亲密度高了会叼东西回来送你
+import { Swarm } from './swarm';
 import type { Game } from './game';
 import * as C from './cultivation';
 import { itemDef } from '../data/items';
@@ -72,10 +73,19 @@ export class PetSys {
       else if (!ws.incubate) this.startNext();
     }
     const pet = this.active;
-    if (!pet || g.hero.dead) { this.ent = null; this.focus = false; return; }
+    if (!pet || g.hero.dead) { this.ent = null; this.focus = false; g.combat.petSwarm = null; return; }
     const k = PET_KINDS[pet.kind]; if (!k) return;
     if (!this.ent) { this.ent = new PetEnt(); this.ent.x = P.x - 80; this.ent.y = P.y + 30; }
-    const e = this.ent; e.t += dt; e.alert = Math.max(0, e.alert - dt); e.atk = Math.max(0, e.atk - dt * 3);
+    const e = this.ent;
+    // 第二十八步：噬金虫灵宠——用虫群算法飞行（数量随等级）
+    if (pet.kind === 'shijin') {
+      const want = 20 + pet.lv * 6, cs = g.combat;
+      if (!cs.petSwarm || cs.petSwarm.n < want - 1 && cs.petSwarm.cap >= want) {
+        if (!cs.petSwarm) cs.petSwarm = new Swarm(cs, { n: want, max: 90, stage: Math.min(3, Math.floor(pet.lv / 3)), life: 1e9, dmg: 0, src: { realm: g.hero.realm, stCh: 0 }, pet: true }, () => ({ x: e.x, y: e.y - (P.flying ? 40 : 0) }));
+        else cs.petSwarm.n = Math.min(cs.petSwarm.cap, want);
+      }
+    } else g.combat.petSwarm = null;
+    e.t += dt; e.alert = Math.max(0, e.alert - dt); e.atk = Math.max(0, e.atk - dt * 3);
     // 目标
     let tgt: Enemy | null = null, bd = 700;
     for (const en of g.combat.enemies) { if (en.dead || en.spar || (!en.aggro && g.combat.lock !== en)) continue; const d = Math.hypot(en.x - P.x, en.y - P.y); if (d < bd) { bd = d; tgt = en; } }
@@ -183,7 +193,7 @@ export class PetSys {
     const flying = !!k.flying || P.flying;
     const sc = 0.55 + pet.lv * 0.05;
     out.push({ y: e.y, draw: (ctx) => {
-      if (pet.kind === 'shijin') this.drawBugs(ctx, e, flying, pet.lv);
+      if (pet.kind === 'shijin') { if (!this.game.combat.petSwarm || !(this.game.renderer as any)?.stage || (this.game.renderer as any).stage.lost) this.drawBugs(ctx, e, flying, pet.lv); }
       else if (k.look) {
         const look = pet.kind === 'huli' ? { ...k.look, tails: 1 + Math.floor(pet.lv / 3) } as BeastLook : k.look;
         const sk = pet.kind === 'huli' ? `p:huli${pet.lv < 3 ? 1 : pet.lv < 6 ? 2 : 3}` : `p:${pet.kind}`;

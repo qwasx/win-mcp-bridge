@@ -1,4 +1,5 @@
 // 游戏核心：状态、循环、输入、相机；第一步大地图 + 第二步修炼与角色
+import { ARTS as ARTS_ALL } from '../data/arts';
 import { Terrain } from './terrain';
 import { Renderer } from './render';
 import { REALMS, realmName } from '../data/realms';
@@ -549,6 +550,11 @@ export class Game {
   /** 慢镜头（真实秒）：大招结算的一瞬 */
   slowT = 0;
   slowmo(sec: number) { this.slowT = Math.max(this.slowT, Math.min(0.6, sec)); }
+  /** 色差冲击（0..1，自行衰减） */
+  aberrKick = 0;
+  /** 大招运镜：拉远并看向某处 */
+  cine = { t: 0, dur: 0, z: 1, x: 0, y: 0, k: 0 };
+  cinema(x: number, y: number, zMul: number, dur: number) { this.cine = { t: 0, dur, z: zMul, x, y, k: this.cine.k }; }
   showPerf = false;
   perf = { frames: 0, acc: 0, upd: 0, ren: 0, fps: 0, updMs: 0, renMs: 0, worst: 0, worstMs: 0 };
   /** 顿帧（秒）与震屏（0..1 创伤值，叠加） */
@@ -595,6 +601,13 @@ export class Game {
     });
   }
   /** 调试：习得并施放 */
+  /** 调试：越过境界 / 法宝限制直接施展（自动化截图用） */
+  debugExec(id: string, lv = 3) {
+    const c = this.combat as any, s = ARTS_ALL[id]; if (!s) return;
+    const sr = c.reachSkill(s), a = c.aim(sr.range || 400);
+    this.player.st.faceToward(a.dx, a.dy, false);
+    c.exec(sr, lv, a, c.pStats.atk, c.pStats.realm);
+  }
   debugCast(id: string) {
     if (!this.hero.arts.some((a) => a.id === id)) this.hero.arts.push({ id, xp: 0 });
     (this.combat as any).cds.delete(id); this.hero.mp = 1;
@@ -621,6 +634,7 @@ export class Game {
       if (this.hitStop > 0) { this.hitStop -= rdt; dt = rdt * 0.05; }
       else if (this.slowT > 0) { this.slowT -= rdt; dt *= 0.3; }
       this.trauma = Math.max(0, this.trauma - rdt * 1.8);
+      this.aberrKick = Math.max(0, this.aberrKick - rdt * 2.2);
       this.hurtFlash = Math.max(0, this.hurtFlash - rdt * 2.2);
       const u0 = performance.now();
       this.update(dt);
@@ -666,6 +680,10 @@ export class Game {
         fz = clamp(Math.max(0.42, zNeed) / z0, 0.5, 1);
         lx = dx * LEAN; ly = dy * LEAN;
       }
+      // 大招运镜
+      const cn = this.cine; cn.t += dt;
+      const cOn = cn.t < cn.dur ? 1 : 0; cn.k += (cOn - cn.k) * Math.min(1, dt * (cOn ? 4 : 2));
+      if (cn.k > 0.002) { fz *= 1 + (cn.z - 1) * cn.k; lx += (cn.x - p.x) * 0.5 * cn.k; ly += (cn.y - 40 - p.y) * 0.5 * cn.k; }
       const k = Math.min(1, dt * 2.2);
       this.camFrameZ += (fz - this.camFrameZ) * k; this.camLeanX += (lx - this.camLeanX) * k; this.camLeanY += (ly - this.camLeanY) * k;
     }

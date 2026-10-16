@@ -31,13 +31,13 @@ export interface ActInit {
 }
 
 /** 敌人受击点高度（相对地面） */
-const eh = (e: Enemy) => (e.anim.flying ? 75 : e.def.kind === 'human' ? 58 : 34);
+export const eh = (e: Enemy) => (e.anim.flying ? 75 : e.def.kind === 'human' ? 58 : 34);
 function shadow(g: G, x: number, y: number, r: number, a: number) {
   if (a <= 0.01) return;
   g.fillStyle = `rgba(20,16,12,${0.28 * a})`; g.beginPath(); g.ellipse(x, y, r, r * 0.34, 0, 0, TAU); g.fill();
 }
 
-abstract class Act {
+export abstract class Act {
   t = 0; done = false;
   constructor(public c: Combat, public I: ActInit) {}
   get p() { return this.c.game.player; }
@@ -57,10 +57,10 @@ abstract class Act {
 }
 
 // ============================================================== 飞行体（共用）
-interface Flyer { x: number; y: number; h: number; ang: number; trail: [number, number, number][] }
-function pushTrail(f: Flyer, n = 10) { f.trail.push([f.x, f.y - f.h, f.ang]); if (f.trail.length > n) f.trail.shift(); }
+export interface Flyer { x: number; y: number; h: number; ang: number; trail: [number, number, number][] }
+export function pushTrail(f: Flyer, n = 10) { f.trail.push([f.x, f.y - f.h, f.ang]); if (f.trail.length > n) f.trail.shift(); }
 /** 画实体 + 残影 */
-function drawFlyer(g: G, L: ArtLook, f: Flyer, size: number, alpha = 1, ghosts = 3, shadowR = 0) {
+export function drawFlyer(g: G, L: ArtLook, f: Flyer, size: number, alpha = 1, ghosts = 3, shadowR = 0) {
   if (shadowR) shadow(g, f.x, f.y, shadowR, alpha * clamp(1 - f.h / 400, 0.2, 1));
   const n = f.trail.length;
   for (let i = 0; i < ghosts && n - 2 - i * 2 >= 0; i++) {
@@ -69,7 +69,7 @@ function drawFlyer(g: G, L: ArtLook, f: Flyer, size: number, alpha = 1, ghosts =
   }
   drawArt(g, L, f.x, f.y - f.h, size, f.ang, alpha);
 }
-function trailPts(f: Flyer): [number, number][] { const o = f.trail.map((p) => [p[0], p[1]] as [number, number]); o.push([f.x, f.y - f.h]); return o; }
+export function trailPts(f: Flyer): [number, number][] { const o = f.trail.map((p) => [p[0], p[1]] as [number, number]); o.push([f.x, f.y - f.h]); return o; }
 
 // ============================================================== 飞剑：出鞘 → 破空 → 回旋
 interface Blade extends Flyer { ph: 0 | 1 | 2 | 3 | 4; pt: number; delay: number; tgt: Enemy | null; hit: Set<number>; vx: number; vy: number; side: number; dist: number; flash: number }
@@ -560,7 +560,7 @@ class SlamAct extends Act {
           this.hit(e, this.I.dmg, this.x, this.y);
           if (!e.dead) { const dx = e.x - this.x, dy = e.y - this.y, d = Math.hypot(dx, dy) || 1; e.kx += dx / d * 380; e.ky += dy / d * 260; }
         }
-        this.c.game.juice(0.075, this.size > 200 ? 0.8 : 0.45);
+        this.c.impact(this.x, this.y, this.size > 200 ? 3 : 2, this.I.L.glow);
         audio.sfx('boom');
         (this as any)._impact = 1;
       }
@@ -694,7 +694,7 @@ class FubaoAct extends Act {
         this.ph = 3; this.pt = 0; this.h = 0;
         const src = { ...this.I.src, status: { k: 'knock' as const, dur: 0.4, ch: 1 }, stCh: 1 };
         for (const e of this.near(this.tx, this.ty, 130)) this.hit(e, this.I.dmg, this.tx, this.ty, src);
-        this.c.game.juice(0.08, 0.6); audio.sfx('boom'); (this as any)._impact = 1;
+        this.c.impact(this.tx, this.ty, 3, this.I.L.glow); audio.sfx('boom'); (this as any)._impact = 1;
       }
     } else if (this.pt > 0.55) this.done = true;
   }
@@ -1032,7 +1032,7 @@ class CauldronAct extends Act {
           if (!e.boss && e.hp < e.maxHp * 0.3 && e.realm <= this.I.src.realm) { e.hp = 1; this.hit(e, 1e9, this.x, this.y); n++; }
           else this.hit(e, this.I.dmg, this.x, this.y);
         }
-        this.c.game.juice(0.06, 0.4); audio.sfx('bell');
+        this.c.impact(this.x, this.y, 3, this.I.L.glow); audio.sfx('bell');
         if (n) this.c.game.toast(`虚天鼎青光一卷，${n} 个敌人被收入鼎中炼化！`, 'good');
         (this as any)._seal = 1;
       }
@@ -1077,7 +1077,7 @@ class BombAct extends Act {
         this.ph = 1; this.pt = 0; this.h = 0;
         for (const e of this.near(this.x, this.y, this.R + 20)) this.hit(e, this.I.dmg, this.x, this.y);
         for (let i = 0; i < 9; i++) this.bolts.push({ a: i / 9 * TAU + rnd(-0.2, 0.2), L: rnd(0.7, 1.15) * this.R, seed: Math.random() * 1e6 });
-        this.c.game.juice(0.06, 0.5); audio.sfx('thunder'); audio.sfx('boom');
+        this.c.impact(this.x, this.y, 2, '255,225,140'); audio.sfx('thunder'); audio.sfx('boom');
       }
     } else if (this.pt > 0.45) this.done = true;
   }

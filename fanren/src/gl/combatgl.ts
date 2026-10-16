@@ -4,6 +4,7 @@ import { FxSys, col, mixc, RGB } from './fx';
 import { C } from './atlas';
 import { enemyVis } from '../world/combatfx';
 import { drawFoeGL } from './foegl';
+import { drawHeroGL, drawOrbitGL } from './herogl';
 
 const TAU = Math.PI * 2;
 const WHITE: RGB = [1, 1, 1];
@@ -15,7 +16,7 @@ const SMOKE: RGB = [0.13, 0.11, 0.1];
 /** 每秒发射 rate 个：返回本帧数量（带随机余数） */
 const nEmit = (rate: number, dt: number) => { const f = rate * dt; return Math.floor(f) + (Math.random() < f % 1 ? 1 : 0); };
 
-export interface FxEvent { k: 'hit' | 'kill' | 'phit' | 'cast' | 'block' | 'dodge' | 'xueying'; x: number; y: number; x2?: number; y2?: number; color?: string; power?: number; crit?: boolean; dir?: number; big?: boolean }
+export interface FxEvent { k: 'hit' | 'kill' | 'phit' | 'cast' | 'block' | 'dodge' | 'xueying' | 'impact'; x: number; y: number; x2?: number; y2?: number; color?: string; power?: number; crit?: boolean; dir?: number; big?: boolean }
 
 const boostTrail: [number, number][] = [];
 /** 飞行疾遁：遁光拖尾（雷遁电蛇 / 血光遁血雾 / 寻常遁光）+ 掠过的风线 */
@@ -91,8 +92,45 @@ function drawReach(F: FxSys, c: Combat, t: number, dt: number) {
   }
 }
 
+/** 第二十八步：统一打击感——三档冲击（小：闪光+气浪；中：再加空间扭曲、火花、焦痕；大：全屏级） */
+function impactFx(F: FxSys, x: number, y: number, tier: number, cc: RGB) {
+  const core = mixc(cc, [1, 1, 1], 0.6);
+  if (tier <= 1) { F.flash(x, y - 30, 40, core, 0.14); F.shockRing(x, y, 110, cc, 0.35, 0.55, 0.7); F.sparks(x, y - 30, core, 10, 420, 0.3, 2.6); return; }
+  if (tier === 2) {
+    F.flash(x, y - 40, 80, core, 0.16); F.shockRing(x, y, 220, cc, 0.45, 0.55, 0.65); F.shockRing(x, y, 150, core, 0.3, 0.55, 0.5);
+    F.shock(x, y, 340, 14, 0.5); F.sparks(x, y - 30, core, 26, 700, 0.45, 3.2);
+    for (let i = 0; i < 10; i++) { const a = Math.random() * TAU; F.emit({ x, y: y - 20, vx: Math.cos(a) * rnd(200, 500), vy: Math.sin(a) * rnd(100, 260) - 80, life: rnd(0.4, 0.8), s0: rnd(18, 30), s1: 50, c: [0.25, 0.2, 0.16], a: 0.35, add: 0, cell: C.Smoke, drag: 3 }); }
+    return;
+  }
+  // 大：光柱贯天 + 三重气浪 + 强扭曲 + 放射金芒
+  F.flash(x, y - 60, 260, core, 0.35);
+  F.emit({ x, y: y - 300, life: 0.5, s0: 160, s1: 60, c: core, a: 0.9, cell: C.Beam, stretch: 0 } as any);
+  F.beam(x, y + 10, x, y - 900, 140, cc, 0.55); F.beam(x, y + 10, x, y - 900, 40, core, 0.9);
+  for (let i = 0; i < 3; i++) F.shockRing(x, y, 300 + i * 200, i ? cc : core, 0.5 + i * 0.15, 0.55, 1 - i * 0.2);
+  F.shock(x, y, 900, 26, 0.85);
+  F.sparks(x, y - 40, core, 80, 1200, 0.7, 4);
+  for (let i = 0; i < 28; i++) { const a = (i / 28) * TAU; F.emit({ x, y: y - 30, vx: Math.cos(a) * 1400, vy: Math.sin(a) * 760, life: 0.35, s0: 10, s1: 3, c: core, stretch: 0.05, drag: 2 }); }
+  for (let i = 0; i < 18; i++) { const a = Math.random() * TAU; F.emit({ x, y: y - 20, vx: Math.cos(a) * rnd(300, 800), vy: Math.sin(a) * rnd(150, 400) - 100, life: rnd(0.7, 1.3), s0: rnd(30, 50), s1: 110, c: [0.22, 0.18, 0.14], a: 0.35, add: 0, cell: C.Smoke, drag: 2.5 }); }
+}
+
+/** 焦痕：重击之后地上留下的灼烧裂纹，数秒后淡去 */
+function drawScorch(F: FxSys, c: Combat, dt: number) {
+  for (const s of c.scorch) {
+    s.t += dt;
+    const k = Math.min(1, s.t / 0.15) * Math.min(1, (s.dur - s.t) / 2);
+    if (k <= 0) continue;
+    F.ground(C.Smoke, s.x, s.y, s.r * 1.25, s.rot, [0.14, 0.11, 0.08], 0.38 * k, 0, 0.5);
+    F.ground(C.Ink, s.x, s.y, s.r * 0.8, s.rot + 1, [0.1, 0.08, 0.06], 0.22 * k, 0, 0.5);
+    F.ground(C.Crack, s.x, s.y, s.r * 0.7, s.rot, [0.08, 0.06, 0.05], 0.3 * k, 0, 0.5);
+    const hot = Math.max(0, 1 - s.t / 2.5);
+    if (hot > 0) { F.ground(C.Crack, s.x, s.y, s.r * 0.66, s.rot, col(s.color), 0.4 * hot, 1, 0.5); F.ground(C.Glow, s.x, s.y, s.r * 0.6, 0, col(s.color), 0.25 * hot, 1, 0.5); if (Math.random() < dt * 20 * hot) { const a = Math.random() * TAU, r = Math.random() * s.r * 0.7; F.emit({ x: s.x + Math.cos(a) * r, y: s.y + Math.sin(a) * r * 0.5, vy: rnd(-70, -30), life: rnd(0.4, 0.8), s0: 3, s1: 1, c: col(s.color), cell: C.Glow }); } }
+  }
+  c.scorch = c.scorch.filter((s) => s.t < s.dur);
+}
+
 export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
   const p = c.game.player;
+  drawScorch(F, c, dt);
   drawBoost(F, c, dt);
   drawReach(F, c, t, dt);
   drawFoeGL(F, c, t, dt);
@@ -107,6 +145,7 @@ export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
       else hitSeen.push([ev.x, ev.y, 1]);
       F.hit(ev.x, ev.y, cc, Math.min(ev.power ?? 1, near ? 1 : 3), ev.crit && !near, ev.dir);
     }
+    else if (ev.k === 'impact') impactFx(F, ev.x, ev.y, ev.power ?? 1, cc);
     else if (ev.k === 'kill') {
       F.explode(ev.x, ev.y, 46, cc, { smoke: true, shock: true });
       F.ink(ev.x, ev.y + 30, 120, 0.45);
@@ -177,24 +216,16 @@ export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
   }
   // ---- 法器出手（第十三步）
   c.acts.drawGL(F, t, dt);
+  // ---- 第二十八步：噬金虫群（虫群算法）
+  c.swarm?.draw(F, t); c.petSwarm?.draw(F, t);
+  drawHeroGL(F, c, t, dt);
   // ---- 噬金虫
   for (const s of c.summons) if (s.kind === 'bugs' && s.dots) {
     for (const d of s.dots) { const a = d.a + t * d.s; const x = s.x + Math.cos(a) * d.r, y = s.y - 40 + Math.sin(a * 1.3) * d.r * 0.6; F.glow(x, y, 6, [1, 0.85, 0.35], 0.9, C.Dot); F.glow(x, y, 12, [1, 0.75, 0.3], 0.35); }
     F.glow(s.x, s.y - 40, 50, [1, 0.8, 0.35], 0.25);
   }
-  // ---- 护体剑盾
-  if (c.orbit) {
-    const o = c.orbit, cc = col(o.color);
-    for (let i = 0; i < o.n; i++) {
-      const an = t * 3.2 + (i / o.n) * TAU;
-      const x = p.x + Math.cos(an) * o.r, y = p.y - 40 + Math.sin(an) * o.r * 0.5;
-      const pts: [number, number][] = [];
-      for (let k = 6; k >= 0; k--) { const a2 = an - k * 0.09; pts.push([p.x + Math.cos(a2) * o.r, p.y - 40 + Math.sin(a2) * o.r * 0.5]); }
-      F.trail(pts, 10, cc, 0.5);
-      F.sprite(C.Blade, x, y, 50, 14, an + Math.PI / 2, mixc(cc, WHITE, 0.5), 0.95);
-      F.glow(x, y, 20, cc, 0.5);
-    }
-  }
+  // ---- 护体剑盾（第二十八步：双环剑网）
+  drawOrbitGL(F, c, t);
   // ---- 护盾
   if (c.shield?.art) {   // 法器盾：身前一面灵光盾影，挡格时迸开六角纹
     const s = c.shield, k = s.amt / s.max, cc = col(s.color), sp = c.shieldPos(), y = sp.y - sp.h;
@@ -402,6 +433,18 @@ function drawVfx(F: FxSys, v: any, t: number) {
     }
     case 'chain': {
       const w = (v.w ?? 2) * 1.2;
+      if (v.fx === 'goldthunder') {
+        // 辟邪神雷：三股金雷绞成一束 + 外晕光柱 + 天雷直落
+        const fl = Math.floor(v.t * 40);
+        F.beam(v.x, v.y, v.x2, v.y2, 26 * a, cc, 0.25 * a);
+        F.bolt(v.x, v.y, v.x2, v.y2, v.seed + fl * 7, 34, w * 1.6, cc, a, 12, true);
+        F.bolt(v.x, v.y, v.x2, v.y2, v.seed + fl * 13 + 3, 22, w, [1, 0.97, 0.8], a, 10, false);
+        F.bolt(v.x, v.y, v.x2, v.y2, v.seed + fl * 17 + 9, 44, w * 0.7, cc, a * 0.7, 9, false);
+        if (u < 0.5) F.bolt(v.x2 + 8, v.y2 - 380, v.x2, v.y2, v.seed + fl * 5 + 1, 30, w * 1.3, cc, a * (1 - u * 2), 12, true);
+        F.glow(v.x2, v.y2, 60, cc, 0.7 * a); F.glow(v.x2, v.y2, 20, [1, 1, 1], 0.9 * a, C.Star);
+        if (Math.random() < 0.5) F.sparks(v.x2, v.y2, cc, 4, 380, 0.3, 2.6);
+        break;
+      }
       F.bolt(v.x, v.y, v.x2, v.y2, v.seed + Math.floor(v.t * 30) * 7, 26, w, cc, a, 9, false);
       F.glow(v.x2, v.y2, 26, cc, 0.6 * a);
       break;

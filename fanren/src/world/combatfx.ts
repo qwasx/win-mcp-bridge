@@ -62,6 +62,12 @@ export function collectCombat(c: Combat, out: Drawable[], view: { left: number; 
       drawArt(g, L, sp.x, sp.y - sp.h, 52 + c.blockT * 10, Math.cos(c.shieldAng) * 0.25 + Math.sin(t * 1.6) * 0.04, 0.55 + 0.45 * k);
     } });
   }
+  // 第二十八步：雷遁 / 血遁残影（半透明人形）
+  for (const gh of c.ghosts) {
+    if (gh.t < 0) continue;
+    const p = c.game.player, k = 1 - gh.t / gh.dur;
+    out.push({ y: gh.y - 1, draw: (g) => { g.save(); g.globalAlpha *= 0.42 * k; const st = p.st; const ox = st.x, oy = st.y, oyaw = st.yaw; st.x = gh.x; st.y = gh.y; st.yaw = gh.yaw; drawCharacter(g, p.look, st, 1.12, 0); st.x = ox; st.y = oy; st.yaw = oyaw; g.restore(); } });
+  }
   if (c.decoy) {
     const d = c.decoy, p = c.game.player;
     out.push({ y: d.y, draw: (g) => { g.save(); g.globalAlpha = 0.6 + 0.2 * Math.sin(t * 6); const st = p.st; const ox = st.x, oy = st.y; st.x = d.x; st.y = d.y; drawCharacter(g, p.look, st, 1.12, 0); st.x = ox; st.y = oy; g.restore(); } });
@@ -516,6 +522,7 @@ export function drawCombatFx(g: G, c: Combat, t: number) {
   g.globalCompositeOperation = 'lighter';
   for (const v of c.vfx) drawVfx(g, v, t);
   for (const pr of c.projs) drawProj(g, pr, t);
+  c.swarm?.drawCanvas(g); c.petSwarm?.drawCanvas(g);
   // 噬金虫群
   for (const s of c.summons) if (s.kind === 'bugs' && s.dots) {
     for (const d of s.dots) { const a = d.a + t * d.s; const x = s.x + Math.cos(a) * d.r, y = s.y - 40 + Math.sin(a * 1.3) * d.r * 0.6; g.fillStyle = 'rgba(255,220,100,0.9)'; g.beginPath(); g.arc(x, y, 2.4, 0, TAU); g.fill(); }
