@@ -644,3 +644,17 @@ img.sk-glyph.art-ico { width: 34px; height: 34px; background: radial-gradient(ci
 .map-tabs span { padding: 3px 12px; border: 1px solid rgba(80,64,40,0.25); border-radius: 4px; }
 .map-tabs span.on { border-color: #a8352a; color: var(--ink); background: rgba(168,53,42,0.08); }
 .map-tabs b { font-family: var(--title-font); font-size: 16px; font-weight: normal; letter-spacing: 0.1em; }
+
+/* 第十八步：红颜录书信 */
+.hc-mail { position: absolute; top: 3px; left: 3px; background: #d8a040; color: #2b1d0c; font-size: 10px; padding: 0 5px; border-radius: 6px; animation: mailPulse 1.4s ease-in-out infinite; }
+@keyframes mailPulse { 50% { box-shadow: 0 0 0 3px rgba(216,160,64,0.35); } }
+.hd-mem { font-size: 12px; color: #8a4a5a; margin-bottom: 8px; letter-spacing: 1px; }
+.hd-letters { border-top: 1px dashed rgba(90,60,40,0.3); padding-top: 6px; display: flex; flex-direction: column; gap: 3px; max-height: 170px; overflow-y: auto; }
+.hd-lt-title { font-size: 12px; color: #6a5a48; margin-bottom: 2px; }
+.hd-letter { display: grid; grid-template-columns: 38px 1fr auto; gap: 6px; align-items: center; text-align: left; background: rgba(255,250,238,0.55); border: 1px solid rgba(120,90,60,0.18); border-radius: 4px; padding: 3px 6px; font: inherit; font-size: 12px; color: #4a3c2e; cursor: pointer; }
+.hd-letter:hover { background: rgba(255,246,226,0.95); }
+.hd-letter.unread { border-color: #d8a040; background: rgba(255,240,205,0.85); font-weight: 600; }
+.hl-kind { color: #a8352a; font-size: 11px; }
+.hl-text { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.hl-day { color: #8a7a68; font-size: 10px; }
+.btn-badge { position: absolute; top: -3px; right: -3px; min-width: 16px; height: 16px; line-height: 16px; border-radius: 8px; background: #c8402a; color: #fff; font-size: 10px; font-style: normal; text-align: center; padding: 0 3px; box-shadow: 0 0 0 2px rgba(250,240,220,0.9); }

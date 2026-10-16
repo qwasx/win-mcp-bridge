@@ -154,13 +154,13 @@ export function smallChance(h: Hero, pills: number) {
   const per = 0.3 / Math.max(1, req);
   return Math.min(0.98, base + per * pills * Math.max(1, req));
 }
-export function majorChance(h: Hero, pills: number) {
+export function majorChance(h: Hero, pills: number, bonus = 0) {
   const mb = MAJOR_BREAKS[h.realm];
   if (!mb) return 0;
-  return Math.min(0.95, mb.base + mb.per * pills + rootDef(h).rate * 0.03 + mod(h, 'luck') / 400);
+  return Math.max(0.01, Math.min(0.97, mb.base + mb.per * pills + rootDef(h).rate * 0.03 + mod(h, 'luck') / 400 + bonus));
 }
 
-export function tryBreak(h: Hero, pills: number): { ok: boolean; msgs: Msg[] } {
+export function tryBreak(h: Hero, pills: number, bonus = 0): { ok: boolean; msgs: Msg[] } {
   const msgs: Msg[] = [];
   const bt = bottleneck(h);
   if (bt === 'none') return { ok: false, msgs: [{ text: '修为未满，无须冲关。', kind: 'warn' }] };
@@ -179,7 +179,7 @@ export function tryBreak(h: Hero, pills: number): { ok: boolean; msgs: Msg[] } {
   const mb = MAJOR_BREAKS[h.realm];
   const have = mb.item ? bagCount(h, mb.item) : 0;
   pills = Math.min(pills, have, mb.maxItems);
-  const ch = majorChance(h, pills);
+  const ch = majorChance(h, pills, bonus);
   if (mb.item) removeItem(h, mb.item, pills);
   if (Math.random() < ch) {
     h.realm++; h.stage = 0; h.exp = 0; h.stats.breaks++;

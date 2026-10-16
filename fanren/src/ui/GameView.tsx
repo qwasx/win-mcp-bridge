@@ -72,6 +72,15 @@ function Minimap({ game, onOpen }: { game: Game; onOpen: () => void }) {
         const pr = (5 + 1.5 * Math.sin(performance.now() / 250)) * dpr;
         g.save(); g.translate(dx, dy); g.rotate(Math.PI / 4); g.fillStyle = '#f0b830'; g.strokeStyle = '#5a3a10'; g.lineWidth = 1.5 * dpr; g.fillRect(-pr / 2, -pr / 2, pr, pr); g.strokeRect(-pr / 2, -pr / 2, pr, pr); g.restore();
       }
+      // 第十八步：机缘 / 洞府 / 悬赏 / 异宝 / 求援
+      for (const m of game.mapMarks?.() ?? []) {
+        let dx = (m.x / WORLD_SCALE - mx) * k + c, dy = (m.y / WORLD_SCALE - my) * k + c;
+        const urgent = m.glyph === '宝' || m.glyph === '赏' || m.glyph === '援' || m.glyph === '府';
+        if (!urgent && (dx < 0 || dy < 0 || dx > cv.width || dy > cv.height)) continue;
+        const r = 4.2 * dpr; dx = Math.max(r + 1, Math.min(cv.width - r - 1, dx)); dy = Math.max(r + 1, Math.min(cv.height - r - 1, dy));
+        g.fillStyle = 'rgba(30,24,18,0.75)'; g.beginPath(); g.arc(dx, dy, r + 1, 0, Math.PI * 2); g.fill();
+        g.fillStyle = m.color; g.font = `${r * 1.7}px 'Ma Shan Zheng', serif`; g.fillText(m.glyph, dx, dy + 0.5);
+      }
       for (const d of game.npcs.visibleDots()) { const dx = (d.x / WORLD_SCALE - mx) * k + c, dy = (d.y / WORLD_SCALE - my) * k + c; g.fillStyle = d.c; g.beginPath(); g.arc(dx, dy, 1.6 * dpr, 0, Math.PI * 2); g.fill(); }
       g.strokeStyle = 'rgba(47,140,120,0.85)'; g.lineWidth = 1.5 * dpr;
       g.beginPath(); g.arc(c, c, Math.max(4 * dpr, (game.senseRadius / WORLD_SCALE) * k), 0, Math.PI * 2); g.stroke();
@@ -275,7 +284,7 @@ export function GameView({ game, onExit }: { game: Game; onExit: () => void }) {
             <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('alchemy'); }}>丹<small>丹器</small></button>
             <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('seclude'); }}>关<small>闭关</small></button>
             <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('map'); }}>图<small>地图</small></button>
-            <button className="round-btn small" onClick={() => { audio.sfx('open'); game.openModal({ kind: 'hearts' }); }}>缘<small>红颜</small></button>
+            <button className="round-btn small" onClick={() => { audio.sfx('open'); game.openModal({ kind: 'hearts' }); }}>缘<small>红颜</small>{game.heartx?.unread > 0 && <i className="btn-badge">{game.heartx.unread}</i>}</button>
             <button className="round-btn small" onClick={() => { audio.sfx('open'); game.openModal({ kind: 'chronicle' }); }}>记<small>大事</small></button>
             <button className="round-btn small" onClick={() => { click(); setPanel('settings'); }}>设<small>设置</small></button>
             <button className="round-btn small" onClick={() => { audio.sfx('open'); game.openModal({ kind: 'help' }); }}>？<small>指南</small></button>

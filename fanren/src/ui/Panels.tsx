@@ -177,6 +177,14 @@ export function WorldMapPanel({ game, onClose }: { game: Game; onClose: () => vo
         }
         g.globalAlpha = 1;
       }
+      // 第十八步：机缘 / 洞府 / 悬赏 / 异宝
+      for (const m of game.mapMarks?.() ?? []) {
+        const x = (m.x / WORLD_SCALE) * s, y = (m.y / WORLD_SCALE) * s, r = Math.max(6, 8 * s);
+        if (m.ring) { g.strokeStyle = m.color; g.globalAlpha = 0.6; g.setLineDash([3, 3]); g.lineWidth = 1.2; g.beginPath(); g.arc(x, y, (m.ring / WORLD_SCALE) * s, 0, Math.PI * 2); g.stroke(); g.setLineDash([]); g.globalAlpha = 1; }
+        g.fillStyle = 'rgba(30,24,18,0.8)'; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+        g.fillStyle = m.color; g.font = `${r * 1.4}px 'Ma Shan Zheng', serif`; g.fillText(m.glyph, x, y + r * 0.08);
+        if (s > 0.85) { g.font = `${Math.max(10, 10 * s)}px 'Noto Serif SC', serif`; g.fillStyle = 'rgba(40,30,20,0.85)'; g.fillText(m.name, x, y - r - 7); }
+      }
       // 目的地
       if (game.destination) {
         const dx = (game.destination.x / WORLD_SCALE) * s, dy = (game.destination.y / WORLD_SCALE) * s;

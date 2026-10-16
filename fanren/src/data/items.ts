@@ -147,6 +147,18 @@ const I: ItemDef[] = [
   { id: 'item_qingxi', name: '清溪笔录', type: 'misc', tier: 0, price: 0, desc: '太南小会上一个憨厚少年送的小册子，记载修仙界常识：七派、灵根、升仙令、筑基丹……', glyph: '录' },
   { id: 'tal_fubao', name: '飞剑符宝', type: 'talisman', tier: 3, price: 3000, desc: '金光上人的保命符宝，符纸上封着一口小剑，激发后化作丈许金芒斩落。灵力所剩无几，只能再用几次。', glyph: '符', tal: { kind: 'fubao', power: 9, color: '#ffd870' }, stack: true },
   { id: 'item_shengxian', name: '升仙令', type: 'misc', tier: 2, price: 0, desc: '黄枫谷等七派发放的入门信物，持之可直接拜入黄枫谷。原著中韩立便是凭升仙令入的黄枫谷。', glyph: '令' },
+  // ---------- 第十八步：机缘与灵宠 ----------
+  { id: 'tal_pojin', name: '破禁符', type: 'material', tier: 1, price: 220, desc: '专破古修洞府禁制的符箓，一张可破一重禁制，比强破稳妥得多。（在遗府前使用）', glyph: '禁', stack: true },
+  { id: 'tal_huifu', name: '回府符', type: 'material', tier: 1, price: 160, desc: '与洞府阵眼相连的传送符，捏碎即可遁回同一地域内的洞府。（按 Y）', glyph: '府', stack: true },
+  { id: 'mat_gubaocan', name: '古宝残片', type: 'material', tier: 3, price: 2400, desc: '上古修士遗落的古宝碎片，灵性未泯。集齐五片可在洞府中重炼为一件古宝。', glyph: '残', stack: true },
+  { id: 'egg_yunchi', name: '云翅鸟卵', type: 'misc', tier: 2, price: 900, desc: '一级妖禽云翅鸟之卵。孵出的云翅鸟目力极佳，能替主人在神识之外发现机缘。（自动温养）', glyph: '卵', stack: true },
+  { id: 'egg_huli', name: '灵狐幼崽', type: 'misc', tier: 2, price: 1600, desc: '尚在襁褓里的灵狐，鼻子灵得出奇，嗅得出地底的灵药与宝物。（自动温养）', glyph: '狐', stack: true },
+  { id: 'egg_wolf', name: '灵狼幼崽', type: 'misc', tier: 3, price: 2600, desc: '狼崽眼神凶悍，长成后扑咬凌厉，是护主的好手。（自动温养）', glyph: '狼', stack: true },
+  { id: 'egg_jiao', name: '蛟卵', type: 'misc', tier: 4, price: 9000, desc: '墨蛟之卵，温养极慢，孵出后水火之术俱强。（自动温养）', glyph: '蛟', stack: true },
+  { id: 'egg_shijin', name: '噬金虫卵', type: 'misc', tier: 5, price: 36000, desc: '奇虫榜排名第三的噬金虫之卵。原著中韩立倚之横行一方——能吞噬法宝，几乎无物可挡。（自动温养）', glyph: '虫', stack: true },
+  { id: 'gift_fan', name: '题诗团扇', type: 'misc', tier: 1, price: 0, desc: '她亲手题了半阙诗的团扇，墨香犹在。', glyph: '扇' },
+  { id: 'gift_hairpin', name: '青玉发簪', type: 'misc', tier: 2, price: 0, desc: '她鬓边常戴的那支发簪，如今在你手里。', glyph: '簪' },
+  { id: 'gift_sachet', name: '同心香囊', type: 'misc', tier: 3, price: 0, desc: '绣着并蒂莲的香囊，里面封着她的一缕青丝。', glyph: '囊' },
   { id: 'art_jinfu', name: '金蚨子母刃', type: 'artifact', tier: 2, price: 2600, desc: '一母九子的成套飞刃，母刃一出，子刃随行，原著中韩立早年倚仗的法器之一。', glyph: '刃', art: { kind: 'needle', reqRealm: 1, sense: 6, pieces: 10, power: 0.5, mp: 2, cd: 1.2, element: 'gold', color: '#ffd878' } },
   { id: 'art_fuguang', name: '符宝·伏光剑', type: 'artifact', tier: 3, price: 5200, desc: '结丹修士将本命法宝之力封入符纸而成的符宝，可驱使数十次，威力远胜寻常法器。', glyph: '符', art: { kind: 'arrow', reqRealm: 1, sense: 20, pieces: 1, power: 6, mp: 20, cd: 5, element: 'gold', color: '#e6f0ff' } },
   // —— 第十三步：原著中韩立炼气期的几件法器

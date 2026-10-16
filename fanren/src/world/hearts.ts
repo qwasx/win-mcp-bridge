@@ -20,7 +20,7 @@ export class Hearts {
   }
   /** 当前同行者 */
   follower(): BeautyDef | null { for (const b of BEAUTIES) if (this.game.ws.hearts[b.id]?.follow) return b; return null; }
-  bonus(kind: BeautyDef['bonus']['kind']) { const f = this.follower(); return f && f.bonus.kind === kind ? f.bonus.v : 0; }
+  bonus(kind: BeautyDef['bonus']['kind']) { const f = this.follower(); return f && f.bonus.kind === kind ? f.bonus.v * (this.game.heartx?.keepBonus(f.id) ?? 1) : 0; }
 
   nextChapter(b: BeautyDef): Chapter | null {
     const s = this.st(b.id);
@@ -43,6 +43,7 @@ export class Hearts {
     const first = !s.met;
     s.met = true;
     const ch = this.nextChapter(b);
+    if (!first) g.heartx?.onTalk(b);
     if (first && ch && this.reqOk(b, ch).ok) { g.openDialog(this.chapterNode(b, ch)); return; }
     g.openDialog(this.mainNode(b));
   }
@@ -56,6 +57,7 @@ export class Hearts {
       const ok = this.reqOk(b, ch);
       opts.push({ label: `【${ch.title}】`, tone: 'love', disabled: !ok.ok, hint: ok.ok ? '' : ok.why || ch.hint, act: () => this.chapterNode(b, ch) });
     }
+    if (!s.flags.parted) opts.push(...(g.heartx?.options(b) ?? []));
     opts.push({ label: '闲谈', hint: g.day - s.lastTalk < 1 ? '今日已叙过' : '', act: () => {
       const fresh = g.day - s.lastTalk >= 1;
       if (fresh) { s.lastTalk = g.day; s.favor = clamp(s.favor + 2, -100, 100); }
@@ -117,7 +119,7 @@ export class Hearts {
     const opts: DOpt[] = cands.slice(0, 6).map((x) => {
       const it = itemDef(x.id), liked = b.likes.includes(x.id);
       return { label: `${liked ? '♥ ' : ''}${it.name}`, tone: liked ? 'love' as const : undefined, act: () => {
-        C.removeItem(h, x.id, 1); s.lastGift = today; s.gifts++;
+        C.removeItem(h, x.id, 1); s.lastGift = today; s.gifts++; g.heartx?.onGift(b.id);
         const gain = Math.round(clamp((liked ? 12 : 3) + Math.log10(Math.max(10, it.price)) * (liked ? 3 : 1.5), 2, 25));
         s.favor = clamp(s.favor + gain, -100, 100);
         const txt = liked ? ['（她眼睛一亮，小心收好）你怎么知道我想要这个？', '这……太贵重了。可是，我很喜欢。', '（她低头看着礼物，耳根微红）……谢谢。'][Math.floor(Math.random() * 3)] : ['谢谢。', '你有心了。', '（她收下了，礼貌地道谢）'][Math.floor(Math.random() * 3)];
@@ -131,7 +133,7 @@ export class Hearts {
 
   setFollow(id: string, on: boolean) {
     const g = this.game;
-    for (const b of BEAUTIES) { const s = g.ws.hearts[b.id]; if (s && s.follow && b.id !== id && on) { s.follow = false; g.npcs.dismiss('b_' + b.id); } }
+    for (const b of BEAUTIES) { const s = g.ws.hearts[b.id]; if (s && s.follow && b.id !== id && on) { s.follow = false; g.npcs.dismiss('b_' + b.id); g.heartx?.onSwitch(b.id); } }
     const s = this.st(id); s.follow = on;
     if (on) { g.npcs.summon('b_' + id); g.toast(`${BEAUTY_BY_ID[id].name}与你同行：${BEAUTY_BY_ID[id].bonus.text}`, 'good'); }
     else g.npcs.dismiss('b_' + id);

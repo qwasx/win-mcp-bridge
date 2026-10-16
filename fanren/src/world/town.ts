@@ -61,6 +61,8 @@ export class Towns {
       const k = 1 - this.game.hearts.bonus('luck');
       stock.push({ id: it.id, price: Math.max(1, Math.round(it.price * (0.9 + rnd() * 0.4) * k * (g.ws.rep < -40 ? 1.3 : 1))), n: it.type === 'artifact' || it.type === 'scroll' ? 1 : 1 + Math.floor(rnd() * (it.tier <= 1 ? 8 : 3)), age: it.type === 'herb' ? 5 + Math.floor(rnd() * 40) : undefined });
     }
+    // 第十八步：坊市常备破禁符、回府符
+    if (kind === 'market') for (const id of ['tal_pojin', 'tal_huifu']) if (!stock.some((s) => s.id === id)) { const it = itemDef(id); stock.push({ id, price: Math.round(it.price * (0.9 + rnd() * 0.3)), n: 3 + Math.floor(rnd() * 5) }); }
     const title = { market: '坊市', pill: '丹药铺', artifact: '法器阁', talisman: '符箓斋' }[kind];
     return { title: `${l.name} · ${title}`, desc: kind === 'market' ? '灵草、材料、符箓杂货，每月换一批货' : '', stock, sellRate: 0.5 };
   }

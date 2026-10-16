@@ -56,6 +56,8 @@ export class Enemy {
   lairId?: string;     // 妖王巢穴
   burrowed = false;    // 土甲龙：已土遁过一次
   called = false;      // 云翅鸟：已示警
+  /** 第十八步：沉睡的守护兽（贴近或受击才醒）/ 正与同类相争的妖兽（不理会旁人）*/
+  sleep?: boolean; busy?: boolean; tag?: string;
   constructor(def: EnemyDef, x: number, y: number, realm: number, stage: number, sea = false) {
     this.def = def; this.x = this.hx = x; this.y = this.hy = y;
     this.realm = realm; this.stage = stage; this.level = realm * 13 + stage;
@@ -602,13 +604,14 @@ export class Combat {
     let def = e.dfn * (st.break ? 0.5 : 1);
     d = Math.max(d * 0.15, d - def * 0.8);
     if (st.shock) d *= 1.2;
+    if (e.sleep) { d *= 2.5; combo = combo || '偷袭'; }
     const gap = e.realm - src.realm;
     d *= realmDealK(gap, src.school === '符');
     if (src.evil && e.def.evil) d *= src.evil;
     const crit = Math.random() < 0.1;
     if (crit) d *= 1.6;
     d = Math.max(1, Math.round(d));
-    e.hp -= d; e.anim.hit = 1; e.aggro = true; e.lastHitBy = this.game.time;
+    e.hp -= d; e.anim.hit = 1; e.aggro = true; e.lastHitBy = this.game.time; e.sleep = false; e.busy = false;
     this.combatT = 0;
     // 打击感：白闪、击退、顿帧、震屏、粒子
     e.hitFlash = Math.max(e.hitFlash, 0.12);
@@ -766,6 +769,10 @@ export class Combat {
   dangerAt(x: number, y: number) {
     const c = this.dangerCache;
     if (Math.hypot(c.x - x, c.y - y) < 300) return c;
+    return this.dangerCalc(x, y, c);
+  }
+  /** 任意一点的危险度（不动玩家处的缓存） */
+  dangerCalc(x: number, y: number, c: { x: number; y: number; d: number; zone: string; region: string } = { x: 0, y: 0, d: 0, zone: '', region: '' }) {
     const T = this.game.terrain;
     const land = T.isLand(x, y);
     const reg = regionAt(x / WORLD_SCALE, y / WORLD_SCALE, land);
@@ -832,6 +839,22 @@ export class Combat {
     }
   }
 
+  /** 第十八步：按某处的危险度挑一头合适的妖兽（守护兽、巢穴之母、渡劫妖兽……）。dAdd：危险度加成 */
+  rollBeast(x: number, y: number, dAdd = 0, opt: { flying?: boolean; noFlee?: boolean } = {}): { def: EnemyDef; realm: number; stage: number } | null {
+    const dz = this.dangerCalc(x, y), T = this.game.terrain;
+    const sea = !T.isLand(x, y);
+    const zone = sea ? 'sea' : dz.zone === 'sea' ? '' : dz.zone;
+    const d = clamp(dz.d + dAdd, 0, 6);
+    const rk = dangerRealm(d, Math.random);
+    const band = lvOf(rk.realm, rk.stage);
+    const ok = (e: EnemyDef) => !e.lair && e.kind !== 'human' && e.kind !== 'ghost' && (!e.regions || e.regions.includes(dz.region)) && (sea ? e.zone === 'sea' : e.zone !== 'sea') && (!e.zone || e.zone === zone) && (!opt.noFlee || (e.behave !== 'flee' && e.behave !== 'shy')) && (opt.flying === undefined || !!e.flying === opt.flying);
+    let cands = ENEMY_LIST.filter((e) => ok(e) && (e.lv ? lvWeight(e, band, true) > 0 : e.minDanger <= d + 0.6 && d <= e.maxDanger + 0.8));
+    if (!cands.length) cands = ENEMY_LIST.filter((e) => ok(e) && !!e.lv);
+    if (!cands.length) return null;
+    const def = cands[Math.floor(Math.random() * cands.length)];
+    const rs = this.beastRS(def, rk);
+    return { def, realm: rs.realm, stage: rs.stage };
+  }
   /** 妖兽按自身等阶取境界：危险度给出的等阶被夹在该妖兽的等阶范围内 */
   beastRS(def: EnemyDef, rk: { realm: number; stage: number }) {
     if (!def.lv) return rk;
@@ -1007,6 +1030,12 @@ export class Combat {
       const rooted = frozen || !!e.st.root;
       const tx = this.decoy ? this.decoy.x : p.x, ty = this.decoy ? this.decoy.y : p.y;
       const dx = tx - e.x, dy = ty - e.y, dist = Math.hypot(dx, dy);
+      // 第十八步：沉睡的守护兽 —— 贴得太近（敛息时近得多）才会惊醒；相争的妖兽眼里只有对手
+      if (e.sleep) {
+        if (!stealth && dist < 230 * concealK) { e.sleep = false; e.aggro = true; this.texts.push({ x: e.x, y: e.y - 120, s: '惊醒！', color: '#ffb080', t: 0, vy: -26, big: true }); }
+        else { e.anim.move = 0; continue; }
+      }
+      if (e.busy && !e.aggro) continue;
       // 察觉
       const aggroR = (e.def.aggro ?? 480) * concealK * (e.realm > h.realm ? 1.3 : 1);
       const bh = e.def.behave;

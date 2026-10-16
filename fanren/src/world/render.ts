@@ -501,6 +501,7 @@ export class Renderer {
     game.npcs.collect(list, view, t, dt);
     game.events.collect(list, view, t, dt);
     game.story.collect(list, view, t, dt);
+    game.sites.collect(list, view, t, dt); game.home.collect(list, view, t); game.happen.collect(list, view, t, dt); game.pets.collect(list); game.heartx.collect(list);
     list.push({ y: p.flying ? p.y + 200000 : p.y, draw: () => this.drawPlayer(dt) });   // 御器飞行：在山树之上
 
     list.sort((a, b) => a.y - b.y);

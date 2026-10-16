@@ -176,6 +176,7 @@ function TownPanel({ game, loc }: { game: Game; loc: LocDef }) {
     if (big || isSect) fs.push({ seal: '符', name: '符箓斋', desc: '符箓与法术玉简', act: () => game.openShop(T.shop(loc, 'talisman')) });
   }
   if (!isSect) fs.push({ seal: '酒', name: '酒楼', desc: '打听消息、传闻、秘境下落', act: () => game.openDialog(T.tavern(loc)) });
+  if (!isSect || big) fs.push({ seal: '赏', name: '悬赏榜', desc: `缉拿凶徒、斩除妖兽，赏金由坊市担保（已接 ${(game.ws.bounties ?? []).filter((b) => !b.done && b.until > game.day).length}/3）`, act: () => game.openDialog(game.happen.boardNode(loc.id, loc.name)) });
   fs.push({ seal: '栈', name: isSect ? '洞府' : '客栈', desc: isSect ? '歇息一夜，自动存档' : `住店一晚（${loc.type === 'city' ? 5 : 2} 灵石），气血法力尽复，自动存档`, act: () => { T.rest(loc); re(); } });
   if (T.hasTeleport(loc)) fs.push({ seal: '阵', name: '传送阵', desc: `已激活 ${game.ws.tp.length} 处，按路程收取灵石`, act: () => setTp(!tp) });
   if (T.isMajorTown(loc)) { const open = T.auctionOpen(loc); const d = Math.floor(game.day) % 90; fs.push({ seal: '拍', name: '拍卖会', desc: open ? `正在举行（还剩 ${90 - d} 日）` : `每季末举行，${80 - d} 日后开拍`, act: () => game.openModal({ kind: 'auction', loc }), dis: open ? undefined : '尚未开拍', cls: open ? 'gold' : '' }); }
@@ -281,6 +282,7 @@ function HeartsPanel({ game }: { game: Game }) {
               <div className="hc-img" style={{ backgroundImage: `url(${b.portrait})` }} />
               <div className="hc-name">{s?.met ? b.name : '？？？'}</div>
               {s?.follow && <div className="hc-tag">同行</div>}
+              {(game.ws.letters ?? []).some((l) => l.from === b.id && !l.read) && <div className="hc-mail">信</div>}
             </button>
           ))}
         </div>
@@ -292,7 +294,20 @@ function HeartsPanel({ game }: { game: Game }) {
             {met && <div className="favor"><div className="favor-bar"><i style={{ width: `${(fv + 100) / 2}%`, background: fv >= 0 ? 'linear-gradient(90deg,#e8a0b0,#d04a6a)' : '#5a544a' }} /></div><span>好感 {Math.round(fv)}</span></div>}
             <div className="hd-intro">{met ? cur.b.intro : '画中人眉目模糊，只余一个背影。'}</div>
             <div className="hd-hint">◈ {cur.hint}</div>
-            {met && <div className="hd-bonus">同行加成：{cur.b.bonus.text}</div>}
+            {met && <div className="hd-bonus">同行加成：{cur.b.bonus.text}{game.heartx.keepBonus(cur.b.id) > 1 ? '（香囊随身 ×1.5）' : ''}</div>}
+            {met && (() => { const f: any = cur.s!.flags; const mem = Object.keys(f.mem ?? {}).length; const keeps = [40, 60, 80].filter((k) => f['k' + k]).length; return <div className="hd-mem">共同回忆 {mem}/8　·　信物 {keeps}/3{f.lastDual ? '　·　曾共修' : ''}</div>; })()}
+            {met && (() => { const ls = (game.ws.letters ?? []).filter((l) => l.from === cur.b.id).slice(-6).reverse(); if (!ls.length) return null; return (
+              <div className="hd-letters">
+                <div className="hd-lt-title">传音符 · 书信</div>
+                {ls.map((l) => (
+                  <button key={l.id} className={'hd-letter' + (l.read ? '' : ' unread')} onClick={() => { click(); game.openDialog(game.heartx.letterNode(l)); }}>
+                    <span className="hl-kind">{({ chat: '闲书', req: '托付', sos: '求援', fest: '节信', jealous: '醋意', gift: '寄物' } as any)[l.kind] ?? '书'}</span>
+                    <span className="hl-text">{l.text.replace(/\n/g, ' ').slice(0, 26)}…</span>
+                    <span className="hl-day">第{Math.floor(l.day / 360) + 1}年{Math.floor((l.day % 360) / 30) + 1}月</span>
+                  </button>
+                ))}
+              </div>
+            ); })()}
             {met && cur.s!.flags.companion && !cur.s!.flags.parted && (
               <div className="bd-actions">
                 <button className={'ink-btn small' + (cur.s!.follow ? ' ghost' : ' jade')} onClick={() => { game.hearts.setFollow(cur.b.id, !cur.s!.follow); re(); }}>{cur.s!.follow ? '请她留下' : '邀她同行'}</button>
@@ -335,16 +350,17 @@ function ChroniclePanel({ game }: { game: Game }) {
 }
 
 // ---------------------------------------------------------------- 帮助
-export const VERSION = 'v0.17 · 三界分图与地表重做';
+export const VERSION = 'v0.18 · 让游戏好玩起来';
 function HelpPanel({ game }: { game: Game }) {
   const [tab, setTab] = useState(0);
-  const T = ['操作', '修炼', '战斗', '人界', '神识'];
+  const T = ['操作', '修炼', '战斗', '人界', '神识', '机缘'];
   const body = [
     <div className="keys" key={0}>
       <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / 方向键 / 点击地面 移动　·　<kbd>Shift</kbd> 疾行　·　<kbd>空格</kbd> 闪避（无敌帧，躲开红色预警）<br />
       <kbd>T</kbd> 交谈 / 查看奇遇　·　<kbd>G</kbd> 进城 / 入宗门　·　<kbd>H</kbd> 红颜录　·　<kbd>J</kbd> 大事记<br />
       <kbd>Z</kbd> 打坐　·　<kbd>E</kbd> 采集　·　<kbd>C</kbd> 角色 / 冲关　·　<kbd>B</kbd> 储物袋　·　<kbd>L</kbd> 丹房　·　<kbd>P</kbd> 闭关<br />
       <kbd>1</kbd>–<kbd>9</kbd> 施法　·　<kbd>K</kbd> 法术书　·　<kbd>Q</kbd> 神识外放　·　<kbd>R</kbd> 敛息<br />
+      <kbd>Y</kbd> 回洞府（需回府符）　·　<kbd>U</kbd> 灵宠　·　<kbd>T</kbd> 也用于机缘、悬赏、灵宠、洞府<br />
       <kbd>M</kbd> 世界地图　·　滚轮 / <kbd>+</kbd><kbd>-</kbd> 缩放　·　<kbd>?</kbd> 本帮助　·　<kbd>Esc</kbd> 关闭 / 设置<br />
       对话中可按数字键选择选项，空格跳过打字效果。<br />
       左上角目标卷轴显示主线目标与方向，<b>点击即可自动前往</b>；任务人物头顶有“！”。<br />
@@ -354,6 +370,7 @@ function HelpPanel({ game }: { game: Game }) {
     <div className="hd-intro" key={2}>9 格快捷栏，法术、法器与<b>符箓</b>任意摆放（符箓一次性消耗，栏位显示剩余张数，对高境界衰减较少）。法术分凡 / 黄 / 玄 / 地 / 天五品，熟练度初学 → 圆满会改变形态。<br />异状连携：冰冻 + 雷、定身 + 火、燃烧 + 风、中毒 + 火……<br />倒下不会坐化：损失一成修为与少量物品，在最近城镇醒来。越阶挑战九死一生，名牌颜色提示强弱。剧情战倒下不受惩罚，可直接重来。</div>,
     <div className="hd-intro" key={3}>人界约 450 人各有境界、宗门、性格与目标，会修炼、衰老、陨落，也会彼此斗法——你可以旁观、相助或捡漏。劫修专挑弱者下手，声望决定正魔两道对你的态度。<br />城镇：坊市、丹药铺、法器阁、符箓斋、酒楼、客栈、传送阵、拍卖会。宗门：俸禄、任务、藏经阁、晋升。<br />红颜八位，各有故事线；结为道侣后可同行助战。<br />原著大事件按年份发生（升仙大会、血色禁地、燕家堡、魔道入侵、虚天殿、坠魔谷），提前一年在酒楼与大事记中传闻。</div>,
     <div className="hd-intro" key={4}>只有神识圈内的东西才是“真实”的——圈外是褪色的记忆水墨，看不到任何动静。奇遇、敌人、行人都要靠神识发现。<br />神识随境界与功法增长；大衍决、养魂木等会改变神识的样貌与范围。Q 外放神识（范围 ×2，持续消耗法力，再按 Q 收回），R 敛息（范围缩小，但不易被更强者察觉）。<br />被更强的神识扫过时，圈边泛红、画面轻震——那意味着有人注意到你了。<br /><br /><b>遁术</b>：飞行中按住 Shift 催动遁光（持续耗法力，期间不回蓝），越飞越高、视野越开阔。风雷翅可施雷遁，血色披风可化血光遁。<br /><b>追杀</b>：身怀重宝、拍得宝物、斩杀魔修、夺得遗府后，可能被高一境界的修士以神识锁定追杀——硬拼九死一生。拉开距离出其锁定范围、遁地符 / 血遁隐去身形、敛息，或逃入宗门坊市，皆可脱身。顶部横幅显示锁定状态，屏幕边缘箭头指示追兵方位。<br /><br /><b>投放距离</b>：功法、法器、符箓最远只能打到神识范围的八成（外放神识时为外放范围的七成）——神识越强，出手越远。<br /><b>妖兽</b>：按原著分一至十级——一级相当炼气（再分下 / 中 / 上 / 顶阶），二至四级相当筑基，五至七级相当结丹，八至十级是已化形的大妖。五级以上周身缭绕妖气。双瞳鼠、阴芝马擅隐匿，需神识贴近或外放才能发现；土甲龙见人便逃，重伤时会土遁；云翅鸟会尖啸示警，引来附近妖兽。毒蛟、六翼霜蚣、风希等妖王只在固定巢穴出没，斩杀后三年才有新妖王占据。<br /><b>妖丹与炼器</b>：妖兽有一定几率留下同级妖丹（五级以上必有），妖丹会自行飞入怀中。右侧“丹器”按钮打开的丹房新增“炼器”页：以墨蛟鳍炼神风舟、墨蛟爪炼乌龙夺、雷鹏骨翅加金雷竹炼风雷翅……在城镇或宗门借地火更稳，野外炼器成器率大减。</div>,
+    <div className="hd-intro" key={5}><b>机缘：</b>神识扫过山野，会显出灵草王、修士遗骸、古修洞府、兽巢、灵脉、古碑、山神庙、灵池、古战场——走近按 T。守药妖兽若在熟睡，偷袭伤害 ×2.5；敛息潜近更稳妥。古修洞府有三重禁制，可强破、神识寻隙或用破禁符。<br /><b>洞府：</b>在灵脉上开辟洞府，种药园、布禁制，打坐灵气加成；坊市卖回府符（Y）。<br /><b>灵宠：</b>兽巢偷来的灵卵会自动温养，破壳后随你出战、喂妖丹成长（U）。<br /><b>红颜：</b>相熟之后会寄来传音符——闲话、托付、节日相约，偶尔是求援。好感到 40/60/80 会赠你信物；可约她同游（去处随时辰、天气、地形变化，共八种回忆），道侣好感 80 可在灵脉或洞府双修。<br /><b>心魔劫：</b>结丹、结婴前会入幻境，幻境由你一路的经历生成，心境稳则成功率上升。</div>,
   ];
   return (
     <Scroll title="修仙指南" sub={<span>{VERSION}</span>} onClose={() => game.closeModal()} wide>

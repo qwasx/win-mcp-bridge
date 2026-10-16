@@ -23,6 +23,12 @@ import { Hearts } from './hearts';
 import { Towns } from './town';
 import { Events } from './events';
 import { Story } from './story';
+import { SiteSys } from './sites';
+import { HomeSys } from './home';
+import { PetSys } from './pets';
+import { Happen } from './happen';
+import { HeartLife } from './heartsx';
+import { XinMo } from './xinmo';
 import { WorldState, newWorldState } from './worldstate';
 import type { Modal, DNode, Shop } from './modal';
 
@@ -104,6 +110,7 @@ export class Game {
   towns!: Towns;
   events!: Events;
   story!: Story;
+  sites!: SiteSys; home!: HomeSys; pets!: PetSys; happen!: Happen; heartx!: HeartLife; xinmo!: XinMo;
   modal: Modal | null = null;
   private modalStack: Modal[] = [];
   modalListeners = new Set<() => void>();
@@ -137,6 +144,7 @@ export class Game {
     this.towns = new Towns(this);
     this.events = new Events(this);
     this.story = new Story(this);
+    this.sites = new SiteSys(this); this.home = new HomeSys(this); this.pets = new PetSys(this); this.happen = new Happen(this); this.heartx = new HeartLife(this); this.xinmo = new XinMo(this);
     this.travel = new Travel(this);
     this.hookCombat();
     const start = this.startPos();
@@ -187,8 +195,8 @@ export class Game {
   private hookCombat() {
     const c = this.combat as any;
     const prevKill = c.onKill, prevSpar = c.onSparEnd;
-    c.onKill = (e: any) => { prevKill?.(e); this.npcs.onEnemyKilled(e); this.towns.onKill(e.def.id); this.events.onKill(e); };
-    c.onSparEnd = (e: any, won: boolean) => { prevSpar?.(e, won); if (!this.events.onSpar(e, won)) this.npcs.onSpar(e, won); };
+    c.onKill = (e: any) => { prevKill?.(e); this.npcs.onEnemyKilled(e); this.towns.onKill(e.def.id); this.events.onKill(e); this.sites.onKill(e); this.pets.onKill(e); this.happen.onKill(e); };
+    c.onSparEnd = (e: any, won: boolean) => { prevSpar?.(e, won); if (!this.events.onSpar(e, won) && !this.happen.onSpar(e, won)) this.npcs.onSpar(e, won); };
   }
   get halted() { return this.paused || !!this.modal; }
   openModal(m: Modal) {
@@ -245,8 +253,18 @@ export class Game {
     if (sf) { const dsf = Math.hypot(sf.x - p.x, sf.y - p.y); const dn0 = this.npcs.focus ? Math.hypot(this.npcs.focus.st.x - p.x, this.npcs.focus.st.y - p.y) : 1e9; if (dsf <= dn0 + 40) { this.story.interact(sf); return; } }
     const n = this.npcs.focus, e = this.events.focus;
     const dn = n ? Math.hypot(n.st.x - p.x, n.st.y - p.y) : 1e9, de = e ? Math.hypot(e.x - p.x, e.y - p.y) : 1e9;
-    if (n && dn <= de) { this.npcs.interact(); return; }
-    if (e) { this.events.interact(e); return; }
+    // 第十八步：机缘、洞府、会动的奇遇、灵宠——取最近的一个
+    const cands: [number, () => boolean][] = [
+      [dn, () => { this.npcs.interact(); return true; }],
+      [de, () => this.events.interact(e)],
+      [this.sites.focus && this.sites.focusD < 210 ? this.sites.focusD : 1e9, () => this.sites.interact()],
+      [this.home.focus ? this.home.focusD : 1e9, () => this.home.interact()],
+      [this.happen.focus ? this.happen.focusD : 1e9, () => this.happen.interact()],
+      [this.happen.heraldFocus ? 150 : 1e9, () => this.happen.heraldInteract()],
+      [this.pets.focus ? this.pets.focusD : 1e9, () => this.pets.interact()],
+    ];
+    cands.sort((a, b) => a[0] - b[0]);
+    for (const [d, f] of cands) { if (d >= 1e9) break; if (d === dn && !n) continue; if (d === de && !e) continue; if (f()) return; }
     if (this.travel.tryPortal()) return;
     const l = this.ui?.nearby;
     if (l && this.towns.canEnter(l)) { this.enterTown(); return; }
@@ -335,7 +353,7 @@ export class Game {
       this.hero.stats = Object.assign(C.newHero().stats, this.hero.stats ?? {});
       this.nodes.fromSave(d.nodes);
       this.destination = null; this.currentRegionId = ''; this.gathering = null;
-      this.combat.reset(); this.pursuit?.reset();
+      this.combat.reset(); this.pursuit?.reset(); this.sites?.reset(); this.happen?.reset(); this.pets?.reset();
       // 第三步存档迁移
       const nh = C.newHero();
       if (!Array.isArray(this.hero.arts) || !this.hero.arts.length) this.hero.arts = nh.arts;
@@ -504,6 +522,9 @@ export class Game {
     if (loc?.type === 'sect') { mult = 1.2; name = loc.name; }
     else if (loc?.type === 'secret' || loc?.type === 'danger') { mult = 1.1; name = loc.name; }
     if (this.nodes.springNear(p.x, p.y)) { mult *= 2; name = '灵泉畔'; }
+    // 第十八步：洞府 / 小灵脉
+    if (this.home?.atHome(p.x, p.y)) { const hm = this.home.placeMult(); if (hm > mult) { mult = hm; name = this.ws.home!.name; } }
+    else { const v = this.sites?.veinAt(p.x, p.y); if (v) { const q = this.sites.veinQ(v); if (q > mult) { mult = q; name = '小灵脉'; } } }
     return { mult, name };
   }
 
@@ -707,6 +728,7 @@ export class Game {
       this.travel.update(dt);
       this.events.update(dt);
       this.story.update(dt);
+      this.sites.update(dt); this.home.update(dt); this.happen.update(dt); this.pets.update(dt); this.heartx.update(dt);
       // 采集
       if (this.gathering) {
         this.gathering.t += dt;
@@ -781,6 +803,14 @@ export class Game {
     audio.sfx('chime');
   }
   stand() { if (this.player.sitting) { this.player.sitting = false; } }
+  /** 第十八步：一次性度过若干日（参悟、双修、掩埋……） */
+  passDays(n: number) { const msgs: Msg[] = []; C.passDays(this.hero, n, false, 1, msgs); this.day += n; this.flushMsgs(msgs.filter((m) => m.kind)); }
+  /** 第十八步：地图上的通用标记（世界坐标） */
+  mapMarks(): { x: number; y: number; glyph: string; color: string; ring?: number; name: string }[] {
+    const out = [...this.sites.marks(), ...this.happen.marks(), ...this.heartx.marks()];
+    const h = this.ws.home; if (h && h.map === ACTIVE_MAP) out.push({ x: h.x, y: h.y, glyph: '府', color: '#ffd890', name: h.name });
+    return out;
+  }
 
   tryGather() {
     const p = this.player;
@@ -851,8 +881,17 @@ export class Game {
     return { days: d, from, to, expGain: Math.round(gain), msgs: collapsed, reason };
   }
 
-  breakthrough(pills: number) {
-    const r = C.tryBreak(this.hero, pills);
+  breakthrough(pills: number, bonus?: number): { ok: boolean; msgs: Msg[] } {
+    // 第十八步：结丹、结婴前先过心魔劫
+    if (bonus === undefined && this.xinmo.needed()) {
+      this.xinmo.start((b) => {
+        const r = this.breakthrough(pills, b);
+        const h = this.hero;
+        this.openDialog({ speaker: '', title: r.ok ? `${REALMS[h.realm].name}！` : '冲关失败', mood: r.ok ? 'love' : 'danger', text: r.msgs.map((m) => m.text).join('\n\n'), options: [{ label: r.ok ? '（长啸一声）' : '（咽下一口血）', act: () => null }] });
+      });
+      return { ok: false, msgs: [] };
+    }
+    const r = C.tryBreak(this.hero, pills, bonus ?? 0);
     this.flushMsgs(r.msgs);
     audio.sfx(r.ok ? 'break' : 'fail');
     if (r.ok) this.renderer?.burst(this.player.x, this.player.y - 60, '#fff2b0', 60);
@@ -1097,6 +1136,8 @@ export class Game {
       if (this.paused || this.hero.dead) return;
       if (k === 'f') this.toggleFly();
       if (k === 'z') this.toggleSit();
+      if (k === 'y') this.home.recall();
+      if (k === 'u') this.openDialog(this.pets.menuNode());
       if (k === 'e') this.tryGather();
       if (k === 'c') this.onPanel?.('char');
       if (k === 'b') this.onPanel?.('bag');

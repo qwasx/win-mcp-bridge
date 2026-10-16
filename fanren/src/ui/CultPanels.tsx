@@ -90,6 +90,7 @@ export function CharPanel({ game, onClose }: { game: Game; onClose: () => void }
                 </div>
               )}
               <div className="bk-row"><span>成功率</span><div className="bar chance"><div style={{ width: `${chance * 100}%` }} /></div><b>{(chance * 100).toFixed(0)}%</b></div>
+              {mb && game.xinmo.needed() && <div className="hint">此关须先渡心魔劫：幻境由你一路的经历生成，心境稳则成功率上升，动摇则下降（约 ±20%）。</div>}
               <button className="ink-btn jade" onClick={() => { const r = game.breakthrough(usePills); setPills(0); re(); void r; }}>冲 关</button>
             </div>
           )}
@@ -155,6 +156,7 @@ export function BagPanel({ game, onClose }: { game: Game; onClose: () => void })
               {cd.type === 'herb' && <div className="hint">药龄越高，炼丹成功率越高；部分丹方要求百年以上药龄。</div>}
               <div className="bd-actions">
                 {cd.pill && <button className="ink-btn jade" onClick={() => { game.usePill(cur.id); if (!h.bag[sel] || h.bag[sel].id !== cur.id) setSel(-1); re(); }}>服用</button>}
+                {cur.id.startsWith('egg_') && <button className="ink-btn jade" disabled={!!game.ws.incubate} onClick={() => { game.pets.onEgg(cur.id); setSel(-1); re(); }}>{game.ws.incubate ? '已有灵卵在温养' : '温 养'}</button>}
                 {cd.type === 'scroll' && <button className="ink-btn jade" onClick={() => { if (game.learnScroll(cur.id)) setSel(-1); re(); }}>研读参悟</button>}
                 {cd.art && <button className="ink-btn" onClick={() => { const key = 'art:' + cur.id; if (!h.hotbar.includes(key)) { const k = h.hotbar.findIndex((x) => !x); h.hotbar[k >= 0 ? k : 8] = key; game.toast(`${cd.name}已放入快捷栏 ${(k >= 0 ? k : 8) + 1}`); } re(); }}>放入快捷栏</button>}
                 {cd.art && ['armor', 'shield', 'flight', 'wings', 'boots'].includes(cd.art.kind) && <button className="ink-btn jade" onClick={() => { game.combat.castArtifact(cur.id); re(); }}>{Object.values(h.equip ?? {}).includes(cur.id) ? '收起' : '祭出'}</button>}

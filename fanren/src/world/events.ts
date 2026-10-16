@@ -321,7 +321,7 @@ export class Events {
     if (g.combat.safeAt(p.x, p.y) || p.sitting) return;
     this.encT -= dt;
     if (this.encT > 0 || this.enc.length >= 2) return;
-    this.encT = rand(40, 80) * (1 - C.mod(g.hero, 'luck' as any) * 0.5);
+    this.encT = rand(32, 60) * (1 - C.mod(g.hero, 'luck' as any) * 0.5);
     this.spawnEnc();
   }
   private seenText(x: Enc) {
