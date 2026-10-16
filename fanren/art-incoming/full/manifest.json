@@ -18303,6 +18303,774 @@
       "width": 1400,
       "height": 568,
       "baseline_y": 540
+    },
+    {
+      "file": "vfx/vfx_sword_qi_green_head.png",
+      "type": "vfx",
+      "id": "vfx_sword_qi_green",
+      "part": "head",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_sword_qi_green_trail.png",
+      "type": "vfx",
+      "id": "vfx_sword_qi_green",
+      "part": "trail",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_sword_qi_green_burst.png",
+      "type": "vfx",
+      "id": "vfx_sword_qi_green",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_sword_qi_gold_head.png",
+      "type": "vfx",
+      "id": "vfx_sword_qi_gold",
+      "part": "head",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_sword_qi_gold_trail.png",
+      "type": "vfx",
+      "id": "vfx_sword_qi_gold",
+      "part": "trail",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_sword_qi_gold_burst.png",
+      "type": "vfx",
+      "id": "vfx_sword_qi_gold",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_sword_qi_red_head.png",
+      "type": "vfx",
+      "id": "vfx_sword_qi_red",
+      "part": "head",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_sword_qi_red_trail.png",
+      "type": "vfx",
+      "id": "vfx_sword_qi_red",
+      "part": "trail",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_sword_qi_red_burst.png",
+      "type": "vfx",
+      "id": "vfx_sword_qi_red",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_fireball_head.png",
+      "type": "vfx",
+      "id": "vfx_fireball",
+      "part": "head",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_fireball_trail.png",
+      "type": "vfx",
+      "id": "vfx_fireball",
+      "part": "trail",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_fireball_burst.png",
+      "type": "vfx",
+      "id": "vfx_fireball",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_fire_bird_head.png",
+      "type": "vfx",
+      "id": "vfx_fire_bird",
+      "part": "head",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_fire_bird_trail.png",
+      "type": "vfx",
+      "id": "vfx_fire_bird",
+      "part": "trail",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_fire_bird_burst.png",
+      "type": "vfx",
+      "id": "vfx_fire_bird",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_ice_cone_head.png",
+      "type": "vfx",
+      "id": "vfx_ice_cone",
+      "part": "head",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_ice_cone_trail.png",
+      "type": "vfx",
+      "id": "vfx_ice_cone",
+      "part": "trail",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_ice_cone_burst.png",
+      "type": "vfx",
+      "id": "vfx_ice_cone",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_wind_blade_head.png",
+      "type": "vfx",
+      "id": "vfx_wind_blade",
+      "part": "head",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_wind_blade_trail.png",
+      "type": "vfx",
+      "id": "vfx_wind_blade",
+      "part": "trail",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_wind_blade_burst.png",
+      "type": "vfx",
+      "id": "vfx_wind_blade",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_gold_arc_head.png",
+      "type": "vfx",
+      "id": "vfx_gold_arc",
+      "part": "head",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_gold_arc_trail.png",
+      "type": "vfx",
+      "id": "vfx_gold_arc",
+      "part": "trail",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_gold_arc_burst.png",
+      "type": "vfx",
+      "id": "vfx_gold_arc",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_poison_arrow_head.png",
+      "type": "vfx",
+      "id": "vfx_poison_arrow",
+      "part": "head",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_poison_arrow_trail.png",
+      "type": "vfx",
+      "id": "vfx_poison_arrow",
+      "part": "trail",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_poison_arrow_burst.png",
+      "type": "vfx",
+      "id": "vfx_poison_arrow",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_soul_wisp_head.png",
+      "type": "vfx",
+      "id": "vfx_soul_wisp",
+      "part": "head",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_soul_wisp_trail.png",
+      "type": "vfx",
+      "id": "vfx_soul_wisp",
+      "part": "trail",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_soul_wisp_burst.png",
+      "type": "vfx",
+      "id": "vfx_soul_wisp",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_thunder_gold_head.png",
+      "type": "vfx",
+      "id": "vfx_thunder_gold",
+      "part": "head",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_thunder_gold_burst.png",
+      "type": "vfx",
+      "id": "vfx_thunder_gold",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_thunder_blue_head.png",
+      "type": "vfx",
+      "id": "vfx_thunder_blue",
+      "part": "head",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_thunder_blue_burst.png",
+      "type": "vfx",
+      "id": "vfx_thunder_blue",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_ice_freeze_head.png",
+      "type": "vfx",
+      "id": "vfx_ice_freeze",
+      "part": "head",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_ice_freeze_burst.png",
+      "type": "vfx",
+      "id": "vfx_ice_freeze",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_blood_burst_head.png",
+      "type": "vfx",
+      "id": "vfx_blood_burst",
+      "part": "head",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_blood_burst_burst.png",
+      "type": "vfx",
+      "id": "vfx_blood_burst",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_poison_cloud_ring.png",
+      "type": "vfx",
+      "id": "vfx_poison_cloud",
+      "part": "ring",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_poison_cloud_burst.png",
+      "type": "vfx",
+      "id": "vfx_poison_cloud",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_earth_spike_head.png",
+      "type": "vfx",
+      "id": "vfx_earth_spike",
+      "part": "head",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_earth_spike_burst.png",
+      "type": "vfx",
+      "id": "vfx_earth_spike",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_wood_vines_ring.png",
+      "type": "vfx",
+      "id": "vfx_wood_vines",
+      "part": "ring",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_wood_vines_burst.png",
+      "type": "vfx",
+      "id": "vfx_wood_vines",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_sword_rain_head.png",
+      "type": "vfx",
+      "id": "vfx_sword_rain",
+      "part": "head",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_sword_rain_burst.png",
+      "type": "vfx",
+      "id": "vfx_sword_rain",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_array_activate_ring.png",
+      "type": "vfx",
+      "id": "vfx_array_activate",
+      "part": "ring",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_array_activate_burst.png",
+      "type": "vfx",
+      "id": "vfx_array_activate",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_shield_gold_ring.png",
+      "type": "vfx",
+      "id": "vfx_shield_gold",
+      "part": "ring",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_shield_gold_burst.png",
+      "type": "vfx",
+      "id": "vfx_shield_gold",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_shield_blue_ring.png",
+      "type": "vfx",
+      "id": "vfx_shield_blue",
+      "part": "ring",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_shield_blue_burst.png",
+      "type": "vfx",
+      "id": "vfx_shield_blue",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_shield_black_ring.png",
+      "type": "vfx",
+      "id": "vfx_shield_black",
+      "part": "ring",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_shield_black_burst.png",
+      "type": "vfx",
+      "id": "vfx_shield_black",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_shield_five_ring.png",
+      "type": "vfx",
+      "id": "vfx_shield_five",
+      "part": "ring",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_shield_five_burst.png",
+      "type": "vfx",
+      "id": "vfx_shield_five",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_heal_green_ring.png",
+      "type": "vfx",
+      "id": "vfx_heal_green",
+      "part": "ring",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_heal_green_burst.png",
+      "type": "vfx",
+      "id": "vfx_heal_green",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_breakthrough_ring.png",
+      "type": "vfx",
+      "id": "vfx_breakthrough",
+      "part": "ring",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_breakthrough_burst.png",
+      "type": "vfx",
+      "id": "vfx_breakthrough",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_teleport_flash_ring.png",
+      "type": "vfx",
+      "id": "vfx_teleport_flash",
+      "part": "ring",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_teleport_flash_burst.png",
+      "type": "vfx",
+      "id": "vfx_teleport_flash",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_hit_spark_head.png",
+      "type": "vfx",
+      "id": "vfx_hit_spark",
+      "part": "head",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
+    },
+    {
+      "file": "vfx/vfx_hit_spark_burst.png",
+      "type": "vfx",
+      "id": "vfx_hit_spark",
+      "part": "burst",
+      "width": 512,
+      "height": 512,
+      "anchor": [
+        256,
+        256
+      ]
     }
   ]
 }
