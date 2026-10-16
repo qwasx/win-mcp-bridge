@@ -1,7 +1,7 @@
 {
   "version": "full",
   "style": "Song-dynasty ink-wash and light mineral color (round1b standard)",
-  "total_png_assets": 473,
+  "total_png_assets": 622,
   "assets": [
     {
       "id": "D01_grasstuft",
@@ -7141,6 +7141,2211 @@
       ]
     },
     {
+      "id": "P01_well",
+      "file": "props/P01_well.png",
+      "category": "props",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        154
+      ]
+    },
+    {
+      "id": "P02_cart",
+      "file": "props/P02_cart.png",
+      "category": "props",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        154
+      ]
+    },
+    {
+      "id": "P03_wheelbarrow",
+      "file": "props/P03_wheelbarrow.png",
+      "category": "props",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        250,
+        115
+      ]
+    },
+    {
+      "id": "P04_brazier",
+      "file": "props/P04_brazier.png",
+      "category": "props",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        250,
+        115
+      ]
+    },
+    {
+      "id": "P05_censer",
+      "file": "props/P05_censer.png",
+      "category": "props",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        154
+      ]
+    },
+    {
+      "id": "P06_lantern_post",
+      "file": "props/P06_lantern_post.png",
+      "category": "props",
+      "width": 256,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        166,
+        154
+      ]
+    },
+    {
+      "id": "P07_stone_lantern",
+      "file": "props/P07_stone_lantern.png",
+      "category": "props",
+      "width": 256,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        166,
+        154
+      ]
+    },
+    {
+      "id": "P08_signpost",
+      "file": "props/P08_signpost.png",
+      "category": "props",
+      "width": 256,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        166,
+        154
+      ]
+    },
+    {
+      "id": "P09_notice_board",
+      "file": "props/P09_notice_board.png",
+      "category": "props",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        154
+      ]
+    },
+    {
+      "id": "P10_barrel_cluster",
+      "file": "props/P10_barrel_cluster.png",
+      "category": "props",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        250,
+        115
+      ]
+    },
+    {
+      "id": "P11_crate_stack",
+      "file": "props/P11_crate_stack.png",
+      "category": "props",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        154
+      ]
+    },
+    {
+      "id": "P12_firewood",
+      "file": "props/P12_firewood.png",
+      "category": "props",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        250,
+        115
+      ]
+    },
+    {
+      "id": "P13_haystack",
+      "file": "props/P13_haystack.png",
+      "category": "props",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        154
+      ]
+    },
+    {
+      "id": "P14_weapon_rack",
+      "file": "props/P14_weapon_rack.png",
+      "category": "props",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        154
+      ]
+    },
+    {
+      "id": "P15_archery_target",
+      "file": "props/P15_archery_target.png",
+      "category": "props",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        250,
+        115
+      ]
+    },
+    {
+      "id": "P16_training_dummy",
+      "file": "props/P16_training_dummy.png",
+      "category": "props",
+      "width": 384,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        250,
+        154
+      ]
+    },
+    {
+      "id": "P17_tea_table",
+      "file": "props/P17_tea_table.png",
+      "category": "props",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        154
+      ]
+    },
+    {
+      "id": "P18_stall_herbs",
+      "file": "props/P18_stall_herbs.png",
+      "category": "props",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        154
+      ]
+    },
+    {
+      "id": "P19_stall_weapons",
+      "file": "props/P19_stall_weapons.png",
+      "category": "props",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        154
+      ]
+    },
+    {
+      "id": "P20_stall_talismans",
+      "file": "props/P20_stall_talismans.png",
+      "category": "props",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        154
+      ]
+    },
+    {
+      "id": "P21_stone_lion_l",
+      "file": "props/P21_stone_lion_l.png",
+      "category": "props",
+      "width": 384,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        250,
+        154
+      ]
+    },
+    {
+      "id": "P22_stone_lion_r",
+      "file": "props/P22_stone_lion_r.png",
+      "category": "props",
+      "width": 384,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        250,
+        154
+      ]
+    },
+    {
+      "id": "P23_cauldron_alchemy",
+      "file": "props/P23_cauldron_alchemy.png",
+      "category": "props",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        154
+      ]
+    },
+    {
+      "id": "P24_cauldron_dark",
+      "file": "props/P24_cauldron_dark.png",
+      "category": "props",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        154
+      ]
+    },
+    {
+      "id": "P25_spirit_crystal_sm",
+      "file": "props/P25_spirit_crystal_sm.png",
+      "category": "props",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        250,
+        115
+      ]
+    },
+    {
+      "id": "P26_spirit_crystal_lg",
+      "file": "props/P26_spirit_crystal_lg.png",
+      "category": "props",
+      "width": 512,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        230
+      ]
+    },
+    {
+      "id": "P27_blood_crystal",
+      "file": "props/P27_blood_crystal.png",
+      "category": "props",
+      "width": 512,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        230
+      ]
+    },
+    {
+      "id": "P28_herb_pot",
+      "file": "props/P28_herb_pot.png",
+      "category": "props",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        166,
+        77
+      ]
+    },
+    {
+      "id": "P29_scarecrow",
+      "file": "props/P29_scarecrow.png",
+      "category": "props",
+      "width": 384,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        250,
+        154
+      ]
+    },
+    {
+      "id": "P30_water_trough",
+      "file": "props/P30_water_trough.png",
+      "category": "props",
+      "width": 512,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        77
+      ]
+    },
+    {
+      "id": "P31_fence_wood_h",
+      "file": "props/P31_fence_wood_h.png",
+      "category": "props",
+      "width": 512,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        77
+      ]
+    },
+    {
+      "id": "P32_fence_wood_v",
+      "file": "props/P32_fence_wood_v.png",
+      "category": "props",
+      "width": 256,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        166,
+        154
+      ]
+    },
+    {
+      "id": "P33_fence_stone_h",
+      "file": "props/P33_fence_stone_h.png",
+      "category": "props",
+      "width": 512,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        77
+      ]
+    },
+    {
+      "id": "P34_fence_jade_h",
+      "file": "props/P34_fence_jade_h.png",
+      "category": "props",
+      "width": 512,
+      "height": 256,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        77
+      ]
+    },
+    {
+      "id": "P35_sect_banner",
+      "file": "props/P35_sect_banner.png",
+      "category": "props",
+      "width": 384,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        250,
+        230
+      ]
+    },
+    {
+      "id": "P36_demon_banner",
+      "file": "props/P36_demon_banner.png",
+      "category": "props",
+      "width": 384,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        250,
+        230
+      ]
+    },
+    {
+      "id": "P37_steppe_banner",
+      "file": "props/P37_steppe_banner.png",
+      "category": "props",
+      "width": 384,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        250,
+        230
+      ]
+    },
+    {
+      "id": "P38_boat_small",
+      "file": "props/P38_boat_small.png",
+      "category": "props",
+      "width": 768,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        499,
+        154
+      ]
+    },
+    {
+      "id": "P39_flying_boat",
+      "file": "props/P39_flying_boat.png",
+      "category": "props",
+      "width": 1024,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        666,
+        230
+      ]
+    },
+    {
+      "id": "P40_treasure_chest",
+      "file": "props/P40_treasure_chest.png",
+      "category": "props",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        250,
+        115
+      ]
+    },
+    {
+      "id": "S01_stele_a",
+      "file": "props/S01_stele_a.png",
+      "category": "props",
+      "width": 512,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        230
+      ]
+    },
+    {
+      "id": "S01_stele_b",
+      "file": "props/S01_stele_b.png",
+      "category": "props",
+      "width": 512,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        230
+      ]
+    },
+    {
+      "id": "S01_stele_c",
+      "file": "props/S01_stele_c.png",
+      "category": "props",
+      "width": 512,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        230
+      ]
+    },
+    {
+      "id": "S02_broken_pillar",
+      "file": "props/S02_broken_pillar.png",
+      "category": "props",
+      "width": 384,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        250,
+        154
+      ]
+    },
+    {
+      "id": "S03_fallen_pillar",
+      "file": "props/S03_fallen_pillar.png",
+      "category": "props",
+      "width": 512,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        115
+      ]
+    },
+    {
+      "id": "S04_ruined_arch",
+      "file": "props/S04_ruined_arch.png",
+      "category": "props",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        499,
+        230
+      ]
+    },
+    {
+      "id": "S05_stone_altar",
+      "file": "props/S05_stone_altar.png",
+      "category": "props",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        499,
+        230
+      ]
+    },
+    {
+      "id": "S06_blood_altar_sm",
+      "file": "props/S06_blood_altar_sm.png",
+      "category": "props",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        499,
+        230
+      ]
+    },
+    {
+      "id": "S07_teleport_pad_active",
+      "file": "props/S07_teleport_pad_active.png",
+      "category": "props",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        499,
+        230
+      ]
+    },
+    {
+      "id": "S08_teleport_pad_broken",
+      "file": "props/S08_teleport_pad_broken.png",
+      "category": "props",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        499,
+        230
+      ]
+    },
+    {
+      "id": "S09_seal_stone",
+      "file": "props/S09_seal_stone.png",
+      "category": "props",
+      "width": 512,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        230
+      ]
+    },
+    {
+      "id": "S10_giant_sword_stone",
+      "file": "props/S10_giant_sword_stone.png",
+      "category": "props",
+      "width": 512,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        307
+      ]
+    },
+    {
+      "id": "S11_skeleton_sitting",
+      "file": "props/S11_skeleton_sitting.png",
+      "category": "props",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        250,
+        115
+      ]
+    },
+    {
+      "id": "S12_bone_pile",
+      "file": "props/S12_bone_pile.png",
+      "category": "props",
+      "width": 512,
+      "height": 384,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        115
+      ]
+    },
+    {
+      "id": "S13_sarcophagus",
+      "file": "props/S13_sarcophagus.png",
+      "category": "props",
+      "width": 768,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        499,
+        154
+      ]
+    },
+    {
+      "id": "S14_cairn",
+      "file": "props/S14_cairn.png",
+      "category": "props",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        154
+      ]
+    },
+    {
+      "id": "S15_boundary_stone",
+      "file": "props/S15_boundary_stone.png",
+      "category": "props",
+      "width": 384,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        250,
+        154
+      ]
+    },
+    {
+      "id": "S16_array_flag_pillar",
+      "file": "props/S16_array_flag_pillar.png",
+      "category": "props",
+      "width": 384,
+      "height": 640,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        250,
+        192
+      ]
+    },
+    {
+      "id": "S17_coral_pillar",
+      "file": "props/S17_coral_pillar.png",
+      "category": "props",
+      "width": 512,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        230
+      ]
+    },
+    {
+      "id": "S18_ice_pillar",
+      "file": "props/S18_ice_pillar.png",
+      "category": "props",
+      "width": 512,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "footprint": [
+        333,
+        230
+      ]
+    },
+    {
+      "id": "E01_blazing_tree",
+      "file": "landmarks/E01_blazing_tree.png",
+      "category": "landmarks",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "E02_sword_canyon_gate",
+      "file": "landmarks/E02_sword_canyon_gate.png",
+      "category": "landmarks",
+      "width": 1536,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        448
+      ],
+      "door": [
+        768,
+        1050
+      ]
+    },
+    {
+      "id": "E03_blood_barrier_pillar",
+      "file": "landmarks/E03_blood_barrier_pillar.png",
+      "category": "landmarks",
+      "width": 768,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        553,
+        448
+      ],
+      "door": [
+        384,
+        1050
+      ]
+    },
+    {
+      "id": "E04_five_color_mist_emitter",
+      "file": "landmarks/E04_five_color_mist_emitter.png",
+      "category": "landmarks",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "E05a_mine_entrance_gold",
+      "file": "landmarks/E05a_mine_entrance_gold.png",
+      "category": "landmarks",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "E05b_mine_entrance_spirit",
+      "file": "landmarks/E05b_mine_entrance_spirit.png",
+      "category": "landmarks",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "E06_breach",
+      "file": "landmarks/E06_breach.png",
+      "category": "landmarks",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "E06_fortress_wall_long",
+      "file": "landmarks/E06_fortress_wall_long.png",
+      "category": "landmarks",
+      "width": 1536,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        358
+      ],
+      "door": [
+        768,
+        840
+      ]
+    },
+    {
+      "id": "E07_black_pool_whirlpool",
+      "file": "landmarks/E07_black_pool_whirlpool.png",
+      "category": "landmarks",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "E08_ghost_wailing_stone",
+      "file": "landmarks/E08_ghost_wailing_stone.png",
+      "category": "landmarks",
+      "width": 1024,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        448
+      ],
+      "door": [
+        512,
+        1050
+      ]
+    },
+    {
+      "id": "E09_xuanjing_cluster_giant",
+      "file": "landmarks/E09_xuanjing_cluster_giant.png",
+      "category": "landmarks",
+      "width": 1024,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        448
+      ],
+      "door": [
+        512,
+        1050
+      ]
+    },
+    {
+      "id": "E10a_stone_statue_immortal",
+      "file": "landmarks/E10a_stone_statue_immortal.png",
+      "category": "landmarks",
+      "width": 1024,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        538
+      ],
+      "door": [
+        512,
+        1260
+      ]
+    },
+    {
+      "id": "E10b_stone_statue_demon",
+      "file": "landmarks/E10b_stone_statue_demon.png",
+      "category": "landmarks",
+      "width": 1024,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        538
+      ],
+      "door": [
+        512,
+        1260
+      ]
+    },
+    {
+      "id": "E11_seal_chain_pillar",
+      "file": "landmarks/E11_seal_chain_pillar.png",
+      "category": "landmarks",
+      "width": 768,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        553,
+        538
+      ],
+      "door": [
+        384,
+        1260
+      ]
+    },
+    {
+      "id": "E12a_kunwu_giant_stele",
+      "file": "landmarks/E12a_kunwu_giant_stele.png",
+      "category": "landmarks",
+      "width": 1024,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        538
+      ],
+      "door": [
+        512,
+        1260
+      ]
+    },
+    {
+      "id": "E12b_lion_capture_pavilion",
+      "file": "landmarks/E12b_lion_capture_pavilion.png",
+      "category": "landmarks",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "E12c_petrified_demon_tree",
+      "file": "landmarks/E12c_petrified_demon_tree.png",
+      "category": "landmarks",
+      "width": 1280,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        538
+      ],
+      "door": [
+        640,
+        1260
+      ]
+    },
+    {
+      "id": "E13_taiji_stone_lantern",
+      "file": "landmarks/E13_taiji_stone_lantern.png",
+      "category": "landmarks",
+      "width": 512,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        369,
+        358
+      ],
+      "door": [
+        256,
+        840
+      ]
+    },
+    {
+      "id": "E14_giant_mushroom_tree",
+      "file": "landmarks/E14_giant_mushroom_tree.png",
+      "category": "landmarks",
+      "width": 1024,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        448
+      ],
+      "door": [
+        512,
+        1050
+      ]
+    },
+    {
+      "id": "E15_demon_bone_ribcage",
+      "file": "landmarks/E15_demon_bone_ribcage.png",
+      "category": "landmarks",
+      "width": 1536,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        358
+      ],
+      "door": [
+        768,
+        840
+      ]
+    },
+    {
+      "id": "E16_spirit_spring_fountain",
+      "file": "landmarks/E16_spirit_spring_fountain.png",
+      "category": "landmarks",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "E17_giant_broken_halberd",
+      "file": "landmarks/E17_giant_broken_halberd.png",
+      "category": "landmarks",
+      "width": 1024,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        538
+      ],
+      "door": [
+        512,
+        1260
+      ]
+    },
+    {
+      "id": "E18_star_palace_pillar",
+      "file": "landmarks/E18_star_palace_pillar.png",
+      "category": "landmarks",
+      "width": 768,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        553,
+        538
+      ],
+      "door": [
+        384,
+        1260
+      ]
+    },
+    {
+      "id": "E18_swirl",
+      "file": "landmarks/E18_swirl.png",
+      "category": "landmarks",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "E19_xutian_cauldron_platform",
+      "file": "landmarks/E19_xutian_cauldron_platform.png",
+      "category": "landmarks",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "E20_ice_glacier_arch",
+      "file": "landmarks/E20_ice_glacier_arch.png",
+      "category": "landmarks",
+      "width": 1536,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        448
+      ],
+      "door": [
+        768,
+        1050
+      ]
+    },
+    {
+      "id": "E21_desert_wind_rock",
+      "file": "landmarks/E21_desert_wind_rock.png",
+      "category": "landmarks",
+      "width": 1024,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        448
+      ],
+      "door": [
+        512,
+        1050
+      ]
+    },
+    {
+      "id": "E22_ancient_shipwreck",
+      "file": "landmarks/E22_ancient_shipwreck.png",
+      "category": "landmarks",
+      "width": 1536,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        358
+      ],
+      "door": [
+        768,
+        840
+      ]
+    },
+    {
+      "id": "E23a_mountain_cliff_a",
+      "file": "landmarks/E23a_mountain_cliff_a.png",
+      "category": "landmarks",
+      "width": 1536,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        358
+      ],
+      "door": [
+        768,
+        840
+      ]
+    },
+    {
+      "id": "E23b_mountain_cliff_b",
+      "file": "landmarks/E23b_mountain_cliff_b.png",
+      "category": "landmarks",
+      "width": 1024,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        538
+      ],
+      "door": [
+        512,
+        1260
+      ]
+    },
+    {
+      "id": "E23c_mountain_peak",
+      "file": "landmarks/E23c_mountain_peak.png",
+      "category": "landmarks",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "E24a_waterfall_top",
+      "file": "landmarks/E24a_waterfall_top.png",
+      "category": "landmarks",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "E24b_waterfall_mid",
+      "file": "landmarks/E24b_waterfall_mid.png",
+      "category": "landmarks",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "E24c_waterfall_splash",
+      "file": "landmarks/E24c_waterfall_splash.png",
+      "category": "landmarks",
+      "width": 1024,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        269
+      ],
+      "door": [
+        512,
+        630
+      ]
+    },
+    {
+      "id": "E25_cloud_sea_bank",
+      "file": "landmarks/E25_cloud_sea_bank.png",
+      "category": "landmarks",
+      "width": 2048,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1475,
+        358
+      ],
+      "door": [
+        1024,
+        840
+      ]
+    },
+    {
+      "id": "E26_bamboo_grove_cluster",
+      "file": "landmarks/E26_bamboo_grove_cluster.png",
+      "category": "landmarks",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "E27_peach_blossom_tree",
+      "file": "landmarks/E27_peach_blossom_tree.png",
+      "category": "landmarks",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "art_baigu_shield",
+      "file": "artifacts/art_baigu_shield.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_baihun",
+      "file": "artifacts/art_baihun.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_bairi",
+      "file": "artifacts/art_bairi.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_bingpo",
+      "file": "artifacts/art_bingpo.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_boshou",
+      "file": "artifacts/art_boshou.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_chilian",
+      "file": "artifacts/art_chilian.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_duanhun_halberd",
+      "file": "artifacts/art_duanhun_halberd.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_feijian_generic_a",
+      "file": "artifacts/art_feijian_generic_a.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_feijian_generic_b",
+      "file": "artifacts/art_feijian_generic_b.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_feijian_generic_c",
+      "file": "artifacts/art_feijian_generic_c.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_fenglei",
+      "file": "artifacts/art_fenglei.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_fenglei_worn",
+      "file": "artifacts/art_fenglei_worn.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_fengling",
+      "file": "artifacts/art_fengling.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_heisha",
+      "file": "artifacts/art_heisha.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_huanmo",
+      "file": "artifacts/art_huanmo.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_huaxue",
+      "file": "artifacts/art_huaxue.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_hunyuan_bowl",
+      "file": "artifacts/art_hunyuan_bowl.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_jingang",
+      "file": "artifacts/art_jingang.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_jinjiao",
+      "file": "artifacts/art_jinjiao.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_jinlin",
+      "file": "artifacts/art_jinlin.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_jinmu",
+      "file": "artifacts/art_jinmu.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_jiugong",
+      "file": "artifacts/art_jiugong.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_jiutian",
+      "file": "artifacts/art_jiutian.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_qingfeng",
+      "file": "artifacts/art_qingfeng.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_qingzhu",
+      "file": "artifacts/art_qingzhu.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_qiongguang",
+      "file": "artifacts/art_qiongguang.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_qixing_sword",
+      "file": "artifacts/art_qixing_sword.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_qiyan",
+      "file": "artifacts/art_qiyan.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_sanhuan",
+      "file": "artifacts/art_sanhuan.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_shenfeng",
+      "file": "artifacts/art_shenfeng.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_shenfeng_ride",
+      "file": "artifacts/art_shenfeng_ride.png",
+      "category": "artifacts",
+      "width": 768,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_tianji",
+      "file": "artifacts/art_tianji.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_tianlei",
+      "file": "artifacts/art_tianlei.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_tianleizi",
+      "file": "artifacts/art_tianleizi.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_tianmo",
+      "file": "artifacts/art_tianmo.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_ulong",
+      "file": "artifacts/art_ulong.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_wanhun",
+      "file": "artifacts/art_wanhun.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_wugou",
+      "file": "artifacts/art_wugou.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_wulei",
+      "file": "artifacts/art_wulei.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_wuxing",
+      "file": "artifacts/art_wuxing.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_xuanbing",
+      "file": "artifacts/art_xuanbing.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_xuanhuang",
+      "file": "artifacts/art_xuanhuang.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_xuanhun",
+      "file": "artifacts/art_xuanhun.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_xuanyin",
+      "file": "artifacts/art_xuanyin.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_xutian",
+      "file": "artifacts/art_xutian.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_yin_yang",
+      "file": "artifacts/art_yin_yang.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_yuhuang",
+      "file": "artifacts/art_yuhuang.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_zhangtian",
+      "file": "artifacts/art_zhangtian.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_zhenlei",
+      "file": "artifacts/art_zhenlei.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_zimu",
+      "file": "artifacts/art_zimu.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "mockup_artifacts",
+      "file": "mockups/mockup_artifacts.png",
+      "category": "mockups",
+      "width": 1920,
+      "height": 1080,
+      "alpha": false
+    },
+    {
       "id": "mockup_beasts",
       "file": "mockups/mockup_beasts.png",
       "category": "mockups",
@@ -7159,6 +9364,14 @@
     {
       "id": "mockup_ground",
       "file": "mockups/mockup_ground.png",
+      "category": "mockups",
+      "width": 1920,
+      "height": 1080,
+      "alpha": false
+    },
+    {
+      "id": "mockup_landmarks",
+      "file": "mockups/mockup_landmarks.png",
       "category": "mockups",
       "width": 1920,
       "height": 1080,
