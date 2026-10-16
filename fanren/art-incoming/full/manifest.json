@@ -4,6 +4,2087 @@
   "total_png_assets": 1119,
   "assets": [
     {
+      "file": "buildings/B01_sect_hall.png",
+      "type": "building",
+      "id": "B01",
+      "width": 1840,
+      "height": 1229,
+      "baseline_y": 1130,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        894,
+        780,
+        260,
+        320
+      ]
+    },
+    {
+      "file": "buildings/B02_house.png",
+      "type": "building",
+      "id": "B02",
+      "width": 960,
+      "height": 552,
+      "baseline_y": 507,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        442,
+        580,
+        140,
+        320
+      ]
+    },
+    {
+      "file": "buildings/B03_shop.png",
+      "type": "building",
+      "id": "B03",
+      "width": 1040,
+      "height": 776,
+      "baseline_y": 713,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        362,
+        580,
+        300,
+        320
+      ]
+    },
+    {
+      "file": "buildings/B04_sect_gate.png",
+      "type": "building",
+      "id": "B04",
+      "width": 1380,
+      "height": 773,
+      "baseline_y": 711,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        618,
+        560,
+        300,
+        340
+      ]
+    },
+    {
+      "file": "buildings/B05_citywall.png",
+      "type": "building",
+      "id": "B05",
+      "width": 1024,
+      "height": 720,
+      "baseline_y": 662,
+      "person_px": 215,
+      "door_height_px": 320,
+      "tileable_x": true
+    },
+    {
+      "file": "buildings/B02b_house.png",
+      "type": "building",
+      "id": "B02b",
+      "width": 900,
+      "height": 553,
+      "baseline_y": 525,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        369,
+        304,
+        162,
+        188
+      ]
+    },
+    {
+      "file": "buildings/B03b_shop.png",
+      "type": "building",
+      "id": "B03b",
+      "width": 1000,
+      "height": 629,
+      "baseline_y": 601,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        410,
+        351,
+        180,
+        213
+      ]
+    },
+    {
+      "file": "buildings/B14_courtyard_house.png",
+      "type": "building",
+      "id": "B14",
+      "width": 1200,
+      "height": 793,
+      "baseline_y": 765,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        492,
+        449,
+        216,
+        269
+      ]
+    },
+    {
+      "file": "buildings/B15_wood_house.png",
+      "type": "building",
+      "id": "B15",
+      "width": 850,
+      "height": 675,
+      "baseline_y": 647,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        348,
+        378,
+        153,
+        229
+      ]
+    },
+    {
+      "file": "buildings/B16_pharmacy.png",
+      "type": "building",
+      "id": "B16",
+      "width": 1050,
+      "height": 742,
+      "baseline_y": 714,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        430,
+        418,
+        189,
+        252
+      ]
+    },
+    {
+      "file": "buildings/B17_inn.png",
+      "type": "building",
+      "id": "B17",
+      "width": 1400,
+      "height": 913,
+      "baseline_y": 885,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        574,
+        521,
+        252,
+        310
+      ]
+    },
+    {
+      "file": "buildings/B18_wine_tower.png",
+      "type": "building",
+      "id": "B18",
+      "width": 1200,
+      "height": 1464,
+      "baseline_y": 1436,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        492,
+        1029,
+        216,
+        320
+      ]
+    },
+    {
+      "file": "buildings/B19_pawnshop.png",
+      "type": "building",
+      "id": "B19",
+      "width": 950,
+      "height": 710,
+      "baseline_y": 682,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        389,
+        399,
+        171,
+        241
+      ]
+    },
+    {
+      "file": "buildings/B20_citygate.png",
+      "type": "building",
+      "id": "B20",
+      "width": 1500,
+      "height": 855,
+      "baseline_y": 827,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        620,
+        486,
+        260,
+        290
+      ]
+    },
+    {
+      "file": "buildings/B21_corner_tower.png",
+      "type": "building",
+      "id": "B21",
+      "width": 750,
+      "height": 605,
+      "baseline_y": 577,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/B22_dock.png",
+      "type": "building",
+      "id": "B22",
+      "width": 1200,
+      "height": 787,
+      "baseline_y": 763,
+      "person_px": 215,
+      "door_height_px": 320,
+      "tileable_x": true
+    },
+    {
+      "file": "buildings/B23a_stall_cloth.png",
+      "type": "building",
+      "id": "B23a",
+      "width": 450,
+      "height": 316,
+      "baseline_y": 288,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/B23b_stall_herb.png",
+      "type": "building",
+      "id": "B23b",
+      "width": 450,
+      "height": 338,
+      "baseline_y": 310,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/B23c_stall_artifact.png",
+      "type": "building",
+      "id": "B23c",
+      "width": 450,
+      "height": 314,
+      "baseline_y": 286,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/B25_smithy.png",
+      "type": "building",
+      "id": "B25",
+      "width": 950,
+      "height": 694,
+      "baseline_y": 666,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        389,
+        390,
+        171,
+        235
+      ]
+    },
+    {
+      "file": "buildings/B26_teahouse.png",
+      "type": "building",
+      "id": "B26",
+      "width": 1050,
+      "height": 925,
+      "baseline_y": 897,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        430,
+        528,
+        189,
+        314
+      ]
+    },
+    {
+      "file": "buildings/B27_yamen.png",
+      "type": "building",
+      "id": "B27",
+      "width": 1600,
+      "height": 803,
+      "baseline_y": 775,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        670,
+        454,
+        260,
+        273
+      ]
+    },
+    {
+      "file": "buildings/B28_shrine.png",
+      "type": "building",
+      "id": "B28",
+      "width": 650,
+      "height": 636,
+      "baseline_y": 608,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        266,
+        354,
+        117,
+        216
+      ]
+    },
+    {
+      "file": "buildings/B29_archway.png",
+      "type": "building",
+      "id": "B29",
+      "width": 1000,
+      "height": 768,
+      "baseline_y": 740,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        410,
+        433,
+        180,
+        261
+      ]
+    },
+    {
+      "file": "buildings/B30_farmhouse.png",
+      "type": "building",
+      "id": "B30",
+      "width": 950,
+      "height": 543,
+      "baseline_y": 515,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        389,
+        299,
+        171,
+        184
+      ]
+    },
+    {
+      "file": "buildings/B31_watermill.png",
+      "type": "building",
+      "id": "B31",
+      "width": 900,
+      "height": 632,
+      "baseline_y": 604,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        369,
+        353,
+        162,
+        214
+      ]
+    },
+    {
+      "file": "buildings/B31_wheel.png",
+      "type": "building",
+      "id": "B31_wheel",
+      "width": 512,
+      "height": 522,
+      "baseline_y": 494,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/B32_stage.png",
+      "type": "building",
+      "id": "B32",
+      "width": 1150,
+      "height": 927,
+      "baseline_y": 899,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/B33_bazaar_gate.png",
+      "type": "building",
+      "id": "B33",
+      "width": 1200,
+      "height": 789,
+      "baseline_y": 761,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        492,
+        446,
+        216,
+        268
+      ]
+    },
+    {
+      "file": "buildings/B34_town_wall.png",
+      "type": "building",
+      "id": "B34",
+      "width": 1024,
+      "height": 550,
+      "baseline_y": 526,
+      "person_px": 215,
+      "door_height_px": 320,
+      "tileable_x": true
+    },
+    {
+      "file": "buildings/B35_ferry_pavilion.png",
+      "type": "building",
+      "id": "B35",
+      "width": 700,
+      "height": 485,
+      "baseline_y": 457,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/B36_citywall_b.png",
+      "type": "building",
+      "id": "B36",
+      "width": 1024,
+      "height": 410,
+      "baseline_y": 386,
+      "person_px": 215,
+      "door_height_px": 320,
+      "tileable_x": true
+    },
+    {
+      "file": "buildings/B37a_immortal_shop_a.png",
+      "type": "building",
+      "id": "B37a",
+      "width": 1100,
+      "height": 775,
+      "baseline_y": 747,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        451,
+        438,
+        198,
+        263
+      ]
+    },
+    {
+      "file": "buildings/B37b_immortal_shop_b.png",
+      "type": "building",
+      "id": "B37b",
+      "width": 1100,
+      "height": 702,
+      "baseline_y": 674,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        451,
+        394,
+        198,
+        238
+      ]
+    },
+    {
+      "file": "buildings/B38_auction_house.png",
+      "type": "building",
+      "id": "B38",
+      "width": 1600,
+      "height": 1156,
+      "baseline_y": 1128,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        670,
+        739,
+        260,
+        320
+      ]
+    },
+    {
+      "file": "buildings/B06_side_hall.png",
+      "type": "building",
+      "id": "B06",
+      "width": 1200,
+      "height": 703,
+      "baseline_y": 675,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        492,
+        394,
+        216,
+        239
+      ]
+    },
+    {
+      "file": "buildings/B07_library.png",
+      "type": "building",
+      "id": "B07",
+      "width": 1000,
+      "height": 1380,
+      "baseline_y": 1352,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        410,
+        950,
+        180,
+        320
+      ]
+    },
+    {
+      "file": "buildings/B08_alchemy.png",
+      "type": "building",
+      "id": "B08",
+      "width": 950,
+      "height": 719,
+      "baseline_y": 691,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        389,
+        404,
+        171,
+        244
+      ]
+    },
+    {
+      "file": "buildings/B09_quarters.png",
+      "type": "building",
+      "id": "B09",
+      "width": 1300,
+      "height": 544,
+      "baseline_y": 516,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        533,
+        300,
+        234,
+        184
+      ]
+    },
+    {
+      "file": "buildings/B10_bell_tower.png",
+      "type": "building",
+      "id": "B10",
+      "width": 650,
+      "height": 714,
+      "baseline_y": 686,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/B10b_drum_tower.png",
+      "type": "building",
+      "id": "B10b",
+      "width": 650,
+      "height": 888,
+      "baseline_y": 860,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/B11a_pavilion_square.png",
+      "type": "building",
+      "id": "B11a",
+      "width": 550,
+      "height": 472,
+      "baseline_y": 444,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/B11b_pavilion_hex.png",
+      "type": "building",
+      "id": "B11b",
+      "width": 550,
+      "height": 511,
+      "baseline_y": 483,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/B12_pagoda.png",
+      "type": "building",
+      "id": "B12",
+      "width": 500,
+      "height": 1279,
+      "baseline_y": 1251,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        205,
+        855,
+        90,
+        320
+      ]
+    },
+    {
+      "file": "buildings/B13_sect_wall.png",
+      "type": "building",
+      "id": "B13",
+      "width": 1024,
+      "height": 468,
+      "baseline_y": 444,
+      "person_px": 215,
+      "door_height_px": 320,
+      "tileable_x": true
+    },
+    {
+      "file": "buildings/B39_corridor.png",
+      "type": "building",
+      "id": "B39",
+      "width": 1024,
+      "height": 459,
+      "baseline_y": 435,
+      "person_px": 215,
+      "door_height_px": 320,
+      "tileable_x": true
+    },
+    {
+      "file": "buildings/B40_arena_stage.png",
+      "type": "building",
+      "id": "B40",
+      "width": 1000,
+      "height": 618,
+      "baseline_y": 590,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/B41_garden_gate.png",
+      "type": "building",
+      "id": "B41",
+      "width": 800,
+      "height": 437,
+      "baseline_y": 409,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        328,
+        235,
+        144,
+        148
+      ]
+    },
+    {
+      "file": "buildings/B42_cave_door.png",
+      "type": "building",
+      "id": "B42",
+      "width": 650,
+      "height": 573,
+      "baseline_y": 545,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        266,
+        317,
+        117,
+        194
+      ]
+    },
+    {
+      "file": "buildings/B43_council_hall.png",
+      "type": "building",
+      "id": "B43",
+      "width": 1400,
+      "height": 749,
+      "baseline_y": 721,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        574,
+        423,
+        252,
+        254
+      ]
+    },
+    {
+      "file": "buildings/B44_preach_hall.png",
+      "type": "building",
+      "id": "B44",
+      "width": 1000,
+      "height": 534,
+      "baseline_y": 506,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        410,
+        293,
+        180,
+        181
+      ]
+    },
+    {
+      "file": "buildings/B45_cloud_bridge.png",
+      "type": "building",
+      "id": "B45",
+      "width": 1200,
+      "height": 574,
+      "baseline_y": 546,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/F1_hall_b.png",
+      "type": "building",
+      "id": "F1_hall_b",
+      "width": 1800,
+      "height": 995,
+      "baseline_y": 967,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        770,
+        588,
+        260,
+        320
+      ]
+    },
+    {
+      "file": "buildings/F1_gate_b.png",
+      "type": "building",
+      "id": "F1_gate_b",
+      "width": 1300,
+      "height": 790,
+      "baseline_y": 762,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        533,
+        447,
+        234,
+        268
+      ]
+    },
+    {
+      "file": "buildings/F1_peak_pavilion.png",
+      "type": "building",
+      "id": "F1_peak_pavilion",
+      "width": 600,
+      "height": 489,
+      "baseline_y": 461,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/F1_sword_monument.png",
+      "type": "building",
+      "id": "F1_sword_monument",
+      "width": 500,
+      "height": 764,
+      "baseline_y": 736,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/F1_luoyun_hall.png",
+      "type": "building",
+      "id": "F1_luoyun_hall",
+      "width": 1800,
+      "height": 1147,
+      "baseline_y": 1119,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        770,
+        731,
+        260,
+        320
+      ]
+    },
+    {
+      "file": "buildings/F2_hall.png",
+      "type": "building",
+      "id": "F2_hall",
+      "width": 2000,
+      "height": 1122,
+      "baseline_y": 1094,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        870,
+        707,
+        260,
+        320
+      ]
+    },
+    {
+      "file": "buildings/F2_gate.png",
+      "type": "building",
+      "id": "F2_gate",
+      "width": 1500,
+      "height": 994,
+      "baseline_y": 966,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        620,
+        587,
+        260,
+        320
+      ]
+    },
+    {
+      "file": "buildings/F2_tower.png",
+      "type": "building",
+      "id": "F2_tower",
+      "width": 900,
+      "height": 1314,
+      "baseline_y": 1286,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        369,
+        888,
+        162,
+        320
+      ]
+    },
+    {
+      "file": "buildings/F3_hall.png",
+      "type": "building",
+      "id": "F3_hall",
+      "width": 1700,
+      "height": 1006,
+      "baseline_y": 978,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        720,
+        598,
+        260,
+        320
+      ]
+    },
+    {
+      "file": "buildings/F3_gate.png",
+      "type": "building",
+      "id": "F3_gate",
+      "width": 1200,
+      "height": 777,
+      "baseline_y": 749,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        492,
+        439,
+        216,
+        264
+      ]
+    },
+    {
+      "file": "buildings/F3_bagua_altar.png",
+      "type": "building",
+      "id": "F3_bagua_altar",
+      "width": 900,
+      "height": 760,
+      "baseline_y": 732,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/F4_hall.png",
+      "type": "building",
+      "id": "F4_hall",
+      "width": 1700,
+      "height": 1040,
+      "baseline_y": 1012,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        720,
+        630,
+        260,
+        320
+      ]
+    },
+    {
+      "file": "buildings/F4_gate.png",
+      "type": "building",
+      "id": "F4_gate",
+      "width": 1100,
+      "height": 611,
+      "baseline_y": 583,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        451,
+        340,
+        198,
+        207
+      ]
+    },
+    {
+      "file": "buildings/F4_waterside.png",
+      "type": "building",
+      "id": "F4_waterside",
+      "width": 1000,
+      "height": 768,
+      "baseline_y": 740,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/F4_moon_tower.png",
+      "type": "building",
+      "id": "F4_moon_tower",
+      "width": 850,
+      "height": 1587,
+      "baseline_y": 1559,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        348,
+        1144,
+        153,
+        320
+      ]
+    },
+    {
+      "file": "buildings/F4_music_pavilion.png",
+      "type": "building",
+      "id": "F4_music_pavilion",
+      "width": 600,
+      "height": 524,
+      "baseline_y": 496,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/F5_hall.png",
+      "type": "building",
+      "id": "F5_hall",
+      "width": 1800,
+      "height": 1292,
+      "baseline_y": 1264,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        770,
+        867,
+        260,
+        320
+      ]
+    },
+    {
+      "file": "buildings/F5_gate.png",
+      "type": "building",
+      "id": "F5_gate",
+      "width": 1300,
+      "height": 932,
+      "baseline_y": 904,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        533,
+        533,
+        234,
+        316
+      ]
+    },
+    {
+      "file": "buildings/F5_blood_altar.png",
+      "type": "building",
+      "id": "F5_blood_altar",
+      "width": 900,
+      "height": 570,
+      "baseline_y": 542,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/F5_bone_tower.png",
+      "type": "building",
+      "id": "F5_bone_tower",
+      "width": 600,
+      "height": 1135,
+      "baseline_y": 1107,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        246,
+        719,
+        108,
+        320
+      ]
+    },
+    {
+      "file": "buildings/F5_hall_b.png",
+      "type": "building",
+      "id": "F5_hall_b",
+      "width": 1600,
+      "height": 1031,
+      "baseline_y": 1003,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        670,
+        622,
+        260,
+        320
+      ]
+    },
+    {
+      "file": "buildings/F5_hall_c.png",
+      "type": "building",
+      "id": "F5_hall_c",
+      "width": 1600,
+      "height": 997,
+      "baseline_y": 969,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        670,
+        590,
+        260,
+        320
+      ]
+    },
+    {
+      "file": "buildings/F6_hall.png",
+      "type": "building",
+      "id": "F6_hall",
+      "width": 1600,
+      "height": 911,
+      "baseline_y": 883,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        670,
+        520,
+        260,
+        309
+      ]
+    },
+    {
+      "file": "buildings/F6_gate.png",
+      "type": "building",
+      "id": "F6_gate",
+      "width": 1100,
+      "height": 654,
+      "baseline_y": 626,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        451,
+        365,
+        198,
+        222
+      ]
+    },
+    {
+      "file": "buildings/F6_watchtower.png",
+      "type": "building",
+      "id": "F6_watchtower",
+      "width": 500,
+      "height": 684,
+      "baseline_y": 656,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/F6_drill_ground.png",
+      "type": "building",
+      "id": "F6_drill_ground",
+      "width": 1000,
+      "height": 583,
+      "baseline_y": 555,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/F7_hall.png",
+      "type": "building",
+      "id": "F7_hall",
+      "width": 1600,
+      "height": 961,
+      "baseline_y": 933,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        670,
+        556,
+        260,
+        320
+      ]
+    },
+    {
+      "file": "buildings/F7_gate.png",
+      "type": "building",
+      "id": "F7_gate",
+      "width": 1100,
+      "height": 779,
+      "baseline_y": 751,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        451,
+        441,
+        198,
+        264
+      ]
+    },
+    {
+      "file": "buildings/F7_beast_pen.png",
+      "type": "building",
+      "id": "F7_beast_pen",
+      "width": 900,
+      "height": 553,
+      "baseline_y": 525,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        369,
+        304,
+        162,
+        188
+      ]
+    },
+    {
+      "file": "buildings/F8_hall.png",
+      "type": "building",
+      "id": "F8_hall",
+      "width": 1500,
+      "height": 947,
+      "baseline_y": 919,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        620,
+        543,
+        260,
+        320
+      ]
+    },
+    {
+      "file": "buildings/F8_gate.png",
+      "type": "building",
+      "id": "F8_gate",
+      "width": 1100,
+      "height": 774,
+      "baseline_y": 746,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        451,
+        437,
+        198,
+        263
+      ]
+    },
+    {
+      "file": "buildings/F8_stilt_house.png",
+      "type": "building",
+      "id": "F8_stilt_house",
+      "width": 850,
+      "height": 555,
+      "baseline_y": 527,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        348,
+        306,
+        153,
+        188
+      ]
+    },
+    {
+      "file": "buildings/F8_walkway.png",
+      "type": "building",
+      "id": "F8_walkway",
+      "width": 1024,
+      "height": 550,
+      "baseline_y": 526,
+      "person_px": 215,
+      "door_height_px": 320,
+      "tileable_x": true
+    },
+    {
+      "file": "buildings/F9_keep.png",
+      "type": "building",
+      "id": "F9_keep",
+      "width": 1700,
+      "height": 1059,
+      "baseline_y": 1031,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        720,
+        648,
+        260,
+        320
+      ]
+    },
+    {
+      "file": "buildings/F9_gate.png",
+      "type": "building",
+      "id": "F9_gate",
+      "width": 1200,
+      "height": 849,
+      "baseline_y": 821,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        492,
+        483,
+        216,
+        288
+      ]
+    },
+    {
+      "file": "buildings/F9_tower.png",
+      "type": "building",
+      "id": "F9_tower",
+      "width": 600,
+      "height": 570,
+      "baseline_y": 542,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/F9_wall.png",
+      "type": "building",
+      "id": "F9_wall",
+      "width": 1024,
+      "height": 487,
+      "baseline_y": 463,
+      "person_px": 215,
+      "door_height_px": 320,
+      "tileable_x": true
+    },
+    {
+      "file": "buildings/F10_hall.png",
+      "type": "building",
+      "id": "F10_hall",
+      "width": 1600,
+      "height": 916,
+      "baseline_y": 888,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        670,
+        523,
+        260,
+        311
+      ]
+    },
+    {
+      "file": "buildings/F10_gate.png",
+      "type": "building",
+      "id": "F10_gate",
+      "width": 1100,
+      "height": 791,
+      "baseline_y": 763,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        451,
+        448,
+        198,
+        268
+      ]
+    },
+    {
+      "file": "buildings/F10_workshop.png",
+      "type": "building",
+      "id": "F10_workshop",
+      "width": 1100,
+      "height": 702,
+      "baseline_y": 674,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        451,
+        394,
+        198,
+        238
+      ]
+    },
+    {
+      "file": "buildings/F11_hall.png",
+      "type": "building",
+      "id": "F11_hall",
+      "width": 1500,
+      "height": 928,
+      "baseline_y": 900,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        620,
+        530,
+        260,
+        315
+      ]
+    },
+    {
+      "file": "buildings/F11_gate.png",
+      "type": "building",
+      "id": "F11_gate",
+      "width": 1000,
+      "height": 671,
+      "baseline_y": 643,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        410,
+        375,
+        180,
+        228
+      ]
+    },
+    {
+      "file": "buildings/F11_bamboo_tower.png",
+      "type": "building",
+      "id": "F11_bamboo_tower",
+      "width": 750,
+      "height": 1042,
+      "baseline_y": 1014,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        307,
+        632,
+        135,
+        320
+      ]
+    },
+    {
+      "file": "buildings/X01_star_palace.png",
+      "type": "building",
+      "id": "X01",
+      "width": 2000,
+      "height": 1107,
+      "baseline_y": 1079,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        870,
+        693,
+        260,
+        320
+      ]
+    },
+    {
+      "file": "buildings/X02_star_tower.png",
+      "type": "building",
+      "id": "X02",
+      "width": 650,
+      "height": 1547,
+      "baseline_y": 1519,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        266,
+        1107,
+        117,
+        320
+      ]
+    },
+    {
+      "file": "buildings/X03_star_gate.png",
+      "type": "building",
+      "id": "X03",
+      "width": 1600,
+      "height": 912,
+      "baseline_y": 884,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        670,
+        520,
+        260,
+        310
+      ]
+    },
+    {
+      "file": "buildings/X03_wall.png",
+      "type": "building",
+      "id": "X03_wall",
+      "width": 1024,
+      "height": 510,
+      "baseline_y": 486,
+      "person_px": 215,
+      "door_height_px": 320,
+      "tileable_x": true
+    },
+    {
+      "file": "buildings/X04a_island_house_a.png",
+      "type": "building",
+      "id": "X04a",
+      "width": 1000,
+      "height": 633,
+      "baseline_y": 605,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        410,
+        353,
+        180,
+        215
+      ]
+    },
+    {
+      "file": "buildings/X04b_island_house_b.png",
+      "type": "building",
+      "id": "X04b",
+      "width": 1000,
+      "height": 587,
+      "baseline_y": 559,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        410,
+        325,
+        180,
+        199
+      ]
+    },
+    {
+      "file": "buildings/X05_bamboo_stilt.png",
+      "type": "building",
+      "id": "X05",
+      "width": 850,
+      "height": 455,
+      "baseline_y": 427,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        348,
+        246,
+        153,
+        154
+      ]
+    },
+    {
+      "file": "buildings/X06_island_shop.png",
+      "type": "building",
+      "id": "X06",
+      "width": 1000,
+      "height": 658,
+      "baseline_y": 630,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        410,
+        368,
+        180,
+        223
+      ]
+    },
+    {
+      "file": "buildings/X07_grand_dock.png",
+      "type": "building",
+      "id": "X07",
+      "width": 1400,
+      "height": 782,
+      "baseline_y": 758,
+      "person_px": 215,
+      "door_height_px": 320,
+      "tileable_x": true
+    },
+    {
+      "file": "buildings/X08_lighthouse.png",
+      "type": "building",
+      "id": "X08",
+      "width": 500,
+      "height": 1211,
+      "baseline_y": 1183,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        205,
+        791,
+        90,
+        320
+      ]
+    },
+    {
+      "file": "buildings/X09a_sea_stall_a.png",
+      "type": "building",
+      "id": "X09a",
+      "width": 450,
+      "height": 341,
+      "baseline_y": 313,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/X09b_sea_stall_b.png",
+      "type": "building",
+      "id": "X09b",
+      "width": 450,
+      "height": 296,
+      "baseline_y": 268,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/X10_kuixing_gate.png",
+      "type": "building",
+      "id": "X10",
+      "width": 1400,
+      "height": 788,
+      "baseline_y": 760,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        574,
+        446,
+        252,
+        267
+      ]
+    },
+    {
+      "file": "buildings/X11_sea_temple.png",
+      "type": "building",
+      "id": "X11",
+      "width": 900,
+      "height": 626,
+      "baseline_y": 598,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        369,
+        349,
+        162,
+        212
+      ]
+    },
+    {
+      "file": "buildings/X12_jiyin_hall.png",
+      "type": "building",
+      "id": "X12",
+      "width": 1500,
+      "height": 810,
+      "baseline_y": 782,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        620,
+        459,
+        260,
+        275
+      ]
+    },
+    {
+      "file": "buildings/X13_shipyard.png",
+      "type": "building",
+      "id": "X13",
+      "width": 1200,
+      "height": 816,
+      "baseline_y": 788,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/X14_wind_wall.png",
+      "type": "building",
+      "id": "X14",
+      "width": 1024,
+      "height": 429,
+      "baseline_y": 405,
+      "person_px": 215,
+      "door_height_px": 320,
+      "tileable_x": true
+    },
+    {
+      "file": "buildings/J01_imperial_hall.png",
+      "type": "building",
+      "id": "J01",
+      "width": 2200,
+      "height": 984,
+      "baseline_y": 956,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        970,
+        577,
+        260,
+        320
+      ]
+    },
+    {
+      "file": "buildings/J02_imperial_gate.png",
+      "type": "building",
+      "id": "J02",
+      "width": 1900,
+      "height": 958,
+      "baseline_y": 930,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        820,
+        553,
+        260,
+        320
+      ]
+    },
+    {
+      "file": "buildings/J03_citygate.png",
+      "type": "building",
+      "id": "J03",
+      "width": 1600,
+      "height": 989,
+      "baseline_y": 961,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        670,
+        582,
+        260,
+        320
+      ]
+    },
+    {
+      "file": "buildings/J03_wall.png",
+      "type": "building",
+      "id": "J03_wall",
+      "width": 1024,
+      "height": 580,
+      "baseline_y": 556,
+      "person_px": 215,
+      "door_height_px": 320,
+      "tileable_x": true
+    },
+    {
+      "file": "buildings/J03_corner.png",
+      "type": "building",
+      "id": "J03_corner",
+      "width": 850,
+      "height": 842,
+      "baseline_y": 814,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/J04a_north_house_a.png",
+      "type": "building",
+      "id": "J04a",
+      "width": 1100,
+      "height": 548,
+      "baseline_y": 520,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        451,
+        302,
+        198,
+        186
+      ]
+    },
+    {
+      "file": "buildings/J04b_north_house_b.png",
+      "type": "building",
+      "id": "J04b",
+      "width": 1100,
+      "height": 724,
+      "baseline_y": 696,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        451,
+        407,
+        198,
+        246
+      ]
+    },
+    {
+      "file": "buildings/J05_siheyuan.png",
+      "type": "building",
+      "id": "J05",
+      "width": 1500,
+      "height": 598,
+      "baseline_y": 570,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        620,
+        332,
+        260,
+        203
+      ]
+    },
+    {
+      "file": "buildings/J06a_north_shop_a.png",
+      "type": "building",
+      "id": "J06a",
+      "width": 1050,
+      "height": 660,
+      "baseline_y": 632,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        430,
+        369,
+        189,
+        224
+      ]
+    },
+    {
+      "file": "buildings/J06b_north_shop_b.png",
+      "type": "building",
+      "id": "J06b",
+      "width": 1050,
+      "height": 710,
+      "baseline_y": 682,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        430,
+        399,
+        189,
+        241
+      ]
+    },
+    {
+      "file": "buildings/J07_gate.png",
+      "type": "building",
+      "id": "J07_gate",
+      "width": 1900,
+      "height": 930,
+      "baseline_y": 902,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        820,
+        531,
+        260,
+        316
+      ]
+    },
+    {
+      "file": "buildings/J07_hall.png",
+      "type": "building",
+      "id": "J07_hall",
+      "width": 1800,
+      "height": 1131,
+      "baseline_y": 1103,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        770,
+        716,
+        260,
+        320
+      ]
+    },
+    {
+      "file": "buildings/J08_luoxia_gate.png",
+      "type": "building",
+      "id": "J08",
+      "width": 1500,
+      "height": 1093,
+      "baseline_y": 1065,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        620,
+        680,
+        260,
+        320
+      ]
+    },
+    {
+      "file": "buildings/J09a_luoxia_pavilion_a.png",
+      "type": "building",
+      "id": "J09a",
+      "width": 1300,
+      "height": 997,
+      "baseline_y": 969,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        533,
+        590,
+        234,
+        320
+      ]
+    },
+    {
+      "file": "buildings/J09b_luoxia_pavilion_b.png",
+      "type": "building",
+      "id": "J09b",
+      "width": 1300,
+      "height": 892,
+      "baseline_y": 864,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        533,
+        508,
+        234,
+        303
+      ]
+    },
+    {
+      "file": "buildings/J10_north_inn.png",
+      "type": "building",
+      "id": "J10",
+      "width": 1400,
+      "height": 656,
+      "baseline_y": 628,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        574,
+        366,
+        252,
+        223
+      ]
+    },
+    {
+      "file": "buildings/J11_snow_tent.png",
+      "type": "building",
+      "id": "J11",
+      "width": 650,
+      "height": 506,
+      "baseline_y": 478,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        266,
+        276,
+        117,
+        172
+      ]
+    },
+    {
+      "file": "buildings/J12_snow_cabin.png",
+      "type": "building",
+      "id": "J12",
+      "width": 800,
+      "height": 503,
+      "baseline_y": 475,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        328,
+        274,
+        144,
+        171
+      ]
+    },
+    {
+      "file": "buildings/J13_nanjiang_stilt.png",
+      "type": "building",
+      "id": "J13",
+      "width": 950,
+      "height": 633,
+      "baseline_y": 605,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        389,
+        353,
+        171,
+        215
+      ]
+    },
+    {
+      "file": "buildings/J14_nanjiang_gate.png",
+      "type": "building",
+      "id": "J14",
+      "width": 900,
+      "height": 661,
+      "baseline_y": 633,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        369,
+        370,
+        162,
+        224
+      ]
+    },
+    {
+      "file": "buildings/J15_kunwu_hall.png",
+      "type": "building",
+      "id": "J15",
+      "width": 1800,
+      "height": 1175,
+      "baseline_y": 1147,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        770,
+        757,
+        260,
+        320
+      ]
+    },
+    {
+      "file": "buildings/J16_kunwu_side_ruin.png",
+      "type": "building",
+      "id": "J16",
+      "width": 1200,
+      "height": 867,
+      "baseline_y": 839,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        492,
+        493,
+        216,
+        294
+      ]
+    },
+    {
+      "file": "buildings/J17_tuwu_tent.png",
+      "type": "building",
+      "id": "J17",
+      "width": 950,
+      "height": 603,
+      "baseline_y": 575,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        389,
+        334,
+        171,
+        205
+      ]
+    },
+    {
+      "file": "buildings/J18_totem_pole.png",
+      "type": "building",
+      "id": "J18",
+      "width": 260,
+      "height": 243,
+      "baseline_y": 215,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/B24a_yurt_a.png",
+      "type": "building",
+      "id": "B24a",
+      "width": 650,
+      "height": 438,
+      "baseline_y": 410,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        266,
+        236,
+        117,
+        148
+      ]
+    },
+    {
+      "file": "buildings/B24b_yurt_b.png",
+      "type": "building",
+      "id": "B24b",
+      "width": 650,
+      "height": 399,
+      "baseline_y": 371,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        266,
+        213,
+        117,
+        135
+      ]
+    },
+    {
+      "file": "buildings/B24c_chieftain_yurt.png",
+      "type": "building",
+      "id": "B24c",
+      "width": 1000,
+      "height": 559,
+      "baseline_y": 531,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        410,
+        308,
+        180,
+        190
+      ]
+    },
+    {
+      "file": "buildings/T01_tianlan_hall.png",
+      "type": "building",
+      "id": "T01",
+      "width": 1900,
+      "height": 1216,
+      "baseline_y": 1188,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        820,
+        796,
+        260,
+        320
+      ]
+    },
+    {
+      "file": "buildings/T02_tianlan_gate.png",
+      "type": "building",
+      "id": "T02",
+      "width": 1200,
+      "height": 850,
+      "baseline_y": 822,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        492,
+        482,
+        216,
+        289
+      ]
+    },
+    {
+      "file": "buildings/T03_prayer_tower.png",
+      "type": "building",
+      "id": "T03",
+      "width": 420,
+      "height": 612,
+      "baseline_y": 584,
+      "person_px": 215,
+      "door_height_px": 320,
+      "door": [
+        172,
+        340,
+        75,
+        208
+      ]
+    },
+    {
+      "file": "buildings/T04_prayer_flags.png",
+      "type": "building",
+      "id": "T04",
+      "width": 600,
+      "height": 419,
+      "baseline_y": 391,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/T05_obo_cairn.png",
+      "type": "building",
+      "id": "T05",
+      "width": 420,
+      "height": 308,
+      "baseline_y": 280,
+      "person_px": 215,
+      "door_height_px": 320
+    },
+    {
+      "file": "buildings/T06_pasture_fence.png",
+      "type": "building",
+      "id": "T06",
+      "width": 1024,
+      "height": 499,
+      "baseline_y": 475,
+      "person_px": 215,
+      "door_height_px": 320,
+      "tileable_x": true
+    },
+    {
       "id": "D01_grasstuft",
       "file": "ground/D01_grasstuft.png",
       "category": "ground",
