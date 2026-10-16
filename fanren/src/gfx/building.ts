@@ -72,9 +72,16 @@ const layoutMemo = new Map<string, LocLayout>();
 export function setLayoutEnv(fn: ((loc: LocDef) => Env) | null) { layoutEnv = fn; layoutMemo.clear(); }
 export function getLayout(loc: LocDef): LocLayout {
   let L = layoutMemo.get(loc.id);
-  if (!L) { L = layoutLocation(loc); layoutMemo.set(loc.id, L); }
+  if (!L) {
+    L = layoutLocation(loc);
+    // 宗门与城池：恢复第一版的全代码绘制建筑（不用贴图）
+    if (CODE_DRAWN(loc)) for (const pc of L.pieces) if (pc.kind !== 'tree') pc.p.code = true;
+    layoutMemo.set(loc.id, L);
+  }
   return L;
 }
+/** 宗门、城池用代码绘制的老版建筑；集镇、村落、海岛仍用贴图 */
+export const CODE_DRAWN = (loc: LocDef) => loc.type === 'sect' || loc.type === 'city';
 const MAJOR_TOWN = new Set(['tianxing', 'tainan', 'kuixing']);
 
 export interface Sprite { canvas: HTMLCanvasElement; w: number; h: number; ax: number; ay: number }
@@ -647,7 +654,7 @@ export function renderPiece(pc: Piece, pal: Pal, res: number, season: Season = 1
     const t = makeTree(pc.p.sp, season, pc.seed, res);
     return { canvas: t.canvas, w: t.w, h: t.h, ax: t.ax, ay: t.ay };
   }
-  const tex = renderTexSpecial(pc, res) ?? renderTexPiece(pc, pal, res);
+  const tex = pc.p.code ? null : (renderTexSpecial(pc, res) ?? renderTexPiece(pc, pal, res));
   if (tex) return tex;
   const [hw, up, down] = (BOUNDS[pc.kind] ?? (() => [60, 80, 4]))(pc.p);
   const W = hw * 2, H = up + down;
@@ -808,7 +815,7 @@ export function layoutLocation(loc: LocDef): LocLayout {
   const pal: Pal = { ...BASE_PAL, ...(style?.pal ?? {}) };
   const L: LocLayout = { id: loc.id, pieces: [], ground: [], gw: 0, gh: 0, blocks: [], lights: [], pal, smoke: [], flags: [] };
   // 第二十二步：城、镇、村、宗门、海岛 → 贴图建筑布局
-  if (loc.type === 'sect' || loc.type === 'city' || loc.type === 'town' || loc.type === 'isle') {
+  if (!CODE_DRAWN(loc) && (loc.type as string) !== 'danger' && (loc.type as string) !== 'secret') {
     const env: Env = layoutEnv ? layoutEnv(loc) : { site: () => true, cold: 0, arid: 0 };
     const bc = loc.type === 'sect' || (loc.type === 'isle' && style?.barrier) ? (style?.barrier ?? (style?.feature === 'demon' ? '#c03030' : '#80c0e0')) : undefined;
     if (bc) L.barrier = { x: 0, y: 0, rx: 1, ry: 1, color: bc };
