@@ -1,0 +1,329 @@
+{
+  "round": "1b",
+  "scale": "3x_beasts_2x_buildings",
+  "person_px": 320,
+  "building_person_px": 215,
+  "style_anchor": "fanren/docs/art-brief/ref/01-good-mountains-keep.jpg",
+  "style_key": "style_key.png",
+  "mockups": {
+    "mockup_ground_v2": {
+      "file": "mockup_ground_v2.png",
+      "size": [
+        2048,
+        1280
+      ]
+    },
+    "mockup_buildings_v2": {
+      "file": "mockup_buildings_v2.png",
+      "size": [
+        2560,
+        1600
+      ]
+    },
+    "mockup_beasts_v2": {
+      "file": "mockup_beasts_v2.png",
+      "size": [
+        2560,
+        1600
+      ]
+    }
+  },
+  "ground": {
+    "G01_grass_a": {
+      "size": [
+        2048,
+        2048
+      ],
+      "seamless": true,
+      "quadrant_rmse_pct": [
+        8.36,
+        8.14
+      ],
+      "mean_luminance": 0.621,
+      "tile3x3": "ground/G01_grass_a_tile3x3.jpg"
+    },
+    "G01_grass_b": {
+      "size": [
+        2048,
+        2048
+      ],
+      "seamless": true,
+      "quadrant_rmse_pct": [
+        9.18,
+        7.23
+      ],
+      "mean_luminance": 0.627,
+      "tile3x3": "ground/G01_grass_b_tile3x3.jpg"
+    },
+    "G04_dirtpath": {
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "quadrant_rmse_pct": [
+        10.57,
+        11.17
+      ],
+      "tile3x3": "ground/G04_dirtpath_tile3x3.jpg"
+    },
+    "G06_gravel": {
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "quadrant_rmse_pct": [
+        17.35,
+        18.2
+      ],
+      "tile3x3": "ground/G06_gravel_tile3x3.jpg"
+    },
+    "G15_flagstone": {
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "quadrant_rmse_pct": [
+        16.3,
+        18.24
+      ],
+      "tile3x3": "ground/G15_flagstone_tile3x3.jpg"
+    },
+    "D01_grasstuft": {
+      "size": [
+        180,
+        140
+      ],
+      "anchor": [
+        90,
+        106
+      ]
+    },
+    "D02_wildflowers": {
+      "size": [
+        180,
+        140
+      ],
+      "anchor": [
+        90,
+        106
+      ]
+    },
+    "D03_moss": {
+      "size": [
+        320,
+        240
+      ],
+      "anchor": [
+        160,
+        190
+      ]
+    },
+    "D04_stones": {
+      "size": [
+        260,
+        200
+      ],
+      "anchor": [
+        130,
+        178
+      ]
+    },
+    "D05_puddle": {
+      "size": [
+        360,
+        260
+      ],
+      "anchor": [
+        180,
+        207
+      ]
+    },
+    "D06_leaves": {
+      "size": [
+        260,
+        200
+      ],
+      "anchor": [
+        130,
+        191
+      ]
+    }
+  },
+  "buildings": {
+    "B01_sect_hall": {
+      "size": [
+        1840,
+        1229
+      ],
+      "anchor": [
+        920,
+        1214
+      ],
+      "door_height_px": 322,
+      "view": "front_30deg_parallel_topdown",
+      "blank_plaque": true
+    },
+    "B02_house": {
+      "size": [
+        960,
+        552
+      ],
+      "anchor": [
+        480,
+        545
+      ],
+      "door_height_px": 310,
+      "view": "front_30deg_parallel_topdown",
+      "blank_plaque": true
+    },
+    "B03_shop": {
+      "size": [
+        1040,
+        776
+      ],
+      "anchor": [
+        520,
+        767
+      ],
+      "door_height_px": 318,
+      "view": "front_30deg_parallel_topdown",
+      "blank_plaque": true
+    },
+    "B04_sect_gate": {
+      "size": [
+        1380,
+        773
+      ],
+      "anchor": [
+        690,
+        764
+      ],
+      "arch_height_px": 510,
+      "view": "front_30deg_parallel_topdown",
+      "blank_plaque": true
+    },
+    "B05_citywall": {
+      "size": [
+        1024,
+        720
+      ],
+      "anchor": [
+        512,
+        712
+      ],
+      "seamless_horizontal": true,
+      "view": "front_30deg_parallel_topdown"
+    }
+  },
+  "beasts": {
+    "M01_wolf_idle": {
+      "size": [
+        680,
+        380
+      ],
+      "anchor": [
+        340,
+        375
+      ],
+      "facing": "right",
+      "pose": "idle",
+      "person_px": 320
+    },
+    "M01_wolf_attack": {
+      "size": [
+        740,
+        358
+      ],
+      "anchor": [
+        370,
+        352
+      ],
+      "facing": "right",
+      "pose": "attack",
+      "person_px": 320
+    },
+    "M02_huochan_idle": {
+      "size": [
+        660,
+        429
+      ],
+      "anchor": [
+        330,
+        422
+      ],
+      "facing": "right",
+      "pose": "idle",
+      "person_px": 320
+    },
+    "M02_huochan_attack": {
+      "size": [
+        780,
+        382
+      ],
+      "anchor": [
+        390,
+        376
+      ],
+      "facing": "right",
+      "pose": "attack",
+      "person_px": 320
+    },
+    "M03_mojiao_idle": {
+      "size": [
+        1280,
+        667
+      ],
+      "anchor": [
+        640,
+        658
+      ],
+      "facing": "right",
+      "pose": "idle",
+      "person_px": 320
+    },
+    "M03_mojiao_attack": {
+      "size": [
+        1360,
+        607
+      ],
+      "anchor": [
+        680,
+        599
+      ],
+      "facing": "right",
+      "pose": "attack",
+      "person_px": 320
+    },
+    "M04_yinhun_idle": {
+      "size": [
+        680,
+        480
+      ],
+      "anchor": [
+        340,
+        474
+      ],
+      "facing": "right",
+      "pose": "idle",
+      "person_px": 320,
+      "character": "long_black_hair_female_wraith"
+    },
+    "M04_yinhun_attack": {
+      "size": [
+        720,
+        382
+      ],
+      "anchor": [
+        360,
+        376
+      ],
+      "facing": "right",
+      "pose": "attack",
+      "person_px": 320,
+      "character": "long_black_hair_female_wraith"
+    }
+  }
+}
