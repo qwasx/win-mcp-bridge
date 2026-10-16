@@ -24,7 +24,7 @@ export function ModalLayer({ game }: { game: Game }) {
   if (!m) return null;
   if (m.kind === 'dialog') return <DialogBox key="dlg" game={game} node={m.node} />;
   if (m.kind === 'shop') return <ShopPanel game={game} shop={m.shop} />;
-  if (m.kind === 'town') return <TownPanel game={game} loc={m.loc} />;
+  if (m.kind === 'town') return <TownPanel game={game} loc={m.loc} fac={m.fac} />;
   if (m.kind === 'auction') return <AuctionPanel game={game} loc={m.loc} />;
   if (m.kind === 'hearts') return <HeartsPanel game={game} />;
   if (m.kind === 'chronicle') return <ChroniclePanel game={game} />;
@@ -159,14 +159,14 @@ function ShopPanel({ game, shop }: { game: Game; shop: Shop }) {
 }
 
 // ---------------------------------------------------------------- 城镇
-function TownPanel({ game, loc }: { game: Game; loc: LocDef }) {
+function TownPanel({ game, loc, fac }: { game: Game; loc: LocDef; fac?: string }) {
   const [, force] = useState(0); const re = () => force((x) => x + 1);
-  const [tp, setTp] = useState(false);
+  const [tp, setTp] = useState(fac === 'teleport');
   const T = game.towns, h = game.hero;
   const occupied = T.occupied(loc);
   const isSect = loc.type === 'sect';
   const big = loc.type === 'city' || loc.type === 'isle' || loc.id === 'tainan';
-  type F = { seal: string; name: string; desc: string; act: () => void; dis?: string; cls?: string };
+  type F = { seal: string; name: string; desc: string; act: () => void; dis?: string; cls?: string; key?: string };
   const fs: F[] = [];
   if (isSect) fs.push({ seal: '宗', name: game.ws.sect?.id === loc.id ? '宗门事务' : '山门', desc: game.ws.sect?.id === loc.id ? `${SECT_RANKS[game.ws.sect.rank]} · 贡献 ${game.ws.sect.contrib}　任务、藏经阁、俸禄、晋升` : '拜入宗门，领取俸禄与任务', act: () => game.openDialog(T.sectNode(loc)), cls: 'gold' });
   if (!occupied) {
@@ -181,6 +181,18 @@ function TownPanel({ game, loc }: { game: Game; loc: LocDef }) {
   if (T.hasTeleport(loc)) fs.push({ seal: '阵', name: '传送阵', desc: `已激活 ${game.ws.tp.length} 处，按路程收取灵石`, act: () => setTp(!tp) });
   if (T.isMajorTown(loc)) { const open = T.auctionOpen(loc); const d = Math.floor(game.day) % 90; fs.push({ seal: '拍', name: '拍卖会', desc: open ? `正在举行（还剩 ${90 - d} 日）` : `每季末举行，${80 - d} 日后开拍`, act: () => game.openModal({ kind: 'auction', loc }), dis: open ? undefined : '尚未开拍', cls: open ? 'gold' : '' }); }
   for (const b of BEAUTIES) if (b.home === loc.id) { const s = game.ws.hearts[b.id]; const n = game.npcs.byId.get('b_' + b.id); if (n?.alive && (n.map ?? 'tiannan') === loc.map && Math.hypot(n.x - loc.x * 300, n.y - loc.y * 300) < 8000) fs.push({ seal: '缘', name: s?.met ? `拜访${b.name}` : '传闻中的仙子', desc: s?.met ? b.title : '听说此地住着一位女修……', act: () => game.hearts.talk(b.id), cls: 'love' }); }
+  const SEAL_KEY: Record<string, string> = { 宗: 'sect', 市: 'market', 丹: 'pill', 器: 'artifact', 符: 'talisman', 酒: 'tavern', 赏: 'board', 栈: 'rest', 阵: 'teleport', 拍: 'auction' };
+  for (const f of fs) f.key = SEAL_KEY[f.seal];
+  // 第二十二步：从铺子门口进来——直接办事（铺子不开时，仍显示城镇总览）
+  const facDone = useRef(false);
+  useEffect(() => {
+    if (!fac || facDone.current || fac === 'teleport') return;
+    facDone.current = true;
+    const f = fs.find((x) => x.key === fac);
+    if (f && !f.dis) { f.act(); if (fac === 'rest') game.closeModal(); }
+    else if (!f) game.toast(occupied ? '铺门紧闭，此地已被魔道占据。' : '此处暂不营业。', 'warn');
+    else game.toast(f.dis!, 'warn');
+  }, []);
   const tps = game.ws.tp.map((id) => locHere(id)!).filter((l) => l && l.id !== loc.id);   // 只列本图的传送阵
   return (
     <Scroll title={loc.name} sub={<span>{loc.desc}　·　灵石 <b>{C.bagCount(h, 'mat_lingshi')}</b>　·　{repName(game.ws.rep)}</span>} onClose={() => game.closeModal()} wide cls="town-panel">
@@ -350,7 +362,7 @@ function ChroniclePanel({ game }: { game: Game }) {
 }
 
 // ---------------------------------------------------------------- 帮助
-export const VERSION = 'v0.21 · 画材篇（妖兽 · 小地图）';
+export const VERSION = 'v0.22 · 画材篇（城镇宗门）';
 function HelpPanel({ game }: { game: Game }) {
   const [tab, setTab] = useState(0);
   const T = ['操作', '修炼', '战斗', '人界', '神识', '机缘'];

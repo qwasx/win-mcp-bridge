@@ -246,7 +246,7 @@ class Boat extends Ent {
 // ---------------- 行人 / 商队 ----------------
 class Walker extends Ent {
   kind = 'walker'; st: CharState; look: Look; tx = 0; ty = 0; wait = 0; speed: number; home: { x: number; y: number; r: number };
-  route: [number, number][] | null; ri = 0; cart: boolean; scale: number;
+  route: [number, number][] | null; ri = 0; cart: boolean; scale: number; navLoc: any = null;
   constructor(x: number, y: number, home: { x: number; y: number; r: number }, role: NpcRole, route: [number, number][] | null = null, cart = false) {
     super(); this.x = x; this.y = y; this.home = home; this.route = route; this.cart = cart;
     this.st = new CharState(x, y);
@@ -264,8 +264,12 @@ class Walker extends Ent {
     const dx = this.tx - this.x, dy = this.ty - this.y, d = Math.hypot(dx, dy);
     if (this.wait > 0) { this.wait -= dt; this.st.setAction('idle'); this.st.speed = 0; }
     else if (d < 10) {
-      if (this.route && this.ri >= this.route.length - 1) this.dead = true;
-      this.wait = this.route ? 0 : rand(1, 5); this.pick();
+      if (this.route && this.ri >= this.route.length - 1) {
+        const nr = this.navLoc ? gm.space?.wander(this.navLoc, this) : null;
+        if (nr && nr.length > 1) { this.route = nr; this.ri = 0; this.wait = rand(1, 6); }
+        else this.dead = true;
+      }
+      this.wait = this.route ? (this.navLoc ? this.wait : 0) : rand(1, 5); this.pick();
     } else {
       const vx = dx / d * this.speed, vy = dy / d * this.speed;
       const nx = this.x + vx * dt, ny = this.y + vy * dt;
@@ -424,15 +428,18 @@ export class Life {
         if (!T.isLand(x, y) && !T.isLand(x + 80, y) && !T.isLand(x - 80, y) && s.land > 0.05) this.ents.push(new Boat(x, y));
       }
       // 行人：城镇附近
-      if (this.every('walker', dt, 1.2) && this.count('walker') < 14) {
+      if (this.every('walker', dt, gm.space?.near.length ? 0.6 : 1.2) && this.count('walker') < (gm.space?.near.length ? 26 : 14)) {
         for (let li = 0; li < LOCATIONS.length; li++) {
           const l = LOCATIONS[li];
           if (l.type !== 'city' && l.type !== 'town' && l.type !== 'sect') continue;
           const lx = l.x * WORLD_SCALE, ly = l.y * WORLD_SCALE;
-          if (lx < view.left - 800 || lx > view.right + 800 || ly < view.top - 800 || ly > view.bottom + 800) continue;
+          if (lx < view.left - 2600 || lx > view.right + 2600 || ly < view.top - 2600 || ly > view.bottom + 2600) continue;
           const zone = T.locZones[li];
           const r = zone ? Math.min(zone.rx, zone.ry * 1.4) * 1.1 : 600;
           const roles: NpcRole[] = l.type === 'sect' ? ['cultivator', 'cultivator', 'female', 'elder'] : ['farmer', 'merchant', 'scholar', 'female', 'guard', 'elder', 'monk', 'cultivator'];
+          // 第二十二步：贴图布局的城镇——沿街巷走
+          const rt = gm.space?.wander(l);
+          if (rt && rt.length > 1) { const w = new Walker(rt[0][0], rt[0][1], { x: lx, y: ly, r }, roles[Math.floor(Math.random() * roles.length)], rt.slice(1)); w.navLoc = l; this.ents.push(w); break; }
           const a = Math.random() * TAU, rr = Math.random() * r;
           const x = lx + Math.cos(a) * rr, y = ly + Math.sin(a) * rr * 0.7;
           if (T.isLand(x, y)) { this.ents.push(new Walker(x, y, { x: lx, y: ly, r }, roles[Math.floor(Math.random() * roles.length)])); break; }

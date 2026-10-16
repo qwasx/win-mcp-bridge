@@ -32,7 +32,7 @@ export interface Shop {
 export type Modal =
   | { kind: 'dialog'; node: DNode }
   | { kind: 'shop'; shop: Shop }
-  | { kind: 'town'; loc: LocDef }
+  | { kind: 'town'; loc: LocDef; fac?: string }
   | { kind: 'auction'; loc: LocDef }
   | { kind: 'sect' }
   | { kind: 'hearts' }

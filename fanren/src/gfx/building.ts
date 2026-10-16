@@ -6,6 +6,7 @@ import type { LocDef } from '../data/world';
 import { makeTree, Species, Season } from './tree';
 import { bldTex, hallFamily, houseFilter } from './bldTex';
 
+import { layoutTown2, Env, Door } from './townLayout';
 export const K = 0.55;
 /** 地点构件绘制时的整体放大（与 92px 的人物协调） */
 export const LOC_SCALE = 1.5; // 进深→屏幕纵向的压缩系数（俯视斜角）
@@ -56,7 +57,25 @@ export interface LocLayout {
   pal: Pal; season?: Season;
   smoke: { x: number; y: number }[];
   flags: { x: number; y: number; color: string }[];
+  /** 第二十二步：贴图建筑版布局（世界坐标同样以 LOC_SCALE 存） */
+  v2?: boolean;
+  /** 第二十二步：铺装须让开的水面（布局坐标的横条） */
+  wet?: { x: number; y: number; w: number; h: number }[];
+  doors?: Door[];
+  spots?: { x: number; y: number }[];
+  nav?: { pts: number[]; adj: number[][] };
 }
+
+// ---------- 布局缓存（地形构建时注入“此处可否建屋”的判断：避开水面与河道）----------
+let layoutEnv: ((loc: LocDef) => Env) | null = null;
+const layoutMemo = new Map<string, LocLayout>();
+export function setLayoutEnv(fn: ((loc: LocDef) => Env) | null) { layoutEnv = fn; layoutMemo.clear(); }
+export function getLayout(loc: LocDef): LocLayout {
+  let L = layoutMemo.get(loc.id);
+  if (!L) { L = layoutLocation(loc); layoutMemo.set(loc.id, L); }
+  return L;
+}
+const MAJOR_TOWN = new Set(['tianxing', 'tainan', 'kuixing']);
 
 export interface Sprite { canvas: HTMLCanvasElement; w: number; h: number; ax: number; ay: number }
 
@@ -788,6 +807,15 @@ export function layoutLocation(loc: LocDef): LocLayout {
   const style = SECT_STYLE[loc.id];
   const pal: Pal = { ...BASE_PAL, ...(style?.pal ?? {}) };
   const L: LocLayout = { id: loc.id, pieces: [], ground: [], gw: 0, gh: 0, blocks: [], lights: [], pal, smoke: [], flags: [] };
+  // 第二十二步：城、镇、村、宗门、海岛 → 贴图建筑布局
+  if (loc.type === 'sect' || loc.type === 'city' || loc.type === 'town' || loc.type === 'isle') {
+    const env: Env = layoutEnv ? layoutEnv(loc) : { site: () => true, cold: 0, arid: 0 };
+    const bc = loc.type === 'sect' || (loc.type === 'isle' && style?.barrier) ? (style?.barrier ?? (style?.feature === 'demon' ? '#c03030' : '#80c0e0')) : undefined;
+    if (bc) L.barrier = { x: 0, y: 0, rx: 1, ry: 1, color: bc };
+    const ok = layoutTown2(loc, L, env, rnd, seed, pal, style?.trees ?? ['pine', 'cypress', 'broad'], loc.type === 'city' || MAJOR_TOWN.has(loc.id));
+    if (!bc) L.barrier = undefined;
+    if (ok) return L;
+  }
   let sid = 0;
   const add = (kind: string, x: number, y: number, p: Record<string, any> = {}) => { L.pieces.push({ kind, x, y, seed: seed + ++sid * 7919, p }); };
   const ground = (kind: string, x: number, y: number, w: number, h: number, p?: Record<string, any>) => L.ground.push({ kind, x, y, w, h, p });

@@ -36,10 +36,10 @@ export class Towns {
   hasTeleport(l: LocDef) { return (l.type === 'city' && !l.minor) || (l.type === 'sect' && !!l.major) || l.id === 'tianxing' || l.id === 'chuansong' || l.id === 'kuixing'; }
   occupied(l: LocDef) { const ws = this.game.ws; return !!ws.flags.yueFallen && l.ox > 425 && l.ox < 590 && l.oy > 495 && l.map === 'tiannan' && (l.type === 'city' || l.type === 'town') && ws.rep > -20; }
 
-  open(l: LocDef) {
+  open(l: LocDef, fac?: string) {
     const g = this.game;
     if (this.hasTeleport(l) && !g.ws.tp.includes(l.id)) { g.ws.tp.push(l.id); g.toast(`激活了${l.name}的传送阵`, 'good'); }
-    g.openModal({ kind: 'town', loc: l });
+    g.openModal({ kind: 'town', loc: l, fac });
   }
 
   // ------------------------------------------------------------ 商店

@@ -21,6 +21,7 @@ import type { Hero, Msg } from './cultivation';
 import { NpcWorld } from './npc';
 import { Hearts } from './hearts';
 import { Towns } from './town';
+import { TownSpace } from './townspace';
 import { Events } from './events';
 import { Story } from './story';
 import { SiteSys } from './sites';
@@ -109,6 +110,8 @@ export class Game {
   npcs!: NpcWorld;
   hearts!: Hearts;
   towns!: Towns;
+  /** 第二十二步：城镇空间（建筑碰撞、门、街巷导航） */
+  space = new TownSpace();
   events!: Events;
   story!: Story;
   landmarks!: LandmarkSys; sites!: SiteSys; home!: HomeSys; pets!: PetSys; happen!: Happen; heartx!: HeartLife; xinmo!: XinMo;
@@ -265,12 +268,21 @@ export class Game {
       [this.happen.heraldFocus ? 150 : 1e9, () => this.happen.heraldInteract()],
       [this.pets.focus ? this.pets.focusD : 1e9, () => this.pets.interact()],
       [this.landmarks.focus ? this.landmarks.focusD + 30 : 1e9, () => this.landmarks.interact()],
+      [this.space.doorFocus && !this.isFlying ? this.space.doorFocus.d + 20 : 1e9, () => this.enterDoor()],
     ];
     cands.sort((a, b) => a[0] - b[0]);
     for (const [d, f] of cands) { if (d >= 1e9) break; if (d === dn && !n) continue; if (d === de && !e) continue; if (f()) return; }
     if (this.travel.tryPortal()) return;
     const l = this.ui?.nearby;
     if (l && this.towns.canEnter(l)) { this.enterTown(); return; }
+  }
+  /** 第二十二步：走到铺子门口直接进店 */
+  enterDoor(): boolean {
+    const f = this.space.doorFocus; if (!f) return false;
+    if (!this.towns.canEnter(f.loc)) return false;
+    audio.sfx('open');
+    this.towns.open(f.loc, f.door.fn);
+    return true;
   }
   enterTown() {
     if (this.travel.tryPortal()) return;
@@ -697,9 +709,12 @@ export class Game {
         const ox = p.x, oy = p.y;
         const nx = clamp(p.x + mx * sp * dt, 200, WORLD_W - 200), ny = clamp(p.y + my * sp * dt, 200, WORLD_H - 200);
         this.travel.dir.x = mx; this.travel.dir.y = my;
-        if (this.isFlying || this.terrain.walkFactor(nx, ny) > 0) { p.x = nx; p.y = ny; }
-        else if (this.terrain.walkFactor(nx, p.y) > 0) { p.x = nx; }
-        else if (this.terrain.walkFactor(p.x, ny) > 0) { p.y = ny; }
+        // 第二十二步：屋舍城墙挡路（已身陷其中时放行，便于走出）
+        const S = this.space, free = this.isFlying || S.blocked(p.x, p.y);
+        const okAt = (x: number, y: number) => this.terrain.walkFactor(x, y) > 0 && (free || !S.blocked(x, y));
+        if (this.isFlying || okAt(nx, ny)) { p.x = nx; p.y = ny; }
+        else if (okAt(nx, p.y)) { p.x = nx; }
+        else if (okAt(p.x, ny)) { p.y = ny; }
         else {
           this.destination = null;
           if (this.blockedTimer <= 0) {
@@ -776,6 +791,7 @@ export class Game {
     this.cam.x += (p.x + this.debugCamDX + this.camLeanX - this.cam.x) * Math.min(1, dt * 6);
     this.cam.y += (p.y - st.lift * 0.5 + this.camLeanY - this.cam.y) * Math.min(1, dt * 6);
 
+    this.space.update(dt, p.x, p.y);
     this.regionTimer -= dt;
     if (this.regionTimer <= 0) { this.regionTimer = 0.35; this.checkRegion(); this.exploreCheck(this.nearbyLocation()); this.townAutoZoom(); if (!this.halted) this.hintTick(); }
     this.uiTimer -= dt;
@@ -1079,7 +1095,7 @@ export class Game {
       gather: gt ? { name: itemDef(gt.item).name, kind: gt.kind } : null, gatherP: this.gathering ? this.gathering.t / GATHER_TIME : -1,
       weather: WEATHER_NAME[this.weather.kind], timeName: this.timeName(), night: this.night,
       bottle: h.bottle.drops, pendingTalent: !!h.pendingTalent, dead: h.dead, rootName: C.rootDef(h).name,
-      talk: this.story?.focus ? (this.story.focus.look ? `与${this.story.focus.name}交谈` : '查看') : this.npcs?.focus ? `与${this.npcs.focus.d.met ? this.npcs.focus.d.name : '此人'}交谈` : this.events?.focus ? '查看' : null,
+      talk: this.story?.focus ? (this.story.focus.look ? `与${this.story.focus.name}交谈` : '查看') : this.npcs?.focus ? `与${this.npcs.focus.d.met ? this.npcs.focus.d.name : '此人'}交谈` : this.events?.focus ? '查看' : this.space?.doorFocus && !this.isFlying && this.towns.canEnter(this.space.doorFocus.loc) ? (this.space.doorFocus.door.fn === 'teleport' ? '踏上传送阵' : this.space.doorFocus.door.fn === 'board' ? `看${this.space.doorFocus.door.name}` : `进入${this.space.doorFocus.door.name}`) : null,
     };
     this.listeners.forEach((f) => f());
   }

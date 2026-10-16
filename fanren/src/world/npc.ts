@@ -134,12 +134,17 @@ export class NpcWorld {
   focus: Active | null = null;   // 最近可交谈者
 
   constructor(game: Game) { this.game = game; }
+  /** 第二十二步：在某地的街巷 / 广场上找个落脚点（贴图布局的城镇宗门）；否则按旧法随机散布 */
+  private homeAt(l: LocDef, rnd: () => number, sx: number, sy: number, dy = 0) {
+    const s = l.map === ACTIVE_MAP ? this.game.space?.spot(l, rnd) : null;
+    return s ?? { x: l.x * WORLD_SCALE + (rnd() - 0.5) * sx, y: l.y * WORLD_SCALE + (rnd() - 0.5) * sy + dy };
+  }
 
   // ------------------------------------------------------------ 生成
   newWorld(seed = 20241015) {
     const rnd = mulberry32(seed);
     this.list = []; this.active.clear();
-    const at = (loc: LocDef, spread = 600) => ({ x: loc.x * WORLD_SCALE + (rnd() - 0.5) * spread * 2, y: loc.y * WORLD_SCALE + (rnd() - 0.5) * spread * 1.4 });
+    const at = (loc: LocDef, spread = 600) => this.homeAt(loc, rnd, spread * 2, spread * 1.4);
     for (const c of CANON) {
       const loc = LOC_BY_ID.get(c.home); if (!loc) continue;   // 三张图的原著人物都在册，各居其地
       const p = at(loc, 420);
@@ -181,7 +186,7 @@ export class NpcWorld {
     const P: Pers[] = faction === 'demon' ? ['ruthless', 'greedy', 'arrogant', 'cautious'] : faction === 'merchant' ? ['greedy', 'kind', 'cautious'] : faction === 'mortal' ? ['kind', 'cautious', 'righteous'] : ['righteous', 'greedy', 'cautious', 'arrogant', 'kind', 'ruthless', 'aloof'];
     const pers = P[Math.floor(rnd() * P.length)];
     const role: NpcRole = faction === 'mortal' ? (sex === 'f' ? 'female' : (['farmer', 'farmer', 'merchant', 'scholar', 'guard'] as NpcRole[])[Math.floor(rnd() * 5)]) : sex === 'f' ? 'female' : faction === 'merchant' ? 'merchant' : realm >= 3 && rnd() < 0.5 ? 'elder' : rnd() < 0.1 ? 'monk' : 'cultivator';
-    const x = loc.x * WORLD_SCALE + (rnd() - 0.5) * 1400, y = loc.y * WORLD_SCALE + (rnd() - 0.5) * 1000;
+    const { x, y } = this.homeAt(loc, rnd, 1400, 1000);
     const age = faction === 'mortal' ? 14 + rnd() * 50 : 18 + rnd() * (REALMS[realm].life * 0.6);
     return {
       id, name: makeName(rnd, sex), sex, role, realm, stage, faction, sect: isSect ? loc.id : undefined, home: loc.id, pers,
@@ -238,14 +243,14 @@ export class NpcWorld {
     return false;
   }
   private pickTarget(d: NpcData, rnd = Math.random) {
-    if (d.stay || d.beauty) { const h = LOC_BY_ID.get(d.home)!; d.tx = h.x * WORLD_SCALE + (rnd() - 0.5) * 900; d.ty = h.y * WORLD_SCALE + (rnd() - 0.5) * 600 + 200; d.goal = 'stay'; return; }
+    if (d.stay || d.beauty) { const h = LOC_BY_ID.get(d.home)!; const q = this.homeAt(h, rnd, 900, 600, 200); d.tx = q.x; d.ty = q.y; d.goal = 'stay'; return; }
     const r = rnd();
     const cur = { x: d.x / WORLD_SCALE, y: d.y / WORLD_SCALE };
-    if (r < 0.35) { const h = LOC_BY_ID.get(d.home)!; d.tx = h.x * WORLD_SCALE + (rnd() - 0.5) * 1200; d.ty = h.y * WORLD_SCALE + (rnd() - 0.5) * 900; d.goal = 'stay'; return; }
+    if (r < 0.35) { const h = LOC_BY_ID.get(d.home)!; const q = this.homeAt(h, rnd, 1200, 900); d.tx = q.x; d.ty = q.y; d.goal = 'stay'; return; }
     const far = rnd() < 0.12;
     const cands = locsOf(npcMap(d)).filter((l) => { const dd = Math.hypot(l.x - cur.x, l.y - cur.y); return far ? dd < 260 : dd < 70 && dd > 4; }).filter((l) => d.faction === 'mortal' ? l.type === 'town' || l.type === 'city' : true);
     const l = cands.length ? cands[Math.floor(rnd() * cands.length)] : LOC_BY_ID.get(d.home)!;
-    d.tx = l.x * WORLD_SCALE + (rnd() - 0.5) * 1000; d.ty = l.y * WORLD_SCALE + (rnd() - 0.5) * 700;
+    { const q = this.homeAt(l, rnd, 1000, 700); d.tx = q.x; d.ty = q.y; }
     d.goal = l.type === 'danger' ? 'hunt' : l.type === 'secret' ? 'gather' : 'travel';
   }
 
@@ -322,7 +327,7 @@ export class NpcWorld {
     const homes = locsOf(to).filter((l) => l.type === 'city' || l.type === 'isle' || (l.type === 'town' && !l.minor));
     const h = homes[Math.floor(rnd() * homes.length)]; if (!h) return;
     d.map = to; d.home = h.id; d.sect = undefined;
-    d.x = d.tx = h.x * WORLD_SCALE + (rnd() - 0.5) * 1200; d.y = d.ty = h.y * WORLD_SCALE + (rnd() - 0.5) * 900; d.goal = 'stay';
+    { const q = this.homeAt(h, rnd, 1200, 900); d.x = d.tx = q.x; d.y = d.ty = q.y; } d.goal = 'stay';
     if (d.met && d.favor > 10) this.game.news(`传闻${d.name}已${to === 'luanxing' ? '经上古传送阵远赴乱星海' : to === 'dajin' ? '横穿天澜草原，北上大晋去了' : '回到了天南'}，落脚于${h.name}。`, 'rumor');
   }
   die(d: NpcData, why: string) {
@@ -454,14 +459,27 @@ export class NpcWorld {
       st.setAction(a.act === 'sit' ? 'sit' : a.act === 'gather' ? 'gather' : 'idle');
       st.update(dt); return;
     }
-    let dx = d.tx - st.x, dy = d.ty - st.y; const dd = Math.hypot(dx, dy);
+    // 第二十二步：沿街巷绕行（被屋舍挡住时才求路）
+    const path = (a as any).path as [number, number][] | undefined;
+    if (path && path.length) {
+      const [wx, wy] = path[0];
+      if (Math.hypot(wx - st.x, wy - st.y) < 36) { path.shift(); if (!path.length) (a as any).path = undefined; }
+    }
+    const goal = (a as any).path?.[0] as [number, number] | undefined;
+    let dx = (goal ? goal[0] : d.tx) - st.x, dy = (goal ? goal[1] : d.ty) - st.y; const dd0 = Math.hypot(dx, dy);
+    const dd = goal ? Math.max(dd0, 41) : dd0;
     if (dd < 40) {
       // 到达：打坐 / 采药 / 闲立
       const r = Math.random();
       if (d.goal === 'gather' || (d.faction !== 'mortal' && r < 0.25)) { a.act = 'gather'; a.wait = 3 + Math.random() * 5; }
       else if (d.faction !== 'mortal' && r < 0.55) { a.act = 'sit'; a.wait = 6 + Math.random() * 14; }
       else { a.act = 'idle'; a.wait = 2 + Math.random() * 5; }
-      if (d.stay || Math.random() < 0.5) { const h = LOC_BY_ID.get(d.home)!; const sp = d.stay ? 500 : 1400; d.tx = (d.stay ? h.x * WORLD_SCALE : d.x) + (Math.random() - 0.5) * sp; d.ty = (d.stay ? h.y * WORLD_SCALE + 200 : d.y) + (Math.random() - 0.5) * sp * 0.6; }
+      if (d.stay || Math.random() < 0.5) {
+        const h = LOC_BY_ID.get(d.home)!; const sp = d.stay ? 500 : 1400;
+        const q = h && this.game.space?.spot && h.map === ACTIVE_MAP && Math.hypot(h.x * WORLD_SCALE - d.x, h.y * WORLD_SCALE - d.y) < 5000 ? this.game.space.spot(h) : null;
+        if (q) { d.tx = q.x; d.ty = q.y; }
+        else { d.tx = (d.stay ? h.x * WORLD_SCALE : d.x) + (Math.random() - 0.5) * sp; d.ty = (d.stay ? h.y * WORLD_SCALE + 200 : d.y) + (Math.random() - 0.5) * sp * 0.6; }
+      }
       else this.pickTarget(d);
       return;
     }
@@ -472,6 +490,12 @@ export class NpcWorld {
     if (!flying && T.walkFactor(nx, ny) <= 0) {
       if (d.realm >= 2) { st.lift = Math.max(st.lift, 10); }
       else { this.pickTarget(d); a.wait = 1; return; }
+    }
+    const S = this.game.space;
+    if (!flying && st.lift < 12 && S && S.blocked(nx, ny) && !S.blocked(st.x, st.y)) {
+      if (!(a as any).path) { const r = S.route(st.x, st.y, d.tx, d.ty); if (r && r.length) { (a as any).path = r; return; } }
+      // 无路可绕：换个去处
+      (a as any).path = undefined; this.pickTarget(d); a.wait = 1 + Math.random() * 2; return;
     }
     st.x = nx; st.y = ny; st.faceToward(dx, dy, !flying);
     st.lift += ((flying || (d.realm >= 2 && T.walkFactor(nx, ny) <= 0) ? 44 : 0) - st.lift) * Math.min(1, dt * 2.5);

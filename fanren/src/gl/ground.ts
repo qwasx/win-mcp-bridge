@@ -317,7 +317,7 @@ void main(){
     float fx=float(i)*cw+off, fy=float(j)*chh;
     float dd=length(vec2(fx+cw*0.5,(fy+chh*0.5)*1.2));
     float h=hashU(i+ts.x,j+ts.y,5);
-    if(dd>tw.z*(0.55+0.45*h)||dd<620.0||h<0.12) continue;
+    if(dd>tw.z*(0.55+0.45*h)||dd<float(ts.z)||h<0.12) continue;
     if(L<0.62||elev>0.3||cold>0.6||arid>0.75) continue;
     vec2 lp=vec2(u-fx,v-fy);                       // 田内坐标
     float edge=min(min(lp.x,cw-lp.x),min(lp.y,chh-lp.y));

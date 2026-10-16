@@ -10,7 +10,8 @@ import { hash2, clamp } from '../core/rng';
 import { sprites, resBucket, Spr } from '../gfx/sprites';
 import { makeTree, Season } from '../gfx/tree';
 import { makeMountain } from '../gfx/mountain';
-import { layoutLocation, renderPiece, renderGround, LOC_SCALE, LocLayout } from '../gfx/building';
+import { getLayout, renderPiece, renderGround, LOC_SCALE, LocLayout, Piece } from '../gfx/building';
+import { loadBld2, tickBld2, drawBld, drawWallRun, pavePattern, drawDecal, warmBld } from '../gfx/bldTex2';
 import { drawCharacter } from '../gfx/character';
 import { artLook } from '../data/artlooks';
 import { drawNode } from './nodes';
@@ -76,6 +77,7 @@ export class Renderer {
     loadBldTex(() => sprites.clearBase('P:'));
     loadHeadTex();
     loadBeastTex();
+    loadBld2();
     const q = typeof location !== 'undefined' ? location.search : '';
     let wantGL = !/[?&]gl=0/.test(q);
     try { if (localStorage.getItem('fanren.gl') === '0' && !/[?&]gl=1/.test(q)) wantGL = false; } catch { /* */ }
@@ -331,7 +333,7 @@ export class Renderer {
 
   layout(l: LocDef) {
     let L = this.layouts.get(l.id);
-    if (!L) { L = layoutLocation(l); this.layouts.set(l.id, L); }
+    if (!L) { L = getLayout(l); this.layouts.set(l.id, L); }
     return L;
   }
 
@@ -342,6 +344,7 @@ export class Renderer {
     this.adapt(dt);
     if (!sprites.unlimited) sprites.frameMs = game.time < 2 ? 28 : 7; // 开场预热：多生成一些位图
     sprites.beginFrame();
+    tickBld2(dt);
     const z = game.cam.zoom;
     const W = this.W, H = this.H, dpr = this.dpr;
     if (this.domCanvas.clientWidth !== W || this.domCanvas.clientHeight !== H) this.resize();
@@ -453,12 +456,32 @@ export class Renderer {
       const hw = L.gw * LOC_SCALE * 0.6, hh = L.gh * LOC_SCALE * 0.6;
       if (x + hw < left - 200 || x - hw > right + 200 || y + hh < top - 200 || y - hh - 600 > bottom) continue;
       visibleLocs.push(l);
-      this.drawLocGround(L, x, y, z);
+      if (L.v2) this.drawLocGround2(L, x, y, t, left, top, right, bottom);
+      else this.drawLocGround(L, x, y, z);
       const res = resBucket(z * dpr * LOC_SCALE, 1.4);
       L.pieces.forEach((pc, i) => {
-        const ts = pc.kind === 'tree' ? (pc.p.s ?? 0.55) : 1;
-        const pres = pc.kind === 'tree' ? resBucket(z * dpr * LOC_SCALE * ts, 1.4) : res;
         const px = x + pc.x * LOC_SCALE, py = y + pc.y * LOC_SCALE;
+        // 第二十二步：贴图建筑 / 墙段直接绘制（不另存位图）
+        if (pc.kind === 'B') {
+          const w = pc.p.w, h = pc.p.h;
+          if (px + w / 2 < left - 100 || px - w / 2 > right + 100 || py < top - 120 || py - h - 60 > bottom) return;
+          list.push({ y: py, draw: () => this.drawBldPiece(pc, px, py, t) });
+          return;
+        }
+        if (pc.kind === 'W') {
+          const len = pc.p.len;
+          if (px + len / 2 < left - 100 || px - len / 2 > right + 100 || py < top - 80 || py - pc.p.hh - 40 > bottom) return;
+          list.push({ y: py, draw: () => { const a = this.xray(pc, px - len / 2, px + len / 2, py, pc.p.hh); drawWallRun(ctx, pc.p.k, px - len / 2, px + len / 2, py, pc.p.hh, t, a); } });
+          return;
+        }
+        if (pc.kind === 'WV') {
+          if (px + 80 < left || px - 80 > right || py + 40 < top || py - pc.p.len - pc.p.h - 60 > bottom) return;
+          list.push({ y: py, draw: () => this.drawWallV(pc, px, py) });
+          return;
+        }
+        const zs = pc.p.z ?? 1;
+        const ts = pc.kind === 'tree' ? (pc.p.s ?? 0.55) : zs;
+        const pres = pc.kind === 'tree' ? resBucket(z * dpr * LOC_SCALE * ts, 1.4) : zs !== 1 ? resBucket(z * dpr * LOC_SCALE * zs, 1.4) : res;
         if (px < left - 600 || px > right + 600 || py < top - 50 || py - 900 > bottom) return;
         if (z < 0.3 && pc.kind === 'tree' && i % 2) return;
         const key = pc.kind === 'tree' ? `P:${l.id}:${i}:${season}` : `P:${l.id}:${i}`;
@@ -473,7 +496,7 @@ export class Renderer {
             ctx.setTransform(k, 0, sw * k, k, px * this.Z + this.ox, py * this.Z + this.oy);
             ctx.drawImage(s.canvas, -s.ax, -s.ay, s.w, s.h);
             this.world();
-          } else ctx.drawImage(s.canvas, px - s.ax * LOC_SCALE, py - s.ay * LOC_SCALE, s.w * LOC_SCALE, s.h * LOC_SCALE);
+          } else { const k = LOC_SCALE * zs; ctx.drawImage(s.canvas, px - s.ax * k, py - s.ay * k, s.w * k, s.h * k); }
         } });
       });
       // 旗帜、炊烟
@@ -755,12 +778,12 @@ export class Renderer {
     for (const l of LOCATIONS) {
       if (nTown >= MAX_TOWN) break;
       if (l.type !== 'city' && l.type !== 'town') continue;
-      const RR = l.type === 'city' ? 2700 : 1800;
+      const [hole, RR] = T.fieldR(l);
       const lx = l.x * WORLD_SCALE - camX, ly = l.y * WORLD_SCALE - camY;
       if (Math.abs(lx) > hw + RR + 400 || Math.abs(ly) > hh + RR + 400) continue;
       const o = nTown * 4;
       this.gTown[o] = lx; this.gTown[o + 1] = ly; this.gTown[o + 2] = RR; this.gTown[o + 3] = (hash2(l.x, l.y, 77) - 0.5) * 0.7;
-      this.gTownS[o] = (l.x * 7) | 0; this.gTownS[o + 1] = (l.y * 13) | 0;
+      this.gTownS[o] = (l.x * 7) | 0; this.gTownS[o + 1] = (l.y * 13) | 0; this.gTownS[o + 2] = hole | 0;
       nTown++;
     }
     return { seg: seg.slice(), nRiv, nRoad, town: this.gTown.slice(0, nTown * 4), townS: this.gTownS.slice(0, nTown * 4), nTown };
@@ -1019,7 +1042,114 @@ export class Renderer {
     this.world();
   }
 
-  // ---------------------------------------------------------------- 地点
+  // ---------------------------------------------------------------- 地点（第二十二步：贴图建筑）
+  /** 铺装：先压一圈淡墨边，再以纹理平铺（相邻街面纹理在世界坐标里对齐，交口无缝） */
+  private drawLocGround2(L: LocLayout, ox: number, oy: number, t: number, left: number, top: number, right: number, bottom: number) {
+    const ctx = this.ctx, S = LOC_SCALE;
+    const vis = (g: { x: number; y: number; w: number; h: number }) => { const x = ox + g.x * S, y = oy + g.y * S, w = g.w * S / 2, h = g.h * S / 2; return !(x + w < left - 40 || x - w > right + 40 || y + h < top - 40 || y - h > bottom + 40); };
+    // 1) 边
+    ctx.save();
+    if (L.wet) {
+      // 河从城中穿过：挖掉水面，铺装与贴花都不压在河上
+      ctx.beginPath(); ctx.rect(left - 50, top - 50, right - left + 100, bottom - top + 100);
+      for (const r of L.wet) { const x = ox + r.x * S, y = oy + r.y * S; if (x > right + 50 || x + r.w * S < left - 50 || y > bottom + 50 || y + r.h * S < top - 50) continue; ctx.rect(x, y, r.w * S, r.h * S); }
+      ctx.clip('evenodd');
+    }
+    for (const g of L.ground) {
+      if (g.kind !== 'pat' || !g.p?.edge || !vis(g)) continue;
+      const x = ox + g.x * S, y = oy + g.y * S, w = g.w * S, h = g.h * S;
+      ctx.fillStyle = 'rgba(70,62,48,0.16)'; ctx.fillRect(x - w / 2 - 12, y - h / 2 - 9, w + 24, h + 18);
+      ctx.fillStyle = 'rgba(64,56,44,0.30)'; ctx.fillRect(x - w / 2 - 5, y - h / 2 - 4, w + 10, h + 8);
+    }
+    // 2) 面
+    for (const g of L.ground) {
+      if (!vis(g)) continue;
+      const x = ox + g.x * S, y = oy + g.y * S, w = g.w * S, h = g.h * S;
+      if (g.kind === 'pat') {
+        const pat = pavePattern(ctx, g.p!.tex, g.p!.tile ?? 300, t);
+        ctx.fillStyle = pat ?? (g.p!.tex.startsWith('farm') ? '#a08a62' : g.p!.tex.startsWith('road') ? '#b8a684' : '#b4ae9c');
+        if (g.p!.edge === false) {
+          // 土路、田：边缘羽化（不画硬边）
+          ctx.globalAlpha = 0.9; ctx.fillRect(x - w / 2 + 10, y - h / 2 + 6, w - 20, h - 12);
+          ctx.globalAlpha = 0.45; ctx.fillRect(x - w / 2, y - h / 2, w, h);
+          ctx.globalAlpha = 1;
+        } else ctx.fillRect(x - w / 2, y - h / 2, w, h);
+      } else if (g.kind === 'dec') {
+        if (!drawDecal(ctx, g.p!.tex, x, y, w, h, t)) { ctx.fillStyle = 'rgba(200,196,180,0.8)'; ctx.beginPath(); ctx.ellipse(x, y, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.fill(); }
+      } else if (g.kind === 'pond') {
+        ctx.fillStyle = 'rgba(70,64,52,0.35)'; ctx.beginPath(); ctx.ellipse(x, y + 4, w / 2 + 10, h / 2 + 8, 0, 0, Math.PI * 2); ctx.fill();
+        const gr = ctx.createRadialGradient(x, y, 0, x, y, w / 2); gr.addColorStop(0, 'rgba(130,168,170,0.96)'); gr.addColorStop(1, 'rgba(92,130,136,0.96)');
+        ctx.fillStyle = gr; ctx.beginPath(); ctx.ellipse(x, y, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(240,246,240,0.35)'; ctx.lineWidth = 2;
+        for (let k = 0; k < 3; k++) { const r = ((t * 0.12 + k / 3) % 1); ctx.globalAlpha = 1 - r; ctx.beginPath(); ctx.ellipse(x + w * 0.1, y, w * 0.12 + r * w * 0.2, h * 0.12 + r * h * 0.2, 0, 0, Math.PI * 2); ctx.stroke(); }
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = 'rgba(70,120,70,0.85)';
+        for (let k = 0; k < 7; k++) { const a = k * 2.4, rr = 0.25 + (k % 3) * 0.18; ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * w * rr * 0.5, y + Math.sin(a) * h * rr * 0.5, 14, 7, 0, 0, Math.PI * 2); ctx.fill(); }
+      }
+    }
+    ctx.restore();
+  }
+  /** 主角走到屋后：整座屋子淡出，露出人影 */
+  private xray(pc: Piece, x0: number, x1: number, by: number, h: number) {
+    const p = this.game.player;
+    const behind = !p.flying && p.x > x0 + 20 && p.x < x1 - 20 && p.y < by - 4 && p.y > by - h * 0.92;
+    const want = behind ? 0.42 : 1;
+    const a = (pc as any)._a ?? 1;
+    const na = a + (want - a) * 0.18;
+    (pc as any)._a = Math.abs(na - want) < 0.01 ? want : na;
+    return (pc as any)._a as number;
+  }
+  private drawBldPiece(pc: Piece, x: number, y: number, t: number) {
+    const ctx = this.ctx, P = pc.p, w = P.w, h = P.h;
+    const a = this.xray(pc, x - w * 0.44, x + w * 0.44, y, h);
+    if (!drawBld(ctx, P.k, x, y, t, P.s ?? 1, !!P.f, a)) {
+      // 画材未就绪：淡淡的屋形占位（极短暂）
+      ctx.fillStyle = 'rgba(120,110,96,0.25)'; ctx.fillRect(x - w * 0.42, y - h * 0.55, w * 0.84, h * 0.55);
+      return;
+    }
+    // 水车：转轮
+    if (P.k.startsWith('b31') && !P.k.startsWith('b31_')) { /* 轮子另作构件 */ }
+    // 匾额：有店名的门口挂一块木匾
+    if (P.name && P.fn && this.Z > 0.45) {
+      const name: string = P.name;
+      const fs = 30, bw = name.length * fs * 1.06 + 30, bh = fs + 18;
+      const by = y - Math.min(h * 0.58, 230);
+      ctx.save();
+      if (a < 1) ctx.globalAlpha = a;
+      ctx.fillStyle = 'rgba(20,14,8,0.35)'; ctx.fillRect(x - bw / 2 + 4, by - bh / 2 + 5, bw, bh);
+      ctx.fillStyle = '#3b2617'; ctx.fillRect(x - bw / 2, by - bh / 2, bw, bh);
+      ctx.strokeStyle = '#b8903c'; ctx.lineWidth = 3; ctx.strokeRect(x - bw / 2 + 4, by - bh / 2 + 4, bw - 8, bh - 8);
+      ctx.fillStyle = '#ecd08a'; ctx.font = `bold ${fs}px "STKaiti","KaiTi","Kaiti SC","Noto Serif SC",serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(name, x, by + 1);
+      ctx.restore();
+    }
+  }
+  /** 南北向城墙：俯视所见的墙头（垛口在外侧）与内侧阴影 */
+  private drawWallV(pc: Piece, x: number, y: number) {
+    const ctx = this.ctx, P = pc.p, len = P.len, h = P.h, tw = P.t;
+    const y0 = y - len - h, y1 = y - h;
+    const outer = x < (this.game.player.x) ? -1 : 1;
+    void outer;
+    ctx.save();
+    // 内外两侧地面的投影
+    ctx.fillStyle = 'rgba(40,36,28,0.16)'; ctx.fillRect(x - tw / 2 - 26, y - len, tw + 52, len);
+    // 墙身（以墙头示意）
+    const g = ctx.createLinearGradient(x - tw / 2, 0, x + tw / 2, 0);
+    g.addColorStop(0, '#6e6a60'); g.addColorStop(0.25, P.col ?? '#8e8a7e'); g.addColorStop(0.75, P.col ?? '#8e8a7e'); g.addColorStop(1, '#66625a');
+    ctx.fillStyle = g; ctx.fillRect(x - tw / 2, y0, tw, y1 - y0 + 2);
+    // 马道砖缝
+    ctx.strokeStyle = 'rgba(40,36,30,0.28)'; ctx.lineWidth = 1.5;
+    for (let yy = y0 + 18; yy < y1; yy += 26) { ctx.beginPath(); ctx.moveTo(x - tw / 2 + 12, yy); ctx.lineTo(x + tw / 2 - 12, yy); ctx.stroke(); }
+    // 两侧垛口
+    ctx.fillStyle = '#5e5a52';
+    for (let yy = y0; yy < y1; yy += 40) { ctx.fillRect(x - tw / 2, yy, 11, 24); ctx.fillRect(x + tw / 2 - 11, yy, 11, 24); }
+    ctx.strokeStyle = 'rgba(30,26,20,0.65)'; ctx.lineWidth = 2; ctx.strokeRect(x - tw / 2, y0, tw, y1 - y0 + 2);
+    // 墙脚（看得见的一小段立面，给墙“站起来”的感觉）
+    const fg = ctx.createLinearGradient(0, y1, 0, y);
+    fg.addColorStop(0, 'rgba(110,104,92,0.95)'); fg.addColorStop(1, 'rgba(80,76,66,0.95)');
+    ctx.fillStyle = fg; ctx.fillRect(x - tw / 2, y1, tw, Math.min(h, len) * 0.0 + 0);
+    ctx.restore();
+  }
   private drawLocGround(L: LocLayout, x: number, y: number, z: number) {
     const resWant = resBucket(z * this.dpr * LOC_SCALE, 1);
     const res = Math.min(resWant, Math.sqrt(5e6 / (L.gw * L.gh)));

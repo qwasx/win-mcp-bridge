@@ -6,7 +6,7 @@ import {
 } from '../data/world';
 import type { MtnSpec, MtnStyle } from '../gfx/mountain';
 import { pickSpecies, Species, TREE_SIZE } from '../gfx/tree';
-import { layoutLocation, LOC_SCALE } from '../gfx/building';
+import { getLayout, setLayoutEnv, LOC_SCALE } from '../gfx/building';
 import { GRASS_VARIANTS, type GrassKind } from '../gfx/grass';
 import { RiverGeo } from './rivergeo';
 import { LANDMARKS, SCENIC, landmarkAt, lmCleared, lmNoGrass, type GroveSpot, type FallSpot } from '../data/landmarks';
@@ -274,10 +274,16 @@ export class Terrain {
     this.riverMask = new Uint8Array(W * H);
     for (let i = 0; i < W * H; i++) this.riverMask[i] = rr[i * 4] > 60 ? 1 : 0;
     // ---------- 8. 地点占地（装饰物避让）----------
+    // 第二十二步：布局按此处地形避开水面、河道（屋不落水）
+    setLayoutEnv((l) => {
+      const ox = l.x * WORLD_SCALE, oy = l.y * WORLD_SCALE, sm = this.sample(ox, oy);
+      return { site: (x: number, y: number) => this.isLand(ox + x, oy + y) && this.riverEdge(ox + x, oy + y) > 50, cold: sm.cold, arid: sm.arid };
+    });
     this.locZones = LOCATIONS.map((l) => {
-      const L = layoutLocation(l);
+      const L = getLayout(l);
       return { x: l.x * WORLD_SCALE, y: l.y * WORLD_SCALE, rx: L.gw * LOC_SCALE * 0.42, ry: L.gh * LOC_SCALE * 0.42, id: l.id };
     });
+    for (const z of this.locZones) this.zoneById.set(z.id, z);
     // ---------- 9. 预制装饰图 ----------
     this.makeGlyphs();
   }
@@ -784,11 +790,18 @@ export class Terrain {
   }
 
   /** 是否落在 drawFields 画出的某块田里（与其网格同构） */
+  /** 第二十二步：田畴环绕城镇——内圈让出整座城（贴图布局占地大得多） */
+  fieldR(l: { id: string; type: string }): [number, number] {
+    const z = this.zoneById.get(l.id);
+    const hole = z ? Math.max(620, Math.max(z.rx, z.ry * 1.2) + 260) : 620;
+    return [hole, hole + (l.type === 'city' ? 2100 : 1200)];
+  }
+  zoneById = new Map<string, { rx: number; ry: number }>();
   private inField(wx: number, wy: number, locs: typeof LOCATIONS) {
     const cw = 300, chh = 210;
     for (const l of locs) {
       const lx = l.x * WORLD_SCALE, ly = l.y * WORLD_SCALE;
-      const RR = l.type === 'city' ? 2700 : 1800;
+      const [hole, RR] = this.fieldR(l);
       const ang = (hash2(l.x, l.y, 77) - 0.5) * 0.7;
       const ca = Math.cos(ang), sa = Math.sin(ang);
       const dx = wx - lx, dy = wy - ly;
@@ -798,7 +811,7 @@ export class Terrain {
       const fx = i * cw + (j % 2 ? cw * 0.4 : 0), fy = j * chh;
       const dd = Math.hypot(fx + cw / 2, (fy + chh / 2) * 1.2);
       const h = hashU(i + ((l.x * 7) | 0), j + ((l.y * 13) | 0), 5);
-      if (dd > RR * (0.55 + 0.45 * h) || dd < 620 || h < 0.12) continue;
+      if (dd > RR * (0.55 + 0.45 * h) || dd < hole || h < 0.12) continue;
       return true;
     }
     return false;
@@ -810,7 +823,7 @@ export class Terrain {
     for (const l of LOCATIONS) {
       if (l.type !== 'city' && l.type !== 'town') continue;
       const lx = l.x * WORLD_SCALE, ly = l.y * WORLD_SCALE;
-      const RR = l.type === 'city' ? 2700 : 1800;
+      const [hole, RR] = this.fieldR(l);
       if (lx + RR < ox || lx - RR > ox + CHUNK || ly + RR < oy || ly - RR > oy + CHUNK) continue;
       const ang = (hash2(l.x, l.y, 77) - 0.5) * 0.7;
       const ca = Math.cos(ang), sa = Math.sin(ang);
@@ -822,7 +835,7 @@ export class Terrain {
         const cxm = fx + cw / 2, cym = fy + chh / 2;
         const dd = Math.hypot(cxm, cym * 1.2);
         const h = hashU(i + ((l.x * 7) | 0), j + ((l.y * 13) | 0), 5);
-        if (dd > RR * (0.55 + 0.45 * h) || dd < 620) continue;
+        if (dd > RR * (0.55 + 0.45 * h) || dd < hole) continue;
         const wx = lx + cxm * ca - cym * sa, wy = ly + cxm * sa + cym * ca;
         if (wx < ox - 400 || wx > ox + CHUNK + 400 || wy < oy - 400 || wy > oy + CHUNK + 400) continue;
         const sm = this.sample(wx, wy);
