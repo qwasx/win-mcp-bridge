@@ -1,7 +1,7 @@
 {
   "version": "full",
   "style": "Song-dynasty ink-wash and light mineral color (round1b standard)",
-  "total_png_assets": 1082,
+  "total_png_assets": 1119,
   "assets": [
     {
       "id": "D01_grasstuft",
@@ -8962,6 +8962,14 @@
       "alpha": true
     },
     {
+      "id": "art_bamen",
+      "file": "artifacts/art_bamen.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
       "id": "art_bingpo",
       "file": "artifacts/art_bingpo.png",
       "category": "artifacts",
@@ -9042,8 +9050,48 @@
       "alpha": true
     },
     {
+      "id": "art_fuguang",
+      "file": "artifacts/art_fuguang.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_guike",
+      "file": "artifacts/art_guike.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_guiluo",
+      "file": "artifacts/art_guiluo.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
       "id": "art_heisha",
       "file": "artifacts/art_heisha.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_hongxian",
+      "file": "artifacts/art_hongxian.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_huanglin",
+      "file": "artifacts/art_huanglin.png",
       "category": "artifacts",
       "width": 512,
       "height": 512,
@@ -9074,8 +9122,40 @@
       "alpha": true
     },
     {
+      "id": "art_huolan",
+      "file": "artifacts/art_huolan.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_jianfu",
+      "file": "artifacts/art_jianfu.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_jinfu",
+      "file": "artifacts/art_jinfu.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
       "id": "art_jingang",
       "file": "artifacts/art_jingang.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_jinguangzhuan",
+      "file": "artifacts/art_jinguangzhuan.png",
       "category": "artifacts",
       "width": 512,
       "height": 512,
@@ -9122,8 +9202,80 @@
       "alpha": true
     },
     {
+      "id": "art_languang",
+      "file": "artifacts/art_languang.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_lanjin",
+      "file": "artifacts/art_lanjin.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_lvhuang",
+      "file": "artifacts/art_lvhuang.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_miemo",
+      "file": "artifacts/art_miemo.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_ningguang",
+      "file": "artifacts/art_ningguang.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_qianlan",
+      "file": "artifacts/art_qianlan.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
       "id": "art_qingfeng",
       "file": "artifacts/art_qingfeng.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_qingjiao",
+      "file": "artifacts/art_qingjiao.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_qingning",
+      "file": "artifacts/art_qingning.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_qingtong",
+      "file": "artifacts/art_qingtong.png",
       "category": "artifacts",
       "width": 512,
       "height": 512,
@@ -9170,6 +9322,22 @@
       "alpha": true
     },
     {
+      "id": "art_sanshen",
+      "file": "artifacts/art_sanshen.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_sanyan",
+      "file": "artifacts/art_sanyan.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
       "id": "art_shenfeng",
       "file": "artifacts/art_shenfeng.png",
       "category": "artifacts",
@@ -9182,6 +9350,30 @@
       "file": "artifacts/art_shenfeng_ride.png",
       "category": "artifacts",
       "width": 768,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_sixiang",
+      "file": "artifacts/art_sixiang.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_tayun",
+      "file": "artifacts/art_tayun.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_tiandu",
+      "file": "artifacts/art_tiandu.png",
+      "category": "artifacts",
+      "width": 512,
       "height": 512,
       "alpha": true
     },
@@ -9212,6 +9404,14 @@
     {
       "id": "art_tianmo",
       "file": "artifacts/art_tianmo.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_tianyang",
+      "file": "artifacts/art_tianyang.png",
       "category": "artifacts",
       "width": 512,
       "height": 512,
@@ -9250,8 +9450,24 @@
       "alpha": true
     },
     {
+      "id": "art_wulong",
+      "file": "artifacts/art_wulong.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
       "id": "art_wuxing",
       "file": "artifacts/art_wuxing.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_wuzi",
+      "file": "artifacts/art_wuzi.png",
       "category": "artifacts",
       "width": 512,
       "height": 512,
@@ -9282,8 +9498,32 @@
       "alpha": true
     },
     {
+      "id": "art_xuantie",
+      "file": "artifacts/art_xuantie.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
       "id": "art_xuanyin",
       "file": "artifacts/art_xuanyin.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_xuemo",
+      "file": "artifacts/art_xuemo.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_xuepifeng",
+      "file": "artifacts/art_xuepifeng.png",
       "category": "artifacts",
       "width": 512,
       "height": 512,
@@ -9300,6 +9540,30 @@
     {
       "id": "art_yin_yang",
       "file": "artifacts/art_yin_yang.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_yinhui",
+      "file": "artifacts/art_yinhui.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_yinzhong",
+      "file": "artifacts/art_yinzhong.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_yuanci",
+      "file": "artifacts/art_yuanci.png",
       "category": "artifacts",
       "width": 512,
       "height": 512,
@@ -9330,8 +9594,40 @@
       "alpha": true
     },
     {
+      "id": "art_zhuque",
+      "file": "artifacts/art_zhuque.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_zhuxie",
+      "file": "artifacts/art_zhuxie.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_zibing",
+      "file": "artifacts/art_zibing.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
       "id": "art_zimu",
       "file": "artifacts/art_zimu.png",
+      "category": "artifacts",
+      "width": 512,
+      "height": 512,
+      "alpha": true
+    },
+    {
+      "id": "art_ziyou",
+      "file": "artifacts/art_ziyou.png",
       "category": "artifacts",
       "width": 512,
       "height": 512,
