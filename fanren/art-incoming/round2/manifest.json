@@ -1,0 +1,534 @@
+{
+  "round": 2,
+  "status": "batch_A_ground_completed",
+  "person_px": 320,
+  "building_person_px": 215,
+  "mockups": {
+    "mockup_ground": {
+      "file": "mockup_ground.png",
+      "size": [
+        2560,
+        1600
+      ]
+    }
+  },
+  "ground": {
+    "D01_grasstuft": {
+      "size": [
+        180,
+        140
+      ],
+      "anchor": [
+        90,
+        106
+      ],
+      "file": "ground/D01_grasstuft.png",
+      "type": "decal"
+    },
+    "D02_wildflowers": {
+      "size": [
+        180,
+        140
+      ],
+      "anchor": [
+        90,
+        106
+      ],
+      "file": "ground/D02_wildflowers.png",
+      "type": "decal"
+    },
+    "D03_moss": {
+      "size": [
+        320,
+        240
+      ],
+      "anchor": [
+        160,
+        190
+      ],
+      "file": "ground/D03_moss.png",
+      "type": "decal"
+    },
+    "D04_stones": {
+      "size": [
+        260,
+        200
+      ],
+      "anchor": [
+        130,
+        178
+      ],
+      "file": "ground/D04_stones.png",
+      "type": "decal"
+    },
+    "D05_puddle": {
+      "size": [
+        360,
+        260
+      ],
+      "anchor": [
+        180,
+        197
+      ],
+      "file": "ground/D05_puddle.png",
+      "type": "decal"
+    },
+    "D06_leaves": {
+      "size": [
+        260,
+        200
+      ],
+      "anchor": [
+        130,
+        191
+      ],
+      "file": "ground/D06_leaves.png",
+      "type": "decal"
+    },
+    "D07_reeds": {
+      "size": [
+        220,
+        200
+      ],
+      "anchor": [
+        110,
+        161
+      ],
+      "file": "ground/D07_reeds.png",
+      "type": "decal"
+    },
+    "D08_waterlily": {
+      "size": [
+        240,
+        190
+      ],
+      "anchor": [
+        120,
+        158
+      ],
+      "file": "ground/D08_waterlily.png",
+      "type": "decal"
+    },
+    "D09_mushrooms": {
+      "size": [
+        180,
+        150
+      ],
+      "anchor": [
+        90,
+        112
+      ],
+      "file": "ground/D09_mushrooms.png",
+      "type": "decal"
+    },
+    "D10_stump": {
+      "size": [
+        220,
+        180
+      ],
+      "anchor": [
+        110,
+        159
+      ],
+      "file": "ground/D10_stump.png",
+      "type": "decal"
+    },
+    "D11_deadwood": {
+      "size": [
+        280,
+        160
+      ],
+      "anchor": [
+        140,
+        116
+      ],
+      "file": "ground/D11_deadwood.png",
+      "type": "decal"
+    },
+    "D12_bones": {
+      "size": [
+        220,
+        160
+      ],
+      "anchor": [
+        110,
+        129
+      ],
+      "file": "ground/D12_bones.png",
+      "type": "decal"
+    },
+    "D13_spirit_herb": {
+      "size": [
+        180,
+        160
+      ],
+      "anchor": [
+        90,
+        131
+      ],
+      "file": "ground/D13_spirit_herb.png",
+      "type": "decal"
+    },
+    "D14_wildflowers_b": {
+      "size": [
+        180,
+        140
+      ],
+      "anchor": [
+        90,
+        106
+      ],
+      "file": "ground/D14_wildflowers_b.png",
+      "type": "decal"
+    },
+    "D15_stones_b": {
+      "size": [
+        304,
+        262
+      ],
+      "anchor": [
+        152,
+        211
+      ],
+      "file": "ground/D15_stones_b.png",
+      "type": "decal"
+    },
+    "D16_moss_b": {
+      "size": [
+        392,
+        354
+      ],
+      "anchor": [
+        196,
+        219
+      ],
+      "file": "ground/D16_moss_b.png",
+      "type": "decal"
+    },
+    "G01_grass_a": {
+      "file": "ground/G01_grass_a.png",
+      "size": [
+        2048,
+        2048
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G01_grass_a_tile3x3.jpg"
+    },
+    "G01_grass_b": {
+      "file": "ground/G01_grass_b.png",
+      "size": [
+        2048,
+        2048
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G01_grass_b_tile3x3.jpg"
+    },
+    "G01s_grass_autumn": {
+      "file": "ground/G01s_grass_autumn.png",
+      "size": [
+        2048,
+        2048
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G01s_grass_autumn_tile3x3.jpg"
+    },
+    "G01w_grass_winter": {
+      "file": "ground/G01w_grass_winter.png",
+      "size": [
+        2048,
+        2048
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G01w_grass_winter_tile3x3.jpg"
+    },
+    "G02_forest_a": {
+      "file": "ground/G02_forest_a.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G02_forest_a_tile3x3.jpg"
+    },
+    "G02_forest_b": {
+      "file": "ground/G02_forest_b.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G02_forest_b_tile3x3.jpg"
+    },
+    "G03a_paddy": {
+      "file": "ground/G03a_paddy.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G03a_paddy_tile3x3.jpg"
+    },
+    "G03b_wheat": {
+      "file": "ground/G03b_wheat.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G03b_wheat_tile3x3.jpg"
+    },
+    "G04_dirtpath": {
+      "file": "ground/G04_dirtpath.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G04_dirtpath_tile3x3.jpg"
+    },
+    "G05_highway": {
+      "file": "ground/G05_highway.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G05_highway_tile3x3.jpg"
+    },
+    "G06_gravel": {
+      "file": "ground/G06_gravel.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G06_gravel_tile3x3.jpg"
+    },
+    "G07_riverbank": {
+      "file": "ground/G07_riverbank.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G07_riverbank_tile3x3.jpg"
+    },
+    "G08_beach": {
+      "file": "ground/G08_beach.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G08_beach_tile3x3.jpg"
+    },
+    "G09_desert": {
+      "file": "ground/G09_desert.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G09_desert_tile3x3.jpg"
+    },
+    "G10_snow_a": {
+      "file": "ground/G10_snow_a.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G10_snow_a_tile3x3.jpg"
+    },
+    "G10_snow_b": {
+      "file": "ground/G10_snow_b.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G10_snow_b_tile3x3.jpg"
+    },
+    "G11_swamp": {
+      "file": "ground/G11_swamp.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G11_swamp_tile3x3.jpg"
+    },
+    "G12_steppe_a": {
+      "file": "ground/G12_steppe_a.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G12_steppe_a_tile3x3.jpg"
+    },
+    "G12_steppe_b": {
+      "file": "ground/G12_steppe_b.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G12_steppe_b_tile3x3.jpg"
+    },
+    "G13_scorched": {
+      "file": "ground/G13_scorched.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G13_scorched_tile3x3.jpg"
+    },
+    "G14_town_earth": {
+      "file": "ground/G14_town_earth.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G14_town_earth_tile3x3.jpg"
+    },
+    "G15_flagstone": {
+      "file": "ground/G15_flagstone.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G15_flagstone_tile3x3.jpg"
+    },
+    "G16_whitestone": {
+      "file": "ground/G16_whitestone.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G16_whitestone_tile3x3.jpg"
+    },
+    "G17_volcanic": {
+      "file": "ground/G17_volcanic.png",
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G17_volcanic_tile3x3.jpg"
+    }
+  },
+  "beasts": {
+    "wolf_idle": {
+      "size": [
+        680,
+        380
+      ],
+      "anchor": [
+        340,
+        375
+      ],
+      "facing": "right",
+      "pose": "idle",
+      "person_px": 320
+    },
+    "wolf_attack": {
+      "size": [
+        740,
+        358
+      ],
+      "anchor": [
+        370,
+        352
+      ],
+      "facing": "right",
+      "pose": "attack",
+      "person_px": 320
+    },
+    "huochan_idle": {
+      "size": [
+        660,
+        429
+      ],
+      "anchor": [
+        330,
+        422
+      ],
+      "facing": "right",
+      "pose": "idle",
+      "person_px": 320
+    },
+    "huochan_attack": {
+      "size": [
+        780,
+        382
+      ],
+      "anchor": [
+        390,
+        376
+      ],
+      "facing": "right",
+      "pose": "attack",
+      "person_px": 320,
+      "reworked_color_match": true
+    },
+    "mojiao_idle": {
+      "size": [
+        1280,
+        667
+      ],
+      "anchor": [
+        640,
+        658
+      ],
+      "facing": "right",
+      "pose": "idle",
+      "person_px": 320
+    },
+    "mojiao_attack": {
+      "size": [
+        1360,
+        607
+      ],
+      "anchor": [
+        680,
+        599
+      ],
+      "facing": "right",
+      "pose": "attack",
+      "person_px": 320
+    },
+    "yinhun_idle": {
+      "size": [
+        680,
+        480
+      ],
+      "anchor": [
+        340,
+        474
+      ],
+      "facing": "right",
+      "pose": "idle",
+      "person_px": 320,
+      "flying": true
+    },
+    "yinhun_attack": {
+      "size": [
+        720,
+        382
+      ],
+      "anchor": [
+        360,
+        376
+      ],
+      "facing": "right",
+      "pose": "attack",
+      "person_px": 320,
+      "flying": true
+    }
+  }
+}
