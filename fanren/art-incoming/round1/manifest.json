@@ -1,0 +1,296 @@
+{
+  "round": 1,
+  "scale": "2x",
+  "person_px": 215,
+  "style_anchor": "fanren/docs/art-brief/ref/01-good-mountains-keep.jpg",
+  "style_key": "style_key.png",
+  "mockups": {
+    "mockup_ground": {
+      "file": "mockup_ground.png",
+      "size": [
+        2048,
+        1280
+      ]
+    },
+    "mockup_buildings": {
+      "file": "mockup_buildings.png",
+      "size": [
+        2560,
+        1600
+      ]
+    },
+    "mockup_beasts": {
+      "file": "mockup_beasts.png",
+      "size": [
+        2048,
+        1280
+      ]
+    }
+  },
+  "ground": {
+    "G01_grass_a": {
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G01_grass_a_tile3x3.jpg"
+    },
+    "G01_grass_b": {
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G01_grass_b_tile3x3.jpg"
+    },
+    "G04_dirtpath": {
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G04_dirtpath_tile3x3.jpg"
+    },
+    "G06_gravel": {
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G06_gravel_tile3x3.jpg"
+    },
+    "G15_flagstone": {
+      "size": [
+        1024,
+        1024
+      ],
+      "seamless": true,
+      "tile3x3": "ground/G15_flagstone_tile3x3.jpg"
+    },
+    "D01_grasstuft": {
+      "size": [
+        180,
+        140
+      ],
+      "anchor": [
+        90,
+        106
+      ]
+    },
+    "D02_wildflowers": {
+      "size": [
+        180,
+        140
+      ],
+      "anchor": [
+        90,
+        106
+      ]
+    },
+    "D03_moss": {
+      "size": [
+        320,
+        240
+      ],
+      "anchor": [
+        160,
+        190
+      ]
+    },
+    "D04_stones": {
+      "size": [
+        220,
+        170
+      ],
+      "anchor": [
+        110,
+        127
+      ]
+    },
+    "D05_puddle": {
+      "size": [
+        320,
+        220
+      ],
+      "anchor": [
+        160,
+        158
+      ]
+    },
+    "D06_leaves": {
+      "size": [
+        260,
+        200
+      ],
+      "anchor": [
+        130,
+        191
+      ]
+    }
+  },
+  "buildings": {
+    "B01_sect_hall": {
+      "size": [
+        1840,
+        925
+      ],
+      "anchor": [
+        920,
+        913
+      ],
+      "door_height_px": 322,
+      "view": "front_30deg_parallel",
+      "blank_plaque": true
+    },
+    "B02_house": {
+      "size": [
+        940,
+        551
+      ],
+      "anchor": [
+        470,
+        543
+      ],
+      "door_height_px": 308,
+      "view": "front_30deg_parallel",
+      "blank_plaque": true
+    },
+    "B03_shop": {
+      "size": [
+        1040,
+        1044
+      ],
+      "anchor": [
+        520,
+        1033
+      ],
+      "door_height_px": 318,
+      "view": "front_30deg_parallel",
+      "blank_plaque": true
+    },
+    "B04_sect_gate": {
+      "size": [
+        1380,
+        1274
+      ],
+      "anchor": [
+        690,
+        1261
+      ],
+      "arch_height_px": 520,
+      "view": "front_30deg_parallel",
+      "blank_plaque": true
+    },
+    "B05_citywall": {
+      "size": [
+        1024,
+        700
+      ],
+      "anchor": [
+        512,
+        693
+      ],
+      "seamless_horizontal": true,
+      "view": "front_30deg_parallel"
+    }
+  },
+  "beasts": {
+    "M01_wolf_idle": {
+      "size": [
+        256,
+        140
+      ],
+      "anchor": [
+        128,
+        133
+      ],
+      "facing": "right",
+      "pose": "idle"
+    },
+    "M01_wolf_attack": {
+      "size": [
+        272,
+        138
+      ],
+      "anchor": [
+        136,
+        132
+      ],
+      "facing": "right",
+      "pose": "attack"
+    },
+    "M02_huochan_idle": {
+      "size": [
+        320,
+        174
+      ],
+      "anchor": [
+        160,
+        160
+      ],
+      "facing": "right",
+      "pose": "idle"
+    },
+    "M02_huochan_attack": {
+      "size": [
+        356,
+        169
+      ],
+      "anchor": [
+        178,
+        166
+      ],
+      "facing": "right",
+      "pose": "attack"
+    },
+    "M03_mojiao_idle": {
+      "size": [
+        580,
+        336
+      ],
+      "anchor": [
+        290,
+        330
+      ],
+      "facing": "right",
+      "pose": "idle"
+    },
+    "M03_mojiao_attack": {
+      "size": [
+        620,
+        268
+      ],
+      "anchor": [
+        310,
+        263
+      ],
+      "facing": "right",
+      "pose": "attack"
+    },
+    "M04_yinhun_idle": {
+      "size": [
+        374,
+        220
+      ],
+      "anchor": [
+        187,
+        191
+      ],
+      "facing": "right",
+      "pose": "idle"
+    },
+    "M04_yinhun_attack": {
+      "size": [
+        498,
+        230
+      ],
+      "anchor": [
+        249,
+        223
+      ],
+      "facing": "right",
+      "pose": "attack"
+    }
+  }
+}
