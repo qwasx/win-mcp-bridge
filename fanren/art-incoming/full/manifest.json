@@ -1,7 +1,7 @@
 {
   "version": "full",
   "style": "Song-dynasty ink-wash and light mineral color (round1b standard)",
-  "total_png_assets": 337,
+  "total_png_assets": 473,
   "assets": [
     {
       "id": "D01_grasstuft",
@@ -4327,6 +4327,27 @@
       ]
     },
     {
+      "id": "B02b_house_b",
+      "file": "buildings/B02b_house_b.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
       "id": "B03_shop",
       "file": "buildings/B03_shop.png",
       "category": "buildings",
@@ -4345,6 +4366,27 @@
       "door": [
         520,
         636
+      ]
+    },
+    {
+      "id": "B03b_shop_b",
+      "file": "buildings/B03b_shop_b.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
       ]
     },
     {
@@ -4390,6 +4432,2715 @@
       ]
     },
     {
+      "id": "B06_pavilion",
+      "file": "buildings/B06_pavilion.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "B07_alchemy",
+      "file": "buildings/B07_alchemy.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "B08_library",
+      "file": "buildings/B08_library.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        538
+      ],
+      "door": [
+        640,
+        1260
+      ]
+    },
+    {
+      "id": "B09_quarters",
+      "file": "buildings/B09_quarters.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "B10_pagoda",
+      "file": "buildings/B10_pagoda.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        538
+      ],
+      "door": [
+        512,
+        1260
+      ]
+    },
+    {
+      "id": "B10b_pagoda_dark",
+      "file": "buildings/B10b_pagoda_dark.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        538
+      ],
+      "door": [
+        512,
+        1260
+      ]
+    },
+    {
+      "id": "B11a_cave_open",
+      "file": "buildings/B11a_cave_open.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "B11b_cave_sealed",
+      "file": "buildings/B11b_cave_sealed.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "B12_herb_garden",
+      "file": "buildings/B12_herb_garden.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        358
+      ],
+      "door": [
+        640,
+        840
+      ]
+    },
+    {
+      "id": "B13_forge_hall",
+      "file": "buildings/B13_forge_hall.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "B14_inn",
+      "file": "buildings/B14_inn.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "B15_smithy",
+      "file": "buildings/B15_smithy.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "B16_yamen",
+      "file": "buildings/B16_yamen.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        448
+      ],
+      "door": [
+        768,
+        1050
+      ]
+    },
+    {
+      "id": "B17_watchtower",
+      "file": "buildings/B17_watchtower.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        448
+      ],
+      "door": [
+        512,
+        1050
+      ]
+    },
+    {
+      "id": "B18_citygate",
+      "file": "buildings/B18_citygate.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        448
+      ],
+      "door": [
+        768,
+        1050
+      ]
+    },
+    {
+      "id": "B19_dock",
+      "file": "buildings/B19_dock.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        358
+      ],
+      "door": [
+        640,
+        840
+      ]
+    },
+    {
+      "id": "B20_bridge_stone",
+      "file": "buildings/B20_bridge_stone.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        358
+      ],
+      "door": [
+        640,
+        840
+      ]
+    },
+    {
+      "id": "B21_bridge_wood",
+      "file": "buildings/B21_bridge_wood.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        269
+      ],
+      "door": [
+        512,
+        630
+      ]
+    },
+    {
+      "id": "B22_ruin_house",
+      "file": "buildings/B22_ruin_house.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "B23a_hut",
+      "file": "buildings/B23a_hut.png",
+      "category": "buildings",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        553,
+        269
+      ],
+      "door": [
+        384,
+        630
+      ]
+    },
+    {
+      "id": "B23b_hut",
+      "file": "buildings/B23b_hut.png",
+      "category": "buildings",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        553,
+        269
+      ],
+      "door": [
+        384,
+        630
+      ]
+    },
+    {
+      "id": "B23c_hut",
+      "file": "buildings/B23c_hut.png",
+      "category": "buildings",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        553,
+        269
+      ],
+      "door": [
+        384,
+        630
+      ]
+    },
+    {
+      "id": "B24a_yurt",
+      "file": "buildings/B24a_yurt.png",
+      "category": "buildings",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        553,
+        269
+      ],
+      "door": [
+        384,
+        630
+      ]
+    },
+    {
+      "id": "B24b_yurt_b",
+      "file": "buildings/B24b_yurt_b.png",
+      "category": "buildings",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        553,
+        269
+      ],
+      "door": [
+        384,
+        630
+      ]
+    },
+    {
+      "id": "B24c_chieftain_yurt",
+      "file": "buildings/B24c_chieftain_yurt.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "B25_courtyard",
+      "file": "buildings/B25_courtyard.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        448
+      ],
+      "door": [
+        768,
+        1050
+      ]
+    },
+    {
+      "id": "B26_wuguan",
+      "file": "buildings/B26_wuguan.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        448
+      ],
+      "door": [
+        768,
+        1050
+      ]
+    },
+    {
+      "id": "B27_granary",
+      "file": "buildings/B27_granary.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "B28_barn",
+      "file": "buildings/B28_barn.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        269
+      ],
+      "door": [
+        512,
+        630
+      ]
+    },
+    {
+      "id": "B29_well_pavilion",
+      "file": "buildings/B29_well_pavilion.png",
+      "category": "buildings",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        553,
+        269
+      ],
+      "door": [
+        384,
+        630
+      ]
+    },
+    {
+      "id": "B30_archway",
+      "file": "buildings/B30_archway.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "B31_watermill",
+      "file": "buildings/B31_watermill.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "B31_wheel",
+      "file": "buildings/B31_wheel.png",
+      "category": "buildings",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        369,
+        179
+      ],
+      "door": [
+        256,
+        420
+      ]
+    },
+    {
+      "id": "B32_stage",
+      "file": "buildings/B32_stage.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "B33_ancestral_hall",
+      "file": "buildings/B33_ancestral_hall.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "B34_bazaar_shed",
+      "file": "buildings/B34_bazaar_shed.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        269
+      ],
+      "door": [
+        512,
+        630
+      ]
+    },
+    {
+      "id": "B35_auction_house",
+      "file": "buildings/B35_auction_house.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "B36_teleport_hall",
+      "file": "buildings/B36_teleport_hall.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "B37a_wall_v",
+      "file": "buildings/B37a_wall_v.png",
+      "category": "buildings",
+      "width": 768,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        553,
+        358
+      ],
+      "door": [
+        384,
+        840
+      ]
+    },
+    {
+      "id": "B37b_wall_corner",
+      "file": "buildings/B37b_wall_corner.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "B38_wooden_palisade",
+      "file": "buildings/B38_wooden_palisade.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        269
+      ],
+      "door": [
+        512,
+        630
+      ]
+    },
+    {
+      "id": "B39_bell_tower",
+      "file": "buildings/B39_bell_tower.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        448
+      ],
+      "door": [
+        512,
+        1050
+      ]
+    },
+    {
+      "id": "B40_sword_terrace",
+      "file": "buildings/B40_sword_terrace.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        448
+      ],
+      "door": [
+        768,
+        1050
+      ]
+    },
+    {
+      "id": "B41_flying_boat_dock",
+      "file": "buildings/B41_flying_boat_dock.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        358
+      ],
+      "door": [
+        768,
+        840
+      ]
+    },
+    {
+      "id": "B42_meditation_platform",
+      "file": "buildings/B42_meditation_platform.png",
+      "category": "buildings",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        553,
+        269
+      ],
+      "door": [
+        384,
+        630
+      ]
+    },
+    {
+      "id": "B43_mission_hall",
+      "file": "buildings/B43_mission_hall.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "B44_spirit_beast_pavilion",
+      "file": "buildings/B44_spirit_beast_pavilion.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        358
+      ],
+      "door": [
+        640,
+        840
+      ]
+    },
+    {
+      "id": "B45_Floating_pavilion",
+      "file": "buildings/B45_Floating_pavilion.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        448
+      ],
+      "door": [
+        512,
+        1050
+      ]
+    },
+    {
+      "id": "F10_gate",
+      "file": "buildings/F10_gate.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "F10_hall",
+      "file": "buildings/F10_hall.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "F10_workshop",
+      "file": "buildings/F10_workshop.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        358
+      ],
+      "door": [
+        640,
+        840
+      ]
+    },
+    {
+      "id": "F11_bamboo_tower",
+      "file": "buildings/F11_bamboo_tower.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        448
+      ],
+      "door": [
+        512,
+        1050
+      ]
+    },
+    {
+      "id": "F11_gate",
+      "file": "buildings/F11_gate.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "F11_hall",
+      "file": "buildings/F11_hall.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        448
+      ],
+      "door": [
+        768,
+        1050
+      ]
+    },
+    {
+      "id": "F1_gate_b",
+      "file": "buildings/F1_gate_b.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "F1_hall_b",
+      "file": "buildings/F1_hall_b.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "F1_luoyun_hall",
+      "file": "buildings/F1_luoyun_hall.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "F1_peak_pavilion",
+      "file": "buildings/F1_peak_pavilion.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "F1_sword_monument",
+      "file": "buildings/F1_sword_monument.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        448
+      ],
+      "door": [
+        512,
+        1050
+      ]
+    },
+    {
+      "id": "F2_gate",
+      "file": "buildings/F2_gate.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "F2_hall",
+      "file": "buildings/F2_hall.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "F2_tower",
+      "file": "buildings/F2_tower.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        448
+      ],
+      "door": [
+        512,
+        1050
+      ]
+    },
+    {
+      "id": "F3_bagua_altar",
+      "file": "buildings/F3_bagua_altar.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "F3_gate",
+      "file": "buildings/F3_gate.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "F3_hall",
+      "file": "buildings/F3_hall.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "F4_gate",
+      "file": "buildings/F4_gate.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "F4_hall",
+      "file": "buildings/F4_hall.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "F4_moon_tower",
+      "file": "buildings/F4_moon_tower.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        448
+      ],
+      "door": [
+        512,
+        1050
+      ]
+    },
+    {
+      "id": "F4_music_pavilion",
+      "file": "buildings/F4_music_pavilion.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "F4_waterside",
+      "file": "buildings/F4_waterside.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        358
+      ],
+      "door": [
+        640,
+        840
+      ]
+    },
+    {
+      "id": "F5_blood_altar",
+      "file": "buildings/F5_blood_altar.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "F5_bone_tower",
+      "file": "buildings/F5_bone_tower.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        448
+      ],
+      "door": [
+        512,
+        1050
+      ]
+    },
+    {
+      "id": "F5_gate",
+      "file": "buildings/F5_gate.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "F5_hall",
+      "file": "buildings/F5_hall.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "F5_hall_b",
+      "file": "buildings/F5_hall_b.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "F5_hall_c",
+      "file": "buildings/F5_hall_c.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "F6_drill_ground",
+      "file": "buildings/F6_drill_ground.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        358
+      ],
+      "door": [
+        640,
+        840
+      ]
+    },
+    {
+      "id": "F6_gate",
+      "file": "buildings/F6_gate.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "F6_hall",
+      "file": "buildings/F6_hall.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        448
+      ],
+      "door": [
+        768,
+        1050
+      ]
+    },
+    {
+      "id": "F6_watchtower",
+      "file": "buildings/F6_watchtower.png",
+      "category": "buildings",
+      "width": 768,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        553,
+        358
+      ],
+      "door": [
+        384,
+        840
+      ]
+    },
+    {
+      "id": "F7_beast_pen",
+      "file": "buildings/F7_beast_pen.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        358
+      ],
+      "door": [
+        640,
+        840
+      ]
+    },
+    {
+      "id": "F7_gate",
+      "file": "buildings/F7_gate.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "F7_hall",
+      "file": "buildings/F7_hall.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        448
+      ],
+      "door": [
+        768,
+        1050
+      ]
+    },
+    {
+      "id": "F8_gate",
+      "file": "buildings/F8_gate.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "F8_hall",
+      "file": "buildings/F8_hall.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        448
+      ],
+      "door": [
+        768,
+        1050
+      ]
+    },
+    {
+      "id": "F8_stilt_house",
+      "file": "buildings/F8_stilt_house.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "F8_walkway",
+      "file": "buildings/F8_walkway.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 768,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        269
+      ],
+      "door": [
+        512,
+        630
+      ]
+    },
+    {
+      "id": "F9_gate",
+      "file": "buildings/F9_gate.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        448
+      ],
+      "door": [
+        768,
+        1050
+      ]
+    },
+    {
+      "id": "F9_keep",
+      "file": "buildings/F9_keep.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "F9_tower",
+      "file": "buildings/F9_tower.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        448
+      ],
+      "door": [
+        512,
+        1050
+      ]
+    },
+    {
+      "id": "F9_wall",
+      "file": "buildings/F9_wall.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "J01_imperial_hall",
+      "file": "buildings/J01_imperial_hall.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "J02_imperial_gate",
+      "file": "buildings/J02_imperial_gate.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        448
+      ],
+      "door": [
+        768,
+        1050
+      ]
+    },
+    {
+      "id": "J03_marble_bridge",
+      "file": "buildings/J03_marble_bridge.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        358
+      ],
+      "door": [
+        768,
+        840
+      ]
+    },
+    {
+      "id": "J04_bell_drum_tower",
+      "file": "buildings/J04_bell_drum_tower.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        538
+      ],
+      "door": [
+        640,
+        1260
+      ]
+    },
+    {
+      "id": "J05_noble_mansion",
+      "file": "buildings/J05_noble_mansion.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        448
+      ],
+      "door": [
+        768,
+        1050
+      ]
+    },
+    {
+      "id": "J06_buddhist_main_hall",
+      "file": "buildings/J06_buddhist_main_hall.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "J07_golden_stupa",
+      "file": "buildings/J07_golden_stupa.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        538
+      ],
+      "door": [
+        512,
+        1260
+      ]
+    },
+    {
+      "id": "J08_sutra_pillar",
+      "file": "buildings/J08_sutra_pillar.png",
+      "category": "buildings",
+      "width": 768,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        553,
+        448
+      ],
+      "door": [
+        384,
+        1050
+      ]
+    },
+    {
+      "id": "J09_confucian_hall",
+      "file": "buildings/J09_confucian_hall.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        448
+      ],
+      "door": [
+        768,
+        1050
+      ]
+    },
+    {
+      "id": "J10_academy_gate",
+      "file": "buildings/J10_academy_gate.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        358
+      ],
+      "door": [
+        640,
+        840
+      ]
+    },
+    {
+      "id": "J11_demon_palace",
+      "file": "buildings/J11_demon_palace.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "J12_ye_family_hall",
+      "file": "buildings/J12_ye_family_hall.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "J13_grand_wine_tower",
+      "file": "buildings/J13_grand_wine_tower.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        538
+      ],
+      "door": [
+        640,
+        1260
+      ]
+    },
+    {
+      "id": "J14_imperial_wall",
+      "file": "buildings/J14_imperial_wall.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "J15_imperial_corner",
+      "file": "buildings/J15_imperial_corner.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "J16_kunwu_hall",
+      "file": "buildings/J16_kunwu_hall.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "J17_kunwu_seal_tower",
+      "file": "buildings/J17_kunwu_seal_tower.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        538
+      ],
+      "door": [
+        512,
+        1260
+      ]
+    },
+    {
+      "id": "J18_sword_pavilion",
+      "file": "buildings/J18_sword_pavilion.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        538
+      ],
+      "door": [
+        640,
+        1260
+      ]
+    },
+    {
+      "id": "T01_mulan_temple",
+      "file": "buildings/T01_mulan_temple.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        448
+      ],
+      "door": [
+        768,
+        1050
+      ]
+    },
+    {
+      "id": "T02_totem_pillar",
+      "file": "buildings/T02_totem_pillar.png",
+      "category": "buildings",
+      "width": 768,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        553,
+        448
+      ],
+      "door": [
+        384,
+        1050
+      ]
+    },
+    {
+      "id": "T03_sacred_fire_altar",
+      "file": "buildings/T03_sacred_fire_altar.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "T04_horn_gate",
+      "file": "buildings/T04_horn_gate.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        358
+      ],
+      "door": [
+        640,
+        840
+      ]
+    },
+    {
+      "id": "T05_bone_watchtower",
+      "file": "buildings/T05_bone_watchtower.png",
+      "category": "buildings",
+      "width": 768,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        553,
+        358
+      ],
+      "door": [
+        384,
+        840
+      ]
+    },
+    {
+      "id": "T06_horse_corral",
+      "file": "buildings/T06_horse_corral.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        358
+      ],
+      "door": [
+        640,
+        840
+      ]
+    },
+    {
+      "id": "X01_star_palace_top",
+      "file": "buildings/X01_star_palace_top.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "X02_star_tower",
+      "file": "buildings/X02_star_tower.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        448
+      ],
+      "door": [
+        512,
+        1050
+      ]
+    },
+    {
+      "id": "X03_island_house_a",
+      "file": "buildings/X03_island_house_a.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "X04_island_house_b",
+      "file": "buildings/X04_island_house_b.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "X05_coral_shop",
+      "file": "buildings/X05_coral_shop.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "X06_lighthouse",
+      "file": "buildings/X06_lighthouse.png",
+      "category": "buildings",
+      "width": 768,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        553,
+        448
+      ],
+      "door": [
+        384,
+        1050
+      ]
+    },
+    {
+      "id": "X07_harbor_crane",
+      "file": "buildings/X07_harbor_crane.png",
+      "category": "buildings",
+      "width": 768,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        553,
+        358
+      ],
+      "door": [
+        384,
+        840
+      ]
+    },
+    {
+      "id": "X08_sea_altar",
+      "file": "buildings/X08_sea_altar.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "X09_teleport_sea",
+      "file": "buildings/X09_teleport_sea.png",
+      "category": "buildings",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        737,
+        358
+      ],
+      "door": [
+        512,
+        840
+      ]
+    },
+    {
+      "id": "X10_xutian_outer_gate",
+      "file": "buildings/X10_xutian_outer_gate.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        448
+      ],
+      "door": [
+        768,
+        1050
+      ]
+    },
+    {
+      "id": "X11_xutian_inner_hall",
+      "file": "buildings/X11_xutian_inner_hall.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "X12_ice_flame_hall",
+      "file": "buildings/X12_ice_flame_hall.png",
+      "category": "buildings",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        1106,
+        538
+      ],
+      "door": [
+        768,
+        1260
+      ]
+    },
+    {
+      "id": "X13_treasure_pavilion",
+      "file": "buildings/X13_treasure_pavilion.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1280,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        448
+      ],
+      "door": [
+        640,
+        1050
+      ]
+    },
+    {
+      "id": "X14_shipyard",
+      "file": "buildings/X14_shipyard.png",
+      "category": "buildings",
+      "width": 1280,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 215,
+      "anchor": [
+        0.5,
+        0.88
+      ],
+      "footprint": [
+        922,
+        358
+      ],
+      "door": [
+        640,
+        840
+      ]
+    },
+    {
       "id": "mockup_beasts",
       "file": "mockups/mockup_beasts.png",
       "category": "mockups",
@@ -4398,8 +7149,48 @@
       "alpha": false
     },
     {
+      "id": "mockup_dajin",
+      "file": "mockups/mockup_dajin.png",
+      "category": "mockups",
+      "width": 1920,
+      "height": 1080,
+      "alpha": false
+    },
+    {
       "id": "mockup_ground",
       "file": "mockups/mockup_ground.png",
+      "category": "mockups",
+      "width": 1920,
+      "height": 1080,
+      "alpha": false
+    },
+    {
+      "id": "mockup_luanxing",
+      "file": "mockups/mockup_luanxing.png",
+      "category": "mockups",
+      "width": 1920,
+      "height": 1080,
+      "alpha": false
+    },
+    {
+      "id": "mockup_sect",
+      "file": "mockups/mockup_sect.png",
+      "category": "mockups",
+      "width": 1920,
+      "height": 1080,
+      "alpha": false
+    },
+    {
+      "id": "mockup_sects_families",
+      "file": "mockups/mockup_sects_families.png",
+      "category": "mockups",
+      "width": 1920,
+      "height": 1080,
+      "alpha": false
+    },
+    {
+      "id": "mockup_town",
+      "file": "mockups/mockup_town.png",
       "category": "mockups",
       "width": 1920,
       "height": 1080,
