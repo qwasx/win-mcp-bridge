@@ -2,6 +2,8 @@
 // 久不入画即释放；铺装纹理以 CanvasPattern 平铺（同样分级），圆形地饰直接绘制。
 // Node 测试环境没有 Image：一切函数返回 null / false，调用方退回程序绘制。
 import { BLD2, BldDim } from './bld2Dims';
+import { PROP2 } from './propDims';
+Object.assign(BLD2, PROP2);   // 第二十三步：摆件 / 遗迹 / 名地构件与建筑共用一套加载与绘制
 
 type G = CanvasRenderingContext2D;
 interface Ent { im: HTMLImageElement | null; mips: (HTMLCanvasElement | HTMLImageElement)[]; w: number; h: number; last: number; ok: boolean; bad?: boolean }
@@ -15,7 +17,7 @@ let clock = 0;
 export function loadBld2() {
   if (started || typeof Image === 'undefined' || typeof document === 'undefined') return;
   started = true;
-  import('./bld2Data').then((m) => { SRC = m.BLD2_SRC; GSRC = m.BLDG_SRC; }).catch((e) => console.warn('建筑画材不可用', e));
+  Promise.all([import('./bld2Data'), import('./propData')]).then(([m, p]) => { SRC = { ...m.BLD2_SRC, ...p.PROP_SRC }; GSRC = m.BLDG_SRC; }).catch((e) => console.warn('建筑画材不可用', e));
 }
 export const bld2Ready = () => !!SRC;
 export function bldDim(key: string): BldDim | undefined { return BLD2[key.split('|')[0]]; }

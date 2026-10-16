@@ -14,6 +14,7 @@ import { REALMS, realmName } from '../data/realms';
 import type { DNode, DOpt } from './modal';
 import type { SiteState, CacheState } from './worldstate';
 import { CharState, drawCharacter, randomLook, Look } from '../gfx/character';
+import { drawBld } from '../gfx/bldTex2';
 
 type G = CanvasRenderingContext2D;
 const TAU = Math.PI * 2;
@@ -757,11 +758,12 @@ export class SiteSys {
     ctx.fillStyle = 'rgba(20,18,14,0.16)'; ctx.beginPath(); ctx.ellipse(x, y + 4, 90, 24, 0, 0, TAU); ctx.fill();
     switch (s.kind) {
       case 'herbking': drawHerbKing(ctx, x, y, this.herbOf(s), avail, s.tier, t, r); break;
-      case 'corpse': drawCorpse(ctx, x, y, avail, r, s.tier >= 2 && s.seed % 4 === 3); break;
-      case 'ruin': drawRuin(ctx, x, y, avail ? 3 - (this.st(s, false).layer ?? 0) : 0, t, r); break;
-      case 'nest': drawNest(ctx, x, y, avail, this.st(s, false).egg, r); break;
-      case 'vein': drawVein(ctx, x, y, t, r, this.game.ws.home?.key === s.key && this.game.ws.home.map === ACTIVE_MAP); break;
-      case 'stele': drawStele(ctx, x, y, avail, pulse, r); break;
+      // 第二十三步：遗骸、古洞府、兽巢、灵脉、石碑用贴图（画材未就绪时退回代码绘制）
+      case 'corpse': { const anc = s.tier >= 2 && s.seed % 4 === 3; if (!(anc && spriteSkeleton(ctx, x, y, avail, t, s.seed))) drawCorpse(ctx, x, y, avail, r, anc); break; }
+      case 'ruin': { const L = avail ? 3 - (this.st(s, false).layer ?? 0) : 0; if (!spriteRuin(ctx, x, y, L, t, s.seed)) drawRuin(ctx, x, y, L, t, r); break; }
+      case 'nest': { const egg = this.st(s, false).egg; if (!(avail && egg !== 'egg_jiao' && drawBld(ctx, 'p_nest', x, y + 8, t, 1, s.seed % 2 === 0))) drawNest(ctx, x, y, avail, egg, r); break; }
+      case 'vein': { const home = this.game.ws.home?.key === s.key && this.game.ws.home.map === ACTIVE_MAP; if (!spriteVein(ctx, x, y, t, s.seed, home)) drawVein(ctx, x, y, t, r, home); break; }
+      case 'stele': if (!spriteStele(ctx, x, y, avail, pulse, t, s.seed)) drawStele(ctx, x, y, avail, pulse, r); break;
       case 'shrine': drawShrine(ctx, x, y, t, r); break;
       case 'pool': drawPool(ctx, x, y, s.zone === 'cold', t, r, (this.st(s, false).dive ?? -9999) + 720 <= this.game.day); break;
       case 'bones': drawBones(ctx, x, y, t, r, !!this.guardOf(s)); break;
@@ -849,6 +851,44 @@ function drawHerbKing(ctx: G, x: number, y: number, id: string, avail: boolean, 
     for (let i = -4; i <= 4; i++) { ctx.strokeStyle = i % 2 ? `rgb(${col})` : '#4a8a40'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(i * 3, 0); ctx.quadraticCurveTo(i * 10, -34, i * 18 + Math.sin(t * 2 + i) * 4, -64 - (4 - Math.abs(i)) * 7); ctx.stroke(); }
   }
   ctx.restore();
+}
+// —— 贴图版（第二十三步）
+function spriteSkeleton(ctx: G, x: number, y: number, avail: boolean, t: number, seed: number) {
+  if (!drawBld(ctx, 'p_skeleton', x, y + 6, t, 1, seed % 2 === 0)) return false;
+  if (avail) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const k = 0.5 + 0.5 * Math.sin(t * 2 + seed); const gr = ctx.createRadialGradient(x, y - 20, 0, x, y - 20, 40); gr.addColorStop(0, `rgba(180,255,200,${0.28 + 0.2 * k})`); gr.addColorStop(1, 'rgba(180,255,200,0)'); ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y - 20, 40, 0, TAU); ctx.fill(); ctx.restore(); }
+  return true;
+}
+function spriteRuin(ctx: G, x: number, y: number, layers: number, t: number, seed: number) {
+  if (!drawBld(ctx, 'p_arch_ruin', x, y + 6, t, 1, seed % 2 === 0)) return false;
+  if (layers > 0) {
+    // 禁制：门洞里一层层流光，外绕封字
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const cols = ['140,210,255', '200,170,255', '255,120,100'];
+    for (let l = 0; l < layers; l++) {
+      const k = 0.5 + 0.5 * Math.sin(t * (1.6 + l * 0.7) + l * 2);
+      ctx.strokeStyle = `rgba(${cols[l]},${0.22 + 0.3 * k})`; ctx.lineWidth = 2 + l;
+      ctx.beginPath(); ctx.moveTo(x - 46 - l * 7, y - 4); ctx.lineTo(x - 46 - l * 7, y - 120 - l * 4); ctx.quadraticCurveTo(x, y - 168 - l * 8, x + 46 + l * 7, y - 120 - l * 4); ctx.lineTo(x + 46 + l * 7, y - 4); ctx.stroke();
+    }
+    ctx.fillStyle = `rgba(150,220,255,${0.07 + 0.05 * Math.sin(t * 2)})`; ctx.beginPath(); ctx.ellipse(x, y - 80, 46, 80, 0, 0, TAU); ctx.fill();
+    ctx.font = '16px serif'; ctx.textAlign = 'center';
+    for (let i = 0; i < 6; i++) { const a = t * 0.4 + i / 6 * TAU; ctx.fillStyle = `rgba(170,230,255,${0.35 + 0.3 * Math.sin(t * 2 + i)})`; ctx.fillText('封禁玄灵镇敕'[i], x + Math.cos(a) * 120, y - 90 + Math.sin(a) * 40); }
+    ctx.restore();
+  }
+  return true;
+}
+function spriteVein(ctx: G, x: number, y: number, t: number, seed: number, home: boolean) {
+  if (!drawBld(ctx, 'p_ore', x + 10, y + 8, t, 1, seed % 2 === 0)) return false;
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 10; i++) { const k = (t * 0.25 + i / 10) % 1; ctx.fillStyle = `rgba(140,255,230,${(1 - k) * 0.4})`; const bx = x - 60 + ((i * 37) % 130); ctx.beginPath(); ctx.arc(bx, y - 40 - k * 90, 2.2, 0, TAU); ctx.fill(); }
+  const gr = ctx.createRadialGradient(x, y - 50, 0, x, y - 50, home ? 70 : 120); gr.addColorStop(0, 'rgba(120,255,220,0.2)'); gr.addColorStop(1, 'rgba(120,255,220,0)'); ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y - 50, home ? 70 : 120, 0, TAU); ctx.fill();
+  ctx.restore();
+  return true;
+}
+function spriteStele(ctx: G, x: number, y: number, unread: boolean, pulse: number, t: number, seed: number) {
+  const k = ['p_stele_a', 'p_stele_b', 'p_stele_c'][seed % 3];
+  if (!drawBld(ctx, k, x, y + 4, t, 1, seed % 2 === 0)) return false;
+  if (unread) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const gr = ctx.createRadialGradient(x, y - 90, 0, x, y - 90, 90); gr.addColorStop(0, `rgba(255,236,170,${0.1 + 0.14 * pulse})`); gr.addColorStop(1, 'rgba(255,236,170,0)'); ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(x, y - 90, 90, 0, TAU); ctx.fill(); ctx.restore(); }
+  return true;
 }
 function drawCorpse(ctx: G, x: number, y: number, avail: boolean, r: () => number, ancient: boolean) {
   const rot = (r() - 0.5) * 0.5;

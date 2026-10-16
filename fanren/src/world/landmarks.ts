@@ -6,6 +6,7 @@
 import type { Game } from './game';
 import { LANDMARKS, SCENIC, landmarkAt, mistDepth, type Landmark, type LmStand, type LmGround } from '../data/landmarks';
 import { renderLmGround, renderLmStand, drawRift, drawWhirl, mistPuff } from '../gfx/landmark';
+import { drawBld } from '../gfx/bldTex2';
 import { bldTex } from '../gfx/bldTex';
 import { sprites, resBucket, type Spr } from '../gfx/sprites';
 import { ENEMIES, lvRealm, lvWeight, type EnemyDef } from '../data/enemies';
@@ -153,7 +154,7 @@ export class LandmarkSys {
       this.scanT = 0.2;
       this.focus = null; this.focusD = 1e9;
       if (L) for (const s of L.stands) {
-        if (s.k === 'wall' || s.k === 'crystal') continue;
+        if (s.k === 'wall' || s.k === 'crystal' || s.k === 'sprite') continue;
         const d = Math.hypot(s.x - p.x, s.y - p.y) - Math.min(120, s.w * 0.3);
         if (d < 200 && d < this.focusD) { this.focus = s; this.focusD = Math.max(0, d); }
       }
@@ -318,6 +319,20 @@ export class LandmarkSys {
       for (const s of L.stands) {
         if (s.x + 800 < v.left || s.x - 800 > v.right || s.y - 1200 > v.bottom || s.y + 300 < v.top) continue;
         if (s.k === 'whirl') { list.push({ y: s.y - 200, draw: (c) => drawWhirl(c, s.x, s.y, t, s.w) }); continue; }
+        // 第二十三步：贴图构件（画材未就绪时：纯贴图件先不画，有代码版的退回代码版）
+        if (s.tex) {
+          const tex = s.tex;
+          list.push({ y: s.y, draw: (c) => {
+            if (!drawBld(c, tex, s.x, s.y, t, s.sc ?? 1, !!s.flip)) {
+              if (s.k === 'sprite') return;
+              const sp = sprites.get(`LS:${s.id}`, ctxRes(s.w + 80, s.h + 80), (r) => renderLmStand({ k: s.k, w: s.w, h: s.h, seed: s.seed, flip: s.flip, name: s.name }, r) as Spr); if (sp) c.drawImage(sp.canvas, s.x - sp.ax, s.y - sp.ay, sp.w, sp.h);
+            }
+            if (s.k === 'remains' && z > 0.35 && this.f.rem?.[s.id] === undefined) { c.save(); c.globalCompositeOperation = 'lighter'; c.strokeStyle = `rgba(180,150,255,${0.3 + 0.25 * Math.sin(t * 2 + s.seed)})`; c.lineWidth = 2; c.beginPath(); c.ellipse(s.x, s.y - 2, 64, 22, 0, 0, TAU); c.stroke(); c.restore(); }
+            if (tex === 'p_e_firemouth') { c.save(); c.globalCompositeOperation = 'lighter'; const k = 0.5 + 0.5 * Math.sin(t * 3 + s.seed); const gr = c.createRadialGradient(s.x, s.y - 60, 0, s.x, s.y - 60, 160); gr.addColorStop(0, `rgba(255,120,40,${0.18 + 0.14 * k})`); gr.addColorStop(1, 'rgba(255,80,20,0)'); c.fillStyle = gr; c.beginPath(); c.arc(s.x, s.y - 60, 160, 0, TAU); c.fill(); c.restore(); }
+            if (s.name && this.focus === s && this.focusD < 200) this.label(c, s.x, s.y - Math.min(s.h, 260) - 20, `【T】${s.name}`);
+          } });
+          continue;
+        }
         const tex = s.k === 'ruinhall' ? 'hall_grey' : s.k === 'gate' ? 'paifang' : s.k === 'invtower' ? 'pagoda' : null;
         if (tex && !bldTex(tex)) continue;
         let def: Parameters<typeof renderLmStand>[0] = { k: s.k, w: s.w, h: s.h, seed: s.seed, flip: s.flip, name: s.name };

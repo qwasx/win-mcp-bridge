@@ -7,10 +7,10 @@ import type { Species } from '../gfx/tree';
 /** 地面贴花（画在草之后、排序物之前） */
 export type GroundKind = 'ash' | 'lavafield' | 'lavalake' | 'bloodpool' | 'flowers' | 'jadeplaza' | 'icepath' | 'lavapath' | 'ghostland' | 'blackpond' | 'pit' | 'taiji' | 'scree';
 /** 立体构件（参与前后排序） */
-export type StandKind = 'stoneplat' | 'remains' | 'bloodgate' | 'altar' | 'ruinhall' | 'wall' | 'pagoda' | 'cave' | 'gate' | 'invtower' | 'corpsepost' | 'crystal' | 'obelisk' | 'whirl' | 'bigtree';
+export type StandKind = 'stoneplat' | 'remains' | 'bloodgate' | 'altar' | 'ruinhall' | 'wall' | 'pagoda' | 'cave' | 'gate' | 'invtower' | 'corpsepost' | 'crystal' | 'obelisk' | 'whirl' | 'bigtree' | 'sprite';
 
 export interface LmGround { k: GroundKind; x: number; y: number; w: number; h: number; seed: number; rot?: number }
-export interface LmStand { k: StandKind; x: number; y: number; w: number; h: number; seed: number; id: string; a0?: number; a1?: number; flip?: boolean; name?: string }
+export interface LmStand { k: StandKind; x: number; y: number; w: number; h: number; seed: number; id: string; a0?: number; a1?: number; flip?: boolean; name?: string; tex?: string; sc?: number }
 export interface LmPeak { id: string; x: number; y: number; w: number; h: number; style: MtnStyle; seed: number; snow?: boolean; clouds?: boolean; waterfall?: boolean; flip?: boolean }
 export interface LmLair { id: string; enemy: string; x: number; y: number; name: string; desc: string }
 export type MistKind = 'white' | 'yin' | 'ring' | null;
@@ -55,20 +55,23 @@ function build(): Landmark[] {
     G(L, 'ash', 2300, -1350, 4600, 2900);
     G(L, 'lavafield', 2300, -1450, 2700, 1700);
     G(L, 'lavalake', 2400, -1450, 1150, 620);
-    S(L, 'stoneplat', 2400, -1440, 230, 120, { name: '古石台' });
+    S(L, 'stoneplat', 2400, -1440, 230, 120, { name: '古石台', tex: 'p_e_altar_broken', sc: 0.7 });
     C(L, 2300, -1450, 1650);
     for (const [dx, dy, w, h] of [[900, -2850, 1300, 950], [2250, -3050, 1700, 1250], [3750, -2700, 1400, 1050], [4250, -1500, 1150, 900], [500, -2100, 900, 650], [3900, -350, 1000, 700]] as const) P(L, dx, dy, w, h, 'volcano', { clouds: false });
     // 白石祭坛（古魔血焰）
     G(L, 'scree', -650, -1520, 1300, 700);
     S(L, 'altar', -650, -1500, 560, 640, { name: '白石祭坛' });
     C(L, -650, -1600, 780);
+    S(L, 'sprite', -1180, -1230, 100, 260, { tex: 'p_e_pillar_b' }); S(L, 'sprite', -120, -1180, 380, 100, { tex: 'p_e_pillar_c', flip: true });
+    // 谷口残碑
+    S(L, 'sprite', 350, 2950, 145, 300, { tex: 'p_e_valley_stele' });
     L.lairs.push({ id: 'lm_xueyan', enemy: 'gumo_xueyan', x: L.x - 650, y: L.y - 1360, name: '白石祭坛', desc: '祭坛上血光隐现，似有上古魔物的一缕分魂被镇压于此——那是「古魔血焰」。' });
     // 内谷水潭与血咒之门
     G(L, 'bloodpool', -1750, 1150, 1100, 600);
     S(L, 'bloodgate', -1750, 830, 300, 330, { name: '血咒之门' });
     C(L, -1750, 1000, 760);
     // 古修遗骸（联动禁制）
-    for (const [dx, dy] of [[650, 450], [-2450, -350], [1250, 1850], [-450, 2450], [3050, 1250], [-3100, 2050]] as const) S(L, 'remains', dx, dy, 120, 60, { name: '古修遗骸' });
+    for (const [dx, dy] of [[650, 450], [-2450, -350], [1250, 1850], [-450, 2450], [3050, 1250], [-3100, 2050]] as const) S(L, 'remains', dx, dy, 120, 60, { name: '古修遗骸', tex: 'p_skeleton', flip: dx < 0 });
   }, {
     mist: 'white', senseK: 0.55, trees: ['dead', 'dead', 'pine', 'cypress'], treeK: 0.55, mtnStyle: 'demon',
     natives: ['huochan', 'mangshou', 'canhun', 'tiehuo', 'yinhun'], rifts: 7,
@@ -102,6 +105,9 @@ function build(): Landmark[] {
     }
     // 外圈：峭壁、石屋石殿
     for (const [dx, dy, fl] of [[-3700, -900, false], [3800, 600, true], [-2900, 2600, false], [2600, -3000, true], [600, 3600, false]] as const) S(L, 'ruinhall', dx, dy, 330, 260, { flip: fl, name: '上古石殿' });
+    // 禁地外缘：入口双石柱、上古盘龙柱
+    S(L, 'sprite', 0, 3950, 520, 480, { tex: 'p_e_gatepillar' });
+    S(L, 'sprite', -3350, 1250, 120, 380, { tex: 'p_e_pillar_a' }); S(L, 'sprite', 3250, -1500, 120, 380, { tex: 'p_e_pillar_a', flip: true }); S(L, 'sprite', -1500, 3550, 380, 100, { tex: 'p_e_pillar_c' });
     // 乌龙潭（东北角）
     G(L, 'blackpond', 3700, -2750, 1100, 640);
     S(L, 'whirl', 3700, -2740, 200, 90, { name: '乌龙潭' });
@@ -120,8 +126,10 @@ function build(): Landmark[] {
     // 冰火道：左玄晶道，右熔岩路
     G(L, 'icepath', -300, 650, 380, 1150);
     G(L, 'lavapath', 300, 650, 380, 1150);
-    for (let i = 0; i < 6; i++) { S(L, 'crystal', -520 + (i % 2) * 440 - 0, 160 + i * 190, 70 + (i % 3) * 20, 120 + (i % 3) * 40, { name: '' }); }
-    S(L, 'obelisk', -620, 1080, 60, 200, { name: '玄晶碑' }); S(L, 'obelisk', 620, 1080, 60, 200, { name: '熔岩碑' });
+    for (let i = 0; i < 6; i++) { const x = i % 2 ? 560 : -560; S(L, 'crystal', x, 160 + i * 190, 70 + (i % 3) * 20, 120 + (i % 3) * 40, { name: '', tex: x < 0 ? 'p_crystal_l' : 'p_crystal_blood', sc: 0.8 + (i % 3) * 0.15, flip: i % 4 === 0 }); }
+    S(L, 'obelisk', -620, 1080, 60, 200, { name: '玄晶碑', tex: 'p_e_pillar_a', sc: 0.7 }); S(L, 'obelisk', 620, 1080, 60, 200, { name: '熔岩碑', tex: 'p_e_pillar_a', sc: 0.7, flip: true });
+    // 冰火道尽头：内殿三层青白玉圆台
+    S(L, 'sprite', 0, -260, 720, 450, { tex: 'p_e_xt_hall' });
   }, {
     mist: null, senseK: 1, trees: ['cypress', 'pine'], treeK: 0.4, mtnStyle: 'qianjiang',
     natives: ['yuanhun', 'yinhun', 'guijiang'],
@@ -136,6 +144,10 @@ function build(): Landmark[] {
     G(L, 'pit', 0, -1480, 900, 420);
     S(L, 'invtower', 0, -1480, 300, 900, { name: '镇魔塔' });
     L.lairs.push({ id: 'lm_yinchi', enemy: 'yinchi', x: L.x + 260, y: L.y - 1300, name: '镇魔塔', desc: '倒悬的镇魔塔下煞气冲霄，绿毛银翅的夜叉在塔影里盘旋——塔中镇着元刹圣祖的魔魂。' });
+    // 镇魔碑、剑亭、镇魔锁柱
+    S(L, 'sprite', -560, 960, 169, 340, { tex: 'p_e_kunwu_stele' }); S(L, 'sprite', 560, 960, 169, 340, { tex: 'p_e_kunwu_stele', flip: true });
+    S(L, 'sprite', 1300, 240, 420, 395, { tex: 'p_e_swordpav' });
+    S(L, 'sprite', -760, -1250, 445, 380, { tex: 'p_e_sealchain', sc: 0.8 }); S(L, 'sprite', 760, -1250, 445, 380, { tex: 'p_e_sealchain', sc: 0.8, flip: true });
     for (let i = 0; i < 6; i++) S(L, 'corpsepost', -1350 - (i >> 1) * 380, 300 + (i % 2 ? 260 : -260) + (i >> 1) * 60, 60, 210, { name: '锁尸柱' });
   }, {
     mist: null, senseK: 1, trees: ['cypress', 'dead', 'pine'], treeK: 0.5,

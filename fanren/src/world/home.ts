@@ -13,6 +13,7 @@ import type { HomeState, Plot } from './worldstate';
 import { HERB_COL, dirName, pickArt, type Site } from './sites';
 import { Enemy } from './combat';
 import { ENEMIES } from '../data/enemies';
+import { drawBld } from '../gfx/bldTex2';
 
 type G = CanvasRenderingContext2D;
 const TAU = Math.PI * 2;
@@ -171,6 +172,8 @@ export class HomeSys {
     const v = Math.max(g.life.vis({ x: h.x, y: h.y }), 0.75);   // 自己的洞府总记得
     out.push({ y: h.y - 70, draw: (ctx) => this.drawCave(ctx, h, v, t) });
     out.push({ y: h.y + 30, draw: (ctx) => this.drawGarden(ctx, h, v, t) });
+    // 第二十三步：洞府门前的石桌、香炉
+    out.push({ y: h.y - 20, draw: (ctx) => { ctx.save(); ctx.globalAlpha *= v; drawBld(ctx, 'p_e_cave_table', h.x - 320, h.y - 20, t, 0.85, false); drawBld(ctx, 'p_censer', h.x + 150, h.y - 40, t, 0.6, false); ctx.restore(); } });
   }
   private drawCave(ctx: G, h: HomeState, v: number, t: number) {
     const x = h.x - 30, y = h.y - 70;

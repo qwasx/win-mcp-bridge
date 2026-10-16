@@ -204,7 +204,7 @@ export function AlchemyPanel({ game, onClose }: { game: Game; onClose: () => voi
           <div className="inputs">
             {r.inputs.map((inp) => { const have = C.bagCount(h, inp.id, inp.minAge ?? 0); const ok = have >= inp.n; return (
               <div key={inp.id} className={'inp' + (ok ? ' ok' : '')}>
-                <span className="glyph">{itemDef(inp.id).glyph}</span>
+                <ItemGlyph id={inp.id} className="glyph" />
                 <div><b>{itemDef(inp.id).name}</b>{inp.minAge ? <small> · {inp.minAge}年以上</small> : null}<div className="hint">持有 {have} / 需 {inp.n}{!ok && inp.minAge && C.bagCount(h, inp.id) > have ? `（另有 ${C.bagCount(h, inp.id) - have} 株年份不足，可用掌天瓶催熟）` : ''}</div></div>
               </div>); })}
           </div>

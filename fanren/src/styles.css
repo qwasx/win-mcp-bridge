@@ -571,6 +571,7 @@ button.mini:disabled { opacity: 0.35; }
 
 /* 法器图标（代码绘制） */
 img.art-ico { display: block; object-fit: contain; pointer-events: none; image-rendering: auto; filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.35)); }
+img.glyph.art-ico { width: 34px; height: 34px; }
 img.hb-glyph.art-ico { width: 38px; height: 38px; filter: drop-shadow(0 0 6px var(--sc)) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7)); }
 .hotbar.pad img.hb-glyph.art-ico { width: 32px; height: 32px; }
 img.sk-glyph.art-ico { width: 34px; height: 34px; background: radial-gradient(circle, rgba(255, 248, 230, 0.9), rgba(220, 200, 160, 0.6)) !important; border-radius: 6px; }

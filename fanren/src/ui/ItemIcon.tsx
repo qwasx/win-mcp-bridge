@@ -1,11 +1,13 @@
-// 法器 / 特殊符箓的代码绘制小图标；其余物品仍用书法字形
+// 物品图标：灵草丹药材料符箓功法等用外部 AI 绘制的图标（第二十三步）；法器用代码绘制小图标；其余退回书法字形
 import type { CSSProperties } from 'react';
 import { itemDef } from '../data/items';
 import { ART_LOOK } from '../data/artlooks';
 import { artIconURL } from '../gfx/artifact';
+import { paintedIcon } from '../gfx/icons';
 
 export function itemIconURL(id: string, px = 64): string | null {
   const d = itemDef(id);
+  const p = paintedIcon(id); if (p) return p;
   if (d.type !== 'artifact' && !ART_LOOK[id]) return null;
   return artIconURL(id, d.art?.kind, undefined, px);
 }

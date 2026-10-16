@@ -6,6 +6,8 @@ import type { LocDef } from '../data/world';
 import type { LocLayout, Pal } from './building';
 import type { Species } from './tree';
 import { BLD2 } from './bld2Dims';
+import { PROP2 } from './propDims';
+Object.assign(BLD2, PROP2);
 
 const LS = 1.5;   // = LOC_SCALE（避免循环引用）
 export interface Env { site: (x: number, y: number) => boolean; cold: number; arid: number }
@@ -48,7 +50,7 @@ class TB {
       this.blocks.push({ x: x + dw / 2, y: y - depth, w: hw - dw / 2, h: depth - 6 });
     } else this.blocks.push({ x: x - hw, y: y - depth, w: hw * 2, h: depth - 6 });
     if (!o.noOcc) this.occ.push({ x0: x - w / 2, y0: y - depth - 30, x1: x + w / 2, y1: y + 24 });
-    if (o.fn) { this.doors.push({ x, y: y + 46, fn: o.fn, name: o.name ?? FAC_NAME[o.fn] }); this.lights.push({ x, y: y - 40, r: 70 }); }
+    if (o.fn) { this.doors.push({ x, y: y + 46, fn: o.fn, name: o.name ?? FAC_NAME[o.fn] }); this.lights.push({ x, y: y - 40, r: 70 }); if (w > 260) this.facProp(o.fn, x, y, w); }
     else if (o.lit !== false && this.rnd() < 0.55) this.lights.push({ x: x + this.R(-0.2, 0.2) * w, y: y - 40, r: 46 });
     return { x, y, w, h, depth, k };
   }
@@ -71,6 +73,40 @@ class TB {
   }
   pave(tex: string, x: number, y: number, w: number, h: number, tile = 300, edge = true) { if (tex === 'slab' || tex === 'flag2') tile = Math.min(tile, 160); this.ground.push({ kind: 'pat', x, y, w, h, p: { tex, tile, edge } }); }
   decal(tex: string, x: number, y: number, w: number, h: number) { this.ground.push({ kind: 'dec', x, y, w, h, p: { tex } }); }
+  /** 第二十三步：摆件语境（决定铺子门口、民居旁摆什么） */
+  ctx: 'city' | 'town' | 'sect' | 'demon' | 'village' | 'isle' = 'town';
+  /** 放一件贴图摆件（p_ 前缀画材）。solid：挡路（小块碰撞） */
+  sp(k: string, x: number, y: number, o: { f?: boolean; solid?: boolean; force?: boolean; s?: number } = {}): boolean {
+    const key = 'p_' + k, D = BLD2[key]; if (!D) return false;
+    const s = o.s ?? 1, w = D.w * s;
+    if (!o.force && (!this.site(x, y) || !this.site(x - w * 0.4, y) || !this.site(x + w * 0.4, y) || this.overlaps({ x0: x - w * 0.42, y0: y - 18, x1: x + w * 0.42, y1: y + 6 }, 0))) return false;
+    this.pieces.push({ kind: 'B', x, y, seed: this.seed + ++this.sid * 7919, p: { k: key, s, f: !!o.f, w, h: D.h * s, prop: true } });
+    if (o.solid !== false) this.blocks.push({ x: x - w * 0.36, y: y - 26, w: w * 0.72, h: 22 });
+    this.occ.push({ x0: x - w * 0.45, y0: y - 30, x1: x + w * 0.45, y1: y + 10 });
+    return true;
+  }
+  /** 铺子门前左右角的摆件：一看便知是什么店 */
+  private facProp(fn: Fac, x: number, y: number, w: number) {
+    const dk = this.ctx === 'demon', L = x - w * 0.36, R = x + w * 0.36, Y = y + 58;
+    const pair = (k: string, k2 = k) => { this.sp(k, L, Y, { force: true }); this.sp(k2, R, Y, { force: true, f: k === k2 }); };
+    switch (fn) {
+      case 'pill': if (this.ctx === 'sect' || dk) this.sp(dk ? 'cauldron_dark' : 'cauldron', R, Y + 6, { force: true }); else pair('herbpot'); break;
+      case 'artifact': this.sp('weaponrack', R, Y, { force: true }); break;
+      case 'talisman': pair('slantern'); break;
+      case 'tavern': this.sp('barrels', L, Y, { force: true }); break;
+      case 'rest': this.sp(this.ctx === 'city' ? 'oxcart' : 'cart', R + 40, Y + 10, { force: true }); break;
+      case 'market': this.sp(this.rnd() < 0.5 ? 'crates' : 'barrels', R, Y, { force: true }); break;
+      case 'auction': pair('lion_l', 'lion_r'); break;
+      case 'sect': pair(dk ? 'brazier' : 'censer', dk ? 'brazier' : 'censer'); break;
+      default: break;
+    }
+  }
+  /** 民居旁的杂物 */
+  private houseProp(x: number, y: number, w: number) {
+    const pool = this.ctx === 'village' ? ['haystack', 'firewood', 'barrow', 'trough', 'firewood'] : this.ctx === 'isle' ? ['barrels', 'crates', 'barrels'] : this.ctx === 'sect' || this.ctx === 'demon' ? ['slantern', 'herbpot'] : ['barrels', 'crates', 'firewood', 'barrow'];
+    const side = this.rnd() < 0.5 ? -1 : 1;
+    this.sp(this.pick(pool), x + side * w * this.R(0.3, 0.4), y + 56, { f: this.rnd() < 0.5 });
+  }
   /** 落在铺装（街巷、广场）上 */
   onPave(x: number, y: number, m = 30) {
     for (const g of this.ground) if (g.kind === 'pat' && !g.p.base && Math.abs(x - g.x) < g.w / 2 + m && Math.abs(y - g.y) < g.h / 2 + m) return true;
@@ -143,7 +179,7 @@ class TB {
       if (w > room) { if (item.fn) continue; else continue; }
       const cx = cur + dir * w / 2;
       const p = this.bld(item.k, cx, y, { fn: item.fn, name: item.name, s: item.s, f: !item.fn && this.rnd() < 0.3, v: o.v });
-      if (p) { out.push(p); last = item.k; cur += dir * (w + this.R(g0, g1)); if (!item.fn && this.rnd() < 0.18) this.smoke.push({ x: cx + this.R(-0.2, 0.2) * w, y: y - p.h * 0.8 }); }
+      if (p) { out.push(p); last = item.k; cur += dir * (w + this.R(g0, g1)); if (!item.fn && this.rnd() < 0.18) this.smoke.push({ x: cx + this.R(-0.2, 0.2) * w, y: y - p.h * 0.8 }); if (!item.fn && w > 240 && this.rnd() < 0.32) this.houseProp(cx, y, w); }
       else { if (item.fn) queue.unshift(item); cur += dir * 140; if (item.fn && guard > 30) queue.shift(); }
     }
     return out;
@@ -288,9 +324,12 @@ function city(b: TB, loc: LocDef, st: CityStyle, isMajorTown: boolean) {
     b.backTrees(y - 290, -xw + 200, xw - 200, st.trees, major ? 7 : 5);
   }
   // —— 街景：灯笼、水井、城外树
-  for (let y = yS - 300; y > yN; y -= 300) for (const sx of [-1, 1]) if (Math.abs(y - (pr - 30)) > 300) b.prop('lantern', sx * (AV / 2 + 12), y, { col: '#c83a2a' });
-  b.prop('well', -xw * 0.3, yS - 120); b.prop('well', xw * 0.36, rows[2] + 150);
-  b.prop('lion', 0, yS + 40, { gap: 150 });
+  for (let y = yS - 300; y > yN; y -= 300) for (const sx of [-1, 1]) if (Math.abs(y - (pr - 30)) > 300) b.sp('lamppost', sx * (AV / 2 + 22), y, { f: sx > 0, force: true });
+  b.sp('well', -xw * 0.3, yS - 120); b.sp('well', xw * 0.36, rows[2] + 150);
+  b.sp('lion_l', -110, yS + 60, { force: true }); b.sp('lion_r', 110, yS + 60, { force: true });
+  // 城门内：路牌、告示、水槽；传送阵四角石灯
+  b.sp('signpost', 190, yS - 300); b.sp('trough', -xw + 420, yS - 300);
+  for (const [dx, dy] of [[-260, -170], [260, -170], [-260, 120], [260, 120]]) b.sp('slantern', dx, pr - 30 + dy, { force: true });
   b.ring(0, (yS + yN) / 2, xw + 420, (yS - yN) / 2 + 420, major ? 26 : 18, st.trees);
   st.extra?.(b, { W, yS, yN, rows });
   return { gw: W + 1200, gh: yS - yN + 1300, cy: (yS + yN) / 2 };
@@ -334,10 +373,11 @@ function town(b: TB, loc: LocDef, region: string, opts: { big?: boolean; fort?: 
     b.backTrees(y - 380, -xw + 150, xw - 150, dj ? ['broad', 'pine', 'cypress'] : ['willow', 'broad', 'peach'], 4);
   }
   // 悬赏告示（十字路口的告示牌）
-  b.prop('stele', 210, rows[0] + 170, { z: 2.2 });
-  b.doors.push({ x: 210, y: rows[0] + 200, fn: 'board', name: '悬赏榜' });
-  b.prop('well', -260, rows[0] + 190);
-  for (let y = yS - 160; y > rows[nR - 1] + 100; y -= 320) for (const sx of [-1, 1]) b.prop('lantern', sx * 140, y, { col: '#c83a2a' });
+  b.sp('notice', 230, rows[0] + 175, { force: true });
+  b.doors.push({ x: 230, y: rows[0] + 200, fn: 'board', name: '悬赏榜' });
+  b.sp('well', -260, rows[0] + 190);
+  for (let y = yS - 160; y > rows[nR - 1] + 100; y -= 320) for (const sx of [-1, 1]) b.sp('lamppost', sx * 150, y, { f: sx > 0, force: true });
+  b.sp('signpost', -150, yS - 40);
   b.ring(0, (yS + yN) / 2, xw + 300, (yS - yN) / 2 + 300, 16, dj ? ['broad', 'pine', 'willow'] : ['willow', 'broad', 'peach', 'pine']);
   return { gw: W + 900, gh: yS - yN + 1000, cy: (yS + yN) / 2 };
 }
@@ -352,7 +392,8 @@ function village(b: TB, kind: 'farm' | 'north' | 'snow' | 'steppe' | 'isle') {
   b.spots.push({ x: 0, y: 60 }, { x: -400, y: 40 }, { x: 400, y: 40 }, { x: 0, y: 360 });
   const nc = b.node(0, 40), nw = b.node(-560, 40), ne = b.node(560, 40), ns = b.node(0, 560);
   b.link(nc, nw); b.link(nc, ne); b.link(nc, ns);
-  if (kind !== 'steppe') b.prop('well', 120, 0); else b.bld('t05', 140, -10, { force: true });
+  if (kind !== 'steppe') b.sp('well', 120, 0, { force: true }); else b.bld('t05', 140, -10, { force: true });
+  if (kind === 'steppe') { b.sp('banner_steppe', -160, 10, { force: true }); b.sp('banner_steppe', 300, 20, { force: true, f: true }); }
   // 两排：北排 3–4 座，南排 1–3 座
   const slots: [number, number][] = [[-480, -30], [0, -40], [480, -30], [-880, -10], [880, -10], [-470, 470], [470, 470], [-850, 480]];
   let placed = 0;
@@ -368,7 +409,8 @@ function village(b: TB, kind: 'farm' | 'north' | 'snow' | 'steppe' | 'isle') {
   if (kind === 'steppe') { b.bld('t04', -300, -520, {}); b.prop('fence', 0, 760, { len: 600 }); }
   // 田 / 圈
   if (kind === 'farm' || kind === 'north') {
-    for (const [fx, fy] of [[-1100, 300], [1100, 300], [-900, 820], [900, 820], [0, 980]]) if (b.site(fx, fy) && b.rnd() < 0.8) { b.pave(b.rnd() < 0.5 ? 'farm' : 'farm2', fx, fy, b.R(420, 620), b.R(240, 340), 260); }
+    for (const [fx, fy] of [[-1100, 300], [1100, 300], [-900, 820], [900, 820], [0, 980]]) if (b.site(fx, fy) && b.rnd() < 0.8) { b.pave(b.rnd() < 0.5 ? 'farm' : 'farm2', fx, fy, b.R(420, 620), b.R(240, 340), 260); if (b.rnd() < 0.45) b.sp('scarecrow', fx + b.R(-120, 120), fy + b.R(-40, 60), { force: true, solid: false }); }
+    b.sp('haystack', -700, 200); b.sp('trough', 260, 200);
   }
   const sps: Species[] = kind === 'snow' ? ['snowpine'] : kind === 'steppe' ? ['broad', 'dead'] : kind === 'isle' ? ['palm', 'palm', 'broad'] : ['willow', 'broad', 'peach', 'apricot'];
   b.tree(sps[0] === 'palm' ? 'palm' : kind === 'snow' ? 'snowpine' : 'broad', -150, 150, 0.8);
@@ -418,7 +460,13 @@ function sect(b: TB, loc: LocDef, fam: SectFam, major: boolean, trees: Species[]
   const gw = b.w(fam.gate);
   b.bld(fam.gate, 0, yG, { gate: true, force: true, lit: false });
   if (fam.wall) { b.wall(fam.wall[0], -xw, -gw / 2 + 4, yG, fam.wall[1]); b.wall(fam.wall[0], gw / 2 - 4, xw, yG, fam.wall[1]); }
-  b.prop('lion', 0, yG + 50, { gap: Math.min(200, gw * 0.3) });
+  { const gp = Math.min(240, gw * 0.32), dk = b.ctx === 'demon';
+    b.sp('lion_l', -gp / 2 - 30, yG + 70, { force: true }); b.sp('lion_r', gp / 2 + 30, yG + 70, { force: true });
+    b.sp(dk ? 'banner_demon' : 'banner_sect', -gw / 2 - 40, yG + 40, { force: true }); b.sp(dk ? 'banner_demon' : 'banner_sect', gw / 2 + 40, yG + 40, { force: true, f: true });
+    // 中轴石灯
+    for (let y = yG - 220; y > yA + 380; y -= 260) for (const sx of [-1, 1]) b.sp('slantern', sx * 170, y, { force: true, f: sx > 0 });
+    for (const sx of [-1, 1]) b.sp('slantern', sx * 170, (yA + yB) / 2, { force: true });
+  }
   b.pave('road', 0, yG + 330, 300, 540, 340);
   // —— 前广场
   b.street(plaza, 0, yG + 120, 0, yC + 160, 260, 340);
@@ -456,7 +504,15 @@ function sect(b: TB, loc: LocDef, fam: SectFam, major: boolean, trees: Species[]
     b.bld('b41', xw - 330, yG - 260, { gate: true });
     for (const [fx, fy] of [[xw - 470, yA - 140], [xw - 190, yA - 140], [xw - 470, yA - 470], [xw - 190, yA - 470]]) b.decal(b.rnd() < 0.7 ? 'd_field' : 'd_flower', fx, fy, 270, 230);
   }
-  if (loc.id !== 'yanyue' && loc.id !== 'hehuan') b.bld('b40', -xw + 330, yA + 270, {});   // 这两家西侧是水榭荷塘
+  if (loc.id !== 'yanyue' && loc.id !== 'hehuan') {
+    b.bld('b40', -xw + 330, yA + 270, {});
+    // 演武场：兵器架、木人桩、箭靶
+    const tx = -xw + 330, ty = yA + 470;
+    b.sp('weaponrack', tx - 170, ty); b.sp('dummy', tx + 10, ty + 10); b.sp('dummy', tx + 130, ty - 10); b.sp('target', tx + 260, ty);
+  }
+  if (b.ctx === 'demon') { b.sp('crystal_blood', 260, yG - 420); b.sp('crystal_blood', -260, yG - 400, { f: true }); b.sp('cauldron_dark', 0, yB + 200, { force: true }); }
+  else b.sp('censer', 0, yB + 210, { force: true });
+  b.sp('herbpot', xw - 620, yA - 140); b.sp('herbpot', xw - 620, yA - 470);
   fam.extra?.(b, { yG, yA, yB, yC, xw });
   b.bld('b23c', 1000, yA + 360, { fn: 'market', name: '坊市' });
   // 林木：山门外两侧与后山
@@ -481,10 +537,10 @@ function isleTown(b: TB, loc: LocDef) {
   const facW: { k: string; fn?: Fac; name?: string }[][] = [[{ k: 'b16', fn: 'pill' }, { k: 'x09b', fn: 'market' }], [{ k: 'b37a', fn: 'artifact' }]];
   const facE: { k: string; fn?: Fac; name?: string }[][] = [[{ k: 'b17', fn: 'rest' }, { k: 'x06', fn: 'tavern', name: '酒肆' }], [{ k: 'b37b', fn: 'talisman' }, ...(major ? [{ k: 'b38', fn: 'auction' as Fac }] : [])]];
   for (let r = 0; r < nR; r++) for (const dir of [-1, 1] as const) b.row(rows[r], dir * (r === nR - 1 ? b.w('x11') / 2 + 50 : 150), dir * (xw - 80), dir, houses, (dir < 0 ? facW[r] : facE[r]) ?? []);
-  b.prop('stele', 200, rows[0] + 160, { z: 2.2 }); b.doors.push({ x: 200, y: rows[0] + 190, fn: 'board', name: '悬赏榜' });
+  b.sp('notice', 220, rows[0] + 165, { force: true }); b.doors.push({ x: 220, y: rows[0] + 190, fn: 'board', name: '悬赏榜' });
   b.bld('x08', xw + 200, rows[0] - 200, {});
   const sy = shoreY(b, rows[0] + 300);
-  if (sy !== null) { b.bld('x07', -200, sy + 120, { force: true, lit: false, depth: 60 }); if (major) b.bld('x13', 520, sy + 40, {}); b.street('slab', 0, rows[0] + 460, 0, sy - 20, 180); }
+  if (sy !== null) { b.bld('x07', -200, sy + 120, { force: true, lit: false, depth: 60 }); if (major) b.bld('x13', 520, sy + 40, {}); b.street('slab', 0, rows[0] + 460, 0, sy - 20, 180); b.sp('barrels', 160, sy - 60); b.sp('crates', 300, sy - 50); b.sp('boat_s', -520, sy + 200, { force: true, solid: false }); }
   b.ring(0, rows[0] - 200, xw + 300, 700, 16, ['palm', 'palm', 'broad']);
   return { gw: W + 900, gh: 2200, cy: rows[0] - 200 };
 }
@@ -495,7 +551,7 @@ function isleSmall(b: TB) {
   b.link(b.node(-420, 40), b.node(420, 40));
   const xs = [-420, 0, 420, -800, 800];
   for (let i = 0; i < n; i++) b.bld(b.pick(['x04a', 'x04b', 'x05']), xs[i] + b.R(-30, 30), -30, { f: b.rnd() < 0.4 });
-  const sy = shoreY(b, 200, 1600); if (sy !== null) b.bld('x07', 0, sy + 120, { force: true, lit: false, depth: 60 });
+  const sy = shoreY(b, 200, 1600); if (sy !== null) { b.bld('x07', 0, sy + 120, { force: true, lit: false, depth: 60 }); b.sp('boat_s', -360, sy + 180, { force: true, solid: false }); b.sp('barrels', 150, sy - 50); }
   b.ring(0, 0, 800, 480, 10, ['palm', 'palm', 'broad']);
   return { gw: 2000, gh: 1600, cy: 0 };
 }
@@ -509,6 +565,7 @@ export function layoutTown2(loc: LocDef, L: LocLayout, env: Env, rnd: () => numb
   if (t === 'sect') {
     const fam = SECT_FAM[loc.id] ?? { gate: 'b04', hall: 'b01', wall: ['b13_strip', 108] as [string, number] };
     b.v = fam.v;
+    b.ctx = fam.v === 'dark' ? 'demon' : 'sect';
     r = sect(b, loc, fam, !!loc.major, trees);
     if (L.barrier) L.barrier = { x: 0, y: r.cy / LS, rx: (r.rx ?? 2000) / LS, ry: (r.ry ?? 1800) / LS, color: L.barrier?.color ?? '#80c0e0' };
   } else if (t === 'city') {
@@ -516,13 +573,14 @@ export function layoutTown2(loc: LocDef, L: LocLayout, env: Env, rnd: () => numb
     const s2 = { ...st };
     if (loc.id === 'jinjing' || loc.id === 'yuejing') s2.palace = ['j02', 'j01'];
     if (loc.id === 'tianxing') s2.extra = (bb, o) => { bb.bld('x02', -760, o.rows[o.rows.length - 1] + 60, { force: true }); bb.bld('x02', 760, o.rows[o.rows.length - 1] + 60, { force: true }); };
+    b.ctx = 'city';
     r = city(b, loc, s2, isMajorTown);
   } else if (t === 'town') {
     if (loc.minor) {
       const kind = map === 'luanxing' ? 'isle' : map === 'dajin' ? (env.cold > 0.45 ? 'snow' : 'north') : env.arid > 0.55 ? 'steppe' : env.cold > 0.6 ? 'snow' : 'farm';
-      r = village(b, kind);
+      b.ctx = 'village'; r = village(b, kind);
     } else if (loc.id === 'mulan' || loc.id === 'tuwu') {
-      r = village(b, 'steppe');
+      b.ctx = 'village'; r = village(b, 'steppe');
       if (loc.id === 'tuwu') { b.bld('j18', -200, 560, { force: true, lit: false }); b.bld('j18', 220, 560, { force: true, lit: false }); }
       else { b.bld('t03', 0, -560, { force: true }); }
     } else if (loc.id === 'jin_fangshi') {
@@ -533,9 +591,9 @@ export function layoutTown2(loc: LocDef, L: LocLayout, env: Env, rnd: () => numb
     }
   } else if (t === 'isle') {
     const fam = loc.id === 'jiyin' ? SECT_FAM.jiyin : loc.id === 'miaoyin' ? SECT_FAM.miaoyin : null;
-    if (fam) { b.v = fam.v; r = sect(b, loc, fam, false, trees); if (L.barrier) L.barrier = { x: 0, y: r.cy / LS, rx: (r.rx ?? 2000) / LS, ry: (r.ry ?? 1800) / LS, color: L.barrier?.color ?? '#80c0e0' }; }
-    else if (loc.minor) r = isleSmall(b);
-    else r = isleTown(b, loc);
+    if (fam) { b.v = fam.v; b.ctx = fam.v === 'dark' ? 'demon' : 'sect'; r = sect(b, loc, fam, false, trees); if (L.barrier) L.barrier = { x: 0, y: r.cy / LS, rx: (r.rx ?? 2000) / LS, ry: (r.ry ?? 1800) / LS, color: L.barrier?.color ?? '#80c0e0' }; }
+    else if (loc.minor) { b.ctx = 'isle'; r = isleSmall(b); }
+    else { b.ctx = 'isle'; r = isleTown(b, loc); }
   }
   if (!r) return false;
   void pal;

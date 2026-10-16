@@ -136,7 +136,7 @@ export function SkillPanel({ game, onClose }: { game: Game; onClose: () => void 
                 const d = itemDef(id), key = 'tal:' + id;
                 return (
                   <button key={id} className={'skill-row' + (sel === key ? ' on' : '')} onClick={() => { setSel(key); audio.sfx('click'); }}>
-                    <span className="sk-glyph" style={{ background: d.tal?.color ?? '#a08040' }}>{d.name[0]}</span>
+                    <ItemGlyph id={d.id} className="sk-glyph" style={{ background: d.tal?.color ?? '#a08040' }} />
                     <span className="sk-name">{d.name}<small>符箓 ×{talCount(game, id)}</small></span>
                     {h.hotbar.includes(key) && <span className="sk-slot">{h.hotbar.indexOf(key) + 1}</span>}
                   </button>
