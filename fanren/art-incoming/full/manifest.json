@@ -1,7 +1,7 @@
 {
   "version": "full",
   "style": "Song-dynasty ink-wash and light mineral color (round1b standard)",
-  "total_png_assets": 163,
+  "total_png_assets": 337,
   "assets": [
     {
       "id": "D01_grasstuft",
@@ -1751,6 +1751,692 @@
       "person_px": 215
     },
     {
+      "id": "bingchan_attack",
+      "file": "beasts/bingchan_attack.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "bingchan_idle",
+      "file": "beasts/bingchan_idle.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "bloodbat_attack",
+      "file": "beasts/bloodbat_attack.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "bloodbat_idle",
+      "file": "beasts/bloodbat_idle.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "bloodleech_attack",
+      "file": "beasts/bloodleech_attack.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "bloodleech_idle",
+      "file": "beasts/bloodleech_idle.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "bloodpuppet_attack",
+      "file": "beasts/bloodpuppet_attack.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "bloodpuppet_idle",
+      "file": "beasts/bloodpuppet_idle.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "bonebird_attack",
+      "file": "beasts/bonebird_attack.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "bonebird_idle",
+      "file": "beasts/bonebird_idle.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "centipede_attack",
+      "file": "beasts/centipede_attack.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "centipede_idle",
+      "file": "beasts/centipede_idle.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "corpsedog_attack",
+      "file": "beasts/corpsedog_attack.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "corpsedog_idle",
+      "file": "beasts/corpsedog_idle.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "crab_attack",
+      "file": "beasts/crab_attack.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "crab_idle",
+      "file": "beasts/crab_idle.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "dujiao_attack",
+      "file": "beasts/dujiao_attack.png",
+      "category": "beasts",
+      "width": 1200,
+      "height": 1200,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "dujiao_charge",
+      "file": "beasts/dujiao_charge.png",
+      "category": "beasts",
+      "width": 1200,
+      "height": 1200,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "dujiao_idle",
+      "file": "beasts/dujiao_idle.png",
+      "category": "beasts",
+      "width": 1200,
+      "height": 1200,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "eyebeetle_attack",
+      "file": "beasts/eyebeetle_attack.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "eyebeetle_idle",
+      "file": "beasts/eyebeetle_idle.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "fengxi_attack",
+      "file": "beasts/fengxi_attack.png",
+      "category": "beasts",
+      "width": 1200,
+      "height": 1200,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "fengxi_charge",
+      "file": "beasts/fengxi_charge.png",
+      "category": "beasts",
+      "width": 1200,
+      "height": 1200,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "fengxi_idle",
+      "file": "beasts/fengxi_idle.png",
+      "category": "beasts",
+      "width": 1200,
+      "height": 1200,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "firelizard_attack",
+      "file": "beasts/firelizard_attack.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "firelizard_idle",
+      "file": "beasts/firelizard_idle.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "flamebull_attack",
+      "file": "beasts/flamebull_attack.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "flamebull_idle",
+      "file": "beasts/flamebull_idle.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "frostwolf_attack",
+      "file": "beasts/frostwolf_attack.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "frostwolf_idle",
+      "file": "beasts/frostwolf_idle.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "ghostface_spider_attack",
+      "file": "beasts/ghostface_spider_attack.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "ghostface_spider_idle",
+      "file": "beasts/ghostface_spider_idle.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "ghostsoldier_attack",
+      "file": "beasts/ghostsoldier_attack.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "ghostsoldier_idle",
+      "file": "beasts/ghostsoldier_idle.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "goldbeetle_attack",
+      "file": "beasts/goldbeetle_attack.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "goldbeetle_idle",
+      "file": "beasts/goldbeetle_idle.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "goldmonkey_attack",
+      "file": "beasts/goldmonkey_attack.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "goldmonkey_idle",
+      "file": "beasts/goldmonkey_idle.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "golem_attack",
+      "file": "beasts/golem_attack.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "golem_idle",
+      "file": "beasts/golem_idle.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "guijiang_attack",
+      "file": "beasts/guijiang_attack.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "guijiang_idle",
+      "file": "beasts/guijiang_idle.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "guiwang_attack",
+      "file": "beasts/guiwang_attack.png",
+      "category": "beasts",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "guiwang_idle",
+      "file": "beasts/guiwang_idle.png",
+      "category": "beasts",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "gumo_xueyan_attack",
+      "file": "beasts/gumo_xueyan_attack.png",
+      "category": "beasts",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "gumo_xueyan_charge",
+      "file": "beasts/gumo_xueyan_charge.png",
+      "category": "beasts",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "gumo_xueyan_idle",
+      "file": "beasts/gumo_xueyan_idle.png",
+      "category": "beasts",
+      "width": 1536,
+      "height": 1536,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "huanhu_attack",
+      "file": "beasts/huanhu_attack.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "huanhu_idle",
+      "file": "beasts/huanhu_idle.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
       "id": "huochan_attack",
       "file": "beasts/huochan_attack.png",
       "category": "beasts",
@@ -1770,6 +2456,230 @@
       "category": "beasts",
       "width": 660,
       "height": 429,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "icebear_attack",
+      "file": "beasts/icebear_attack.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "icebear_idle",
+      "file": "beasts/icebear_idle.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "ironboar_attack",
+      "file": "beasts/ironboar_attack.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "ironboar_idle",
+      "file": "beasts/ironboar_idle.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "jiguan_attack",
+      "file": "beasts/jiguan_attack.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "jiguan_idle",
+      "file": "beasts/jiguan_idle.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "mangshou_attack",
+      "file": "beasts/mangshou_attack.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "mangshou_idle",
+      "file": "beasts/mangshou_idle.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "miasmacrow_attack",
+      "file": "beasts/miasmacrow_attack.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "miasmacrow_idle",
+      "file": "beasts/miasmacrow_idle.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "mistfox_attack",
+      "file": "beasts/mistfox_attack.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "mistfox_idle",
+      "file": "beasts/mistfox_idle.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "mo_soul_attack",
+      "file": "beasts/mo_soul_attack.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "mo_soul_idle",
+      "file": "beasts/mo_soul_idle.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "modao_guard_attack",
+      "file": "beasts/modao_guard_attack.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "modao_guard_idle",
+      "file": "beasts/modao_guard_idle.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
       "alpha": true,
       "person_px": 320,
       "anchor": [
@@ -1807,6 +2717,608 @@
       "facing": "right"
     },
     {
+      "id": "poisonfrog_attack",
+      "file": "beasts/poisonfrog_attack.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "poisonfrog_idle",
+      "file": "beasts/poisonfrog_idle.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "python_attack",
+      "file": "beasts/python_attack.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "python_idle",
+      "file": "beasts/python_idle.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "redwolf_attack",
+      "file": "beasts/redwolf_attack.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "redwolf_idle",
+      "file": "beasts/redwolf_idle.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "rockape_attack",
+      "file": "beasts/rockape_attack.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "rockape_idle",
+      "file": "beasts/rockape_idle.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "sandworm_attack",
+      "file": "beasts/sandworm_attack.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "sandworm_idle",
+      "file": "beasts/sandworm_idle.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "scale_fish_attack",
+      "file": "beasts/scale_fish_attack.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "scale_fish_idle",
+      "file": "beasts/scale_fish_idle.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "scorp_attack",
+      "file": "beasts/scorp_attack.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "scorp_idle",
+      "file": "beasts/scorp_idle.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "sea_ape_attack",
+      "file": "beasts/sea_ape_attack.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "sea_ape_idle",
+      "file": "beasts/sea_ape_idle.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "seaturtle_attack",
+      "file": "beasts/seaturtle_attack.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "seaturtle_idle",
+      "file": "beasts/seaturtle_idle.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "sha_beast_attack",
+      "file": "beasts/sha_beast_attack.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "sha_beast_idle",
+      "file": "beasts/sha_beast_idle.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "shadowpanther_attack",
+      "file": "beasts/shadowpanther_attack.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "shadowpanther_idle",
+      "file": "beasts/shadowpanther_idle.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "shuanggong_attack",
+      "file": "beasts/shuanggong_attack.png",
+      "category": "beasts",
+      "width": 1400,
+      "height": 1400,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "shuanggong_charge",
+      "file": "beasts/shuanggong_charge.png",
+      "category": "beasts",
+      "width": 1400,
+      "height": 1400,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "shuanggong_idle",
+      "file": "beasts/shuanggong_idle.png",
+      "category": "beasts",
+      "width": 1400,
+      "height": 1400,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "shumo_attack",
+      "file": "beasts/shumo_attack.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "shumo_idle",
+      "file": "beasts/shumo_idle.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "spider_attack",
+      "file": "beasts/spider_attack.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "spider_idle",
+      "file": "beasts/spider_idle.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "stoneworm_attack",
+      "file": "beasts/stoneworm_attack.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "stoneworm_idle",
+      "file": "beasts/stoneworm_idle.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "swampcroc_attack",
+      "file": "beasts/swampcroc_attack.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "swampcroc_idle",
+      "file": "beasts/swampcroc_idle.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "thunderhawk_attack",
+      "file": "beasts/thunderhawk_attack.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "thunderhawk_idle",
+      "file": "beasts/thunderhawk_idle.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "thunderwhale_attack",
+      "file": "beasts/thunderwhale_attack.png",
+      "category": "beasts",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "thunderwhale_idle",
+      "file": "beasts/thunderwhale_idle.png",
+      "category": "beasts",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "treefiend_attack",
+      "file": "beasts/treefiend_attack.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "treefiend_idle",
+      "file": "beasts/treefiend_idle.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "tujia_attack",
+      "file": "beasts/tujia_attack.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "tujia_idle",
+      "file": "beasts/tujia_idle.png",
+      "category": "beasts",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "windweasel_attack",
+      "file": "beasts/windweasel_attack.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "windweasel_idle",
+      "file": "beasts/windweasel_idle.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
       "id": "wolf_attack",
       "file": "beasts/wolf_attack.png",
       "category": "beasts",
@@ -1835,6 +3347,132 @@
       "facing": "right"
     },
     {
+      "id": "xiejiao_attack",
+      "file": "beasts/xiejiao_attack.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "xiejiao_idle",
+      "file": "beasts/xiejiao_idle.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "xuan_turtle_attack",
+      "file": "beasts/xuan_turtle_attack.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "xuan_turtle_idle",
+      "file": "beasts/xuan_turtle_idle.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "xuefeng_attack",
+      "file": "beasts/xuefeng_attack.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "xuefeng_idle",
+      "file": "beasts/xuefeng_idle.png",
+      "category": "beasts",
+      "width": 900,
+      "height": 900,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "yinchi_attack",
+      "file": "beasts/yinchi_attack.png",
+      "category": "beasts",
+      "width": 1400,
+      "height": 1400,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "yinchi_charge",
+      "file": "beasts/yinchi_charge.png",
+      "category": "beasts",
+      "width": 1400,
+      "height": 1400,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "yinchi_idle",
+      "file": "beasts/yinchi_idle.png",
+      "category": "beasts",
+      "width": 1400,
+      "height": 1400,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
       "id": "yinhun_attack",
       "file": "beasts/yinhun_attack.png",
       "category": "beasts",
@@ -1854,6 +3492,790 @@
       "category": "beasts",
       "width": 680,
       "height": 480,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "yu_soul_attack",
+      "file": "beasts/yu_soul_attack.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "yu_soul_idle",
+      "file": "beasts/yu_soul_idle.png",
+      "category": "beasts",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_butterfly_idle",
+      "file": "ambient/amb_butterfly_idle.png",
+      "category": "ambient",
+      "width": 192,
+      "height": 192,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_camel_idle",
+      "file": "ambient/amb_camel_idle.png",
+      "category": "ambient",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_camel_walk",
+      "file": "ambient/amb_camel_walk.png",
+      "category": "ambient",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_carp_a_idle",
+      "file": "ambient/amb_carp_a_idle.png",
+      "category": "ambient",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_carp_b_idle",
+      "file": "ambient/amb_carp_b_idle.png",
+      "category": "ambient",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_chicken_idle",
+      "file": "ambient/amb_chicken_idle.png",
+      "category": "ambient",
+      "width": 192,
+      "height": 192,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_crane_fly",
+      "file": "ambient/amb_crane_fly.png",
+      "category": "ambient",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_crane_idle",
+      "file": "ambient/amb_crane_idle.png",
+      "category": "ambient",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_deer_idle",
+      "file": "ambient/amb_deer_idle.png",
+      "category": "ambient",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_deer_walk",
+      "file": "ambient/amb_deer_walk.png",
+      "category": "ambient",
+      "width": 384,
+      "height": 384,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_dog_idle",
+      "file": "ambient/amb_dog_idle.png",
+      "category": "ambient",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_duck_idle",
+      "file": "ambient/amb_duck_idle.png",
+      "category": "ambient",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_egret_idle",
+      "file": "ambient/amb_egret_idle.png",
+      "category": "ambient",
+      "width": 320,
+      "height": 320,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_firefly_idle",
+      "file": "ambient/amb_firefly_idle.png",
+      "category": "ambient",
+      "width": 192,
+      "height": 192,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_horse_idle",
+      "file": "ambient/amb_horse_idle.png",
+      "category": "ambient",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_horse_walk",
+      "file": "ambient/amb_horse_walk.png",
+      "category": "ambient",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_monkey_idle",
+      "file": "ambient/amb_monkey_idle.png",
+      "category": "ambient",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_ox_idle",
+      "file": "ambient/amb_ox_idle.png",
+      "category": "ambient",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_ox_walk",
+      "file": "ambient/amb_ox_walk.png",
+      "category": "ambient",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_rabbit_idle",
+      "file": "ambient/amb_rabbit_idle.png",
+      "category": "ambient",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_seagull_idle",
+      "file": "ambient/amb_seagull_idle.png",
+      "category": "ambient",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_sheep_idle",
+      "file": "ambient/amb_sheep_idle.png",
+      "category": "ambient",
+      "width": 320,
+      "height": 320,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_snowfox_idle",
+      "file": "ambient/amb_snowfox_idle.png",
+      "category": "ambient",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_turtle_idle",
+      "file": "ambient/amb_turtle_idle.png",
+      "category": "ambient",
+      "width": 256,
+      "height": 256,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_yak_idle",
+      "file": "ambient/amb_yak_idle.png",
+      "category": "ambient",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "amb_yak_walk",
+      "file": "ambient/amb_yak_walk.png",
+      "category": "ambient",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "pet_ape_attack",
+      "file": "pets/pet_ape_attack.png",
+      "category": "pets",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "pet_ape_idle",
+      "file": "pets/pet_ape_idle.png",
+      "category": "pets",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "pet_crane_attack",
+      "file": "pets/pet_crane_attack.png",
+      "category": "pets",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "pet_crane_idle",
+      "file": "pets/pet_crane_idle.png",
+      "category": "pets",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "pet_fox1_attack",
+      "file": "pets/pet_fox1_attack.png",
+      "category": "pets",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "pet_fox1_idle",
+      "file": "pets/pet_fox1_idle.png",
+      "category": "pets",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "pet_fox2_attack",
+      "file": "pets/pet_fox2_attack.png",
+      "category": "pets",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "pet_fox2_idle",
+      "file": "pets/pet_fox2_idle.png",
+      "category": "pets",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "pet_fox3_attack",
+      "file": "pets/pet_fox3_attack.png",
+      "category": "pets",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "pet_fox3_idle",
+      "file": "pets/pet_fox3_idle.png",
+      "category": "pets",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "pet_shijin_attack",
+      "file": "pets/pet_shijin_attack.png",
+      "category": "pets",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "pet_shijin_idle",
+      "file": "pets/pet_shijin_idle.png",
+      "category": "pets",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "pet_wolf_attack",
+      "file": "pets/pet_wolf_attack.png",
+      "category": "pets",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "pet_wolf_idle",
+      "file": "pets/pet_wolf_idle.png",
+      "category": "pets",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "sum_baigu_attack",
+      "file": "summons/sum_baigu_attack.png",
+      "category": "summons",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "sum_baigu_idle",
+      "file": "summons/sum_baigu_idle.png",
+      "category": "summons",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "sum_ligui_attack",
+      "file": "summons/sum_ligui_attack.png",
+      "category": "summons",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "sum_ligui_idle",
+      "file": "summons/sum_ligui_idle.png",
+      "category": "summons",
+      "width": 600,
+      "height": 600,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "sum_motou_attack",
+      "file": "summons/sum_motou_attack.png",
+      "category": "summons",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "sum_motou_idle",
+      "file": "summons/sum_motou_idle.png",
+      "category": "summons",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "sum_puppet_attack",
+      "file": "summons/sum_puppet_attack.png",
+      "category": "summons",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "sum_puppet_idle",
+      "file": "summons/sum_puppet_idle.png",
+      "category": "summons",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "sum_qingjiao_attack",
+      "file": "summons/sum_qingjiao_attack.png",
+      "category": "summons",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "sum_qingjiao_idle",
+      "file": "summons/sum_qingjiao_idle.png",
+      "category": "summons",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "sum_tihun_attack",
+      "file": "summons/sum_tihun_attack.png",
+      "category": "summons",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "sum_tihun_idle",
+      "file": "summons/sum_tihun_idle.png",
+      "category": "summons",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "sum_xuanwu_attack",
+      "file": "summons/sum_xuanwu_attack.png",
+      "category": "summons",
+      "width": 768,
+      "height": 768,
+      "alpha": true,
+      "person_px": 320,
+      "anchor": [
+        0.5,
+        0.85
+      ],
+      "facing": "right"
+    },
+    {
+      "id": "sum_xuanwu_idle",
+      "file": "summons/sum_xuanwu_idle.png",
+      "category": "summons",
+      "width": 768,
+      "height": 768,
       "alpha": true,
       "person_px": 320,
       "anchor": [
@@ -1966,6 +4388,14 @@
         512,
         590
       ]
+    },
+    {
+      "id": "mockup_beasts",
+      "file": "mockups/mockup_beasts.png",
+      "category": "mockups",
+      "width": 1920,
+      "height": 1080,
+      "alpha": false
     },
     {
       "id": "mockup_ground",
