@@ -125,13 +125,13 @@ export function namedPortrait(name: string | undefined): string | undefined {
 
 // ------------------------------------------------------------ 通用立绘池
 const P = {
-  sectM: ['sect_m1', 'sect_m2', 'sect_m3', 'sect_m4'],
+  sectM: ['sect_m1', 'sect_m2', 'sect_m3', 'sect_m4', 'sect_m8'],
   sectE: ['sect_e1', 'sect_e2'],
-  sectF: ['sect_f1', 'sect_f2', 'sect_f3'],
+  sectF: ['sect_f1', 'sect_f2', 'sect_f3', 'sect_f5'],
   sectFE: ['sect_f4'],
-  demonM: ['demon_m1', 'demon_m2', 'demon_m3', 'demon_m4', 'demon_m5', 'demon_m6'],
+  demonM: ['demon_m1', 'demon_m2', 'demon_m3', 'demon_m4', 'demon_m5', 'demon_m6', 'demon_m7'],
   demonE: ['demon_e1'],
-  demonF: ['demon_f2', 'demon_f3'],
+  demonF: ['demon_f2', 'demon_f3', 'demon_f4'],
   rogueM: ['rogue_m1', 'rogue_m2', 'rogue_m3', 'rogue_m4', 'rogue_m5', 'rogue_m6'],
   rogueOld: ['rogue_m4', 'sect_e1'],
   rogueF: ['rogue_f1', 'rogue_f2'],
@@ -144,9 +144,9 @@ const P = {
   mortalOld: ['elder_m1'],
   childM: ['child_m1'], childF: ['mortal_f1'],
   monk: ['monk_1'], monkOld: ['monk_2'],
-  seaM: ['sea_m1'], seaOld: ['sea_m2'], seaF: ['sea_f1'],
-  mulanM: ['mulan_m1'], mulanF: ['mulan_f1'],
-  jinM: ['jin_m1'], jinF: ['jin_f1'],
+  seaM: ['sea_m1', 'sea_m3'], seaOld: ['sea_m2'], seaF: ['sea_f1', 'sea_f2'],
+  mulanM: ['mulan_m1', 'mulan_m2'], mulanF: ['mulan_f1', 'mulan_f2'],
+  jinM: ['jin_m1', 'jin_m2'], jinF: ['jin_f1', 'jin_f2'],
 };
 /** 各宗门的门风（弟子立绘偏向） */
 const SECT_GEN: Record<string, string> = {
