@@ -488,7 +488,7 @@ function ChroniclePanel({ game }: { game: Game }) {
 }
 
 // ---------------------------------------------------------------- 帮助
-export const VERSION = 'v0.34.1 · 众生有相';
+export const VERSION = 'v0.35 · 九死一生';
 function HelpPanel({ game }: { game: Game }) {
   const [tab, setTab] = useState(0);
   const T = ['操作', '修炼', '战斗', '人界', '神识', '机缘'];
