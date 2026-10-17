@@ -238,7 +238,7 @@ export class Events {
       const e = new Enemy(def, p.x + Math.cos(an) * 520, p.y + Math.sin(an) * 360, b.realm, b.stage);
       e.name = b.name; e.boss = true; e.aggro = true; e.maxHp = e.hp = Math.round(e.hp * (b.hp ?? 2.5));
       if (a.ev.special === 'shengxian') { e.spar = true; }
-      if (b.npc) { const nd = g.npcs.byId.get(b.npc); if (nd && nd.alive) { e.look = g.npcs.look(nd); e.cs = new CharState(e.x, e.y); e.npcId = nd.id; } }
+      if (b.npc) { const nd = g.npcs.byId.get(b.npc); if (nd && nd.alive) { e.look = g.npcs.look(nd); e.cs = new CharState(e.x, e.y); e.npcId = nd.id; e.school = nd.sect; } }
       g.combat.enemies.push(e); a.foes.push(e);
     }
     g.toast(`${a.ev.name}：第${a.wave + 1}/${waves.length}波${w.boss ? `——${w.boss.name}现身！` : ''}`, 'warn');

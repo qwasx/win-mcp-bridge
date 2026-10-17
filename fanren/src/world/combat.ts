@@ -80,7 +80,7 @@ export class Enemy {
   /** 追杀者（由追杀系统驱动远距离移动）/ 追杀者的同伙 */
   pursuer?: boolean; wing?: boolean;
   /** 第三十五步：精英词缀 / 门派（决定修士的功法套路） */
-  affix?: AffixState; school?: string;
+  affix?: AffixState; school?: string; lastSk?: string;
   constructor(def: EnemyDef, x: number, y: number, realm: number, stage: number, sea = false) {
     this.def = def; this.x = this.hx = x; this.y = this.hy = y;
     this.realm = realm; this.stage = stage; this.level = realm * 13 + stage;
@@ -895,7 +895,14 @@ export class Combat {
     g.hurtFlash = Math.max(g.hurtFlash, big ? 1 : 0.5);
     if (status && Math.random() < status.ch) {
       if (status.k === 'knock') { const dx = g.player.x - fx, dy = g.player.y - fy, dd = Math.hypot(dx, dy) || 1; g.player.x += dx / dd * 50; g.player.y += dy / dd * 30; }
-      else this.applyStatus(this.pst, status, d, null, fx, fy);
+      else {
+        this.applyStatus(this.pst, status, d, null, fx, fy);
+        // 第三十五步：连招——定住你的那一刻，出手者与身边同伙立刻抢攻
+        if (srcEnemy && (status.k === 'stun' || status.k === 'root' || status.k === 'freeze')) {
+          srcEnemy.skT = Math.min(srcEnemy.skT, 0.2);
+          for (const o of this.enemies) if (o !== srcEnemy && !o.dead && o.aggro && Math.hypot(o.x - g.player.x, o.y - g.player.y) < 900) o.skT = Math.min(o.skT, 0.5);
+        }
+      }
     }
     if (h.hp <= 0) this.playerDown();
   }

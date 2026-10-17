@@ -43,4 +43,18 @@ const x = new Enemy(EN.ENEMIES.wolf, g.player.x + 60, g.player.y, 1, 5); AF.appl
 const hx = x.hp; g.combat.hitPlayer(x.atk, 1, undefined, x.x, x.y, x); check('吸血：伤人回血', x.hp > hx, `${Math.round(hx)}→${Math.round(x.hp)}`);
 // 灵盾
 const d = new Enemy(EN.ENEMIES.wolf, g.player.x + 60, g.player.y, 1, 5); AF.applyAffix(d, ['dun']); AF.affixTick(g.combat, d, 0.1, 100); check('灵盾：护体灵光', !!d.ward);
+// 门派流派
+const SC = await import('../src/world/schools');
+const FS = await import('../src/world/foeskills');
+let bad = 0, names = new Set<string>();
+for (const sid of Object.keys(SC.SCHOOLS)) for (const r of [1, 2, 3, 4]) {
+  const e2 = new Enemy(EN.ENEMIES.zhujixiu, 0, 0, r, 0); e2.school = sid;
+  const kit = FS.kitOf(e2);
+  for (const s of kit) { names.add(s.name); if (s.k === 'summon' && s.minion !== '@self' && !EN.ENEMIES[s.minion!]) { bad++; console.log('missing minion', sid, s.minion); } }
+  if (r >= 3 && !kit.some((s: any) => s.ult)) { bad++; console.log('no ult', sid, r); }
+  if (kit.length < 3) { bad++; console.log('short kit', sid, r, kit.length); }
+}
+check('各门派招式齐全（召唤物存在、结丹有大招）', bad === 0, `${Object.keys(SC.SCHOOLS).length} 派，${names.size} 种招式名`);
+const k1 = new Enemy(EN.ENEMIES.zhujixiu, 0, 0, 2, 0); k1.school = 'yanyue'; const k2 = new Enemy(EN.ENEMIES.zhujixiu, 0, 0, 2, 0); k2.school = 'tianque';
+check('不同门派同境界招式不同', FS.kitOf(k1)[0].name !== FS.kitOf(k2)[0].name, `${FS.kitOf(k1).map((s: any) => s.name).join('/')} vs ${FS.kitOf(k2).map((s: any) => s.name).join('/')}`);
 console.log(fails ? `${fails} FAIL` : 'ALL OK'); process.exit(fails ? 1 : 0);

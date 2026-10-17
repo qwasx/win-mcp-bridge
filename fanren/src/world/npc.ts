@@ -783,6 +783,7 @@ export class NpcWorld {
     if (d.realm === 0) { e.maxHp = e.hp = 40; e.atk *= 0.5; }
     if (d.realm >= 3) { e.maxHp = e.hp = Math.round(e.hp * 1.3); }
     e.look = a.look; e.cs = a.st; e.name = d.name; e.npcId = d.id; e.aggro = aggro; e.spar = spar;
+    e.school = d.sect ?? (d.faction === 'rogue' || d.faction === 'merchant' ? 'sanxiu' : undefined);   // 第三十五步：按门派出招
     if (aggro && !spar && d.realm > 0 && !d.beauty) {
       const oy = g.orig?.yieldAt(d);
       const P: Record<Pers, number> = { kind: 0.85, cautious: 0.85, greedy: 0.8, righteous: 0.5, aloof: 0.4, arrogant: 0.3, ruthless: 0.25 };

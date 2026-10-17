@@ -83,6 +83,7 @@ export class PursuitSys {
     const w = new Enemy(def, lead.x, lead.y, realm, stage);
     w.name = name; w.aggro = false; w.pursuer = true; w.wing = true;
     if (d) { w.npcId = d.id; w.look = g.npcs.look(d); w.cs = new CharState(lead.x, lead.y); d.chasing = true; }
+    w.school = d?.sect ?? lead.school;
     w.dunKind = lead.dunKind ?? dunOf(lead);
     if (realm >= 2) giveWard(g.combat, w, 0.15, evil ? '240,80,90' : '240,220,140', false);
     return w;
@@ -149,6 +150,7 @@ export class PursuitSys {
     const e = new Enemy(def, x, y, realm, stage);
     e.name = name; e.aggro = false; e.boss = true; e.pursuer = true;
     if (d) { e.npcId = d.id; e.look = g.npcs.look(d); e.cs = new CharState(x, y); d.chasing = true; }
+    e.school = d?.sect ?? (fac.id !== 'npc' ? fac.id : d && d.faction !== 'demon' ? 'sanxiu' : undefined);
     e.kit = pursuerKit(e);
     // 护体灵光：一出手就罩着；被打碎二十息后还能再撑起一次
     const wcol = fac.evil ? (fac.fx === 'ghost' ? '190,120,255' : '240,80,90') : '240,220,140';

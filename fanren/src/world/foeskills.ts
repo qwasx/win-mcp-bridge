@@ -5,6 +5,7 @@ import type { Combat, Enemy } from './combat';
 import type { StatusSpec } from '../data/arts';
 import { ENEMIES } from '../data/enemies';
 import { audio } from './audio';
+import { schoolKit } from './schools';
 
 const TAU = Math.PI * 2;
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -132,29 +133,12 @@ function autoKit(e: Enemy): FoeSkill[] {
   return pool;
 }
 
-/** 修士：照着法术库出招，境界越高招越多，结丹以上祭出法宝 */
-function humanKit(e: Enemy): FoeSkill[] {
-  const el = elOf(e), r = e.realm, out: FoeSkill[] = [];
-  const evil = !!e.def.evil;
-  if (el === 'fire') { out.push(S({ id: 'h_fire', name: '火弹术·连发', k: 'salvo', n: 1, waves: 4, spread: 0.12, tele: 0.3, pow: 0.9, range: 560, min: 120, cd: 5 }, 'fire')); out.push(S({ id: 'h_firerain', name: '火雨符', k: 'rain', n: 5, r: 85, tele: 1.0, pow: 1.7, range: 560, cd: 9, status: EL_ST.fire, pool: 2.5 }, 'fire')); }
-  else if (el === 'sword') { out.push(S({ id: 'h_qi', name: '剑芒', k: 'beam', len: 560, w: 46, tele: 0.6, dur: 0.3, pow: 2.1, range: 540, min: 100, cd: 6 }, 'sword')); out.push(S({ id: 'h_fly', name: '御剑三连斩', k: 'salvo', n: 3, waves: 2, spread: 0.3, tele: 0.35, pow: 0.9, range: 560, min: 120, cd: 6 }, 'sword')); }
-  else if (el === 'blood') { out.push(S({ id: 'h_claw', name: '血魔爪', k: 'cone', r: 220, spread: 0.75, tele: 0.55, pow: 1.9, range: 210, cd: 5, status: EL_ST.blood }, 'blood')); out.push(S({ id: 'h_bblink', name: '血影遁', k: 'blink', tele: 0.25, pow: 1.4, range: 620, min: 160, cd: 7 }, 'blood')); out.push(S({ id: 'h_bmist', name: '血雾', k: 'circle', r: 130, tele: 0.85, pow: 1.5, range: 520, cd: 9, status: EL_ST.blood, pool: 3 }, 'blood')); }
-  else if (el === 'metal') { out.push(S({ id: 'h_needle', name: '暴雨梨花针', k: 'salvo', n: 9, waves: 1, spread: 0.9, tele: 0.45, pow: 0.6, range: 520, min: 100, cd: 6, status: EL_ST.poison }, 'metal')); }
-  else if (el === 'ghost') { out.push(S({ id: 'h_soul', name: '摄魂术', k: 'circle', r: 110, tele: 0.85, pow: 1.8, range: 520, cd: 7, status: { k: 'stun', dur: 0.7, ch: 0.5 } }, 'ghost')); }
-  // 人人会用的符箓：雷符 / 冰符
-  const ice = Math.random() < 0.5;
-  out.push(S({ id: 'h_talis', name: ice ? '寒冰符' : '引雷符', k: 'circle', r: 105, tele: 0.85, pow: 2, range: 560, cd: 8, status: ice ? EL_ST.ice : EL_ST.thunder }, ice ? 'ice' : 'thunder'));
-  if (r >= 2) out.push(S({ id: 'h_guard', name: '护体灵光', k: 'guard', dur: 4, tele: 0.3, range: 700, cd: 16 }, 'gold'));
-  out.push(S({ id: 'h_pill', name: '服下回春丹', k: 'heal', tele: 0.4, range: 2000, cd: 60, once: true, hpBelow: 0.4 }, 'poison'));
-  if (r >= 2) out.push(S({ id: 'h_rain', name: evil ? '血剑雨' : '剑雨', k: 'rain', n: 6, r: 80, tele: 1.0, pow: 1.6, range: 560, cd: 10 }, evil ? 'blood' : 'sword'));
-  if (r >= 3) out.push(S({ id: 'h_big', name: evil ? '法宝·血河幡' : '法宝·巨剑斩', k: 'beam', len: 760, w: 120, tele: 1.1, dur: 0.5, pow: 3.2, range: 720, min: 120, cd: 14, ult: true }, evil ? 'blood' : 'gold'));
-  if (r >= 3 && evil) out.push(S({ id: 'h_corpse', name: '驭尸', k: 'summon', n: 2, minion: 'lianshi', tele: 1, range: 900, cd: 40, once: true, hpBelow: 0.7 }, 'poison'));
-  return out;
-}
+/** 修士：按门派流派出招（第三十五步：schools.ts），境界越高招越多，结丹以上祭出大招 */
+function humanKit(e: Enemy): FoeSkill[] { return schoolKit(e, !!e.affix || isBoss(e)); }
 
 /** 第三十二步：追杀者另带困灵阵、定身符——专门留人 */
 export function pursuerKit(e: Enemy): FoeSkill[] {
-  const out = humanKit(e).filter((s) => s.id !== 'h_bblink');
+  const out = humanKit(e).filter((s) => s.k !== 'blink');
   out.push(S({ id: 'p_trap', name: '困灵阵', k: 'circle', r: 150, tele: 0.75, pow: 1.2, range: 620, cd: 11, status: { k: 'root', dur: 1.6, ch: 0.85 }, pool: 2.5 }, 'earth'));
   out.push(S({ id: 'p_seal', name: '定身符', k: 'salvo', n: 3, waves: 1, spread: 0.35, tele: 0.35, pow: 0.7, range: 640, min: 120, cd: 9, status: { k: 'stun', dur: 0.6, ch: 0.45 } }, 'gold'));
   return out;
@@ -278,16 +262,41 @@ export class FoeAI {
     const hpK = e.hp / e.maxHp;
     const ready = kit.filter((s) => (e.skCd[s.id] ?? 0) <= 0 && dist <= s.range && dist >= (s.min ?? 0) && (!s.hpBelow || hpK < s.hpBelow) && !(s.once && e.used?.[s.id]));
     if (!ready.length) { e.skT = 0.4; return false; }
-    // 大招优先；其余随机
-    const sk = ready.find((s) => s.ult) ?? ready[Math.floor(Math.random() * ready.length)];
+    // 大招优先；其余按“效用”打分（第三十五步）：距离合适、趁你被控时上重招、挨打时护体、残血时回春 / 遁走、不老用同一招
+    const sk = ready.find((s) => s.ult) ?? this.choose(e, ready, dist, hpK);
+    e.lastSk = sk.id;
     this.start(e, sk, tx, ty);
     return true;
   }
 
+  private choose(e: Enemy, ready: FoeSkill[], dist: number, hpK: number): FoeSkill {
+    const c = this.c, pst = c.pst, ctl = !!(pst.stun || pst.root || pst.freeze), slowed = !!pst.slow;
+    const hurtRecently = c.game.time - e.lastHitBy < 1.5;
+    let mine = 0; for (const o of c.enemies) if (!o.dead && o.minion) mine++;
+    let best = ready[0], bs = -1;
+    for (const s of ready) {
+      let w = 1;
+      const melee = s.range <= 300;
+      if (melee) w *= dist < s.range * 0.85 ? 1.6 : 0.6; else w *= dist > 220 ? 1.2 : 0.7;
+      const heavy = s.k === 'rain' || s.k === 'beam' || s.k === 'leap' || s.k === 'charge' || s.k === 'nova' || s.k === 'circle';
+      if ((ctl || slowed) && heavy) w *= 1 + s.pow * (ctl ? 0.9 : 0.4);   // 连招：定住你就上重手
+      const hard = s.status && (s.status.k === 'stun' || s.status.k === 'root' || s.status.k === 'freeze');
+      if (hard && !ctl) w *= 1.6;
+      if (hard && ctl) w *= 0.4;
+      if (s.k === 'guard') w *= hurtRecently ? 2.2 : 0.3;
+      if (s.k === 'heal') w *= hpK < 0.5 ? 3 : 0.2;
+      if (s.k === 'summon') w *= mine < 2 ? 1.6 : 0.3;
+      if (s.k === 'blink') w *= dist > 480 || (hpK < 0.4 && dist < 220) ? 2.2 : 0.6;
+      if (s.id === e.lastSk) w *= 0.35;
+      w *= 0.6 + Math.random() * 0.8;
+      if (w > bs) { bs = w; best = s; }
+    }
+    return best;
+  }
   private start(e: Enemy, sk: FoeSkill, tx: number, ty: number) {
     const c = this.c, g = c.game;
     e.skCd[sk.id] = sk.cd * rand(0.9, 1.15);
-    e.skT = (isBoss(e) ? 1.6 : 2.6) * rand(0.8, 1.3);
+    e.skT = (isBoss(e) ? 1.6 : e.def.kind === 'human' ? 2.0 : 2.4) * rand(0.8, 1.3) * (e.realm >= 3 ? 0.85 : 1);
     if (sk.once) (e.used ??= {})[sk.id] = true;
     const ang = Math.atan2(ty - e.y, tx - e.x);
     const cast: Cast = { sk, t: 0, x0: e.x, y0: e.y, x1: tx, y1: ty, ang, hit: false, wave: 0 };
