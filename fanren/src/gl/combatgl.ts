@@ -43,7 +43,7 @@ function drawBoost(F: FxSys, c: Combat, dt: number) {
   const dx = a1[0] - a0[0], dy = a1[1] - a0[1], DL = Math.hypot(dx, dy) || 1, ux = dx / DL, uy = dy / DL;
   const tm = g.time;
   if (kind === 'thunder') {
-    const col: RGB = [0.56, 0.66, 1], VI: RGB = [0.72, 0.6, 1];
+    const col: RGB = [1, 0.8, 0.38], VI: RGB = [1, 0.9, 0.62];   // 第三十五步：风雷翅金色雷遁
     F.trail(T, 90, VI, 0.16 * fade, C.Glow, 1, 0.6);
     F.trail(T, 30, col, 0.3 * fade, C.Beam, 1, 1);
     // 雷光：沿轨迹的折线电弧，每帧换形（闪烁），不再是实心光柱

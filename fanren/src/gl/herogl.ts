@@ -1,4 +1,4 @@
-// 第二十八步：我方身上的特效——风雷翅（青紫雷翼）、雷遁 / 血遁残影光、护体剑盾（剑网）
+// 第二十八步：我方身上的特效——风雷翅（第三十五步：淡金雷翼）、雷遁 / 血遁残影光、护体剑盾（剑网）
 import type { Combat } from '../world/combat';
 import { FxSys, col, mixc, RGB, fireCell, smokeCell } from './fx';
 import { C } from './atlas';
@@ -7,13 +7,16 @@ const TAU = Math.PI * 2;
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 const BLUE: RGB = [0.55, 0.66, 1], VIOLET: RGB = [0.72, 0.52, 1], WHITE: RGB = [1, 1, 1];
 
-/** 一侧雷翼：翼骨（肩→肘→腕）+ 沿骨垂下的翎羽；墨蓝底色压住亮地，加色勾边与雷丝 */
-function wing(F: FxSys, x: number, y: number, side: number, open: number, flap: number, t: number, a: number, ws = 1) {
+/** 一侧风雷翅（第三十五步·原著）：雷鹏骨翅经辟邪神雷炼化，蓝电尽被逼出，双翼染作淡金——
+ *  古铜墨底压住亮地 → 淡金翎羽 → 金白翼缘（整条外缘一道亮金描边）→ 金色雷丝沿翼缘来回爬行，振翅时满翼噼啪。
+ *  gk：0 = 初展时的残余蓝电，1 = 纯金（展翅 0.5 秒内由蓝转金） */
+function wing(F: FxSys, x: number, y: number, side: number, open: number, flap: number, t: number, a: number, ws = 1, gk = 1) {
   const sc = (0.55 + 0.45 * open) * ws, lift = -flap * 0.5;           // 振翅：整翼绕肩上下摆
   const rot = (dx: number, dy: number): [number, number] => { const c = Math.cos(lift * side), s = Math.sin(lift * side); return [x + (dx * c - dy * s) * sc, y + (dx * s + dy * c) * sc]; };
   const S = rot(0, 0), E = rot(side * 80, -46), W = rot(side * 175, -92);
   const N = 12, tips: [number, number][] = [];
-  const INK: RGB = [0.1, 0.12, 0.38], EDGE = mixc(BLUE, VIOLET, 0.35);
+  const INK: RGB = [0.24, 0.15, 0.04];
+  const GOLD = mixc(BLUE, [1, 0.8, 0.36], gk), PALE = mixc(VIOLET, [1, 0.9, 0.62], gk), RIM = mixc(mixc(BLUE, WHITE, 0.4), [1, 0.95, 0.72], gk);
   for (let pass = 0; pass < 2; pass++) for (let i = 0; i < N; i++) {
     const k = i / (N - 1);                                     // 0 = 腕（初级飞羽）… 1 = 肩（次级飞羽）
     const R = k < 0.5 ? [W[0] + (E[0] - W[0]) * k * 2, W[1] + (E[1] - W[1]) * k * 2] : [E[0] + (S[0] - E[0]) * (k - 0.5) * 2, E[1] + (S[1] - E[1]) * (k - 0.5) * 2];
@@ -21,23 +24,41 @@ function wing(F: FxSys, x: number, y: number, side: number, open: number, flap: 
     const len = (170 - k * 95) * sc * (0.75 + 0.25 * open);
     const tx = R[0] + Math.cos(ang) * len, ty = R[1] + Math.sin(ang) * len * 0.9;
     const mx = (R[0] + tx) / 2, my = (R[1] + ty) / 2, ra = Math.atan2(ty - R[1], tx - R[0]);
-    if (pass === 0) { F.sprite(C.Leaf, mx, my, len * 1.1, (30 - k * 8) * ws, ra, INK, 0.38 * a, 0); continue; }
+    if (pass === 0) { F.sprite(C.Leaf, mx, my, len * 1.12, (32 - k * 8) * ws, ra, INK, 0.42 * a, 0); continue; }
     tips.push([tx, ty]);
-    const c = mixc(EDGE, VIOLET, k);
-    F.sprite(C.Leaf, mx, my, len * 1.02, (22 - k * 6) * ws, ra, c, 0.3 * a);
-    F.sprite(C.Blade, R[0] + (tx - R[0]) * 0.55, R[1] + (ty - R[1]) * 0.55, len * 0.9, 5 * ws, ra, mixc(c, WHITE, 0.3), 0.45 * a);
-    if (k < 0.45) F.glow(tx, ty, 9 * ws, mixc(c, WHITE, 0.5), 0.55 * a, C.Star);
+    const c = mixc(PALE, GOLD, 0.35 + k * 0.5);
+    F.sprite(C.Leaf, mx, my, len * 1.02, (22 - k * 6) * ws, ra, c, 0.32 * a);
+    F.sprite(C.Blade, R[0] + (tx - R[0]) * 0.55, R[1] + (ty - R[1]) * 0.55, len * 0.9, 5 * ws, ra, mixc(c, WHITE, 0.35), 0.5 * a);
+    // 翎尖金芒
+    F.glow(tx, ty, (k < 0.45 ? 11 : 7) * ws, RIM, (k < 0.45 ? 0.7 : 0.45) * a, C.Star);
   }
-  // 翼骨：雷鹏骨（墨底 + 青紫亮芯）
-  const bc = mixc(VIOLET, WHITE, 0.25);
-  F.beam(S[0], S[1], E[0], E[1], 11 * ws, INK, 0.6 * a, C.Beam, 0); F.beam(E[0], E[1], W[0], W[1], 9 * ws, INK, 0.6 * a, C.Beam, 0);
-  F.beam(S[0], S[1], E[0], E[1], 5 * ws, bc, 0.8 * a); F.beam(E[0], E[1], W[0], W[1], 4 * ws, bc, 0.8 * a);
-  F.glow(W[0], W[1], 16 * ws, mixc(BLUE, WHITE, 0.5), 0.7 * a, C.Star);
-  // 翼缘雷丝
-  for (let i = 0; i < 5; i++) if (Math.random() < 0.5) F.bolt(tips[i][0], tips[i][1], tips[i + 1][0], tips[i + 1][1], Math.random() * 1e6, 10, 1.1, mixc(BLUE, WHITE, 0.3), 0.85 * a, 4, false);
-  if (Math.random() < 0.25) F.bolt(S[0], S[1], W[0], W[1], Math.random() * 1e6, 14, 1.2, mixc(VIOLET, WHITE, 0.3), 0.8 * a, 7, false);
-  if (Math.random() < 0.15) { const tp = tips[Math.floor(Math.random() * 6)]; F.bolt(tp[0], tp[1], tp[0] + rnd(-40, 40), tp[1] + rnd(80, 180), Math.random() * 1e6, 18, 1.3, BLUE, 0.7 * a, 6, true); }
-  F.glow(x + side * 110 * ws, y - 10, 140 * ws, mixc(BLUE, VIOLET, 0.5), 0.07 * a);
+  // 翼骨：古铜底 + 金色亮芯
+  const bc = mixc(GOLD, WHITE, 0.3);
+  F.beam(S[0], S[1], E[0], E[1], 12 * ws, INK, 0.62 * a, C.Beam, 0); F.beam(E[0], E[1], W[0], W[1], 10 * ws, INK, 0.62 * a, C.Beam, 0);
+  F.beam(S[0], S[1], E[0], E[1], 5 * ws, bc, 0.85 * a); F.beam(E[0], E[1], W[0], W[1], 4 * ws, bc, 0.85 * a);
+  F.glow(W[0], W[1], 18 * ws, RIM, 0.8 * a, C.Star);
+  // 金边：腕 → 各翎尖 → 肩，一圈连续的金色外缘（外晕 + 白金芯）
+  const rim: [number, number][] = [W, ...tips, S];
+  for (let i = 0; i < rim.length - 1; i++) {
+    const p0 = rim[i], p1 = rim[i + 1];
+    F.beam(p0[0], p0[1], p1[0], p1[1], 9 * ws, GOLD, 0.32 * a);
+    F.beam(p0[0], p0[1], p1[0], p1[1], 2.6 * ws, RIM, 0.85 * a);
+  }
+  // 爬行雷光：两点金白电光沿翼缘来回游走，身后拖一串电丝
+  const L = rim.length - 1;
+  for (let j = 0; j < 2; j++) {
+    const u = (t * (0.9 + j * 0.37) + j * 0.5) % 2, q = u < 1 ? u : 2 - u, f = q * L, i0 = Math.min(L - 1, Math.floor(f)), fr = f - i0;
+    const px = rim[i0][0] + (rim[i0 + 1][0] - rim[i0][0]) * fr, py = rim[i0][1] + (rim[i0 + 1][1] - rim[i0][1]) * fr;
+    F.glow(px, py, 22 * ws, RIM, 0.75 * a); F.glow(px, py, 8 * ws, WHITE, 0.9 * a, C.Star);
+    const back = rim[Math.max(0, Math.min(L, i0 + (u < 1 ? -1 : 2)))];
+    F.bolt(px, py, back[0], back[1], Math.floor(t * 30) + j * 977, 8, 1.1, RIM, 0.85 * a, 4, false);
+  }
+  // 翼缘雷丝 / 翼骨雷 / 下坠细电（残余的蓝电随 gk 消退）
+  for (let i = 0; i < tips.length - 1; i++) if (Math.random() < 0.35) F.bolt(tips[i][0], tips[i][1], tips[i + 1][0], tips[i + 1][1], Math.random() * 1e6, 10, 1.1, RIM, 0.85 * a, 4, false);
+  if (Math.random() < 0.25) F.bolt(S[0], S[1], W[0], W[1], Math.random() * 1e6, 14, 1.2, mixc(GOLD, WHITE, 0.3), 0.8 * a, 7, false);
+  if (Math.random() < 0.15) { const tp = tips[Math.floor(Math.random() * 6)]; F.bolt(tp[0], tp[1], tp[0] + rnd(-40, 40), tp[1] + rnd(80, 180), Math.random() * 1e6, 18, 1.3, GOLD, 0.7 * a, 6, true); }
+  if (gk < 1 && Math.random() < 0.6 * (1 - gk)) { const tp = tips[Math.floor(Math.random() * tips.length)]; F.bolt(S[0], S[1], tp[0], tp[1], Math.random() * 1e6, 16, 1.4, BLUE, 0.9 * (1 - gk) * a, 7, true); }
+  F.glow(x + side * 110 * ws, y - 10, 150 * ws, GOLD, 0.08 * a);
 }
 
 let stepIdx = 0;
@@ -57,27 +78,41 @@ function runDust(F: FxSys, p: any) {
 export function drawHeroGL(F: FxSys, c: Combat, t: number, dt: number) {
   const p = c.game.player;
   runDust(F, p);
+  // —— 第三十五步：佩风雷翅催动雷遁时，背后展开金色雷翼（较战斗展翅略小）
+  if (!c.wing && p.flying && p.boosting && c.game.boostKind === 'thunder') {
+    const lift = p.st?.lift ?? 0, sx = p.x, sy = p.y - lift - 92, flap = Math.sin(t * 9) * 0.45;
+    wing(F, sx, sy, 1, 1, flap, t, 0.85, 1.0, 1); wing(F, sx, sy, -1, 1, flap, t, 0.85, 1.0, 1);
+  }
   // —— 风雷翅
   if (c.wing) {
     const w = c.wing, open = Math.min(1, (w.max - w.t) / 0.35) * Math.min(1, w.t / 0.4);
     const flap = w.flap > 0 ? Math.sin((0.6 - w.flap) / 0.6 * Math.PI * 3) : Math.sin(t * 7) * 0.35;
     const sx = p.x, sy = p.y - 98, ws = 1.45 + w.lv * 0.08;   // 第三十步：雷翼放大
-    wing(F, sx, sy, 1, open, flap, t, open, ws);
-    wing(F, sx, sy, -1, open, flap, t, open, ws);
-    // 雷光护身、脚下风旋
-    F.glow(sx, sy + 20, 60, BLUE, 0.16 * open);
-    F.ground(C.RingSoft, p.x, p.y, 110, t * 3, BLUE, 0.3 * open, 1, 0.5);
-    if (Math.random() < dt * 14) F.emit({ x: p.x + rnd(-40, 40), y: p.y - rnd(0, 120), vx: rnd(-40, 40), vy: rnd(-90, -30), life: rnd(0.3, 0.5), s0: 3, s1: 1, c: mixc(BLUE, WHITE, 0.5), cell: C.Glow });
-    // 振翅一扇：风雷气浪
-    if (w.flap > 0.55) { F.shockRing(p.x, p.y, 480, BLUE, 0.45, 0.6, 1); F.shockRing(p.x, p.y, 330, VIOLET, 0.35, 0.6, 0.8); for (let i = 0; i < 12; i++) { const a = Math.random() * TAU; F.bolt(p.x, p.y - 60, p.x + Math.cos(a) * 400, p.y - 60 + Math.sin(a) * 240, Math.random() * 1e6, 22, 1.6, BLUE, 0.9, 8, true); } }
+    const gk = Math.min(1, (w.max - w.t) / 0.5);                // 第三十五步：初展蓝电 → 半息内尽化淡金
+    const GOLD: RGB = mixc(BLUE, [1, 0.8, 0.36], gk), GW: RGB = mixc(BLUE, [1, 0.95, 0.72], gk);
+    wing(F, sx, sy, 1, open, flap, t, open, ws, gk);
+    wing(F, sx, sy, -1, open, flap, t, open, ws, gk);
+    // 金雷护身、脚下风旋（两层反向）
+    F.glow(sx, sy + 20, 70, GOLD, 0.18 * open);
+    F.ground(C.RingSoft, p.x, p.y, 120, t * 3, GOLD, 0.32 * open, 1, 0.5);
+    F.ground(C.Rune, p.x, p.y, 90, -t * 1.6, GW, 0.22 * open, 1, 0.5);
+    if (Math.random() < dt * 16) F.emit({ x: p.x + rnd(-40, 40), y: p.y - rnd(0, 120), vx: rnd(-40, 40), vy: rnd(-90, -30), life: rnd(0.3, 0.5), s0: 3, s1: 1, c: GW, cell: C.Glow });
+    if (Math.random() < dt * 5) F.crackle(sx, sy, 90 * ws, GW, 0.8 * open, 1);
+    // 振翅一扇：风雷气浪（金）——一圈金色冲击 + 十余道金雷向四方炸开 + 翼下噼啪
+    if (w.flap > 0.55) {
+      F.shockRing(p.x, p.y, 500, GOLD, 0.5, 0.6, 1); F.shockRing(p.x, p.y, 340, GW, 0.38, 0.6, 0.8);
+      F.flash(sx, sy, 90, GW, 0.18);
+      for (let i = 0; i < 14; i++) { const a = Math.random() * TAU; F.bolt(p.x, p.y - 60, p.x + Math.cos(a) * 420, p.y - 60 + Math.sin(a) * 250, Math.random() * 1e6, 22, 1.6, i % 3 ? GOLD : GW, 0.9, 8, true); }
+      F.crackle(sx - 150 * ws, sy - 30, 80, GW, 0.9, 2); F.crackle(sx + 150 * ws, sy - 30, 80, GW, 0.9, 2);
+    }
   }
   // —— 残影光：雷遁蓝、血遁红
   for (const g of c.ghosts) {
     if (g.t < 0) continue;
     const k = 1 - g.t / g.dur, cc = col(g.color);
     F.sprite(C.Glow, g.x, g.y - 60, 70, 150, 0, cc, 0.22 * k);
-    if (g.color.startsWith('170') && Math.random() < 0.25) F.bolt(g.x + rnd(-20, 20), g.y - rnd(20, 120), g.x + rnd(-30, 30), g.y - rnd(0, 120), Math.random() * 1e6, 10, 1, cc, 0.7 * k, 4, false);
-    if (!g.color.startsWith('170') && Math.random() < 0.3) F.emit({ x: g.x + rnd(-14, 14), y: g.y - rnd(20, 110), vy: rnd(10, 40), life: 0.5, s0: rnd(8, 14), s1: 20, c: [0.5, 0.03, 0.05], a: 0.35, add: 0, cell: smokeCell() });
+    if ((g.color.startsWith('170') || g.color.startsWith('255,220')) && Math.random() < 0.25) F.bolt(g.x + rnd(-20, 20), g.y - rnd(20, 120), g.x + rnd(-30, 30), g.y - rnd(0, 120), Math.random() * 1e6, 10, 1, cc, 0.7 * k, 4, false);
+    if (!g.color.startsWith('170') && !g.color.startsWith('255,220') && Math.random() < 0.3) F.emit({ x: g.x + rnd(-14, 14), y: g.y - rnd(20, 110), vy: rnd(10, 40), life: 0.5, s0: rnd(8, 14), s1: 20, c: [0.5, 0.03, 0.05], a: 0.35, add: 0, cell: smokeCell() });
   }
 }
 

@@ -64,7 +64,7 @@ export const ART_LOOK: Record<string, ArtLook> = {
   art_xuepifeng: L('cloak', '#a82030', '#4a0a10', '255,60,70'),
   // —— 遁具
   art_shenfeng: L('boat', '#c8b080', '#4a8a7a', '160,240,220'),
-  art_fenglei: L('wings', '#5a6ab0', '#c8d0ff', '170,190,255'),
+  art_fenglei: L('wings', '#c8a050', '#fff0c0', '255,220,130'),
   art_tayun: L('boots', '#5a5048', '#e8e4dc', '230,240,255'),
   // —— 其它
   item_bottle: L('bottle', '#3f6a4a', '#9ad8a8', '140,255,180'),

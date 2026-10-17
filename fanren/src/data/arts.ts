@@ -99,7 +99,7 @@ const A: ArtSkill[] = [
   // ---------------- 风 ----------------
   { id: 'fengren', name: '风刃术', school: '风', tier: 0, realm: 1, cast: 'bolt', fx: 'wind', mp: 0.035, cd: 0.8, power: 1.1, range: 520, speed: 900, pierce: true, status: { k: 'knock', dur: 0.2, ch: 0.2 }, color: '200,245,225', desc: '凝风成刃，可穿透多名敌人。', evo: ['风刃更宽', '双刃交叉', '化作月牙罡风，击退敌人'], lvCount: [1, 1, 2, 2] },
   { id: 'xuanfeng', name: '旋风术', school: '风', tier: 1, realm: 1, cast: 'bolt', fx: 'tornado', mp: 0.08, cd: 4, power: 0.5, range: 520, speed: 200, pierce: true, dur: 2.6, radius: 60, status: { k: 'slow', dur: 1, ch: 0.6 }, color: '210,240,220', desc: '卷起一道旋风缓缓推进，持续切割并拉扯敌人。', evo: ['旋风更大', '旋风吸附敌人', '旋风持续更久'] },
-  { id: 'fengleichi', name: '风雷翅', school: '风', tier: 4, realm: 3, cast: 'buff', fx: 'lightning', mp: 0.1, cd: 20, power: 0, range: 0, dur: 8, buff: { speed: 0.9 }, color: '190,220,255', desc: '以雷鹏之翅炼成的宝物，展开时风雷相随，遁速大增。', evo: ['持续更久', '展翅时震退周围', '遁速翻倍'] },
+  { id: 'fengleichi', name: '风雷翅', school: '风', tier: 4, realm: 3, cast: 'buff', fx: 'lightning', mp: 0.1, cd: 20, power: 0, range: 0, dur: 8, buff: { speed: 0.9 }, color: '255,220,140', desc: '以雷鹏之翅炼成的宝物，展开时风雷相随，遁速大增。', evo: ['持续更久', '展翅时震退周围', '遁速翻倍'] },
   { id: 'jifeng', name: '疾风九变', school: '风', tier: 3, realm: 2, cast: 'dash', fx: 'wind', mp: 0.05, cd: 1.5, power: 0.6, range: 300, color: '200,245,230', desc: '身随风动，九变莫测。冲刺途中切割路过之敌。', evo: ['距离更远', '冲刺期间无敌', '冷却大幅缩短'] },
   // ---------------- 土 ----------------
   { id: 'dici', name: '地刺术', school: '土', tier: 0, realm: 1, cast: 'beam', fx: 'rock', mp: 0.06, cd: 2.2, power: 1.6, range: 420, radius: 40, status: { k: 'stun', dur: 0.6, ch: 0.4 }, color: '190,150,90', desc: '令地面突刺而出，一线贯穿。', evo: ['地刺更远', '地刺更粗', '岩刺林立，必定眩晕'] },

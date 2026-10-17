@@ -537,7 +537,8 @@ export class Combat {
             this.hitEnemy(e, atk * (0.8 + lv * 0.3), { ...base, status: { k: 'shock', dur: 0.8, ch: 0.7 }, stCh: 0.7 }, p.x, p.y - 60);
             e.kx += dx / d * 900; e.ky += dy / d * 560;
           }
-          this.impact(p.x, p.y, 2, '170,190,255');
+          this.impact(p.x, p.y, 2, '255,220,130');
+          this.fxq.push({ k: 'dunflash', x: p.x, y: p.y, x2: p.x, y2: p.y, kind: 'thunder', color: '255,225,140' });
           audio.sfx('thunder');
         }
         break;
@@ -1200,7 +1201,7 @@ export class Combat {
     if (this.wing) {
       const w = this.wing; w.t -= dt; w.flap = Math.max(0, w.flap - dt);
       if (w.t <= 0) this.wing = null;
-      else if (Math.hypot(p.st.vx, p.st.vy) > 60) { this.ghostT -= dt; if (this.ghostT <= 0) { this.ghostT = 0.05; this.ghosts.push({ x: p.x, y: p.y, t: 0, dur: 0.32, color: '170,190,255', yaw: p.st.yaw }); } }
+      else if (Math.hypot(p.st.vx, p.st.vy) > 60) { this.ghostT -= dt; if (this.ghostT <= 0) { this.ghostT = 0.05; this.ghosts.push({ x: p.x, y: p.y, t: 0, dur: 0.32, color: '255,220,130', yaw: p.st.yaw }); } }
     }
     for (const gh of this.ghosts) gh.t += dt;
     this.ghosts = this.ghosts.filter((gh) => gh.t < gh.dur);
