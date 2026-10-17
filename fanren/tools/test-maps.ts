@@ -90,7 +90,7 @@ if (PHASE === 'gen') {
   check(ACTIVE_MAP === 'luanxing' ? '虚天殿在乱星海' : '虚天殿不在本图', ACTIVE_MAP === 'luanxing' ? !!here : !here);
   g.reset(); g.hero.realm = 3; g.hero.stage = 1; g.ws.flags.storyDone = 1;
   const s0 = (xt.year - 1) * 360 + (xt.month - 1) * 30;
-  g.day = s0 - 400; g.update(0.03); g.day = s0 + 2; g.update(0.03);
+  g.hero.realm = 2; g.day = s0 - 400; g.update(0.03); g.hero.realm = 3; g.day = s0 + 2; g.update(0.03);   // 第三十五步起境界门槛会提前开启：先压低境界，避免一开局就开过了
   const st = g.ws.events.xutian ?? g.ws.events['xutian#0'];
   check('第二十年虚天殿开启（全图皆有传闻）', st?.state === 'active', st?.state);
   if (here) { g.teleport(here.x * S, here.y * S + 300); g.modal = null; for (let i = 0; i < 12 && g.modal?.node?.speaker !== xt.name; i++) g.update(1 / 30); check('赶到虚天殿 → 触发事件', g.modal?.node?.speaker === xt.name, g.modal?.node?.speaker ?? 'none'); }
