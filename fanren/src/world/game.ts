@@ -1150,7 +1150,10 @@ export class Game {
   // ---------- 操作 ----------
   setZoom(z: number) { this.cam.targetZoom = clamp(z, 0.22, 1.6); this.updateUI(); }
   zoomBy(f: number) { this.setZoom(this.cam.targetZoom * f); }
+  /** 第三十五步：禁空（追兵的禁空令）剩余秒数 */
+  noFlyT = 0;
   toggleFly() {
+    if (!this.player.flying && this.noFlyT > 0) { this.toast(`禁空之力未散，遁光提不起来！（${Math.ceil(this.noFlyT)} 息）`, 'warn'); return; }
     this.stand(); this.gathering = null;
     this.player.flying = !this.player.flying;
     if (!this.player.flying && this.terrain.walkFactor(this.player.x, this.player.y) <= 0) {

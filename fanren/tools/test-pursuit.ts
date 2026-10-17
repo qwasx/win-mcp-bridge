@@ -11,7 +11,7 @@ g.reset();
 let fails = 0;
 const check = (name: string, ok: boolean, extra = '') => { console.log((ok ? 'ok  ' : 'FAIL') + ' ' + name + (extra ? '  ' + extra : '')); if (!ok) fails++; };
 
-function scenario(label: string, o: { realm: number; stage?: number; gap: number; fly: boolean; boost: boolean; flight?: string; conceal?: boolean; skill?: string; secs?: number; dir?: string }) {
+function scenario(label: string, o: { realm: number; stage?: number; gap: number; fly: boolean; boost: boolean; flight?: string; conceal?: boolean; skill?: string; secs?: number; dir?: string; react?: boolean }) {
   g.combat.reset(); g.pursuit.reset(); g.modal = null; g.modalStack = [];
   const h = g.hero; h.realm = o.realm; h.stage = o.stage ?? 0; h.hp = 1; h.mp = 1; h.dead = false; h.equip = o.flight === 'art_xuepifeng' ? { armor: o.flight } : o.flight ? { flight: o.flight } : {};
   g.player.x = 120000; g.player.y = 93000; g.player.flying = o.fly; g.player.sitting = false; g.concealed = !!o.conceal; g.senseBurstT = 0;
@@ -19,31 +19,42 @@ function scenario(label: string, o: { realm: number; stage?: number; gap: number
   for (let i = 0; i < 10; i++) { g.modal = null; g.update(1 / 30); }   // 先跑起来，追杀者从身后出现
   g.pursuit.cd = 0; g.pursuit.start({ reason: 'test', gap: o.gap });
   const P = g.pursuit.cur; const d0 = Math.hypot(P.e.x - g.player.x, P.e.y - g.player.y);
-  let minD = 1e9, end = '', t = 0, usedSkill = false;
+  let minD = 1e9, end = '', t = 0, usedSkill = false, wave = 0, turns = 0;
   const dt = 1 / 30, N = (o.secs ?? 90) * 30;
   for (let i = 0; i < N; i++) {
     g.modal = null;
     if (o.skill && !usedSkill && t > 2) { usedSkill = true; if (!h.arts.some((a: any) => a.id === o.skill)) h.arts.push({ id: o.skill, xp: 0 }); g.combat.cds?.delete?.(o.skill); g.combat.cast(o.skill); }
     g.update(dt); t += dt;
+    // 第三十五步：被截杀后，玩家会转向避开前方的拦截者
+    if (g.pursuit.cur && g.pursuit.cur.wave > wave) {
+      wave = g.pursuit.cur.wave;
+      if (process.env.DBG) console.log('   WAVE', t.toFixed(2), Math.round(g.player.x), Math.round(g.player.y), Math.round(g.pursuit.cur.e.x), Math.round(g.pursuit.cur.e.y));
+      if (o.react) { const e = g.pursuit.cur.e, dx = g.player.x - e.x, dy = g.player.y - e.y; g.input.keys.clear(); g.input.keys.add(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'd' : 'a') : (dy > 0 ? 's' : 'w')); if (o.boost) g.input.keys.add('shift'); turns++;
+        // 九死一生：压箱底的遁术
+        if (!h.arts.some((a: any) => a.id === 'xueyingdun')) h.arts.push({ id: 'xueyingdun', xp: 0 }); g.combat.cds?.delete?.('xueyingdun'); h.mp = Math.max(h.mp, 0.5); for (let k = 0; k < 8; k++) { g.modal = null; g.update(dt); t += dt; } g.combat.cast('xueyingdun'); if (process.env.DBG) console.log('   AFTER', Math.round(g.player.x), Math.round(g.player.y)); }
+    }
     h.hp = Math.max(h.hp, 0.5); g.combat.invulnT = 5;   // 只测追逃，不测死活
     const c = g.pursuit.cur;
     if (!c) { end = 'escaped'; break; }
     const d = Math.hypot(c.e.x - g.player.x, c.e.y - g.player.y); minD = Math.min(minD, d);
+    if (process.env.DBG && wave && i % 3 === 0) console.log('   dbg', t.toFixed(2), d.toFixed(0), Math.round(g.player.x), Math.round(g.player.y), Math.round(c.e.x), Math.round(c.e.y), c.v.toFixed(0), [...g.input.keys].join(''));
     if (d < 500) { end = 'caught'; break; }
   }
   g.input.keys.clear();
   const res = end || 'ongoing';
-  console.log(`  [${label}] ${res} t=${t.toFixed(1)}s d0=${d0.toFixed(0)} minD=${minD.toFixed(0)} mp=${h.mp.toFixed(2)} speed=${g.speed.toFixed(0)}`);
+  (scenario as any).wave = wave;
+  console.log(`  [${label}] ${res} wave=${wave} t=${t.toFixed(1)}s d0=${d0.toFixed(0)} minD=${minD.toFixed(0)} mp=${h.mp.toFixed(2)} speed=${g.speed.toFixed(0)}`);
   return res;
 }
 
 check('筑基 平飞 vs 结丹：被追上', scenario('zj-plain', { realm: 2, gap: 1, fly: true, boost: false }) === 'caught');
-check('筑基 催动遁光 vs 结丹：可摆脱', scenario('zj-boost', { realm: 2, gap: 1, fly: true, boost: true }) === 'escaped');
-check('筑基 催动遁光+敛息 vs 结丹：更快摆脱', scenario('zj-boost-conceal', { realm: 2, gap: 1, fly: true, boost: true, conceal: true }) === 'escaped');
+check('筑基 催动遁光 vs 结丹：直线逃会遭截杀（九死一生）', scenario('zj-boost-straight', { realm: 2, gap: 1, fly: true, boost: true }) === 'caught' && (scenario as any).wave >= 1);
+check('筑基 催动遁光 vs 结丹：截杀后转向+血影遁可摆脱', scenario('zj-boost', { realm: 2, gap: 1, fly: true, boost: true, react: true }) === 'escaped');
+check('筑基 催动遁光+敛息 vs 结丹：更快摆脱', scenario('zj-boost-conceal', { realm: 2, gap: 1, fly: true, boost: true, conceal: true, react: true }) === 'escaped');
 check('炼气 步行 vs 筑基：被追上', scenario('lq-walk', { realm: 1, stage: 6, gap: 1, fly: false, boost: false }) === 'caught');
-check('炼气 神风舟+遁光 vs 筑基：可摆脱', scenario('lq-boat', { realm: 1, stage: 6, gap: 1, fly: true, boost: true, flight: 'art_shenfeng' }) === 'escaped');
+check('炼气 神风舟+遁光 vs 筑基：可摆脱', scenario('lq-boat', { realm: 1, stage: 6, gap: 1, fly: true, boost: true, flight: 'art_shenfeng', react: true }) === 'escaped');
 check('结丹 平飞 vs 元婴：被追上', scenario('jd-plain', { realm: 3, gap: 1, fly: true, boost: false }) === 'caught');
-check('结丹 风雷翅雷遁 vs 元婴：可摆脱', scenario('jd-thunder', { realm: 3, gap: 1, fly: true, boost: true, flight: 'art_fenglei' }) === 'escaped');
+check('结丹 风雷翅雷遁 vs 元婴：可摆脱', scenario('jd-thunder', { realm: 3, gap: 1, fly: true, boost: true, flight: 'art_fenglei', react: true }) === 'escaped');
 check('筑基 血影遁 vs 结丹：一遁脱身', scenario('zj-xueying', { realm: 2, gap: 1, fly: true, boost: false, skill: 'xueyingdun', secs: 12 }) === 'escaped');
 // 站定时施展血影遁：应背离追兵遁出，而不是撞向对方
 {
@@ -56,6 +67,19 @@ check('筑基 血影遁 vs 结丹：一遁脱身', scenario('zj-xueying', { real
   g.combat.cds?.clear?.(); g.combat.cast('xueyingdun');
   const d1 = Math.hypot(e.x - g.player.x, e.y - g.player.y);
   check('站定施展血影遁：背离追兵遁出', d1 > d0 + 2000, `d0=${d0.toFixed(0)} d1=${d1.toFixed(0)} hp=${h.hp.toFixed(2)}`);
+}
+// 第三十五步：禁空令——结丹以上追兵把遁光压落地面，数息内飞不起来
+{
+  g.combat.reset(); g.pursuit.reset(); g.modal = null; g.input.keys.clear();
+  const h = g.hero; h.realm = 3; h.stage = 0; h.hp = 1; h.mp = 1; h.dead = false; g.player.x = 120000; g.player.y = 93000; g.player.flying = true;
+  for (let i = 0; i < 5; i++) { g.modal = null; g.update(1 / 30); }
+  g.pursuit.cd = 0; g.pursuit.start({ reason: 'test', gap: 1 });
+  const P = g.pursuit.cur; P.e.x = g.player.x - 700; P.e.y = g.player.y; P.jinkongCd = 0;
+  g.modal = null; g.update(1 / 30);
+  const landed = !g.player.flying && g.noFlyT > 0;
+  g.toggleFly();
+  check('禁空令：遁光被压落、数息内无法再起', landed && !g.player.flying, `noFly=${g.noFlyT.toFixed(1)}`);
+  g.noFlyT = 0;
 }
 // 逃进坊市：对方不敢擅闯
 {

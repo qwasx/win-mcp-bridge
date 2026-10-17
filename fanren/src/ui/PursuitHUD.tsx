@@ -29,7 +29,7 @@ export function PursuitHUD({ game }: { game: Game }) {
       // ---- 追杀
       if (!!inf !== was) { was = !!inf; setOn(was); }
       if (!inf) return;
-      if (title.current) title.current.textContent = `${inf.faction} · ${inf.name}（${inf.rank}）`;
+      if (title.current) title.current.textContent = `${inf.faction} · ${inf.name}（${inf.rank}）${inf.foes > 1 ? ` 等 ${inf.foes} 人` : ''}${inf.wave ? ` · 第 ${inf.wave + 1} 轮截杀` : ''}${inf.noFly ? ' · 禁空中' : ''}`;
       if (dist.current) dist.current.textContent = `相距 ${Math.round(inf.dist / 10)} 丈`;
       const locked = inf.dist < inf.lockR && !inf.lost;
       if (state.current) state.current.textContent = inf.lost ? '对方失去了你的踪迹……' : inf.safe > 0.02 ? `对方不敢擅闯 ${Math.round(inf.safe * 100)}%` : locked ? '神识锁定中' : `正在摆脱 ${Math.round(inf.out * 100)}%`;

@@ -51,6 +51,9 @@ export interface Pursuer {
   blinks: number; blinkCd: number;   // 剩余瞬移次数 / 冷却
   earthCd: number; earth: { x: number; y: number } | null;   // 土遁伏击
   wings: Enemy[];            // 同门 / 帮手
+  // ---------- 第三十五步：九死一生 ----------
+  waves: number; wave: number;       // 甩开后还会再截杀几次 / 已截杀几次
+  jinkongCd: number;                 // 禁空令（结丹以上）
 }
 /** 帮手在头领身后的阵位（侧后两翼） */
 const WING_OFS: [number, number][] = [[-170, -150], [-170, 150]];
@@ -110,7 +113,7 @@ export class PursuitSys {
     });
   }
   /** 本次追杀的“摆脱”所需秒数（敛息更快） */
-  get needOut() { return this.g.concealed ? 3 : 5; }
+  get needOut() { return this.g.concealed ? 5 : 8; }   // 第三十五步：九死一生，需甩得更远更久
 
   /** 稍后触发（取宝后被人尾随等） */
   schedule(init: PursuitInit) {
@@ -171,7 +174,8 @@ export class PursuitSys {
     }
     wings.forEach((w, i) => { w.x = x + WING_OFS[i][0] * 0.7; w.y = y + WING_OFS[i][1] * 0.7; });
     this.cur = { e, name, faction: fac, reason: init.reason, realm, stage, lockR, chase, t: 0, outT: 0, safeT: 0, tauntT: rand(4, 7), longT: rand(4, 6), lastX: p.x, lastY: p.y, searching: false, lost: false,
-      npc: d, why: init.why ?? d?.why, prep, v: chase, blinks: 1 + prep, blinkCd: rand(5, 8), earthCd: rand(10, 16), earth: null, wings };
+      npc: d, why: init.why ?? d?.why, prep, v: chase, blinks: 1 + prep, blinkCd: rand(5, 8), earthCd: rand(10, 16), earth: null, wings,
+      waves: Math.min(2, (gap >= 1 ? 1 : 0) + (prep >= 2 ? 1 : 0) + (realm >= 3 && Math.random() < 0.5 ? 1 : 0)), wave: 0, jinkongCd: realm >= 3 ? rand(12, 18) : 1e9 };
     const who = d ? `${name}${d.why ? '（' + d.why + '）' : ''}` : `${fac.name}${name}`;
     const extra = wings.length ? `，身后还跟着${wings.length === 1 ? '一名帮手' : '两名帮手'}` : '';
     g.toast(d ? `${who}——${realmName(realm, stage)}——以神识锁定了你，驾遁光杀来${extra}！${prep ? '看样子这回是有备而来。' : ''}` : `${init.reason}——${who}（${realmName(realm, stage)}）以神识锁定了你，御器追来${extra}！`, 'warn');
@@ -225,6 +229,7 @@ export class PursuitSys {
     const g = this.g, h = g.hero, p = g.player;
     if (this.cd > 0) this.cd -= dt;
     if (this.pending && !this.cur) { this.pending.t -= dt; if (this.pending.t <= 0) { const it = this.pending.init; this.pending = null; this.start(it); } }
+    if (g.noFlyT > 0) g.noFlyT = Math.max(0, g.noFlyT - dt);
     const P = this.cur; if (!P) return;
     if (h.dead) { this.end('dead'); return; }
     const e = P.e;
@@ -300,6 +305,7 @@ export class PursuitSys {
       if (e.cs) { e.cs.faceToward(ddx, ddy, false); }
       e.dun = Math.min(1, e.dun + dt * 4);
     } else e.dun = Math.max(0, e.dun - dt * 2.5);
+    this.jinkong(P, dt, dist, safe);
     e.hx = e.x; e.hy = e.y;   // 不受“离家太远”限制
     e.speed = dist > 700 ? 0 : 200;   // 远距离只由追击驱动（战斗 AI 不再叠加移动），近身才走位
     this.tickWings(P, dt, dist);
@@ -329,9 +335,55 @@ export class PursuitSys {
     // 摆脱判定
     if (safe) { P.safeT += dt; if (P.safeT > 15) { this.end('safe'); return; } }
     else P.safeT = Math.max(0, P.safeT - dt * 2);
-    if (dist > lockR && !P.lost) { P.outT += dt; if (P.outT >= this.needOut) { this.end('escaped'); return; } }
+    if (dist > lockR && !P.lost) { P.outT += dt; if (P.outT >= this.needOut) { if (!this.intercept(P)) this.end('escaped'); return; } }
     else P.outT = Math.max(0, P.outT - dt * 2);
     if (P.t > 300 && dist > 1500) this.end('timeout');
+  }
+
+  /** 第三十五步·九死一生：刚以为甩开，对方燃烧精血抢到你前头截住去路（或半路杀出截胡的劫修） */
+  private intercept(P: Pursuer): boolean {
+    if (P.wave >= P.waves) return false;
+    const g = this.g, c = g.combat, p = g.player, e = P.e;
+    if (e.st.freeze || e.st.stun || e.hp < e.maxHp * 0.25) return false;
+    const ang = Math.atan2(p.y - e.y, p.x - e.x);   // 你逃的方向＝背离追兵
+    let nx = 0, ny = 0, ok = false;
+    for (let k = 0; k < 6 && !ok; k++) { const a = ang + (Math.random() < 0.5 ? -1 : 1) * rand(0.3, 0.75), R = rand(950, 1200); nx = p.x + Math.cos(a) * R; ny = p.y + Math.sin(a) * R * 0.8; ok = !c.safeAt(nx, ny); }
+    if (!ok) return false;
+    P.wave++; P.outT = 0; P.lost = false; P.blinkCd = Math.max(P.blinkCd, 5); P.v = P.chase * 0.5;   // 精血亏损：遁速一时提不上来
+    e.hp -= e.maxHp * 0.08;   // 燃烧精血
+    blinkTo(c, e, nx, ny, 'blood'); e.aggro = true; e.skT = Math.min(e.skT, 0.5);
+    if (!c.enemies.includes(e)) c.enemies.push(e);
+    P.wings.forEach((w, i) => { if (!w.dead) { const b = ang + (i ? 0.7 : -0.7); blinkTo(c, w, p.x + Math.cos(b) * 1000, p.y + Math.sin(b) * 800, dunOf(w)); if (!c.enemies.includes(w)) c.enemies.push(w); } });
+    // 截胡：劫修闻着血腥味半路杀出
+    let third = '';
+    if (P.wings.filter((w) => !w.dead).length < 2 && Math.random() < 0.45) {
+      const jf = FACTIONS.find((f) => f.id === 'jiexiu') ?? P.faction;
+      const nm = SURN[Math.floor(Math.random() * SURN.length)] + pick(MN);
+      const wr = Math.max(1, P.realm - (Math.random() < 0.5 ? 1 : 0));
+      const w = this.mkWing(e, jf, wr, Math.floor(rand(0, REALMS[wr].stages.length)), nm);
+      const b = ang + rand(-0.9, 0.9); w.x = p.x + Math.cos(b) * 1100; w.y = p.y + Math.sin(b) * 880; w.school = 'jiexiu'; w.kit = undefined;
+      P.wings.push(w); c.enemies.push(w); third = `，劫修${nm}也闻着血腥味从斜刺里杀了出来`;
+    }
+    g.toast(`九死一生——${P.name}燃烧精血，一道血光抢在你前头截住了去路${third}！`, 'warn');
+    c.texts.push({ x: e.x, y: e.y - 150, s: '休想走！', color: '#ff7a6a', t: 0, vy: -20, big: true });
+    g.hurtFlash = Math.max(g.hurtFlash, 0.45); g.juice(0.06, 0.4); audio.sfx('thunder');
+    if (g.renderer) g.renderer.sense.alarm = 1;
+    return true;
+  }
+  /** 禁空令：结丹以上的追兵把你的遁光硬生生压落地面（数息内无法再起） */
+  private jinkong(P: Pursuer, dt: number, dist: number, safe: boolean) {
+    const g = this.g, p = g.player, c = g.combat, e = P.e;
+    P.jinkongCd -= dt;
+    if (P.jinkongCd > 0 || !p.flying || safe || P.lost || dist > 1000 || e.st.stun || e.st.freeze) return;
+    if (g.terrain.walkFactor(p.x, p.y) <= 0) return;   // 海上压不下来
+    P.jinkongCd = rand(22, 30);
+    p.flying = false; p.boosting = false; g.noFlyT = 3.5;
+    c.vfx.push({ kind: 'ring', x: p.x, y: p.y, r: 260, t: 0, dur: 0.7, color: '255,200,120', fx: 'array' } as any);
+    c.fxq.push({ k: 'impact', x: p.x, y: p.y, power: 1.4, color: '255,200,120' });
+    c.foe.zone(e, p.x, p.y, 160, 'gold', 0.8, 0.5, { k: 'slow', dur: 2, ch: 1 });
+    c.texts.push({ x: p.x, y: p.y - 160, s: '禁空！', color: '#ffd080', t: 0, vy: -22, big: true });
+    g.toast(`${P.name}祭出禁空令——你的遁光被硬生生压落地面，三息内提不起来！`, 'warn');
+    g.juice(0.07, 0.45); audio.sfx('boom'); g.updateUI();
   }
 
   /** HUD 用 */
@@ -339,7 +391,7 @@ export class PursuitSys {
     const P = this.cur; if (!P) return null;
     const p = this.g.player, e = P.e, dist = Math.hypot(p.x - e.x, p.y - e.y);
     const lockR = P.lockR * (this.g.concealed ? 0.6 : 1);
-    return { name: P.name, faction: P.faction.name, evil: P.faction.evil, rank: realmName(P.realm, P.stage), dist, lockR, out: P.outT / this.needOut, safe: P.safeT / 15, lost: P.lost, x: e.x, y: e.y, hp: e.hp / e.maxHp, reason: P.reason };
+    return { name: P.name, faction: P.faction.name, evil: P.faction.evil, rank: realmName(P.realm, P.stage), dist, lockR, out: P.outT / this.needOut, safe: P.safeT / 15, lost: P.lost, x: e.x, y: e.y, hp: e.hp / e.maxHp, reason: P.reason, wave: P.wave, waves: P.waves, noFly: this.g.noFlyT > 0, foes: 1 + P.wings.filter((w) => !w.dead).length };
   }
   /** 物品价值触发：取宝 / 拍卖 / 杀人之后 */
   maybe(reason: string, chance: number, gap = 1) {
