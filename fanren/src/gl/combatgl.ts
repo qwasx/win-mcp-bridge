@@ -6,6 +6,7 @@ import { SUMMON_EVENTS, summonEvent, drawSummonsGL } from './summongl';
 import { enemyVis } from '../world/combatfx';
 import { drawFoeGL } from './foegl';
 import { drawHeroGL, drawOrbitGL } from './herogl';
+import { dunOf, DUN_COL, wardY, wardR } from '../world/foemind';
 
 const TAU = Math.PI * 2;
 const WHITE: RGB = [1, 1, 1];
@@ -17,7 +18,7 @@ const SMOKE: RGB = [0.13, 0.11, 0.1];
 /** 每秒发射 rate 个：返回本帧数量（带随机余数） */
 const nEmit = (rate: number, dt: number) => { const f = rate * dt; return Math.floor(f) + (Math.random() < f % 1 ? 1 : 0); };
 
-export interface FxEvent { k: 'hit' | 'kill' | 'phit' | 'cast' | 'block' | 'dodge' | 'xueying' | 'impact' | 'roar' | 'sumpop' | 'foxfire' | 'sumhit' | 'sumboom' | 'sumgone'; x: number; y: number; x2?: number; y2?: number; color?: string; power?: number; crit?: boolean; dir?: number; big?: boolean; kind?: string; r?: number }
+export interface FxEvent { k: 'hit' | 'kill' | 'phit' | 'cast' | 'block' | 'dodge' | 'xueying' | 'impact' | 'roar' | 'sumpop' | 'foxfire' | 'sumhit' | 'sumboom' | 'sumgone' | 'ward' | 'shatter' | 'dunflash'; x: number; y: number; x2?: number; y2?: number; color?: string; power?: number; crit?: boolean; dir?: number; big?: boolean; kind?: string; r?: number }
 
 const boostTrail: [number, number][] = [];
 /** 飞行疾遁：遁光拖尾（雷遁电蛇 / 血光遁血雾 / 寻常遁光）+ 掠过的风线 */
@@ -129,10 +130,44 @@ function drawScorch(F: FxSys, c: Combat, dt: number) {
   c.scorch = c.scorch.filter((s) => s.t < s.dur);
 }
 
+/** 第三十二步：敌方修士的遁光拖尾（剑遁青白、血遁暗红、雷遁电蛇、魔影遁紫雾） */
+function drawFoeDun(F: FxSys, c: Combat, dt: number) {
+  for (const e of c.enemies as any[]) {
+    if (e.def.kind !== 'human') continue;
+    const T: [number, number][] = e._tr ??= [];
+    if (e.trailReset) { T.length = 0; e.trailReset = false; }
+    const hx = e.x, hy = e.y - e.flyH - 4;
+    if (e.dun > 0.15 && !e.dead) { const last = T[T.length - 1]; if (!last || Math.hypot(hx - last[0], hy - last[1]) > 8) T.push([hx, hy]); else { last[0] = hx; last[1] = hy; } }
+    else if (T.length) T.splice(0, Math.max(1, Math.ceil(T.length * dt * 6)));
+    if (T.length > 40) T.splice(0, T.length - 40);
+    if (T.length < 2) continue;
+    const vis = enemyVis(c, e); if (vis <= 0.02) continue;
+    const kind = dunOf(e), cc = col(DUN_COL[kind]), fade = Math.min(1, T.length / 8) * vis * (e.dun > 0.15 ? 1 : 0.6);
+    if (kind === 'blood' || kind === 'demon') {
+      F.trail(T, 60, kind === 'blood' ? [0.28, 0.02, 0.04] : [0.18, 0.06, 0.24], 0.22 * fade, C.Glow, 0, 0.7);
+      F.trail(T, 36, cc, 0.32 * fade, C.Glow, 1, 0.8);
+      F.trail(T, 9, mixc(cc, WHITE, 0.5), 0.28 * fade, C.Beam, 1, 1);
+      if (e.dun > 0.15 && Math.random() < dt * 26) F.emit({ x: hx + rnd(-14, 14), y: hy - rnd(0, 50), vx: rnd(-40, 40), vy: rnd(-40, 10), life: rnd(0.4, 0.8), s0: rnd(14, 24), s1: 4, c: cc, a: 0.4, drag: 2, cell: C.Wisp, rot: Math.random() * 6 });
+    } else if (kind === 'thunder') {
+      F.trail(T, 70, [0.72, 0.6, 1], 0.14 * fade, C.Glow, 1, 0.6);
+      F.trail(T, 22, cc, 0.3 * fade, C.Beam, 1, 1);
+      if (Math.random() < dt * 20) { const j = Math.floor(Math.random() * T.length * 0.5), p0 = T[j]; F.bolt(p0[0], p0[1], hx, hy, Math.random() * 1e6, 10, 1, cc, 0.7 * fade, 8, false); }
+    } else {
+      F.trail(T, 64, [0.1, 0.16, 0.2], 0.14 * fade, C.Glow, 0, 0.6);
+      F.trail(T, 56, cc, 0.2 * fade, C.Glow, 1, 0.5);
+      F.trail(T, 30, cc, 0.36 * fade, C.Beam, 1, 1);
+      F.trail(T, 8, WHITE, 0.5 * fade, C.Beam, 1, 1);
+      if (e.dun > 0.15 && Math.random() < dt * 16) F.emit({ x: hx + rnd(-12, 12), y: hy - rnd(-4, 30), vx: rnd(-20, 20), vy: rnd(-20, 20), life: rnd(0.3, 0.5), s0: 4, s1: 1, c: cc, a: 0.7, cell: C.Glow });
+    }
+    if (e.dun > 0.15) F.glow(hx, hy - 20, 44, cc, 0.22 * vis);
+  }
+}
+
 export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
   const p = c.game.player;
   drawScorch(F, c, dt);
   drawBoost(F, c, dt);
+  drawFoeDun(F, c, dt);
   drawReach(F, c, t, dt);
   drawFoeGL(F, c, t, dt);
   // ---- 事件（命中/击杀/受伤）
@@ -177,6 +212,26 @@ export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
       F.flash(x2, y2 - 50, big ? 56 : 28, BL, 0.3); F.shockRing(x2, y2, big ? 260 : 100, BL, 0.4, 0.55, 0.5);
       for (let i = 0; i < 18; i++) { const a = i / 18 * TAU; F.emit({ x: x2 + Math.cos(a) * 120, y: y2 - 50 + Math.sin(a) * 60, vx: -Math.cos(a) * 300, vy: -Math.sin(a) * 150, life: 0.4, s0: 8, s1: 2, c: BL, cell: C.Glow, a: 0.8 }); }
     }
+    else if (ev.k === 'ward') {   // 护体灵光升起：灵光自外向内收拢成罩
+      const r = ev.r ?? 60;
+      F.flash(ev.x, ev.y, r * 0.8, cc, 0.2);
+      for (let i = 0; i < 20; i++) { const a = i / 20 * TAU; F.emit({ x: ev.x + Math.cos(a) * r * 2, y: ev.y + Math.sin(a) * r * 1.6, vx: -Math.cos(a) * r * 3.2, vy: -Math.sin(a) * r * 2.6, life: 0.35, s0: 7, s1: 2, c: cc, cell: C.Glow, a: 0.8 }); }
+      F.shockRing(ev.x, ev.y + r * 0.6, r * 1.6, cc, 0.4, 0.5, 0.5);
+    } else if (ev.k === 'shatter') {   // 护体灵光破碎：碎光四溅
+      const r = ev.r ?? 60;
+      F.flash(ev.x, ev.y, r * 1.4, mixc(cc, WHITE, 0.6), 0.22);
+      F.shockRing(ev.x, ev.y + r * 0.5, r * 3, cc, 0.45, 0.55, 0.8);
+      for (let i = 0; i < 30; i++) { const a = Math.random() * TAU, v = rnd(180, 520); F.emit({ x: ev.x + Math.cos(a) * r * 0.9, y: ev.y + Math.sin(a) * r, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.7 - 60, life: rnd(0.5, 0.9), s0: rnd(14, 26), s1: 4, c: mixc(cc, WHITE, 0.3), a: 0.9, drag: 1.5, grav: 380, cell: C.Shard, rot: a, vr: rnd(-8, 8) }); }
+      F.sparks(ev.x, ev.y, mixc(cc, WHITE, 0.5), 18, 460, 0.4, 3);
+    } else if (ev.k === 'dunflash') {   // 雷遁 / 剑遁 / 魔影遁 / 土遁：原地一闪，沿途残光，落点收拢
+      const x2 = ev.x2 ?? ev.x, y2 = ev.y2 ?? ev.y, kind = ev.kind;
+      F.flash(ev.x, ev.y - 50, 40, cc, 0.22); F.shockRing(ev.x, ev.y, 140, cc, 0.45, 0.55, 0.5);
+      if (kind === 'thunder') { for (let b = 0; b < 3; b++) F.bolt(ev.x, ev.y - 50, x2, y2 - 50, Math.random() * 1e6, 26, 1.4, cc, 0.9, 14, b === 0); }
+      else if (kind === 'earth') { F.smoke(ev.x, ev.y - 10, 14, [0.32, 0.26, 0.18], 0.55, 60, 90); F.smoke(x2, y2 - 10, 18, [0.32, 0.26, 0.18], 0.6, 70, 110); for (let i = 0; i < 22; i++) { const a = Math.random() * TAU, v = rnd(120, 380); F.emit({ x: x2, y: y2 - 10, vx: Math.cos(a) * v, vy: -rnd(160, 420), life: rnd(0.6, 1), s0: rnd(6, 12), s1: 3, c: [0.45, 0.36, 0.24], add: 0, a: 0.9, grav: 900, cell: C.Shard, rot: a }); } }
+      const PL = Math.hypot(x2 - ev.x, y2 - ev.y) || 1, n = Math.min(40, Math.max(6, Math.round(PL / 50)));
+      if (kind !== 'earth') for (let i = 1; i < n; i++) { const u = i / n, x = ev.x + (x2 - ev.x) * u, y = ev.y + (y2 - ev.y) * u - 50; F.emit({ x, y, life: rnd(0.25, 0.5) * (0.5 + u * 0.5), s0: 60, s1: 30, c: cc, a: 0.18, cell: C.Glow }); F.emit({ x, y, vx: (x2 - ev.x) / PL * 120, vy: (y2 - ev.y) / PL * 120, life: rnd(0.3, 0.5), s0: rnd(8, 12), s1: 2, c: mixc(cc, WHITE, 0.4), a: 0.6, stretch: 5, drag: 3, cell: C.Glow }); }
+      F.flash(x2, y2 - 50, 46, cc, 0.25); F.shockRing(x2, y2, 160, cc, 0.4, 0.55, 0.5);
+    }
     else if (ev.k === 'cast') { const k = ev.power ?? 1; F.flash(ev.x, ev.y, 22 * k, cc, 0.16); F.shockRing(ev.x, ev.y + 40 * k, 70 * (0.6 + 0.4 * k), cc, 0.35, 0.55, 0.5); }
   }
   c.fxq.length = 0;
@@ -200,6 +255,14 @@ export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
       F.glow(e.x, hy, 46 * (e.def.look?.size ?? 1), WHITE, 0.55 * k * vis);
     }
     if (e.def.evil && vis > 0.1) F.glow(e.x, e.y - 50, 60, [0.8, 0.1, 0.15], 0.25 * vis);
+    if (e.ward) {   // 护体灵光：半透明灵光罩 + 六枚符印绕行，受击时一亮
+      const w = e.ward, k = w.hp / w.max, cc = col(w.col), r = wardR(e), y = e.y - wardY(e) - e.flyH - e.lift;
+      const pul = 0.85 + 0.15 * Math.sin(t * 5 + e.id * 10);
+      F.sprite(C.Glow, e.x, y, r * 2.6, r * 2.9, 0, cc, (0.05 + 0.05 * k) * vis);
+      F.sprite(C.RingSoft, e.x, y, r * 2.1, r * 2.35, 0, cc, ((0.2 + 0.2 * k) * pul + w.t * 1.0) * vis);
+      F.sprite(C.Ring, e.x, y, r * 2.0, r * 2.24, 0, WHITE, (0.16 * k + w.t * 0.9) * vis);
+      for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + t * 0.7; F.sprite(C.Seal, e.x + Math.cos(a) * r * 0.98, y + Math.sin(a) * r * 1.1, 15, 15, a, cc, (0.3 * k + w.t) * vis); }
+    }
     if (e.st.burn && Math.random() < dt * 14) F.emit({ x: e.x + rnd(-18, 18), y: e.y - rnd(10, 70), vx: rnd(-10, 10), vy: rnd(-90, -50), life: rnd(0.3, 0.6), s0: rnd(14, 24), s1: 4, c: FIRE, cell: C.Flame, a: 0.8 });
     if (e.st.poison && Math.random() < dt * 8) F.emit({ x: e.x + rnd(-18, 18), y: e.y - rnd(10, 60), vy: rnd(-40, -20), life: rnd(0.5, 0.9), s0: rnd(12, 20), s1: 26, c: [0.35, 0.7, 0.15], cell: C.Smoke, a: 0.35, add: 0.5 });
     if (e.st.shock && Math.random() < dt * 10) { const a = Math.random() * TAU; F.bolt(e.x + Math.cos(a) * 30, e.y - 60 + Math.sin(a) * 30, e.x, e.y - 50, Math.random() * 1e6, 10, 1.6, [0.7, 0.75, 1], 0.9, 4, false); }

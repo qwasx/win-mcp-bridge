@@ -37,7 +37,7 @@ for (const id of kinIds) N.byId.get(id)!.huntAt = g.day;
 g.day += 1; R.daily(1);
 const k0 = N.byId.get(kinIds[0])!;
 console.log('after daily: hunting', k0.hunting, 'wanted', R.S.wanted.length, 'pursuit', !!(g.pursuit as any).pending, 'log', R.S.log.slice(-3).map((l) => l.text));
-ok(k0.hunting || R.S.wanted.length || (g.pursuit as any).pending, '死敌出手（追杀 / 雇凶 / 悬赏）');
+ok(k0.hunting || k0.chasing || R.S.wanted.length || (g.pursuit as any).pending, '死敌出手（追杀 / 雇凶 / 悬赏）');
 // 4) 对峙：化解
 const dn = R.parleyNode(k0, null, () => {}, () => {});
 ok(dn.options.length >= 3, `对峙选项：${dn.options.map((o) => o.label).join(' / ')}`);
@@ -48,7 +48,7 @@ console.log('sect rep', sectM.sect, R.sectRep(sectM.sect), 'wanted', R.S.wanted.
 ok(R.sectRep(sectM.sect) <= -60, '宗门声望跌破围剿线');
 R.S.siegeCd = 0; R.siege(sectM.sect!);
 const siege = N.list.filter((d) => d.why?.startsWith('奉'));
-ok(siege.length >= 1 && siege.every((d) => d.hunting), `执法弟子 ${siege.length} 人出动`);
+ok(siege.length >= 1 && siege.every((d) => d.hunting || d.chasing), `执法弟子 ${siege.length} 人出动`);
 // 6) 交谈：talkOpts
 const friend = N.list.find((d) => d.alive && d.realm >= 1 && !d.canon && !d.grudge && d.faction !== 'mortal' && !d.why)!;
 friend.favor = 85; friend.met = true; friend.realm = 2;

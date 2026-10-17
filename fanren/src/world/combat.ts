@@ -15,6 +15,7 @@ const REACH_CASTS = new Set<string>(['bolt', 'fan', 'burst', 'strike', 'beam', '
 import type { FxEvent } from '../gl/combatgl';
 import { ArtActs, lookOf } from './artacts';
 import { FoeAI, FoeSkill, isBoss } from './foeskills';
+import { FoeMind, absorbWard, Ward, DunKind } from './foemind';
 import { DagengAct } from './dageng';
 import { spawnHeroAct } from './heroacts';
 import { Swarm } from './swarm';
@@ -70,6 +71,13 @@ export class Enemy {
   /** 第二十七步：招式 */
   kit?: FoeSkill[]; skCd: Record<string, number> = {}; skT = 1.2 + Math.random() * 2; cast: any = null;
   lift = 0; guardT = 0; rage = 0; used?: Record<string, boolean>; dodgeCd = 1 + Math.random() * 2; minion?: boolean;
+  /** 第三十二步：护体灵光（打碎前先吃伤害）/ 重凝倒计时 */
+  ward?: Ward; wardRe = 0; wardFrac = 0; wardCol?: string;
+  /** 遁光（0‥1，驱动拖尾与御器离地）/ 遁法 / 御器离地高度 */
+  dun = 0; dunKind?: DunKind; flyH = 0; trailReset?: boolean; hideT = 0;
+  fieldT = 0; retreatT = 0; lowDone = false; blinkCd = 3 + Math.random() * 5; supCd = 4; role?: 'tank' | 'ranged' | 'support'; slotA?: number;
+  /** 追杀者（由追杀系统驱动远距离移动）/ 追杀者的同伙 */
+  pursuer?: boolean; wing?: boolean;
   constructor(def: EnemyDef, x: number, y: number, realm: number, stage: number, sea = false) {
     this.def = def; this.x = this.hx = x; this.y = this.hy = y;
     this.realm = realm; this.stage = stage; this.level = realm * 13 + stage;
@@ -186,7 +194,8 @@ export class Combat {
   acts: ArtActs;
   /** 第二十七步：敌人招式与地面预警 */
   foe: FoeAI;
-  constructor(game: Game) { this.game = game; this.acts = new ArtActs(this); this.foe = new FoeAI(this); }
+  mind: FoeMind;
+  constructor(game: Game) { this.game = game; this.acts = new ArtActs(this); this.foe = new FoeAI(this); this.mind = new FoeMind(this); }
   /** 召唤来的援兵（略弱于施术者） */
   makeMinion(def: EnemyDef, x: number, y: number, src: Enemy): Enemy | null {
     const realm = def === src.def ? src.realm : Math.max(1, src.realm - (def.kind === 'ghost' ? 0 : 1));
@@ -245,10 +254,10 @@ export class Combat {
       return { x: tx, y: ty, dx: (tx - p.x) / d, dy: (ty - p.y) / d, target };
     }
     // 自动锁定最近敌人
-    if (this.lock && (this.lock.dead || Math.hypot(this.lock.x - p.x, this.lock.y - p.y) > Math.min(R, range * (exact ? 1.08 : 1.6)))) this.lock = null;
+    if (this.lock && (this.lock.dead || this.lock.hideT > 0 || Math.hypot(this.lock.x - p.x, this.lock.y - p.y) > Math.min(R, range * (exact ? 1.08 : 1.6)))) this.lock = null;
     if (!this.lock) {
       let bd = Math.min(R, range * (exact ? 1 : 1.4));
-      for (const e of this.enemies) { if (e.dead) continue; const d = Math.hypot(e.x - p.x, e.y - p.y); if (d < bd) { bd = d; this.lock = e; } }
+      for (const e of this.enemies) { if (e.dead || e.hideT > 0) continue; const d = Math.hypot(e.x - p.x, e.y - p.y); if (d < bd) { bd = d; this.lock = e; } }
     }
     target = this.lock;
     if (target) {
@@ -707,7 +716,7 @@ export class Combat {
     return alt + Math.min(150, (top - alt) * 0.45);
   }
   hitEnemy(e: Enemy, raw: number, src: { realm: number; status?: StatusSpec; stCh: number; school?: School; evil?: number; skill?: string }, fx: number, fy: number) {
-    if (e.dead) return;
+    if (e.dead || e.hideT > 0) return;
     let d = raw * (e.guardT > 0 ? 0.35 : 1);
     if (e.guardT > 0 && Math.random() < 0.3) this.texts.push({ x: e.x + rand(-14, 14), y: e.y - 100, s: '护体', color: '#f0d890', t: 0, vy: -36 });
     let combo = '';
@@ -728,6 +737,11 @@ export class Combat {
     const crit = Math.random() < 0.1;
     if (crit) d *= 1.6;
     d = Math.max(1, Math.round(d));
+    if (e.ward) {   // 第三十二步：护体灵光先吃伤害
+      const left = absorbWard(this, e, d);
+      if (left <= 0) { e.aggro = true; e.lastHitBy = this.game.time; e.sleep = false; e.busy = false; this.combatT = 0; e.anim.hit = 0.4; this.texts.push({ x: e.x + rand(-14, 14), y: e.y - 80, s: String(d), color: '#bcd8ff', t: 0, vy: -60 }); return; }
+      d = Math.max(1, Math.round(left));
+    }
     e.hp -= d; e.anim.hit = 1; e.aggro = true; e.lastHitBy = this.game.time; e.sleep = false; e.busy = false;
     this.combatT = 0;
     // 打击感：白闪、击退、顿帧、震屏、粒子
@@ -1099,7 +1113,7 @@ export class Combat {
     this.dodgeCd = Math.max(0, this.dodgeCd - dt);
     // 威压：附近已察觉你的高境界敌人
     let pr = 0;
-    for (const e of this.enemies) if (!e.dead && e.aggro && e.realm > h.realm && Math.hypot(e.x - p.x, e.y - p.y) < 700) pr = Math.max(pr, e.realm - h.realm);
+    for (const e of this.enemies) if (!e.dead && e.aggro && e.realm > h.realm && !(e.pursuer && p.boosting) && Math.hypot(e.x - p.x, e.y - p.y) < 700) pr = Math.max(pr, e.realm - h.realm);   // 催动遁光时，追兵的威压压不住你
     this.pressure += (pr - this.pressure) * Math.min(1, dt * 3);
     this.pressWarnT -= dt;
     if (pr > 0 && this.pressWarnT <= 0) { this.pressWarnT = 25; g.toast(`一股${['', '远胜于你', '如山岳般', '令人窒息'][Math.min(3, pr)]}的威压笼罩而来——对方修为高出一个大境界以上，硬拼必死，速逃！`, 'warn'); }
@@ -1289,6 +1303,7 @@ export class Combat {
     const playerSafe = this.safeAt(p.x, p.y);
     for (const e of this.enemies) {
       if (e.dead) continue;
+      if (e.hideT > 0) continue;   // 土遁潜行（由追杀系统驱动）
       e.anim.t += dt;
       e.anim.hit = Math.max(0, e.anim.hit - dt * 4);
       e.hitFlash = Math.max(0, e.hitFlash - dt);
@@ -1333,6 +1348,11 @@ export class Combat {
       else if (e.aggro) {
         e.cdMelee -= dt; e.cdRanged -= dt;
         const m = e.def.melee, r = e.def.ranged;
+        // 第三十二步：心智——走位 / 遁光 / 撤退 / 包抄（busy 时本帧只顾走位）
+        this.mind.assignRole(e);
+        const ov = this.mind.tick(e, dt, tx, ty, dist, rooted, tg.k === 'p');
+        if (ov?.busy) { mvx = ov.mx; mvy = ov.my; sp *= ov.sp; }
+        else {
         // 闪避：看见迎面飞来的法术，侧身一闪（妖兽二级以上 / 修士）
         e.dodgeCd -= dt;
         if (e.dodgeCd <= 0 && !e.cast && !rooted && (e.blv >= 2 || e.def.kind === 'human' || e.realm >= 2)) {
@@ -1365,8 +1385,11 @@ export class Combat {
           e.cdRanged = r.cd * rand(0.9, 1.3);
           e.anim.atk = 0.5;
           const n = r.count ?? 1;
+          // 第三十二步：提前量——二级以上妖兽与修士会算你的走位
+          let ax = tx, ay = ty;
+          if (tg.k === 'p' && (e.blv >= 2 || e.def.kind === 'human' || e.realm >= 2)) { const lt = Math.min(1.2, dist / (r.speed ?? 500)) * (0.6 + Math.random() * 0.35); ax += p.st.vx * lt; ay += p.st.vy * lt; }
           for (let i = 0; i < n; i++) {
-            const ang = Math.atan2(ty - 40 - (e.y - 40), tx - e.x) + (n > 1 ? (i / (n - 1) - 0.5) * 0.5 : 0);
+            const ang = Math.atan2(ay - 40 - (e.y - 40), ax - e.x) + (n > 1 ? (i / (n - 1) - 0.5) * 0.5 : 0);
             const spd = r.speed ?? 500;
             this.projs.push({ fac: 'e', x: e.x, y: e.y - (e.anim.flying ? 70 : 40), vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 0, max: r.range / spd + 0.2, fx: r.fx, color: r.color, dmg: e.atk * r.power, realm: e.realm, status: r.status, stCh: r.status?.ch ?? 0, pierce: false, homing: false, hit: new Set(), r: 26, aoe: r.radius ?? 0, size: 0.9, trail: [], lv: 0, tk: tg.k === 'p' || tg.k === 'decoy' ? undefined : (tg.ref ?? tg.k) });
           }
@@ -1382,8 +1405,11 @@ export class Combat {
           // 侧移
           if (r && !m) { const side = Math.sin(e.anim.t * 0.8 + e.id * 10); mvx += -dy / (dist || 1) * side * 0.5; mvy += dx / (dist || 1) * side * 0.5; }
         }
+        if (ov) { const w = ov.w; mvx = mvx * (1 - w) + ov.mx * w; mvy = mvy * (1 - w) + ov.my * w; sp *= ov.sp; }
+        }
         if (e.windup <= 0 && !e.cast) e.anim.atk = Math.max(0, e.anim.atk - dt * 3);
       } else {
+        e.dun = Math.max(0, e.dun - dt * 2);
         // 游荡
         e.wanderT -= dt;
         if (e.wanderT <= 0) { e.wanderT = rand(2, 5); const a = Math.random() * TAU; e.wx = Math.random() < 0.4 ? 0 : Math.cos(a); e.wy = Math.random() < 0.4 ? 0 : Math.sin(a); if (Math.hypot(e.x - e.hx, e.y - e.hy) > 500) { e.wx = (e.hx - e.x) / 500; e.wy = (e.hy - e.y) / 500; } }
@@ -1405,10 +1431,11 @@ export class Combat {
       e.anim.move += ((mv > 0.05 ? Math.min(1, mv * 1.4) : 0) - e.anim.move) * Math.min(1, dt * 6);
       e.anim.phase += dt * sp / 18 * e.anim.move;
       if (Math.abs(mvx) > 0.1) e.facing = mvx > 0 ? 1 : -1; else if (e.aggro) e.facing = dx > 0 ? 1 : -1;
+      if (e.def.kind === 'human') e.flyH += ((e.dun > 0.3 ? 46 : 0) - e.flyH) * Math.min(1, dt * 4);
       if (e.cs) {
-        e.cs.x = e.x; e.cs.y = e.y; e.cs.speed = mv * sp; e.cs.vx = mvx * sp; e.cs.vy = mvy * sp;
+        e.cs.x = e.x; e.cs.y = e.y; e.cs.lift = e.flyH; e.cs.speed = mv * sp; e.cs.vx = mvx * sp; e.cs.vy = mvy * sp;
         if (mv > 0.05) e.cs.faceToward(mvx, mvy, false); else if (e.aggro) e.cs.faceToward(dx, dy, false);
-        e.cs.setAction(frozen ? 'hit' : e.anim.atk > 0.1 ? 'cast' : mv > 0.05 ? (e.aggro ? 'run' : 'walk') : 'idle');
+        e.cs.setAction(frozen ? 'hit' : e.anim.atk > 0.1 ? 'cast' : e.flyH > 12 ? 'fly' : mv > 0.05 ? (e.aggro ? 'run' : 'walk') : 'idle');
         e.cs.update(dt);
       }
     }

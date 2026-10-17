@@ -362,9 +362,18 @@ export class Relations {
   }
 
   /** 死敌循迹而来：出现在神识之外，逐渐逼近 */
-  startHunt(d: NpcData, quiet = false, force = false) {
+  startHunt(d: NpcData, quiet = false, force = false, allies?: NpcData[]) {
     const g = this.game, p = g.player;
     if (!force && g.combat.safeAt(p.x, p.y) && Math.random() < 0.5) return false;
+    // 第三十二步：筑基以上的仇人亲自驾遁光杀来（遁光 / 血遁 / 土遁伏击 / 护体灵光 / 困阵定身）
+    if (d.realm >= 2 && !g.pursuit.active && !this.npcs.activeOf(d.id) && g.hero.realm >= 1) {
+      g.pursuit.cd = 0;
+      if (g.pursuit.start({ reason: d.why ?? '仇家寻仇', npc: d, allies, why: d.why })) {
+        d.hunting = false; d.huntStart = g.day;
+        this.log(`${d.name}（${d.why ?? '仇家'}）亲自追杀你${allies?.length ? `，带着${allies.map((a) => a.name).join('、')}` : ''}。`, 'bad');
+        return true;
+      }
+    }
     d.map = ACTIVE_MAP; d.hunting = true; d.huntStart = g.day;
     const a0 = Math.random() * Math.PI * 2, R = Math.max(2800, g.senseRadius * 1.6);
     for (let k = 0; k < 8; k++) { const a = a0 + k * 0.8, x = p.x + Math.cos(a) * R, y = p.y + Math.sin(a) * R * 0.8; if (g.terrain.walkFactor(x, y) > 0 || d.realm >= 2) { d.x = x; d.y = y; break; } }
@@ -384,7 +393,10 @@ export class Relations {
     if (!team.length) return;
     S.siegeCd = g.day + 50;
     const lead = team[0];
-    for (const d of team) { d.grudge = Math.max(d.grudge ?? 0, 1); d.why = `奉${this.sectName(sid)}之命围剿你`; this.startHunt(d, true, true); if (d !== lead) { d.x = lead.x + rand(-220, 220); d.y = lead.y + rand(-160, 160); } }
+    for (const d of team) { d.grudge = Math.max(d.grudge ?? 0, 1); d.why = `奉${this.sectName(sid)}之命围剿你`; }
+    // 第三十二步：筑基以上的头领带两名同门以遁光合围；其余仍循迹而来
+    const viaP = lead.realm >= 2 && !g.pursuit.active && this.startHunt(lead, true, true, team.slice(1, 3));
+    for (const d of team) { if (viaP && (d === lead || d.chasing)) continue; this.startHunt(d, true, true); if (d !== lead) { d.x = lead.x + rand(-220, 220); d.y = lead.y + rand(-160, 160); } }
     const s = `${this.sectName(sid)}执法弟子${team.length}人，由${lead.name}（${realmName(lead.realm, lead.stage)}）率领，出山围剿韩立！`;
     g.news(s, 'rumor'); this.log(s, 'bad');
     g.toast(`${this.sectName(sid)}派出执法弟子围剿你——数道神识正从远处合围而来！`, 'warn');

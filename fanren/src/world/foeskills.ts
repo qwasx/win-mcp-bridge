@@ -152,6 +152,14 @@ function humanKit(e: Enemy): FoeSkill[] {
   return out;
 }
 
+/** 第三十二步：追杀者另带困灵阵、定身符——专门留人 */
+export function pursuerKit(e: Enemy): FoeSkill[] {
+  const out = humanKit(e).filter((s) => s.id !== 'h_bblink');
+  out.push(S({ id: 'p_trap', name: '困灵阵', k: 'circle', r: 150, tele: 0.75, pow: 1.2, range: 620, cd: 11, status: { k: 'root', dur: 1.6, ch: 0.85 }, pool: 2.5 }, 'earth'));
+  out.push(S({ id: 'p_seal', name: '定身符', k: 'salvo', n: 3, waves: 1, spread: 0.35, tele: 0.35, pow: 0.7, range: 640, min: 120, cd: 9, status: { k: 'stun', dur: 0.6, ch: 0.45 } }, 'gold'));
+  return out;
+}
+
 /** 原著妖王 / 魔物：专属招式与大招 */
 const LAIR_KIT: Record<string, (e: Enemy) => FoeSkill[]> = {
   mojiao: () => [
@@ -290,7 +298,7 @@ export class FoeAI {
     const dmg = e.atk * sk.pow * (1 + e.rage * 0.15);
     const base = { t: 0, tele: sk.tele, dur: 0, el: sk.el, dmg, realm: e.realm, status: sk.status, src: e, fired: false, tick: 0, pool: sk.pool, big: !!sk.ult, spread: 0, len: 0, w: 0, ang: 0, r: 0 };
     switch (sk.k) {
-      case 'circle': { const lead = 0.35; const p = g.player; const vx = (p as any).vx ?? 0, vy = (p as any).vy ?? 0; this.add({ ...base, k: 'circle', x: tx + vx * lead * 0.5, y: ty + vy * lead * 0.5, r: sk.r! }); break; }
+      case 'circle': { const lead = 0.35 + (e.def.kind === 'human' || e.blv >= 4 ? 0.35 : 0); const p = g.player; const vx = p.st?.vx ?? 0, vy = p.st?.vy ?? 0; this.add({ ...base, k: 'circle', x: tx + vx * lead * 0.5, y: ty + vy * lead * 0.5, r: sk.r! }); break; }
       case 'rain': {
         const n = sk.n! + e.rage * 2;
         for (let i = 0; i < n; i++) {
@@ -313,6 +321,10 @@ export class FoeAI {
   }
 
   private add(h: Hz) { this.hz.push(h); return h; }
+  /** 第三十二步：土遁伏击等“非招式”的地面预警 */
+  zone(e: Enemy, x: number, y: number, r: number, el: El, pow: number, tele: number, status?: StatusSpec) {
+    return this.add({ k: 'circle', x, y, r, t: 0, tele, dur: 0, el, dmg: e.atk * pow, realm: e.realm, status, src: e, fired: false, tick: 0, spread: 0, len: 0, w: 0, ang: 0 });
+  }
 
   private run(e: Enemy, cs: Cast, dt: number, tx: number, ty: number) {
     const c = this.c, g = c.game, sk = cs.sk, T = g.terrain;

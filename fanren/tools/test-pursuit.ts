@@ -80,5 +80,36 @@ check('筑基 血影遁 vs 结丹：一遁脱身', scenario('zj-xueying', { real
   e.hp = 0; for (let i = 0; i < 5; i++) g.update(1 / 30);
   check('击杀追杀者：追杀结束', !g.pursuit.cur);
 }
+// 第三十二步：真仇人亲自追杀（遁光、护体灵光、帮手；没杀成会准备得更充分再来）
+{
+  g.combat.reset(); g.pursuit.reset(); g.modal = null; g.input.keys.clear();
+  const h = g.hero; h.realm = 2; h.stage = 0; h.mp = 1; h.hp = 1; h.equip = {}; g.player.x = 120000; g.player.y = 93000; g.player.flying = false;
+  const d = g.npcs.list.find((x: any) => x.alive && x.realm >= 3 && !x.beauty && !x.canon && x.sect);
+  const mates = g.npcs.list.filter((x: any) => x !== d && x.alive && x.realm >= 2 && !x.beauty && !x.canon).slice(0, 2);
+  d.grudge = 2; d.why = '你杀了他的师弟'; d.prep = 0;
+  const ok = g.rel.startHunt(d, false, true, mates);
+  const P = g.pursuit.cur;
+  check('仇人亲自追来（追杀系统接管）', ok && !!P && P.npc === d && P.e.npcId === d.id && d.chasing, P ? `${P.name} ${P.faction.name}` : '');
+  check('追杀者罩着护体灵光', !!P?.e.ward && P.e.ward.hp > 0, P?.e.ward ? `ward=${Math.round(P.e.ward.hp)} / hp=${Math.round(P.e.maxHp)}` : '');
+  check('带着两名帮手', P?.wings.length === 2 && P.wings.every((w: any) => w.wing && w.npcId), `wings=${P?.wings.length}`);
+  // 护体灵光先吃伤害，打碎后对方僵直
+  const e = P.e, hp0 = e.hp; g.combat.hitEnemy(e, e.ward.hp * 0.5, { realm: 3, stCh: 0 }, e.x, e.y);
+  check('伤害先打在灵光上', e.hp === hp0 && e.ward && e.ward.hp > 0);
+  g.combat.hitEnemy(e, e.ward.hp * 4 + 500, { realm: 3, stCh: 0 }, e.x, e.y);
+  check('灵光破碎 → 僵直', !e.ward && !!e.st.stun);
+  // 逃脱：下次准备更充分
+  const day = g.day; g.pursuit.end = (g.pursuit as any).end; (g.pursuit as any).end('escaped');
+  check('逃脱后仇人回去准备，下次再来', d.prep === 1 && !d.chasing && d.huntAt > day && !g.pursuit.cur && mates.every((m: any) => !m.chasing), `prep=${d.prep} huntAt=${d.huntAt - day}`);
+  // 再来一次：有备而来（灵光更厚），击杀 → 仇人陨落，帮手留下拼命
+  g.pursuit.cd = 0; g.rel.startHunt(d, true, true, mates);
+  const P2 = g.pursuit.cur;
+  check('有备而来：灵光更厚', P2 && P2.e.wardFrac > 0.3, `frac=${P2?.e.wardFrac}`);
+  for (const w of P2.wings) { w.x = g.player.x + 300; w.y = g.player.y; if (!g.combat.enemies.includes(w)) g.combat.enemies.push(w); }
+  P2.e.x = g.player.x + 200; P2.e.y = g.player.y; if (!g.combat.enemies.includes(P2.e)) g.combat.enemies.push(P2.e);
+  P2.e.ward = undefined; P2.e.hp = 0;
+  for (let i = 0; i < 5; i++) { g.modal = null; g.combat.invulnT = 5; g.update(1 / 30); }
+  check('击杀仇人：其人陨落', !d.alive && !g.pursuit.cur, `alive=${d.alive}`);
+  check('帮手留下拼命', P2.wings.some((w: any) => !w.dead && w.aggro && g.combat.enemies.includes(w)));
+}
 console.log(fails ? `\n${fails} 项失败` : '\n全部通过');
 process.exit(fails ? 1 : 0);

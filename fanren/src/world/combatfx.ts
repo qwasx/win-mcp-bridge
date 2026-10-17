@@ -13,6 +13,7 @@ import { QUHUN_LOOK } from '../data/storylooks';
 import { artLook } from '../data/artlooks';
 import { drawArt } from '../gfx/artifact';
 import { vfxProj, vfxBurst, vfxRing, vfxColumn, projSet, burstKey, shieldKey } from '../gfx/vfxTex';
+import { wardY, wardR } from './foemind';
 /** 空中单位的排序偏移：排在所有地面物体之后 */
 const AIR_Y = 200000;
 
@@ -28,7 +29,8 @@ const SUMMON_LOOK: Record<string, BeastLook> = {
   jiao: { body: 'jiao', color: [60, 150, 120], belly: [190, 230, 200], accent: [220, 240, 200], size: 1.1, glow: '120,240,180' },
 };
 
-export function enemyVis(c: Combat, e: { x: number; y: number; def?: { hide?: boolean }; aggro?: boolean }) {
+export function enemyVis(c: Combat, e: { x: number; y: number; def?: { hide?: boolean }; aggro?: boolean; hideT?: number }) {
+  if ((e.hideT ?? 0) > 0) return 0;   // 土遁潜行于地下
   const s = c.game.life.sense;
   // 擅隐匿的妖兽（双瞳鼠、阴芝马）：神识须贴近（约四成半径）或外放方能察觉；一旦惊走则现形
   const R = e.def?.hide && !e.aggro && !(c.game.senseBurstT > 0) ? s.R * 0.45 : s.R;
@@ -534,6 +536,15 @@ export function drawCombatFx(g: G, c: Combat, t: number) {
   g.globalCompositeOperation = 'lighter';
   for (const v of c.vfx) drawVfx(g, v, t);
   for (const pr of c.projs) drawProj(g, pr, t);
+  // 护体灵光（Canvas 后备）
+  for (const e of c.enemies) if (e.ward && !e.dead) {
+    const v = enemyVis(c, e); if (v <= 0.02) continue;
+    const w = e.ward, k = w.hp / w.max, r = wardR(e), y = e.y - wardY(e) - e.flyH - e.lift;
+    const gr = g.createRadialGradient(e.x, y, r * 0.5, e.x, y, r * 1.15);
+    gr.addColorStop(0, `rgba(${w.col},0)`); gr.addColorStop(0.8, `rgba(${w.col},${(0.12 + 0.12 * k + w.t) * v})`); gr.addColorStop(1, `rgba(${w.col},0)`);
+    g.fillStyle = gr; g.beginPath(); g.ellipse(e.x, y, r * 1.15, r * 1.25, 0, 0, TAU); g.fill();
+    g.strokeStyle = `rgba(${w.col},${(0.35 * k + w.t) * v})`; g.lineWidth = 1.5; g.beginPath(); g.ellipse(e.x, y, r, r * 1.1, 0, 0, TAU); g.stroke();
+  }
   c.swarm?.drawCanvas(g); c.petSwarm?.drawCanvas(g);
   // 噬金虫群
   for (const s of c.summons) if (s.kind === 'bugs' && s.dots) {

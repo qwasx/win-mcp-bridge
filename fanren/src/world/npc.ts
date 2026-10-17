@@ -33,6 +33,8 @@ export interface NpcData {
   map?: MapId;              // 所在地图（缺省为天南）
   // ---------- 第二十九步：人脉与恩怨 ----------
   ties?: Tie[]; why?: string; huntAt?: number; hunting?: boolean; huntStart?: number; vend?: string; oath?: boolean;
+  /** 第三十二步：正亲自追杀中（由追杀系统接管） / 追杀失败的次数（下次更有准备） */
+  chasing?: boolean; prep?: number;
   bond?: Bond; bondUntil?: number; helpUntil?: number; lastParley?: number; lunDao?: number; home0?: string; orig?: boolean; vow?: boolean;
 }
 export const npcMap = (d: NpcData): MapId => d.map ?? 'tiannan';
@@ -379,8 +381,10 @@ export class NpcWorld {
   }
 
   private coarse(dt: number) {
+    const chasing = this.game.pursuit?.cur;
     for (const d of this.list) {
-      if (!d.alive || this.active.has(d.id)) continue;
+      if (d.chasing && (!chasing || (chasing.e.npcId !== d.id && !chasing.wings.some((w) => w.npcId === d.id)))) d.chasing = false;   // 读档后残留
+      if (!d.alive || this.active.has(d.id) || d.chasing) continue;
       if (d.hunting && npcMap(d) === ACTIVE_MAP) { d.tx = this.game.player.x; d.ty = this.game.player.y; }
       const dx = d.tx - d.x, dy = d.ty - d.y, dd = Math.hypot(dx, dy);
       if (dd < 60) {
@@ -398,7 +402,7 @@ export class NpcWorld {
     const g = this.game, p = g.player;
     const R = Math.max(2600, g.senseRadius * 1.5), R2 = R + 900;
     for (const d of this.list) {
-      if (!d.alive || d.hidden || npcMap(d) !== ACTIVE_MAP) { if (this.active.has(d.id) && (d.hidden || npcMap(d) !== ACTIVE_MAP)) this.active.delete(d.id); continue; }
+      if (!d.alive || d.hidden || d.chasing || npcMap(d) !== ACTIVE_MAP) { if (this.active.has(d.id) && (d.hidden || npcMap(d) !== ACTIVE_MAP)) this.active.delete(d.id); continue; }
       const dd = Math.hypot(d.x - p.x, d.y - p.y);
       const a = this.active.get(d.id);
       if (!a && dd < R && this.active.size < 34) {
