@@ -2,7 +2,7 @@
 //
 // · 每个 NPC 对你有好感（-100…100）与仇怨（0 无 / 1 仇人：见面就动手 / 2 死敌：主动追杀）
 // · NPC 之间有亲族、好友、师徒、道侣、结义、宿敌等关系（ties）；你杀了谁，他的亲族、师徒、道侣会记你一辈子，好友多半也会
-// · 宗门对你有声望（ws.rel.sect）：杀其门人会大降；跌破 -60，宗门会派执法弟子围剿你
+// · 宗门对你有声望（ws.rel.sect）：杀其门人会大降；跌破 -50，宗门会派执法弟子围剿你；跌破 -80，原著长老亲自出手；同盟宗门记一半的账
 // · 死敌若打不过你，会出重金雇凶（追杀）或张贴悬赏；悬赏会引来贪婪狠辣之辈
 // · 人与人之间会传话：挚友替你美言，仇人在背后诋毁、挑拨
 import type { Game } from './game';
@@ -26,7 +26,22 @@ export interface RelState {
   log: RelLog[];
   story: Record<string, any>;
   siegeCd: number; hireCd: number; hunterCd: number; mediateCd: number; monthly: number;
+  /** 第三十五步：你亲手杀了各宗多少门人 */
+  killed?: Record<string, number>;
 }
+
+/** 第三十五步：同盟宗门——杀其一派门人，盟友也记一半的账 */
+export const SECT_ALLY: { name: string; ids: string[] }[] = [
+  { name: '越国七派', ids: ['huangfeng', 'yanyue', 'lingshou', 'qingxu', 'huadao', 'tianque', 'jujian'] },
+  { name: '天道盟', ids: ['luoyun', 'gujian', 'baiqiao'] },
+  { name: '魔道六宗', ids: ['guiling', 'hehuan', 'yuling', 'qianhuan', 'tiansha', 'yinluo'] },
+  { name: '大晋魔道', ids: ['tianmo', 'yinluo'] },
+  { name: '大晋正道', ids: ['taiyi', 'yejia'] },
+];
+export const allyGroup = (sid?: string) => (sid ? SECT_ALLY.find((g) => g.ids.includes(sid)) : undefined);
+export const allyOf = (sid?: string) => { const o = new Set<string>(); if (sid) for (const g of SECT_ALLY) if (g.ids.includes(sid)) for (const x of g.ids) if (x !== sid) o.add(x); return [...o]; };
+/** 宗门声望门槛 */
+export const SECT_HOSTILE = -45, SECT_SIEGE = -50, SECT_ELDER = -80;
 export type Tier = '陌生' | '相识' | '好友' | '挚友' | '结拜' | '道侣' | '师父' | '徒弟' | '同行' | '护法' | '厌恶' | '仇人' | '死敌';
 export const TIER_COLOR: Record<Tier, string> = {
   陌生: '#9a9284', 相识: '#d8d0bc', 好友: '#9fd08a', 挚友: '#5fc87a', 结拜: '#e8c060', 道侣: '#f090b0', 师父: '#a0c8f0', 徒弟: '#a0d8e0',
@@ -191,6 +206,14 @@ export class Relations {
     if (d.sect) {
       const big = (d.realm >= 3 ? 2 : 1) * (d.canon ? 2 : 1);
       this.addSect(d.sect, -(selfDefense ? 6 : 25) * big);
+      (this.S.killed ??= {})[d.sect] = (this.S.killed[d.sect] ?? 0) + 1;
+      // 第三十五步：同盟宗门同仇敌忾（记一半的账）
+      const allies = allyOf(d.sect);
+      if (allies.length && !selfDefense) {
+        for (const a of allies) this.addSect(a, -12.5 * big);
+        const gname = allyGroup(d.sect)!.name;
+        if (big >= 2 || this.sectRep(d.sect) <= SECT_SIEGE) this.log(`${gname}同气连枝：你残害${this.sectName(d.sect)}门人一事传遍${gname}，诸派对你皆有微词。`, 'bad');
+      }
       for (const o of this.npcs.list) {
         if (!o.alive || o.sect !== d.sect || o === d) continue;
         this.addFavor(o, -(selfDefense ? 3 : 12));
@@ -198,7 +221,8 @@ export class Relations {
       }
       const rep = this.sectRep(d.sect);
       if (!selfDefense && rep <= -40 && !this.S.wanted.some((w) => w.by === d.sect)) this.postBounty(d.sect, this.sectName(d.sect), Math.round(300 * Math.pow(2.2, Math.max(1, this.game.hero.realm))), `残害${this.sectName(d.sect)}门人`);
-      if (rep <= -60) this.log(`${this.sectName(d.sect)}将你列为头号大敌，执法堂已在调派人手。`, 'bad');
+      if (rep <= SECT_ELDER) this.log(`${this.sectName(d.sect)}震怒——门中长老放话，要亲手取你性命！`, 'bad');
+      else if (rep <= SECT_SIEGE) this.log(`${this.sectName(d.sect)}将你列为头号大敌，执法堂已在调派人手。`, 'bad');
     }
     // 他张贴的悬赏随之作废
     this.S.wanted = this.S.wanted.filter((w) => w.by !== d.id);
@@ -309,7 +333,7 @@ export class Relations {
     }
     // 宗门围剿
     for (const [sid, rep] of Object.entries(S.sect)) {
-      if (rep > -60 || S.siegeCd > day || h.realm < 1) continue;
+      if (rep > SECT_SIEGE || S.siegeCd > day || h.realm < 1) continue;
       const loc = LOC_BY_ID.get(sid); if (!loc || loc.map !== ACTIVE_MAP) continue;
       if (Math.random() < 1 - Math.pow(0.97, days)) { this.siege(sid); break; }
     }
@@ -390,16 +414,21 @@ export class Relations {
     const mem = this.npcs.list.filter((d) => d.alive && d.sect === sid && d.realm >= 1 && !d.stay && !d.beauty && !d.bond).sort((a, b) => this.power(b) - this.power(a));
     const pickd = mem.filter((d) => this.power(d) >= pl - 8).slice(0, 4);
     const team = pickd.length >= 2 ? pickd : mem.slice(0, 3);
+    // 第三十五步：声望跌破 -80，门中原著长老亲自出手，领队围剿
+    if (this.sectRep(sid) <= SECT_ELDER) {
+      const elder = this.npcs.list.filter((d) => d.alive && d.sect === sid && d.canon && d.realm >= 2 && !d.bond && !d.beauty && !team.includes(d) && !this.npcs.activeOf(d.id)).sort((a, b) => this.power(b) - this.power(a))[0];
+      if (elder) { team.unshift(elder); if (team.length > 4) team.length = 4; }
+    }
     if (!team.length) return;
-    S.siegeCd = g.day + 50;
+    S.siegeCd = g.day + (this.sectRep(sid) <= SECT_ELDER ? 35 : 50);
     const lead = team[0];
     for (const d of team) { d.grudge = Math.max(d.grudge ?? 0, 1); d.why = `奉${this.sectName(sid)}之命围剿你`; }
     // 第三十二步：筑基以上的头领带两名同门以遁光合围；其余仍循迹而来
     const viaP = lead.realm >= 2 && !g.pursuit.active && this.startHunt(lead, true, true, team.slice(1, 3));
     for (const d of team) { if (viaP && (d === lead || d.chasing)) continue; this.startHunt(d, true, true); if (d !== lead) { d.x = lead.x + rand(-220, 220); d.y = lead.y + rand(-160, 160); } }
-    const s = `${this.sectName(sid)}执法弟子${team.length}人，由${lead.name}（${realmName(lead.realm, lead.stage)}）率领，出山围剿韩立！`;
+    const s = lead.canon ? `${this.sectName(sid)}${lead.name}（${realmName(lead.realm, lead.stage)}）亲自出山，率门人${team.length - 1}人围剿韩立！` : `${this.sectName(sid)}执法弟子${team.length}人，由${lead.name}（${realmName(lead.realm, lead.stage)}）率领，出山围剿韩立！`;
     g.news(s, 'rumor'); this.log(s, 'bad');
-    g.toast(`${this.sectName(sid)}派出执法弟子围剿你——数道神识正从远处合围而来！`, 'warn');
+    g.toast(lead.canon ? `${this.sectName(sid)}${lead.name}亲自出手了——一股远胜于你的神识正从远处压来！` : `${this.sectName(sid)}派出执法弟子围剿你——数道神识正从远处合围而来！`, 'warn');
   }
   private monthly() {
     const g = this.game, h = g.hero;
@@ -443,7 +472,7 @@ export class Relations {
     if (d.bond) return false;
     const tot = this.wantedTotal();
     if (tot >= 300 * (1 + d.realm) && (d.pers === 'greedy' || d.pers === 'ruthless') && (d.faction === 'rogue' || d.faction === 'demon')) return true;
-    if (d.sect && this.sectRep(d.sect) <= -45 && d.realm > 0) return true;
+    if (d.sect && this.sectRep(d.sect) <= SECT_HOSTILE && d.realm > 0) return true;
     return false;
   }
   /** 接近你时的喊话 */

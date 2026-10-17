@@ -12,7 +12,7 @@ import { SECT_RANKS, repName } from '../world/worldstate';
 import * as C from '../world/cultivation';
 import { audio } from '../world/audio';
 import { ItemGlyph } from './ItemIcon';
-import { TIER_COLOR as REL_COLOR } from '../world/relations';
+import { TIER_COLOR as REL_COLOR, SECT_ALLY, allyGroup, SECT_HOSTILE, SECT_SIEGE, SECT_ELDER } from '../world/relations';
 import type { Tier } from '../world/relations';
 import type { NpcData } from '../world/npc';
 import { PERS_NAME } from '../world/npc';
@@ -352,8 +352,14 @@ function RelationsPanel({ game }: { game: Game }) {
   const dead = known.filter((d) => !d.alive && (d.bond || d.favor >= 30 || d.grudge)).slice(-12);
   const list = tab === 'friend' ? friends : tab === 'foe' ? foes : [];
   const [sel, setSel] = useState<string | null>(null);
+  const [openSect, setOpenSect] = useState<string | null>(null);
   const cur: NpcData | undefined = (sel ? game.npcs.byId.get(sel) : undefined) ?? list[0];
-  const sects = Object.entries(S.sect).filter(([, v]) => Math.abs(v) >= 1).sort((a, b) => a[1] - b[1]);
+  // 第三十五步：宗门名册——所有宗门（有门人在册的）按同盟分组，附声望、门人、你杀过几人、原著人物
+  const sectIds = new Set<string>(Object.keys(S.sect));
+  for (const d of game.npcs.list) if (d.sect && LOC_BY_ID.get(d.sect)) sectIds.add(d.sect);
+  const groupOf = (id: string) => allyGroup(id)?.name ?? '';
+  const sects = [...sectIds].map((id) => [id, S.sect[id] ?? 0] as [string, number])
+    .sort((a, b) => (SECT_ALLY.findIndex((g) => g.ids.includes(a[0])) + 1 || 99) - (SECT_ALLY.findIndex((g) => g.ids.includes(b[0])) + 1 || 99) || a[1] - b[1]);
   const mySect = game.ws.sect?.id;
   const huntN = R.hunters().filter((d) => d.hunting).length;
   const sub = <span>声望 {repName(game.ws.rep)}（{game.ws.rep}）　·　亲友 {friends.length}　·　仇敌 {foes.length}{huntN ? <b style={{ color: '#c0302a' }}>　·　{huntN} 人正在追杀你</b> : null}{R.wantedTotal() ? <b style={{ color: '#a8352a' }}>　·　悬赏 {R.wantedTotal()} 灵石</b> : null}</span>;
@@ -408,15 +414,36 @@ function RelationsPanel({ game }: { game: Game }) {
       )}
       {tab === 'sect' && (
         <div className="rel-sects">
-          <div className="hint">宗门声望由你对其门人的所作所为累积。跌破 -45，门人见你便动手；跌破 -60，执法堂会派人围剿。</div>
-          {sects.length === 0 && <div className="hint">你与各大宗门尚无瓜葛。</div>}
-          {sects.map(([id, v]) => (
-            <div key={id} className="rel-sect">
-              <b>{LOC_BY_ID.get(id)?.name ?? id}{id === mySect ? <small>（本门）</small> : null}</b>
-              <div className="favor-bar"><i style={{ width: `${(v + 100) / 2}%`, background: v >= 0 ? 'linear-gradient(90deg,#9fd08a,#3f9a5a)' : 'linear-gradient(90deg,#d88a5a,#b8302a)' }} /></div>
-              <span style={{ color: v <= -60 ? '#c0302a' : v <= -45 ? '#d06a3a' : v >= 30 ? '#3f9a5a' : '#7a6a58' }}>{v <= -60 ? '围剿' : v <= -45 ? '敌视' : v <= -15 ? '冷淡' : v >= 30 ? '友善' : '中立'} {Math.round(v)}</span>
-            </div>
-          ))}
+          <div className="hint">宗门声望由你对其门人的所作所为累积。跌破 {SECT_HOSTILE}，门人见你便动手；跌破 {SECT_SIEGE}，执法堂派人围剿；跌破 {SECT_ELDER}，门中长老亲自出手。杀一派门人，同盟诸派也记一半的账。点宗门名可展开名册。</div>
+          {sects.map(([id, v], i) => {
+            const mem = game.npcs.list.filter((d) => d.sect === id);
+            const alive = mem.filter((d) => d.alive), named = mem.filter((d) => d.canon).sort((a, b) => b.realm - a.realm || b.stage - a.stage);
+            const kills = S.killed?.[id] ?? 0, grp = groupOf(id), prevGrp = i ? groupOf(sects[i - 1][0]) : null;
+            const top = alive.reduce((m, d) => Math.max(m, d.realm), 0);
+            return (
+              <div key={id}>
+                {grp !== prevGrp && <div className="sec-title" style={{ marginTop: i ? 10 : 2 }}>{grp || '其余宗门'}</div>}
+                <div className="rel-sect" style={{ cursor: 'pointer' }} onClick={() => { click(); setOpenSect(openSect === id ? null : id); }}>
+                  <b>{openSect === id ? '▾ ' : '▸ '}{LOC_BY_ID.get(id)?.name ?? id}{id === mySect ? <small>（本门）</small> : null}</b>
+                  <div className="favor-bar"><i style={{ width: `${(v + 100) / 2}%`, background: v >= 0 ? 'linear-gradient(90deg,#9fd08a,#3f9a5a)' : 'linear-gradient(90deg,#d88a5a,#b8302a)' }} /></div>
+                  <span style={{ color: v <= SECT_SIEGE ? '#c0302a' : v <= SECT_HOSTILE ? '#d06a3a' : v >= 30 ? '#3f9a5a' : '#7a6a58' }}>{v <= SECT_ELDER ? '长老出手' : v <= SECT_SIEGE ? '围剿' : v <= SECT_HOSTILE ? '敌视' : v <= -15 ? '冷淡' : v >= 30 ? '友善' : '中立'} {Math.round(v)}</span>
+                </div>
+                {openSect === id && (
+                  <div className="rel-roster" style={{ padding: '4px 10px 10px 22px', fontSize: 13, lineHeight: 1.7, color: '#4a3f34' }}>
+                    <div>门人在册 {alive.length} 人{top ? `（最高 ${REALMS[top].name}）` : ''}{mem.length - alive.length ? `　·　已故 ${mem.length - alive.length}` : ''}{kills ? <b style={{ color: '#a8352a' }}>　·　死于你手 {kills} 人</b> : null}</div>
+                    {named.map((d) => { const t = R.tier(d) as Tier; return (
+                      <div key={d.id} style={{ display: 'flex', gap: 10, alignItems: 'baseline', opacity: d.alive ? 1 : 0.45 }}>
+                        <b style={{ fontWeight: 400, minWidth: 64 }}>{d.name}</b><small style={{ minWidth: 96 }}>{d.title ?? ''}</small>
+                        <span style={{ minWidth: 64 }}>{d.realm ? realmName(d.realm, d.stage) : '凡人'}</span>
+                        <span style={{ color: d.alive ? REL_COLOR[t] : '#7a6a58' }}>{d.alive ? (d.met ? t : '未曾谋面') : '已故'}</span>
+                      </div>
+                    ); })}
+                    {!named.length && <div className="hint">名册上多是无名弟子。</div>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
           {S.wanted.length > 0 && <><div className="sec-title" style={{ marginTop: 14 }}>悬赏榜</div>{S.wanted.map((w, i) => <div key={i} className="rel-wanted"><b>{w.amount} 灵石</b>　{w.name}悬赏：{w.reason}<small>第{Math.floor(w.day / 360) + 1}年</small></div>)}</>}
         </div>
       )}

@@ -89,5 +89,24 @@ for (let i = 0; i < 20; i++) g.renderer.render(1 / 30);
 // 10) 存读档
 const save = N.toSave(); N.fromSave(JSON.parse(JSON.stringify(save)));
 ok(N.byId.get(friend.id)?.bond === 'sworn' && N.list.filter((d) => d.ties?.length).length === N.list.filter((d) => d.ties?.length).length, '存读档保留羁绊');
+// 11) 第三十五步：同盟宗门 / 长老出手 / 原著人物入世 / 旧档补齐
+{
+  const R = g.rel, S = R.S;
+  ok(['zhonglingdao', 'nichang', 'wangtiangu', 'liudao', 'xuanqingzi'].every((id) => N.byId.get(id)?.canon), '各宗原著人物在册');
+  S.sect.huangfeng = 0; S.sect.yanyue = 0;
+  const v = N.list.find((d) => d.alive && d.sect === 'huangfeng' && !d.canon && d.realm < 3)!;
+  R.onPlayerKill(v, false); v.alive = false;
+  console.log('ally rep', S.sect.huangfeng, S.sect.yanyue, 'killed', S.killed?.huangfeng);
+  ok(S.sect.yanyue < 0 && S.sect.yanyue > S.sect.huangfeng, '杀黄枫谷门人：掩月宗（同盟）记一半的账');
+  S.sect.guiling = -90; S.siegeCd = 0; g.pursuit.reset();
+  R.siege('guiling');
+  const lead = g.pursuit.cur?.npc ?? N.list.find((d) => d.sect === 'guiling' && d.hunting);
+  console.log('elder siege lead', lead?.name, lead?.canon);
+  ok(!!lead && !!lead.canon, '声望跌破 -80：原著长老亲自领队围剿');
+  g.pursuit.reset();
+  const old = N.toSave().filter((d: any) => d.id !== 'zhonglingdao' && d.id !== 'liudao');
+  N.fromSave(JSON.parse(JSON.stringify(old)));
+  ok(!!N.byId.get('zhonglingdao') && !!N.byId.get('liudao'), '旧存档补齐新加入的原著人物');
+}
 console.log(fails ? `${fails} FAILED` : 'ALL OK');
 process.exit(fails ? 1 : 0);
