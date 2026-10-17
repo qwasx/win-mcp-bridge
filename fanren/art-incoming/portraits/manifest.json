@@ -1,0 +1,1513 @@
+{
+  "version": "portraits",
+  "size": [
+    1080,
+    1440
+  ],
+  "assets": [
+    {
+      "file": "named/npc_lihuayuan.png",
+      "type": "named",
+      "id": "lihuayuan",
+      "name": "李化元",
+      "sex": "m",
+      "age_look": 50,
+      "faction": "sect",
+      "sect": "huangfeng"
+    },
+    {
+      "file": "named/npc_linghu.png",
+      "type": "named",
+      "id": "linghu",
+      "name": "令狐老祖",
+      "sex": "m",
+      "age_look": 75,
+      "faction": "sect",
+      "sect": "huangfeng"
+    },
+    {
+      "file": "named/npc_leiwanhe.png",
+      "type": "named",
+      "id": "leiwanhe",
+      "name": "雷万鹤",
+      "sex": "m",
+      "age_look": 60,
+      "faction": "sect",
+      "sect": "huangfeng"
+    },
+    {
+      "file": "named/npc_hongfu.png",
+      "type": "named",
+      "id": "hongfu",
+      "name": "红拂",
+      "sex": "f",
+      "age_look": 35,
+      "faction": "sect",
+      "sect": "huangfeng"
+    },
+    {
+      "file": "named/npc_zhongweiniang.png",
+      "type": "named",
+      "id": "zhongweiniang",
+      "name": "钟卫娘",
+      "sex": "f",
+      "age_look": 28,
+      "faction": "sect",
+      "sect": "huangfeng"
+    },
+    {
+      "file": "named/npc_zhonglingdao.png",
+      "type": "named",
+      "id": "zhonglingdao",
+      "name": "钟灵道",
+      "sex": "m",
+      "age_look": 45,
+      "faction": "sect",
+      "sect": "huangfeng"
+    },
+    {
+      "file": "named/npc_mashibo.png",
+      "type": "named",
+      "id": "mashibo",
+      "name": "马师伯",
+      "sex": "m",
+      "age_look": 60,
+      "faction": "sect",
+      "sect": "huangfeng"
+    },
+    {
+      "file": "named/npc_wufeng.png",
+      "type": "named",
+      "id": "wufeng",
+      "name": "吴风",
+      "sex": "m",
+      "age_look": 35,
+      "faction": "sect",
+      "sect": "huangfeng"
+    },
+    {
+      "file": "named/npc_yeshishu.png",
+      "type": "named",
+      "id": "yeshishu",
+      "name": "叶师叔",
+      "sex": "m",
+      "age_look": 50,
+      "faction": "sect",
+      "sect": "huangfeng"
+    },
+    {
+      "file": "named/npc_liujing.png",
+      "type": "named",
+      "id": "liujing",
+      "name": "刘靖",
+      "sex": "m",
+      "age_look": 30,
+      "faction": "sect",
+      "sect": "huangfeng"
+    },
+    {
+      "file": "named/npc_lushixiong.png",
+      "type": "named",
+      "id": "lushixiong",
+      "name": "陆师兄",
+      "sex": "m",
+      "age_look": 27,
+      "faction": "sect",
+      "sect": "huangfeng"
+    },
+    {
+      "file": "named/npc_murong.png",
+      "type": "named",
+      "id": "murong",
+      "name": "慕容兄弟",
+      "sex": "m",
+      "age_look": 21,
+      "faction": "sect",
+      "sect": "huangfeng"
+    },
+    {
+      "file": "named/npc_o_luqingya.png",
+      "type": "named",
+      "id": "o_luqingya",
+      "name": "陆青崖",
+      "sex": "m",
+      "age_look": 19,
+      "faction": "sect",
+      "sect": "huangfeng"
+    },
+    {
+      "file": "named/npc_o_zhaowuji.png",
+      "type": "named",
+      "id": "o_zhaowuji",
+      "name": "赵无忌",
+      "sex": "m",
+      "age_look": 22,
+      "faction": "sect",
+      "sect": "huangfeng"
+    },
+    {
+      "file": "named/npc_modaifu.png",
+      "type": "named",
+      "id": "modaifu",
+      "name": "墨大夫",
+      "sex": "m",
+      "age_look": 62,
+      "faction": "mortal",
+      "sect": "qixuan"
+    },
+    {
+      "file": "named/npc_lifeiyu.png",
+      "type": "named",
+      "id": "lifeiyu",
+      "name": "厉飞雨",
+      "sex": "m",
+      "age_look": 18,
+      "faction": "mortal",
+      "sect": "qixuan"
+    },
+    {
+      "file": "named/npc_wangjuechu.png",
+      "type": "named",
+      "id": "wangjuechu",
+      "name": "王绝楚",
+      "sex": "m",
+      "age_look": 50,
+      "faction": "mortal",
+      "sect": "qixuan"
+    },
+    {
+      "file": "named/npc_zhangtie.png",
+      "type": "named",
+      "id": "zhangtie",
+      "name": "张铁",
+      "sex": "m",
+      "age_look": 17,
+      "faction": "mortal",
+      "sect": "qixuan"
+    },
+    {
+      "file": "named/npc_jiatianlong.png",
+      "type": "named",
+      "id": "jiatianlong",
+      "name": "贾天龙",
+      "sex": "m",
+      "age_look": 40,
+      "faction": "mortal",
+      "sect": "qixuan"
+    },
+    {
+      "file": "named/npc_sunergou.png",
+      "type": "named",
+      "id": "sunergou",
+      "name": "孙二狗",
+      "sex": "m",
+      "age_look": 35,
+      "faction": "mortal",
+      "sect": "qixuan"
+    },
+    {
+      "file": "named/npc_nichang.png",
+      "type": "named",
+      "id": "nichang",
+      "name": "霓裳仙子",
+      "sex": "f",
+      "age_look": 30,
+      "faction": "sect",
+      "sect": "yanyue"
+    },
+    {
+      "file": "named/npc_qionglaoguai.png",
+      "type": "named",
+      "id": "qionglaoguai",
+      "name": "穹老怪",
+      "sex": "m",
+      "age_look": 70,
+      "faction": "sect",
+      "sect": "yanyue"
+    },
+    {
+      "file": "named/npc_duobaonv.png",
+      "type": "named",
+      "id": "duobaonv",
+      "name": "多宝女",
+      "sex": "f",
+      "age_look": 22,
+      "faction": "sect",
+      "sect": "yanyue"
+    },
+    {
+      "file": "named/npc_zhaoshimei.png",
+      "type": "named",
+      "id": "zhaoshimei",
+      "name": "赵师妹",
+      "sex": "f",
+      "age_look": 19,
+      "faction": "sect",
+      "sect": "yanyue"
+    },
+    {
+      "file": "named/npc_fuyunzi.png",
+      "type": "named",
+      "id": "fuyunzi",
+      "name": "浮云子",
+      "sex": "m",
+      "age_look": 50,
+      "faction": "sect",
+      "sect": "qingxu"
+    },
+    {
+      "file": "named/npc_hantianya.png",
+      "type": "named",
+      "id": "hantianya",
+      "name": "寒天涯",
+      "sex": "m",
+      "age_look": 28,
+      "faction": "sect",
+      "sect": "huadao"
+    },
+    {
+      "file": "named/npc_xiaoer.png",
+      "type": "named",
+      "id": "xiaoer",
+      "name": "萧二",
+      "sex": "m",
+      "age_look": 33,
+      "faction": "sect",
+      "sect": "huadao"
+    },
+    {
+      "file": "named/npc_liyingning.png",
+      "type": "named",
+      "id": "liyingning",
+      "name": "李缨宁",
+      "sex": "f",
+      "age_look": 19,
+      "faction": "sect",
+      "sect": "huadao"
+    },
+    {
+      "file": "named/npc_fengyue.png",
+      "type": "named",
+      "id": "fengyue",
+      "name": "封岳",
+      "sex": "m",
+      "age_look": 30,
+      "faction": "sect",
+      "sect": "tianque"
+    },
+    {
+      "file": "named/npc_mayunlong.png",
+      "type": "named",
+      "id": "mayunlong",
+      "name": "马云龙",
+      "sex": "m",
+      "age_look": 40,
+      "faction": "sect",
+      "sect": "tianque"
+    },
+    {
+      "file": "named/npc_wuchi.png",
+      "type": "named",
+      "id": "wuchi",
+      "name": "武痴",
+      "sex": "m",
+      "age_look": 40,
+      "faction": "sect",
+      "sect": "jujian"
+    },
+    {
+      "file": "named/npc_zhongwu.png",
+      "type": "named",
+      "id": "zhongwu",
+      "name": "钟吾",
+      "sex": "m",
+      "age_look": 35,
+      "faction": "sect",
+      "sect": "lingshou"
+    },
+    {
+      "file": "named/npc_lvtianmeng.png",
+      "type": "named",
+      "id": "lvtianmeng",
+      "name": "吕天蒙",
+      "sex": "m",
+      "age_look": 24,
+      "faction": "sect",
+      "sect": "lingshou"
+    },
+    {
+      "file": "named/npc_hanyunzhi.png",
+      "type": "named",
+      "id": "hanyunzhi",
+      "name": "菡云芝",
+      "sex": "f",
+      "age_look": 20,
+      "faction": "sect",
+      "sect": "lingshou"
+    },
+    {
+      "file": "named/npc_yanruyan.png",
+      "type": "named",
+      "id": "yanruyan",
+      "name": "燕如嫣",
+      "sex": "f",
+      "age_look": 22,
+      "faction": "sect",
+      "sect": "yanjia"
+    },
+    {
+      "file": "named/npc_yanlaozu.png",
+      "type": "named",
+      "id": "yanlaozu",
+      "name": "燕家老祖",
+      "sex": "m",
+      "age_look": 70,
+      "faction": "sect",
+      "sect": "yanjia"
+    },
+    {
+      "file": "named/npc_wangchan.png",
+      "type": "named",
+      "id": "wangchan",
+      "name": "王蝉",
+      "sex": "m",
+      "age_look": 22,
+      "faction": "demon",
+      "sect": "guiling"
+    },
+    {
+      "file": "named/npc_wangtiangu.png",
+      "type": "named",
+      "id": "wangtiangu",
+      "name": "王天古",
+      "sex": "m",
+      "age_look": 50,
+      "faction": "demon",
+      "sect": "guiling"
+    },
+    {
+      "file": "named/npc_wangtiansheng.png",
+      "type": "named",
+      "id": "wangtiansheng",
+      "name": "王天胜",
+      "sex": "m",
+      "age_look": 44,
+      "faction": "demon",
+      "sect": "guiling"
+    },
+    {
+      "file": "named/npc_suihun.png",
+      "type": "named",
+      "id": "suihun",
+      "name": "碎魂真人",
+      "sex": "m",
+      "age_look": 65,
+      "faction": "demon",
+      "sect": "guiling"
+    },
+    {
+      "file": "named/npc_guilao.png",
+      "type": "named",
+      "id": "guilao",
+      "name": "鬼老",
+      "sex": "m",
+      "age_look": 80,
+      "faction": "demon",
+      "sect": "guiling"
+    },
+    {
+      "file": "named/npc_tonglao.png",
+      "type": "named",
+      "id": "tonglao",
+      "name": "童老",
+      "sex": "m",
+      "age_look": 75,
+      "faction": "demon",
+      "sect": "guiling"
+    },
+    {
+      "file": "named/npc_hehuanlaomo.png",
+      "type": "named",
+      "id": "hehuanlaomo",
+      "name": "合欢老魔",
+      "sex": "m",
+      "age_look": 40,
+      "faction": "demon",
+      "sect": "hehuan"
+    },
+    {
+      "file": "named/npc_yunlu.png",
+      "type": "named",
+      "id": "yunlu",
+      "name": "云露老魔",
+      "sex": "m",
+      "age_look": 50,
+      "faction": "demon",
+      "sect": "hehuan"
+    },
+    {
+      "file": "named/npc_ju_m.png",
+      "type": "named",
+      "id": "ju_m",
+      "name": "肥魔",
+      "sex": "m",
+      "age_look": 45,
+      "faction": "demon",
+      "sect": "hehuan"
+    },
+    {
+      "file": "named/npc_ju_f.png",
+      "type": "named",
+      "id": "ju_f",
+      "name": "姹魔",
+      "sex": "f",
+      "age_look": 30,
+      "faction": "demon",
+      "sect": "hehuan"
+    },
+    {
+      "file": "named/npc_dongmentu.png",
+      "type": "named",
+      "id": "dongmentu",
+      "name": "东门图",
+      "sex": "m",
+      "age_look": 60,
+      "faction": "demon",
+      "sect": "yuling"
+    },
+    {
+      "file": "named/npc_tiansha.png",
+      "type": "named",
+      "id": "tiansha",
+      "name": "天煞真君",
+      "sex": "m",
+      "age_look": 50,
+      "faction": "demon",
+      "sect": "tiansha"
+    },
+    {
+      "file": "named/npc_weizhanglao.png",
+      "type": "named",
+      "id": "weizhanglao",
+      "name": "卫长老",
+      "sex": "m",
+      "age_look": 45,
+      "faction": "demon",
+      "sect": "tiansha"
+    },
+    {
+      "file": "named/npc_luzhanglao.png",
+      "type": "named",
+      "id": "luzhanglao",
+      "name": "鲁长老",
+      "sex": "m",
+      "age_look": 50,
+      "faction": "demon",
+      "sect": "qianhuan"
+    },
+    {
+      "file": "named/npc_fujia.png",
+      "type": "named",
+      "id": "fujia",
+      "name": "付家老祖",
+      "sex": "m",
+      "age_look": 60,
+      "faction": "demon",
+      "sect": "moyan"
+    },
+    {
+      "file": "named/npc_chengtiankun.png",
+      "type": "named",
+      "id": "chengtiankun",
+      "name": "程天坤",
+      "sex": "m",
+      "age_look": 60,
+      "faction": "sect",
+      "sect": "luoyun"
+    },
+    {
+      "file": "named/npc_lvluo.png",
+      "type": "named",
+      "id": "lvluo",
+      "name": "吕洛",
+      "sex": "m",
+      "age_look": 45,
+      "faction": "sect",
+      "sect": "luoyun"
+    },
+    {
+      "file": "named/npc_jiangyun.png",
+      "type": "named",
+      "id": "jiangyun",
+      "name": "姜云",
+      "sex": "m",
+      "age_look": 35,
+      "faction": "sect",
+      "sect": "gujian"
+    },
+    {
+      "file": "named/npc_changzheng.png",
+      "type": "named",
+      "id": "changzheng",
+      "name": "昌正",
+      "sex": "m",
+      "age_look": 50,
+      "faction": "sect",
+      "sect": "baiqiao"
+    },
+    {
+      "file": "named/npc_xiangzhili.png",
+      "type": "named",
+      "id": "xiangzhili",
+      "name": "向之礼",
+      "sex": "m",
+      "age_look": 75,
+      "faction": "rogue",
+      "sect": "tiannan"
+    },
+    {
+      "file": "named/npc_nanlonghou.png",
+      "type": "named",
+      "id": "nanlonghou",
+      "name": "南陇侯",
+      "sex": "m",
+      "age_look": 50,
+      "faction": "sect",
+      "sect": "tiannan"
+    },
+    {
+      "file": "named/npc_wanxiaoshan.png",
+      "type": "named",
+      "id": "wanxiaoshan",
+      "name": "万小山",
+      "sex": "m",
+      "age_look": 22,
+      "faction": "rogue",
+      "sect": "rogue"
+    },
+    {
+      "file": "named/npc_qiyunxiao.png",
+      "type": "named",
+      "id": "qiyunxiao",
+      "name": "齐云霄",
+      "sex": "m",
+      "age_look": 32,
+      "faction": "rogue",
+      "sect": "rogue"
+    },
+    {
+      "file": "named/npc_xinruyin.png",
+      "type": "named",
+      "id": "xinruyin",
+      "name": "辛如音",
+      "sex": "f",
+      "age_look": 22,
+      "faction": "rogue",
+      "sect": "rogue"
+    },
+    {
+      "file": "named/npc_meng_m.png",
+      "type": "named",
+      "id": "meng_m",
+      "name": "蒙大",
+      "sex": "m",
+      "age_look": 30,
+      "faction": "rogue",
+      "sect": "rogue"
+    },
+    {
+      "file": "named/npc_meng_f.png",
+      "type": "named",
+      "id": "meng_f",
+      "name": "蒙三妹",
+      "sex": "f",
+      "age_look": 18,
+      "faction": "rogue",
+      "sect": "rogue"
+    },
+    {
+      "file": "named/npc_jinguang.png",
+      "type": "named",
+      "id": "jinguang",
+      "name": "金光上人",
+      "sex": "m",
+      "age_look": 40,
+      "faction": "rogue",
+      "sect": "rogue"
+    },
+    {
+      "file": "named/npc_yuzitong.png",
+      "type": "named",
+      "id": "yuzitong",
+      "name": "余子童",
+      "sex": "m",
+      "age_look": 28,
+      "faction": "demon",
+      "sect": "rogue"
+    },
+    {
+      "file": "named/npc_ouyang.png",
+      "type": "named",
+      "id": "ouyang",
+      "name": "欧阳飞天",
+      "sex": "m",
+      "age_look": 36,
+      "faction": "rogue",
+      "sect": "rogue"
+    },
+    {
+      "file": "named/npc_tianlan_saint.png",
+      "type": "named",
+      "id": "tianlan_saint",
+      "name": "天澜圣女",
+      "sex": "f",
+      "age_look": 21,
+      "faction": "mulan",
+      "sect": "tianlan"
+    },
+    {
+      "file": "named/npc_mulan_shi.png",
+      "type": "named",
+      "id": "mulan_shi",
+      "name": "慕兰神师",
+      "sex": "m",
+      "age_look": 50,
+      "faction": "mulan",
+      "sect": "mulan"
+    },
+    {
+      "file": "named/npc_caomengrong.png",
+      "type": "named",
+      "id": "caomengrong",
+      "name": "曹梦容",
+      "sex": "f",
+      "age_look": 16,
+      "faction": "mortal",
+      "sect": "mortal"
+    },
+    {
+      "file": "named/npc_wuchou.png",
+      "type": "named",
+      "id": "wuchou",
+      "name": "吴丑",
+      "sex": "m",
+      "age_look": 50,
+      "faction": "mortal",
+      "sect": "mortal"
+    },
+    {
+      "file": "named/npc_o_mengtieyi.png",
+      "type": "named",
+      "id": "o_mengtieyi",
+      "name": "孟铁衣",
+      "sex": "m",
+      "age_look": 24,
+      "faction": "rogue",
+      "sect": "rogue"
+    },
+    {
+      "file": "named/npc_o_mengtieshan.png",
+      "type": "named",
+      "id": "o_mengtieshan",
+      "name": "孟铁山",
+      "sex": "m",
+      "age_look": 31,
+      "faction": "rogue",
+      "sect": "rogue"
+    },
+    {
+      "file": "named/npc_o_huiming.png",
+      "type": "named",
+      "id": "o_huiming",
+      "name": "慧明",
+      "sex": "m",
+      "age_look": 66,
+      "faction": "monk",
+      "sect": "monk"
+    },
+    {
+      "file": "named/npc_o_gusonghe.png",
+      "type": "named",
+      "id": "o_gusonghe",
+      "name": "顾松鹤",
+      "sex": "m",
+      "age_look": 60,
+      "faction": "rogue",
+      "sect": "rogue"
+    },
+    {
+      "file": "named/npc_o_leijiu.png",
+      "type": "named",
+      "id": "o_leijiu",
+      "name": "雷九",
+      "sex": "m",
+      "age_look": 45,
+      "faction": "merchant",
+      "sect": "merchant"
+    },
+    {
+      "file": "named/npc_o_liusanniang.png",
+      "type": "named",
+      "id": "o_liusanniang",
+      "name": "柳三娘",
+      "sex": "f",
+      "age_look": 38,
+      "faction": "merchant",
+      "sect": "merchant"
+    },
+    {
+      "file": "named/npc_o_baixiao.png",
+      "type": "named",
+      "id": "o_baixiao",
+      "name": "白枭",
+      "sex": "m",
+      "age_look": 35,
+      "faction": "rogue",
+      "sect": "rogue"
+    },
+    {
+      "file": "named/npc_o_ayu.png",
+      "type": "named",
+      "id": "o_ayu",
+      "name": "阿妤",
+      "sex": "f",
+      "age_look": 11,
+      "faction": "mortal",
+      "sect": "mortal"
+    },
+    {
+      "file": "named/npc_jiyin.png",
+      "type": "named",
+      "id": "jiyin",
+      "name": "极阴老祖",
+      "sex": "m",
+      "age_look": 60,
+      "faction": "sea",
+      "sect": "jiyin"
+    },
+    {
+      "file": "named/npc_xuangu.png",
+      "type": "named",
+      "id": "xuangu",
+      "name": "玄骨上人",
+      "sex": "m",
+      "age_look": 26,
+      "faction": "sea",
+      "sect": "rogue"
+    },
+    {
+      "file": "named/npc_wuchou_jy.png",
+      "type": "named",
+      "id": "wuchou_jy",
+      "name": "乌丑",
+      "sex": "m",
+      "age_look": 24,
+      "faction": "sea",
+      "sect": "jiyin"
+    },
+    {
+      "file": "named/npc_manhuzi.png",
+      "type": "named",
+      "id": "manhuzi",
+      "name": "蛮胡子",
+      "sex": "m",
+      "age_look": 50,
+      "faction": "sea",
+      "sect": "rogue"
+    },
+    {
+      "file": "named/npc_wentianren.png",
+      "type": "named",
+      "id": "wentianren",
+      "name": "温天仁",
+      "sex": "m",
+      "age_look": 27,
+      "faction": "sea",
+      "sect": "liudao"
+    },
+    {
+      "file": "named/npc_liudao.png",
+      "type": "named",
+      "id": "liudao",
+      "name": "六道极圣",
+      "sex": "m",
+      "age_look": 50,
+      "faction": "sea",
+      "sect": "liudao"
+    },
+    {
+      "file": "named/npc_qingyi.png",
+      "type": "named",
+      "id": "qingyi",
+      "name": "青易居士",
+      "sex": "m",
+      "age_look": 70,
+      "faction": "sea",
+      "sect": "rogue"
+    },
+    {
+      "file": "named/npc_fanfuren.png",
+      "type": "named",
+      "id": "fanfuren",
+      "name": "范夫人",
+      "sex": "f",
+      "age_look": 35,
+      "faction": "sea",
+      "sect": "miaoyin"
+    },
+    {
+      "file": "named/npc_zhuoruting.png",
+      "type": "named",
+      "id": "zhuoruting",
+      "name": "卓如婷",
+      "sex": "f",
+      "age_look": 20,
+      "faction": "sea",
+      "sect": "miaoyin"
+    },
+    {
+      "file": "named/npc_miaohe.png",
+      "type": "named",
+      "id": "miaohe",
+      "name": "妙鹤真人",
+      "sex": "m",
+      "age_look": 60,
+      "faction": "sea",
+      "sect": "rogue"
+    },
+    {
+      "file": "named/npc_qianlaomo.png",
+      "type": "named",
+      "id": "qianlaomo",
+      "name": "乾老魔",
+      "sex": "m",
+      "age_look": 70,
+      "faction": "dajin",
+      "sect": "yinluo"
+    },
+    {
+      "file": "named/npc_fangzongzhu.png",
+      "type": "named",
+      "id": "fangzongzhu",
+      "name": "房宗主",
+      "sex": "m",
+      "age_look": 50,
+      "faction": "dajin",
+      "sect": "yinluo"
+    },
+    {
+      "file": "named/npc_tianku.png",
+      "type": "named",
+      "id": "tianku",
+      "name": "天哭老人",
+      "sex": "m",
+      "age_look": 75,
+      "faction": "dajin",
+      "sect": "yinluo"
+    },
+    {
+      "file": "named/npc_lufuren.png",
+      "type": "named",
+      "id": "lufuren",
+      "name": "陆夫人",
+      "sex": "f",
+      "age_look": 34,
+      "faction": "dajin",
+      "sect": "yinluo"
+    },
+    {
+      "file": "named/npc_xuanqingzi.png",
+      "type": "named",
+      "id": "xuanqingzi",
+      "name": "玄青子",
+      "sex": "m",
+      "age_look": 50,
+      "faction": "dajin",
+      "sect": "taiyi"
+    },
+    {
+      "file": "named/npc_qimiao.png",
+      "type": "named",
+      "id": "qimiao",
+      "name": "七妙真人",
+      "sex": "m",
+      "age_look": 40,
+      "faction": "dajin",
+      "sect": "tianmo"
+    },
+    {
+      "file": "named/npc_hanli_ji.png",
+      "type": "named",
+      "id": "hanli_ji",
+      "name": "寒骊上人",
+      "sex": "m",
+      "age_look": 60,
+      "faction": "dajin",
+      "sect": "xiaoji"
+    },
+    {
+      "file": "named/npc_baiyaoyi.png",
+      "type": "named",
+      "id": "baiyaoyi",
+      "name": "白瑶怡",
+      "sex": "f",
+      "age_look": 30,
+      "faction": "dajin",
+      "sect": "dajin"
+    },
+    {
+      "file": "named/npc_chelaoyao.png",
+      "type": "named",
+      "id": "chelaoyao",
+      "name": "车老妖",
+      "sex": "m",
+      "age_look": 60,
+      "faction": "beast",
+      "sect": "wanyao"
+    },
+    {
+      "file": "named/npc_fengxi.png",
+      "type": "named",
+      "id": "fengxi",
+      "name": "风希",
+      "sex": "m",
+      "age_look": 40,
+      "faction": "beast",
+      "sect": "beast"
+    },
+    {
+      "file": "named/npc_jinjiaowang.png",
+      "type": "named",
+      "id": "jinjiaowang",
+      "name": "金蛟王",
+      "sex": "m",
+      "age_look": 45,
+      "faction": "beast",
+      "sect": "beast"
+    },
+    {
+      "file": "named/npc_yinchi.png",
+      "type": "named",
+      "id": "yinchi",
+      "name": "银翅夜叉",
+      "sex": "m",
+      "age_look": 35,
+      "faction": "beast",
+      "sect": "beast"
+    },
+    {
+      "file": "named/npc_dujiao.png",
+      "type": "named",
+      "id": "dujiao",
+      "name": "毒蛟",
+      "sex": "m",
+      "age_look": 45,
+      "faction": "beast",
+      "sect": "beast"
+    },
+    {
+      "file": "generic/gen_sect_m1.png",
+      "type": "generic",
+      "id": "sect_m1",
+      "sex": "m",
+      "age_look": 22,
+      "faction": "sect",
+      "role": "cultivator"
+    },
+    {
+      "file": "generic/gen_sect_m2.png",
+      "type": "generic",
+      "id": "sect_m2",
+      "sex": "m",
+      "age_look": 25,
+      "faction": "sect",
+      "role": "cultivator"
+    },
+    {
+      "file": "generic/gen_sect_m3.png",
+      "type": "generic",
+      "id": "sect_m3",
+      "sex": "m",
+      "age_look": 16,
+      "faction": "sect",
+      "role": "cultivator"
+    },
+    {
+      "file": "generic/gen_sect_m4.png",
+      "type": "generic",
+      "id": "sect_m4",
+      "sex": "m",
+      "age_look": 40,
+      "faction": "sect",
+      "role": "cultivator"
+    },
+    {
+      "file": "generic/gen_sect_m5.png",
+      "type": "generic",
+      "id": "sect_m5",
+      "sex": "m",
+      "age_look": 30,
+      "faction": "sect",
+      "role": "cultivator"
+    },
+    {
+      "file": "generic/gen_sect_m6.png",
+      "type": "generic",
+      "id": "sect_m6",
+      "sex": "m",
+      "age_look": 35,
+      "faction": "sect",
+      "role": "cultivator"
+    },
+    {
+      "file": "generic/gen_sect_m7.png",
+      "type": "generic",
+      "id": "sect_m7",
+      "sex": "m",
+      "age_look": 28,
+      "faction": "sect",
+      "role": "cultivator"
+    },
+    {
+      "file": "generic/gen_sect_e1.png",
+      "type": "generic",
+      "id": "sect_e1",
+      "sex": "m",
+      "age_look": 70,
+      "faction": "sect",
+      "role": "elder"
+    },
+    {
+      "file": "generic/gen_sect_e2.png",
+      "type": "generic",
+      "id": "sect_e2",
+      "sex": "m",
+      "age_look": 60,
+      "faction": "sect",
+      "role": "elder"
+    },
+    {
+      "file": "generic/gen_sect_f1.png",
+      "type": "generic",
+      "id": "sect_f1",
+      "sex": "f",
+      "age_look": 16,
+      "faction": "sect",
+      "role": "female"
+    },
+    {
+      "file": "generic/gen_sect_f2.png",
+      "type": "generic",
+      "id": "sect_f2",
+      "sex": "f",
+      "age_look": 20,
+      "faction": "sect",
+      "role": "female"
+    },
+    {
+      "file": "generic/gen_sect_f3.png",
+      "type": "generic",
+      "id": "sect_f3",
+      "sex": "f",
+      "age_look": 28,
+      "faction": "sect",
+      "role": "female"
+    },
+    {
+      "file": "generic/gen_sect_f4.png",
+      "type": "generic",
+      "id": "sect_f4",
+      "sex": "f",
+      "age_look": 45,
+      "faction": "sect",
+      "role": "elder"
+    },
+    {
+      "file": "generic/gen_demon_m1.png",
+      "type": "generic",
+      "id": "demon_m1",
+      "sex": "m",
+      "age_look": 30,
+      "faction": "demon",
+      "role": "cultivator"
+    },
+    {
+      "file": "generic/gen_demon_m2.png",
+      "type": "generic",
+      "id": "demon_m2",
+      "sex": "m",
+      "age_look": 40,
+      "faction": "demon",
+      "role": "cultivator"
+    },
+    {
+      "file": "generic/gen_demon_m3.png",
+      "type": "generic",
+      "id": "demon_m3",
+      "sex": "m",
+      "age_look": 25,
+      "faction": "demon",
+      "role": "cultivator"
+    },
+    {
+      "file": "generic/gen_demon_m4.png",
+      "type": "generic",
+      "id": "demon_m4",
+      "sex": "m",
+      "age_look": 35,
+      "faction": "demon",
+      "role": "cultivator"
+    },
+    {
+      "file": "generic/gen_demon_m5.png",
+      "type": "generic",
+      "id": "demon_m5",
+      "sex": "m",
+      "age_look": 60,
+      "faction": "demon",
+      "role": "elder"
+    },
+    {
+      "file": "generic/gen_demon_m6.png",
+      "type": "generic",
+      "id": "demon_m6",
+      "sex": "m",
+      "age_look": 30,
+      "faction": "demon",
+      "role": "cultivator"
+    },
+    {
+      "file": "generic/gen_demon_e1.png",
+      "type": "generic",
+      "id": "demon_e1",
+      "sex": "m",
+      "age_look": 80,
+      "faction": "demon",
+      "role": "elder"
+    },
+    {
+      "file": "generic/gen_demon_f1.png",
+      "type": "generic",
+      "id": "demon_f1",
+      "sex": "f",
+      "age_look": 23,
+      "faction": "demon",
+      "role": "female"
+    },
+    {
+      "file": "generic/gen_demon_f2.png",
+      "type": "generic",
+      "id": "demon_f2",
+      "sex": "f",
+      "age_look": 24,
+      "faction": "demon",
+      "role": "female"
+    },
+    {
+      "file": "generic/gen_demon_f3.png",
+      "type": "generic",
+      "id": "demon_f3",
+      "sex": "f",
+      "age_look": 30,
+      "faction": "demon",
+      "role": "female"
+    },
+    {
+      "file": "generic/gen_rogue_m1.png",
+      "type": "generic",
+      "id": "rogue_m1",
+      "sex": "m",
+      "age_look": 40,
+      "faction": "rogue",
+      "role": "cultivator"
+    },
+    {
+      "file": "generic/gen_rogue_m2.png",
+      "type": "generic",
+      "id": "rogue_m2",
+      "sex": "m",
+      "age_look": 35,
+      "faction": "rogue",
+      "role": "cultivator"
+    },
+    {
+      "file": "generic/gen_rogue_m3.png",
+      "type": "generic",
+      "id": "rogue_m3",
+      "sex": "m",
+      "age_look": 40,
+      "faction": "rogue",
+      "role": "cultivator"
+    },
+    {
+      "file": "generic/gen_rogue_m4.png",
+      "type": "generic",
+      "id": "rogue_m4",
+      "sex": "m",
+      "age_look": 60,
+      "faction": "rogue",
+      "role": "elder"
+    },
+    {
+      "file": "generic/gen_rogue_m5.png",
+      "type": "generic",
+      "id": "rogue_m5",
+      "sex": "m",
+      "age_look": 20,
+      "faction": "rogue",
+      "role": "cultivator"
+    },
+    {
+      "file": "generic/gen_rogue_m6.png",
+      "type": "generic",
+      "id": "rogue_m6",
+      "sex": "m",
+      "age_look": 50,
+      "faction": "rogue",
+      "role": "cultivator"
+    },
+    {
+      "file": "generic/gen_rogue_f1.png",
+      "type": "generic",
+      "id": "rogue_f1",
+      "sex": "f",
+      "age_look": 25,
+      "faction": "rogue",
+      "role": "female"
+    },
+    {
+      "file": "generic/gen_rogue_f2.png",
+      "type": "generic",
+      "id": "rogue_f2",
+      "sex": "f",
+      "age_look": 40,
+      "faction": "rogue",
+      "role": "female"
+    },
+    {
+      "file": "generic/gen_merchant_m1.png",
+      "type": "generic",
+      "id": "merchant_m1",
+      "sex": "m",
+      "age_look": 50,
+      "faction": "merchant",
+      "role": "merchant"
+    },
+    {
+      "file": "generic/gen_merchant_m2.png",
+      "type": "generic",
+      "id": "merchant_m2",
+      "sex": "m",
+      "age_look": 35,
+      "faction": "merchant",
+      "role": "merchant"
+    },
+    {
+      "file": "generic/gen_merchant_f1.png",
+      "type": "generic",
+      "id": "merchant_f1",
+      "sex": "f",
+      "age_look": 35,
+      "faction": "merchant",
+      "role": "merchant"
+    },
+    {
+      "file": "generic/gen_farmer_m1.png",
+      "type": "generic",
+      "id": "farmer_m1",
+      "sex": "m",
+      "age_look": 40,
+      "faction": "mortal",
+      "role": "farmer"
+    },
+    {
+      "file": "generic/gen_farmer_m2.png",
+      "type": "generic",
+      "id": "farmer_m2",
+      "sex": "m",
+      "age_look": 70,
+      "faction": "mortal",
+      "role": "farmer"
+    },
+    {
+      "file": "generic/gen_scholar_m1.png",
+      "type": "generic",
+      "id": "scholar_m1",
+      "sex": "m",
+      "age_look": 20,
+      "faction": "mortal",
+      "role": "scholar"
+    },
+    {
+      "file": "generic/gen_scholar_m2.png",
+      "type": "generic",
+      "id": "scholar_m2",
+      "sex": "m",
+      "age_look": 60,
+      "faction": "mortal",
+      "role": "scholar"
+    },
+    {
+      "file": "generic/gen_guard_m1.png",
+      "type": "generic",
+      "id": "guard_m1",
+      "sex": "m",
+      "age_look": 30,
+      "faction": "mortal",
+      "role": "guard"
+    },
+    {
+      "file": "generic/gen_guard_m2.png",
+      "type": "generic",
+      "id": "guard_m2",
+      "sex": "m",
+      "age_look": 40,
+      "faction": "mortal",
+      "role": "guard"
+    },
+    {
+      "file": "generic/gen_mortal_f1.png",
+      "type": "generic",
+      "id": "mortal_f1",
+      "sex": "f",
+      "age_look": 16,
+      "faction": "mortal",
+      "role": "female"
+    },
+    {
+      "file": "generic/gen_mortal_f2.png",
+      "type": "generic",
+      "id": "mortal_f2",
+      "sex": "f",
+      "age_look": 40,
+      "faction": "mortal",
+      "role": "female"
+    },
+    {
+      "file": "generic/gen_mortal_f3.png",
+      "type": "generic",
+      "id": "mortal_f3",
+      "sex": "f",
+      "age_look": 18,
+      "faction": "mortal",
+      "role": "female"
+    },
+    {
+      "file": "generic/gen_elder_m1.png",
+      "type": "generic",
+      "id": "elder_m1",
+      "sex": "m",
+      "age_look": 80,
+      "faction": "mortal",
+      "role": "elder"
+    },
+    {
+      "file": "generic/gen_elder_f1.png",
+      "type": "generic",
+      "id": "elder_f1",
+      "sex": "f",
+      "age_look": 70,
+      "faction": "mortal",
+      "role": "elder"
+    },
+    {
+      "file": "generic/gen_child_m1.png",
+      "type": "generic",
+      "id": "child_m1",
+      "sex": "m",
+      "age_look": 8,
+      "faction": "mortal",
+      "role": "child"
+    },
+    {
+      "file": "generic/gen_child_f1.png",
+      "type": "generic",
+      "id": "child_f1",
+      "sex": "f",
+      "age_look": 9,
+      "faction": "mortal",
+      "role": "child"
+    },
+    {
+      "file": "generic/gen_monk_1.png",
+      "type": "generic",
+      "id": "monk_1",
+      "sex": "m",
+      "age_look": 25,
+      "faction": "monk",
+      "role": "monk"
+    },
+    {
+      "file": "generic/gen_monk_2.png",
+      "type": "generic",
+      "id": "monk_2",
+      "sex": "m",
+      "age_look": 80,
+      "faction": "monk",
+      "role": "monk"
+    },
+    {
+      "file": "generic/gen_sea_m1.png",
+      "type": "generic",
+      "id": "sea_m1",
+      "sex": "m",
+      "age_look": 30,
+      "faction": "sea",
+      "role": "cultivator"
+    },
+    {
+      "file": "generic/gen_sea_m2.png",
+      "type": "generic",
+      "id": "sea_m2",
+      "sex": "m",
+      "age_look": 60,
+      "faction": "sea",
+      "role": "elder"
+    },
+    {
+      "file": "generic/gen_sea_f1.png",
+      "type": "generic",
+      "id": "sea_f1",
+      "sex": "f",
+      "age_look": 22,
+      "faction": "sea",
+      "role": "female"
+    },
+    {
+      "file": "generic/gen_mulan_m1.png",
+      "type": "generic",
+      "id": "mulan_m1",
+      "sex": "m",
+      "age_look": 30,
+      "faction": "mulan",
+      "role": "cultivator"
+    },
+    {
+      "file": "generic/gen_mulan_f1.png",
+      "type": "generic",
+      "id": "mulan_f1",
+      "sex": "f",
+      "age_look": 20,
+      "faction": "mulan",
+      "role": "female"
+    },
+    {
+      "file": "generic/gen_jin_m1.png",
+      "type": "generic",
+      "id": "jin_m1",
+      "sex": "m",
+      "age_look": 35,
+      "faction": "dajin",
+      "role": "cultivator"
+    },
+    {
+      "file": "generic/gen_jin_f1.png",
+      "type": "generic",
+      "id": "jin_f1",
+      "sex": "f",
+      "age_look": 25,
+      "faction": "dajin",
+      "role": "female"
+    }
+  ]
+}
