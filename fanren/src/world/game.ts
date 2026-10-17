@@ -863,7 +863,7 @@ export class Game {
   passDays(n: number) { const msgs: Msg[] = []; C.passDays(this.hero, n, false, 1, msgs); this.day += n; this.flushMsgs(msgs.filter((m) => m.kind)); }
   /** 第十八步：地图上的通用标记（世界坐标） */
   mapMarks(): { x: number; y: number; glyph: string; color: string; ring?: number; name: string }[] {
-    const out = [...this.sites.marks(), ...this.happen.marks(), ...this.heartx.marks(), ...this.landmarks.marks()];
+    const out = [...this.sites.marks(), ...this.happen.marks(), ...this.heartx.marks(), ...this.landmarks.marks(), ...this.combat.lairMarks()];
     const h = this.ws.home; if (h && h.map === ACTIVE_MAP) out.push({ x: h.x, y: h.y, glyph: '府', color: '#ffd890', name: h.name });
     return out;
   }

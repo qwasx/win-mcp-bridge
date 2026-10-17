@@ -193,6 +193,12 @@ const E: EnemyDef[] = [
   // 妖王
   { id: 'jinjiaowang', name: '金蛟王', kind: 'beast', lv: [9, 9], lair: true, look: { body: 'jiao', color: [200, 160, 60], belly: [255, 236, 170], accent: [255, 220, 120], size: 2.8, spikes: true, glow: '255,210,90', eye: 'rgba(255,255,170,1)' }, minDanger: 99, maxDanger: -1, zone: 'sea', hp: 2.6, atk: 1.5, def: 1.6, speed: 200, melee: { range: 160, power: 2, cd: 1.4, status: { k: 'knock', dur: 0.4, ch: 0.8 } }, ranged: { fx: 'goldthunder', color: '255,220,110', range: 700, power: 1.6, cd: 2.2, speed: 800, count: 3, status: { k: 'shock', dur: 1, ch: 0.5 } }, aggro: 1000, title: '妖王·外海蛟族', drops: [{ id: 'mat_jinjiaolin', ch: 1, n: [2, 4] }] },
   { id: 'bingfeng', name: '冰凤', kind: 'beast', lv: [10, 10], lair: true, look: { body: 'eagle', color: [190, 220, 240], belly: [250, 252, 255], accent: [150, 210, 255], size: 2.6, tail: 'fan', crest: [170, 230, 255], claws: 2, glow: '180,230,255', eye: 'rgba(200,250,255,1)' }, minDanger: 99, maxDanger: -1, zone: 'cold', flying: true, hp: 2.8, atk: 1.6, def: 1.5, speed: 380, melee: { range: 130, power: 2, cd: 1, status: { k: 'freeze', dur: 1.2, ch: 0.5 } }, ranged: { fx: 'icicle', color: '200,240,255', range: 760, power: 1.7, cd: 2, speed: 760, count: 5, status: { k: 'freeze', dur: 1, ch: 0.4 } }, aggro: 1100, title: '妖王·十级冰凤', drops: [{ id: 'mat_bingfengyu', ch: 1, n: [1, 3] }] },
+  // 第三十六步：乱星海外沿野生的八、九级妖兽（不是妖王，但个个能毁城灭岛）
+  { id: 'dujiao_w', name: '毒蛟', kind: 'beast', lv: [8, 8], look: { body: 'jiao', color: [150, 50, 40], belly: [230, 160, 120], accent: [200, 240, 90], size: 2.3, spikes: true, eye: 'rgba(220,255,120,1)', glow: '170,240,80' }, minDanger: 99, maxDanger: -1, zone: 'sea', hp: 2.4, atk: 1.4, def: 1.4, speed: 190, melee: { range: 140, power: 1.9, cd: 1.5, status: { k: 'poison', dur: 6, ch: 0.7 } }, ranged: { fx: 'blood', color: '160,230,60', range: 640, power: 1.5, cd: 2.3, speed: 620, count: 3, status: { k: 'poison', dur: 6, ch: 0.6 } }, aggro: 900, title: '八级妖兽', drops: [{ id: 'mat_dujiaolin', ch: 0.8, n: [1, 2] }, { id: 'mat_lingshi', ch: 1, n: [600, 1500] }] },
+  { id: 'laoleijing', name: '老雷鲸', kind: 'beast', lv: [8, 8], zone: 'sea', look: { body: 'shark', color: [40, 56, 96], belly: [160, 180, 230], size: 3.0, glow: '160,190,255', eye: 'rgba(210,230,255,1)' }, minDanger: 99, maxDanger: -1, hp: 3.4, atk: 1.5, def: 1.7, speed: 150, melee: { range: 170, power: 2.2, cd: 1.6, status: { k: 'knock', dur: 0.5, ch: 0.8 } }, ranged: { fx: 'lightning', color: '170,190,255', range: 700, power: 1.6, cd: 2.4, speed: 950, count: 4, status: { k: 'shock', dur: 1.2, ch: 0.6 } }, aggro: 900, title: '八级妖兽', drops: [{ id: 'mat_lingshi', ch: 1, n: [500, 1400] }] },
+  { id: 'tuntiansha', name: '吞天鲨', kind: 'beast', lv: [8, 9], zone: 'sea', look: { body: 'shark', color: [70, 70, 80], belly: [220, 220, 226], size: 2.8, eye: 'rgba(255,90,60,1)', glow: '255,110,80' }, minDanger: 99, maxDanger: -1, hp: 3.0, atk: 1.7, def: 1.4, speed: 260, melee: { range: 150, power: 2.4, cd: 1.2, status: { k: 'break', dur: 5, ch: 0.6 } }, aggro: 1000, title: '凶兽', drops: [{ id: 'mat_lingshi', ch: 1, n: [700, 1800] }] },
+  { id: 'zichidiao', name: '紫翅雷雕', kind: 'beast', lv: [8, 8], flying: true, look: { body: 'eagle', color: [90, 60, 130], belly: [210, 190, 240], accent: [200, 170, 255], size: 2.3, tail: 'fan', claws: 2, crest: [190, 150, 255], glow: '190,150,255', eye: 'rgba(240,220,255,1)' }, minDanger: 99, maxDanger: -1, hp: 2.2, atk: 1.5, def: 1.2, speed: 440, melee: { range: 120, power: 1.8, cd: 1, status: { k: 'shock', dur: 1, ch: 0.5 } }, ranged: { fx: 'lightning', color: '200,170,255', range: 720, power: 1.6, cd: 2, speed: 900, count: 3, status: { k: 'shock', dur: 1, ch: 0.5 } }, aggro: 1000, title: '八级妖兽', drops: [{ id: 'mat_lingshi', ch: 1, n: [500, 1300] }] },
+  { id: 'sanmuyao', name: '三目妖兽', kind: 'beast', lv: [9, 9], zone: 'sea', look: { body: 'jiao', color: [60, 40, 70], belly: [190, 150, 200], accent: [255, 80, 120], size: 2.7, spikes: true, eye: 'rgba(255,60,110,1)', glow: '255,80,130' }, minDanger: 99, maxDanger: -1, hp: 2.8, atk: 1.7, def: 1.6, speed: 210, melee: { range: 160, power: 2.3, cd: 1.3, status: { k: 'stun', dur: 1, ch: 0.5 } }, ranged: { fx: 'mind', color: '255,90,140', range: 760, power: 1.7, cd: 2.1, speed: 760, count: 3, status: { k: 'stun', dur: 0.8, ch: 0.4 } }, aggro: 1100, title: '九级妖兽', drops: [{ id: 'mat_lingshi', ch: 1, n: [1200, 3000] }] },
 ];
 
 export const ENEMIES: Record<string, EnemyDef> = Object.fromEntries(E.map((e) => [e.id, e]));
@@ -239,13 +245,13 @@ export const LAIRS: LairDef[] = [
  *  k0 一级下阶 · k1 一级中阶 · k2 一级上阶（偶见二级）· k3 一–三级 · k4 二–四级 · k5 三–五级 · k6 四–六级 · k7 五–七级 · k8 六–七级。
  *  野外最高七级；八级以上只作妖王坐镇巢穴。 */
 export function bandRealm(k: number, rnd: () => number): { realm: number; stage: number } {
-  const kk = Math.max(0, Math.min(8, k));
+  const kk = Math.max(0, Math.min(9.6, k));
   if (kk < 2.5) {
     if (kk >= 1.8 && rnd() < (kk - 1.8) * 0.3) return lvRealm(2);
     return { realm: 1, stage: Math.max(0, Math.min(12, Math.round(kk * 4 + rnd() * 3 - 1))) };
   }
   let lv = Math.round(kk - 1 + (rnd() - 0.5) * 1.7) + (rnd() < 0.1 ? 1 : 0);
-  lv = Math.max(1, Math.min(7, lv));
+  lv = Math.max(1, Math.min(kk >= 7.6 ? 9 : 7, lv));   // 第三十六步：乱星海外沿（妖气 ≥7.6）八、九级野生
   return lv === 1 ? { realm: 1, stage: 9 + Math.floor(rnd() * 4) } : lvRealm(lv);
 }
 

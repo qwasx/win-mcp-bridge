@@ -144,6 +144,12 @@ const S: Record<string, SprDef> = {
   'e:dujiao': { k: 'dujiao', f: -1, h: 250, m: 'slither' },
   'e:shuanggong': { k: 'shuanggong', f: 1, h: 200, m: 'fly' },
   'e:fengxi': { k: 'fengxi', f: 1, h: 290, m: 'fly' },
+  // —— 第三十六步：乱星海外沿野生八、九级
+  'e:dujiao_w': { k: 'dujiao', f: -1, h: 210, m: 'slither', fx: [['hue', 60], ['sat', 1.1], ['bri', 0.85]], glow: '170,240,80' },
+  'e:laoleijing': { k: 'huajing_shark', f: -1, h: 220, m: 'swim', fx: [['tint', [50, 70, 140], 0.6], ['bri', 0.85]], glow: '160,190,255' },
+  'e:tuntiansha': { k: 'huajing_shark', f: -1, h: 210, m: 'swim', fx: [['sat', 0.25], ['bri', 0.6]], glow: '255,110,80' },
+  'e:zichidiao': { k: 'qingfeng', f: -1, h: 190, m: 'fly', fx: [['hue', 110], ['sat', 1.2], ['bri', 0.85]], glow: '190,150,255' },
+  'e:sanmuyao': { k: 'yinjiao', f: -1, h: 230, m: 'slither', fx: [['hue', -60], ['sat', 0.9], ['bri', 0.6]], glow: '255,80,130' },
   'e:mo_soul': { k: 'mo_soul', f: 1, h: 124, m: 'float', a: 0.9 },
   'e:yu_soul': { k: 'yu_soul', f: 1, h: 112, m: 'float', a: 0.9 },
   // —— 灵宠（高度为满级时，实际乘以等级系数）

@@ -996,7 +996,9 @@ export class Combat {
       const a = LOC_BY_ID.get('tianxing');
       const r = a ? Math.hypot(mx - a.x, my - a.y) : 300;
       // 内星海一–四级；外星海四–七级；无边海、北海深处七级
-      k = rid === 'wubian' || rid === 'beihai' ? 7.7 : r < 250 ? 1 + (r / 250) * 3.6 : 5 + Math.min(1, (r - 250) / 300) * 2.6;
+      // 第三十六步：外星海越往外越凶，四百八十里外八级出没，最外沿与无边海、北海九级横行
+      k = r < 220 ? 1 + (r / 220) * 3.6 : 4.6 + Math.min(1, (r - 220) / 260) * 3.4 + Math.max(0, (r - 480) / 120);
+      if (rid === 'wubian' || rid === 'beihai') k = Math.max(k, 9);
     } else if (ACTIVE_MAP === 'dajin') {
       k = 5 + (1 - my / T.H) * 2.6;   // 大晋：南境三–五级，越往北寒越凶
     } else {
@@ -1017,7 +1019,7 @@ export class Combat {
     }
     k += boost * clamp(0.45 + ring / 3, 0.45, 1) - damp * 2.2;
     if (land && T.onRoad(x, y)) k -= 0.8;
-    k = clamp(k, 0, 8);
+    k = clamp(k, 0, ACTIVE_MAP === 'luanxing' ? 9.6 : 8);
     const s = T.sample(x, y);
     const zone = !land ? 'sea' : T.demonNear(x, y) ? 'demon' : s.cold > 0.6 ? 'cold' : s.arid > 0.6 ? 'arid' : rid === 'tianlan' ? 'grass' : s.forest > 0.4 ? 'forest' : '';
     Object.assign(c, { x, y, d: k * 0.75, k, zone, region: rid });
@@ -1086,8 +1088,8 @@ export class Combat {
     const g = this.game, p = g.player, h = g.hero;
     if (g.paused || h.dead) return;
     const dz = this.dangerAt(p.x, p.y);
-    const tierOf = (k: number) => (k < 1.5 ? 0 : k < 2.6 ? 1 : k < 3.6 ? 2 : k < 4.6 ? 3 : k < 5.6 ? 4 : k < 6.6 ? 5 : 6);
-    const TXT = ['一级下中阶', '一级上阶', '一至三级', '二至四级', '三至五级', '四至六级', '五至七级'];
+    const tierOf = (k: number) => (k < 1.5 ? 0 : k < 2.6 ? 1 : k < 3.6 ? 2 : k < 4.6 ? 3 : k < 5.6 ? 4 : k < 6.6 ? 5 : k < 7.6 ? 6 : k < 8.6 ? 7 : 8);
+    const TXT = ['一级下中阶', '一级上阶', '一至三级', '二至四级', '三至五级', '四至六级', '五至七级', '六至八级', '七至九级'];
     const safe = this.safeAt(p.x, p.y);
     if (this.kTier < 0) this.kTier = tierOf(dz.k);
     else if (!safe && !g.story?.fight) {
@@ -1095,7 +1097,7 @@ export class Combat {
       if (up > this.kTier) {
         this.kTier = up;
         const hl = h.realm <= 1 ? 1 : h.realm === 2 ? 2 + Math.min(2, Math.floor(h.stage / 4)) : h.realm === 3 ? 5 + Math.min(2, Math.floor(h.stage / 4)) : 8;
-        const top = [1, 1, 3, 4, 5, 6, 7][up];
+        const top = [1, 1, 3, 4, 5, 6, 7, 8, 9][up];
         g.toast(`妖气渐浓——此地常有${TXT[up]}妖兽出没。${top > hl + 1 ? '远超你的修为，小心行事。' : ''}`, top > hl ? 'warn' : 'info');
       } else if (dn < this.kTier) { this.kTier = dn; g.toast(`妖气稍淡，此地多是${TXT[dn]}妖兽。`, 'info'); }
     }
@@ -1134,6 +1136,17 @@ export class Combat {
     return lvRealm(lv, band > lv ? 12 : 2);
   }
 
+  /** 第三十六步：妖王巢穴标在地图上（妖气冲霄，修士皆知），斩杀后标记变灰 */
+  lairMarks(): { x: number; y: number; glyph: string; color: string; ring?: number; name: string }[] {
+    const g = this.game, f = g.ws.flags as any, out: { x: number; y: number; glyph: string; color: string; ring?: number; name: string }[] = [];
+    for (const L of LAIRS) {
+      const at = legacyHere(L.x, L.y); if (!at) continue;
+      const def = ENEMIES[L.enemy]; if (!def?.lv) continue;
+      const dead = f.lairs?.[L.id] && g.day - f.lairs[L.id] < 1080;
+      out.push({ x: at[0] * WORLD_SCALE, y: at[1] * WORLD_SCALE, glyph: '妖', color: dead ? '#8a8478' : '#ff5a3c', ring: dead ? undefined : 3200, name: `${L.name}·${def.name}（${lvName(def.lv[0])}）${dead ? '·已除' : ''}` });
+    }
+    return out;
+  }
   /** 妖王巢穴：靠近时妖王现身；斩杀后三年内无妖王 */
   lairTick() {
     const g = this.game, p = g.player;
