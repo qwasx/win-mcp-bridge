@@ -14,6 +14,7 @@ import { artLook } from '../data/artlooks';
 import { drawArt } from '../gfx/artifact';
 import { vfxProj, vfxBurst, vfxRing, vfxColumn, projSet, burstKey, shieldKey } from '../gfx/vfxTex';
 import { wardY, wardR } from './foemind';
+import { AFFIX } from './affix';
 /** 空中单位的排序偏移：排在所有地面物体之后 */
 const AIR_Y = 200000;
 
@@ -34,7 +35,7 @@ export function enemyVis(c: Combat, e: { x: number; y: number; def?: { hide?: bo
   const s = c.game.life.sense;
   // 擅隐匿的妖兽（双瞳鼠、阴芝马）：神识须贴近（约四成半径）或外放方能察觉；一旦惊走则现形
   const R = e.def?.hide && !e.aggro && !(c.game.senseBurstT > 0) ? s.R * 0.45 : s.R;
-  return clamp((R - Math.hypot(e.x - s.x, e.y - s.y)) / 110, 0, 1);
+  return clamp((R - Math.hypot(e.x - s.x, e.y - s.y)) / 110, 0, 1) * ((e as any).affix?.yinOn ? 0.18 : 1);
 }
 
 /** 收集需 Y 排序的战斗实体 */
@@ -629,6 +630,12 @@ export function drawCombatUI(g: G, c: Combat, t: number, z: number) {
     const tw = g.measureText(label).width + 10 * k;
     g.fillRect(e.x - tw / 2, top - 18 * k, tw, 15 * k);
     g.fillStyle = col; g.fillText(label, e.x, top - 10.5 * k);
+    if (e.affix) {   // 第三十五步：精英词缀标签
+      g.font = `bold ${11 * k}px "Noto Serif SC","Songti SC",serif`;
+      const tags = e.affix.ids.map((id) => AFFIX[id]), ws = tags.map((a) => g.measureText(a.name).width + 8 * k);
+      let x0 = e.x - ws.reduce((s, w) => s + w + 3 * k, -3 * k) / 2;
+      tags.forEach((a, i) => { g.fillStyle = 'rgba(20,14,10,0.75)'; g.fillRect(x0, top - 33 * k, ws[i], 13 * k); g.strokeStyle = `rgba(${a.col},0.8)`; g.lineWidth = 1; g.strokeRect(x0 + 0.5, top - 33 * k + 0.5, ws[i] - 1, 13 * k - 1); g.fillStyle = `rgb(${a.col})`; g.fillText(a.name, x0 + ws[i] / 2, top - 26.5 * k); x0 += ws[i] + 3 * k; });
+    }
     if (e.blv) { const bx = e.x - tw / 2 - 7 * k, by = top - 10.5 * k, r = (3 + Math.min(4, e.blv) * 0.5) * k; g.fillStyle = `rgb(${YAODAN_COL[e.blv]})`; g.beginPath(); g.moveTo(bx, by - r); g.lineTo(bx + r * 0.75, by); g.lineTo(bx, by + r); g.lineTo(bx - r * 0.75, by); g.closePath(); g.fill(); }   // 妖丹色菱：一眼看出等阶
     if (e.aggro || e.hp < e.maxHp) {
       g.fillStyle = 'rgba(20,16,12,0.7)'; g.fillRect(e.x - w / 2 - 1, top - 1, w + 2, hh + 2);

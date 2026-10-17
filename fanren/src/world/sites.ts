@@ -8,6 +8,7 @@ import { hash2 } from '../core/rng';
 import { ACTIVE_MAP, WORLD_W, WORLD_H } from '../data/world';
 import { ENEMIES } from '../data/enemies';
 import { Enemy } from './combat';
+import { rollAffix } from './affix';
 import * as C from './cultivation';
 import { ITEM_LIST, itemDef } from '../data/items';
 import { REALMS, realmName } from '../data/realms';
@@ -216,6 +217,7 @@ export class SiteSys {
       const e = new Enemy(rb.def, s.x + (s.kind === 'herbking' ? 80 : 0), s.y + (s.kind === 'herbking' ? 26 : 0), rb.realm, rb.stage);
       e.name = rb.def.name + (s.kind === 'herbking' ? '·守药' : '·护巢');
       e.boss = true; e.maxHp = e.hp = Math.round(e.hp * (s.kind === 'herbking' ? 2.2 : 1.8));
+      rollAffix(e, g.combat.dangerAt(s.x, s.y).k, 1);
       e.hx = s.x; e.hy = s.y; e.tag = 'site:' + k;
       if (s.kind === 'herbking') { e.sleep = true; e.facing = -1; }
       list.push(e);

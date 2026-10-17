@@ -16,6 +16,7 @@ import type { FxEvent } from '../gl/combatgl';
 import { ArtActs, lookOf } from './artacts';
 import { FoeAI, FoeSkill, isBoss } from './foeskills';
 import { FoeMind, absorbWard, Ward, DunKind } from './foemind';
+import { rollAffix, affixTick, affixOnHurt, affixOnKill, affixOutDmg, affixDealt, AffixState } from './affix';
 import { DagengAct } from './dageng';
 import { spawnHeroAct } from './heroacts';
 import { Swarm } from './swarm';
@@ -78,13 +79,17 @@ export class Enemy {
   fieldT = 0; retreatT = 0; lowDone = false; blinkCd = 3 + Math.random() * 5; supCd = 4; role?: 'tank' | 'ranged' | 'support'; slotA?: number;
   /** 追杀者（由追杀系统驱动远距离移动）/ 追杀者的同伙 */
   pursuer?: boolean; wing?: boolean;
+  /** 第三十五步：精英词缀 / 门派（决定修士的功法套路） */
+  affix?: AffixState; school?: string;
   constructor(def: EnemyDef, x: number, y: number, realm: number, stage: number, sea = false) {
     this.def = def; this.x = this.hx = x; this.y = this.hy = y;
     this.realm = realm; this.stage = stage; this.level = realm * 13 + stage;
     const R = REALMS[realm];
     const s = Math.min(stage, R.hp.length - 1);
-    this.maxHp = this.hp = Math.round(R.hp[s] * def.hp * 0.8 * (def.lair ? 1.5 : 1));
-    this.atk = R.atk[s] * def.atk * 0.85;
+    // 第三十五步：敌人整体加强（妖兽更皮实、更凶）
+    const beast = def.kind !== 'human';
+    this.maxHp = this.hp = Math.round(R.hp[s] * def.hp * (beast ? 1.5 : 1.25) * (def.lair ? 1.6 : 1));
+    this.atk = R.atk[s] * def.atk * (beast ? 1.2 : 1.1);
     this.dfn = R.def[s] * def.def;
     this.speed = def.speed;
     this.anim.flying = !!def.flying;
@@ -744,6 +749,7 @@ export class Combat {
     }
     e.hp -= d; e.anim.hit = 1; e.aggro = true; e.lastHitBy = this.game.time; e.sleep = false; e.busy = false;
     this.combatT = 0;
+    if (e.affix) affixOnHurt(this, e, d);
     // 打击感：白闪、击退、顿帧、震屏、粒子
     e.hitFlash = Math.max(e.hitFlash, 0.12);
     const kdx = e.x - fx, kdy = e.y - fy, kd = Math.hypot(kdx, kdy) || 1;
@@ -804,6 +810,7 @@ export class Combat {
     audio.dir.kill(e);
     this.onKill?.(e);
     if (this.lock === e) this.lock = null;
+    if (e.affix) affixOnKill(this, e);
     // 斩杀魔修：血气未散，偶尔引来其同门长老
     if (e.def.kind === 'human' && e.def.evil && !e.boss && !e.spar && Math.random() < 0.07) g.pursuit?.schedule({ reason: `斩了${e.name}，血气未散，引来了其同门`, gap: e.realm >= h.realm ? 1 : 0, faction: Math.random() < 0.5 ? 'guiling' : 'tiansha' });
     // 修为
@@ -856,6 +863,7 @@ export class Combat {
     const g = this.game, h = g.hero;
     if (h.dead || this.invulnT > 0 || (this.dash && this.dash.invuln)) { this.texts.push({ x: g.player.x, y: g.player.y - 110, s: '闪', color: '#cfe', t: 0, vy: -40 }); this.fxq.push({ k: 'dodge', x: g.player.x, y: g.player.y }); return; }
     const ps = this.pStats;
+    if (srcEnemy?.affix) raw = affixOutDmg(srcEnemy, raw);
     let d = Math.max(raw * 0.15, raw - ps.def * 0.8);
     d *= realmTakeK(srcRealm - h.realm);
     if (this.orbit) d *= 0.8;
@@ -878,6 +886,7 @@ export class Combat {
     }
     if (srcEnemy?.spar && h.hp - d / ps.hp < 0.15) { h.hp = Math.max(h.hp, 0.15); srcEnemy.dead = true; srcEnemy.deathT = 0.9; if (this.lock === srcEnemy) this.lock = null; this.onSparEnd?.(srcEnemy, false); return; }
     h.hp -= d / ps.hp;
+    if (srcEnemy?.affix) affixDealt(this, srcEnemy, d);
     this.hitT = 0.25; this.combatT = 0;
     const big = d > ps.hp * 0.15;
     this.texts.push({ x: g.player.x + rand(-10, 10), y: g.player.y - 110, s: '-' + d, color: '#ff6a5a', t: 0, vy: -60, big });
@@ -1001,6 +1010,9 @@ export class Combat {
         const rs = this.beastRS(def, rk);
         const st = rs.realm === 1 ? clamp(rs.stage + rint(-1, 1), 0, REALMS[1].hp.length - 1) : def.lv ? rs.stage : clamp(rs.stage + rint(-1, 1), 0, REALMS[rs.realm].hp.length - 1);
         const ne = new Enemy(def, ex, ey, rs.realm, st, sea);
+        // 第三十五步：离新手村越远越凶（血 +7%/档、攻 +5%/档），并有机会成为精英
+        ne.maxHp = ne.hp = Math.round(ne.maxHp * (1 + dz.k * 0.07)); ne.atk *= 1 + dz.k * 0.05;
+        rollAffix(ne, dz.k);
         if (this.tideT > 0) ne.aggro = true;   // 兽潮里的妖兽直扑而来
         this.enemies.push(ne);
       }
@@ -1079,6 +1091,7 @@ export class Combat {
       const rs = lvRealm(def.lv[0]);
       const e = new Enemy(def, lx, ly, rs.realm, rs.stage, !g.terrain.isLand(lx, ly));
       e.boss = true; e.lairId = L.id; e.hx = lx; e.hy = ly;
+      rollAffix(e, this.dangerAt(lx, ly).k, Math.random() < 0.5 ? 2 : 1);
       this.enemies.push(e);
     }
   }
@@ -1352,6 +1365,7 @@ export class Combat {
         const m = e.def.melee, r = e.def.ranged;
         // 第三十二步：心智——走位 / 遁光 / 撤退 / 包抄（busy 时本帧只顾走位）
         this.mind.assignRole(e);
+        if (e.affix) affixTick(this, e, dt, dist);
         const ov = this.mind.tick(e, dt, tx, ty, dist, rooted, tg.k === 'p');
         if (ov?.busy) { mvx = ov.mx; mvy = ov.my; sp *= ov.sp; }
         else {

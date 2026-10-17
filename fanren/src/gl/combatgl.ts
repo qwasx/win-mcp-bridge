@@ -7,6 +7,7 @@ import { enemyVis } from '../world/combatfx';
 import { drawFoeGL } from './foegl';
 import { drawHeroGL, drawOrbitGL } from './herogl';
 import { dunOf, DUN_COL, wardY, wardR } from '../world/foemind';
+import { drawEliteGL } from './elitegl';
 
 const TAU = Math.PI * 2;
 const WHITE: RGB = [1, 1, 1];
@@ -264,6 +265,7 @@ export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
       F.glow(e.x, hy, 46 * (e.def.look?.size ?? 1), WHITE, 0.55 * k * vis);
     }
     if (e.def.evil && vis > 0.1) F.glow(e.x, e.y - 50, 60, [0.8, 0.1, 0.15], 0.25 * vis);
+    if (e.affix) drawEliteGL(F, c, e, vis, t, dt);
     if (e.ward) {   // 护体灵光：半透明灵光罩 + 六枚符印绕行，受击时一亮
       const w = e.ward, k = w.hp / w.max, cc = col(w.col), r = wardR(e), y = e.y - wardY(e) - e.flyH - e.lift;
       const pul = 0.85 + 0.15 * Math.sin(t * 5 + e.id * 10);

@@ -11,6 +11,7 @@ import { bldTex } from '../gfx/bldTex';
 import { sprites, resBucket, type Spr } from '../gfx/sprites';
 import { ENEMIES, lvRealm, lvWeight, type EnemyDef } from '../data/enemies';
 import { Enemy } from './combat';
+import { rollAffix } from './affix';
 import { loot } from './sites';
 import * as C from './cultivation';
 import { itemDef } from '../data/items';
@@ -190,6 +191,7 @@ export class LandmarkSys {
       const rs = lvRealm(def.lv[0]);
       const e = new Enemy(def, lr.x, lr.y, rs.realm, rs.stage);
       e.boss = true; e.lairId = lr.id; e.hx = lr.x; e.hy = lr.y; e.name = def.name;
+      rollAffix(e, g.combat.dangerAt(lr.x, lr.y).k, Math.random() < 0.5 ? 2 : 1);
       g.combat.enemies.push(e);
       this.lairs.set(lr.id, e);
     }
