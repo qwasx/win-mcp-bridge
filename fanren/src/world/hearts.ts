@@ -98,7 +98,7 @@ export class Hearts {
             if (c.flag) s.flags[c.flag] = true;
             if (c.take) C.removeItem(h, c.take.id, c.take.n);
             if (c.give) { C.addItem(h, c.give.id, c.give.n); }
-            if (c.exp) { const msgs: C.Msg[] = []; C.gainExp(h, C.need(h) * c.exp, msgs); }
+            if (c.exp) { const msgs: C.Msg[] = []; C.gainExp(h, C.need(h) * C.INSIGHT * c.exp, msgs); }
             s.stage++;
             if (c.end === 'companion') { s.flags.companion = true; this.setFollow(b.id, true); g.news(`${b.name}与韩立结伴同行。`, 'personal'); }
             if (c.end === 'part') { s.flags.parted = true; this.setFollow(b.id, false); }

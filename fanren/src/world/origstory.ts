@@ -86,7 +86,7 @@ export class OrigStory {
         } });
         if (s.st === 2) out.push({ label: '收下谢礼', tone: 'good', act: () => {
           s.st = 3; R.addFavor(d, 40); const t = this.npc('o_mengtieshan'); if (t) R.addFavor(t, 30);
-          C.addItem(h, 'art_xuantie', 1); C.gainExp(h, C.need(h) * 0.08, []);
+          C.addItem(h, 'art_xuantie', 1); C.gainExp(h, C.need(h) * C.INSIGHT * 0.08, []);
           this.log('孟家兄弟重逢。孟铁衣以家传的玄铁飞天盾相赠。', 'good'); g.news('嘉元城孟家兄弟重逢，据说是一位姓韩的道友从中出力。', 'rumor');
           return end('（孟铁衣捧出一面乌沉沉的铁盾）这是我爹留下的玄铁飞天盾，我们兄弟修为浅，用不上它。道友莫要推辞！\n\n获得 玄铁飞天盾；修为有所精进。');
         } });
@@ -108,7 +108,7 @@ export class OrigStory {
           let left = 3; for (const b of [...herbs].sort((x, y) => itemDef(x.id).price - itemDef(y.id).price)) { const k = Math.min(left, b.n); C.removeItem(h, b.id, k); left -= k; if (!left) break; }
           R.addFavor(d, 12); g.ws.rep = clamp(g.ws.rep + 3, -100, 100); s.alms = (s.alms ?? 0) + 1;
           this.log('布施灵草，周济流民。', 'good');
-          if (s.alms === 3) { C.gainExp(h, C.need(h) * 0.1, []); return end('（慧明深深一礼）施主三番布施，功德无量。贫僧无以为报，便以一卷《清心咒》相赠，助施主护持心神。\n\n心境澄明，修为大进。'); }
+          if (s.alms === 3) { C.gainExp(h, C.need(h) * C.INSIGHT * 0.1, []); return end('（慧明深深一礼）施主三番布施，功德无量。贫僧无以为报，便以一卷《清心咒》相赠，助施主护持心神。\n\n心境澄明，修为大进。'); }
           return end('阿弥陀佛。这些灵草，够城外的流民熬上几日药汤了。');
         } });
         break;

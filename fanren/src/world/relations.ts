@@ -255,7 +255,7 @@ export class Relations {
     const sworn = d.oath ? d : (d.ties ?? []).map((t) => by.get(t.id)).find((o) => o?.oath && this.tieOf(o, d.id)?.k === 'kin');
     if (!sworn) return;
     const g = this.game, h = g.hero, msgs: C.Msg[] = [];
-    const loss = C.need(h) * 0.25; h.exp = Math.max(0, h.exp - loss);
+    const loss = C.need(h) * C.INSIGHT * 0.25; h.exp = Math.max(0, h.exp - loss);
     h.hp = Math.min(h.hp, 0.3); h.mp = Math.min(h.mp, 0.2);
     g.ws.rep = clamp(g.ws.rep - 12, -100, 100);
     sworn.oath = false;
@@ -435,7 +435,7 @@ export class Relations {
     for (const d of this.npcs.list) {
       if (!d.alive || !d.bond) continue;
       if (d.bond === 'master') {
-        const msgs: C.Msg[] = []; const exp = C.need(h) * 0.05; C.gainExp(h, exp, msgs);
+        const msgs: C.Msg[] = []; const exp = C.need(h) * C.INSIGHT * 0.05; C.gainExp(h, exp, msgs);
         let gift = '';
         if (Math.random() < 0.25) { const sk = g.combat.randomScroll(Math.min(4, d.realm)); if (sk) { C.addItem(h, sk, 1); gift = `，并赐下${itemDef(sk).name}`; } }
         g.toast(`师父${d.name}传音指点你修行（修为 +${Math.round(exp)}）${gift}。`, 'good'); this.log(`师父${d.name}传音指点${gift}。`, 'good');
@@ -597,7 +597,7 @@ export class Relations {
     // 论道
     if (d.realm > 0 && d.favor >= 10) opts.push({ label: '论道', hint: d.lunDao && day - d.lunDao < 15 ? '近日已论过道' : '', disabled: !!d.lunDao && day - d.lunDao < 15, act: () => {
       d.lunDao = day;
-      const msgs: C.Msg[] = []; const k = gap > 0 ? 0.045 : 0.02; const exp = C.need(h) * k; C.gainExp(h, exp, msgs);
+      const msgs: C.Msg[] = []; const k = gap > 0 ? 0.045 : 0.02; const exp = C.need(h) * C.INSIGHT * k; C.gainExp(h, exp, msgs);
       const fv = d.pers === 'aloof' ? (gap <= 0 ? 10 : 3) : d.pers === 'arrogant' ? (gap > 0 ? 2 : 8) : 6; this.addFavor(d, fv);
       const L: Record<Pers, string> = { righteous: '二人从剑道谈到心性，不觉日已西斜。', kind: '对方说话不疾不徐，句句落在你修行的关隘上。', cautious: '对方起初惜字如金，谈到后来，竟也和盘托出几分心得。', arrogant: '对方言辞间多有自矜，倒也确有几分真知灼见。', greedy: '对方三句不离灵石丹药，偶尔也冒出几句妙论。', ruthless: '对方的道冷硬如铁，却让你看到了另一条路。', aloof: '对方寥寥数语，如晨钟暮鼓。' };
       return end(`（你与${d.name}席地而坐，论道半日）\n${L[d.pers]}\n\n修为 +${Math.round(exp)}，好感 +${fv}`);

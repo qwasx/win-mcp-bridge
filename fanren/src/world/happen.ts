@@ -297,7 +297,7 @@ export class Happen {
         g.ws.rep = clamp(g.ws.rep + 5, -100, 100);
         g.openDialog({ speaker: d.name, look: n.look, title: '渡劫成功', mood: 'mystic', text: `乌云散尽，一缕天光落在${d.name}身上。他睁开眼，周身气息已截然不同。\n\n「道友护法之恩，${d.name}没齿难忘。」他将一只储物袋双手奉上。\n\n获得：${got.join('、')}\n\n（正道声望 +5）`, options: [{ label: '道友客气', act: () => null }] });
       } else if (d.engaged === 'watch' && Math.hypot(n.x - P.x, n.y - P.y) < 800) {
-        const m: C.Msg[] = []; C.gainExp(h, C.need(h) * 0.08, m);
+        const m: C.Msg[] = []; C.gainExp(h, C.need(h) * C.INSIGHT * 0.08, m);
         g.toast('你在旁观完整场雷劫，对天地之威有了几分体悟。（修为 +8%）', 'good');
       } else if (Math.hypot(n.x - P.x, n.y - P.y) < g.senseRadius * 1.3) g.toast(`${d.name}渡劫成功，化作一道遁光冲天而去。`, 'info');
       x.done = true;

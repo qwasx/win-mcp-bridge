@@ -215,7 +215,7 @@ export class PursuitSys {
       (h.stats as any).escapes = ((h.stats as any).escapes ?? 0) + 1;
       return;
     }
-    const exp = expNeed(h.realm, h.stage) * (kind === 'escaped' ? 0.03 : 0.015);
+    const exp = expNeed(h.realm, h.stage) * C.INSIGHT * (kind === 'escaped' ? 0.03 : 0.015);
     C.gainExp(h, exp, []);
     (h.stats as any).escapes = ((h.stats as any).escapes ?? 0) + 1;
     if (d && d.alive) g.rel.log(`${d.name}追杀未果，含恨而去，扬言下次定要你好看。`, 'bad');

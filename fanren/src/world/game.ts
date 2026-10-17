@@ -907,8 +907,12 @@ export class Game {
     const h = this.hero;
     const from = realmName(h.realm, h.stage);
     const msgs: Msg[] = [];
-    const cap = days > 0 ? days : 360 * 30;
+    let cap = days > 0 ? days : 360 * 60;
     let d = 0, gain = 0, reason = '期满出关';
+    // 第三十六步：大事将起时提前出关（不至于一觉醒来错过）
+    const nx = this.events.nextStart();
+    let evCut = false;
+    if (nx && nx.day - this.day < cap) { cap = Math.max(1, nx.day - this.day); evCut = true; }
     const place = this.placeBonus().mult;
     while (d < cap) {
       if (h.pendingTalent) { reason = '心有所感，逆天改命'; break; }
@@ -922,6 +926,7 @@ export class Game {
       if (h.pendingTalent) { reason = '心有所感，逆天改命'; break; }
       if (h.dead) { reason = '寿元耗尽'; break; }
     }
+    if (evCut && d >= cap && reason === '期满出关') reason = `心血来潮——${nx!.name}将起，提前出关`;
     this.day += d;
     this.clock += 37; // 出关时辰随机变化
     const to = realmName(h.realm, h.stage);
@@ -1014,7 +1019,7 @@ export class Game {
   onPlayerDown() {
     if (this.story.onDown()) return;
     const h = this.hero, p = this.player;
-    const lostExp = Math.floor(C.need(h) * 0.1);
+    const lostExp = Math.floor(C.need(h) * C.INSIGHT * 0.1);
     h.exp = Math.max(0, h.exp - lostExp);
     const lost: string[] = [];
     const ls = C.bagCount(h, 'mat_lingshi');

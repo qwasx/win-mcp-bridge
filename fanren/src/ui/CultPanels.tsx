@@ -224,12 +224,12 @@ export function SecludePanel({ game, onClose }: { game: Game; onClose: () => voi
   const pl = game.placeBonus();
   const rate = C.expPerDay(h, pl.mult);
   const bn = C.bottleneck(h);
-  const opts: [string, number][] = [['一月', 30], ['一年', 360], ['十年', 3600], ['直到瓶颈', 0]];
+  const opts: [string, number][] = [['一月', 30], ['一年', 360], ['十年', 3600], ['三十年', 10800], ['直到瓶颈', 0]];
   return (
     <Panel title="闭关" onClose={onClose} sub={`${pl.name}${pl.mult > 1 ? ` · 灵气 ×${pl.mult.toFixed(1)}` : ''} · 每日 +${rate.toFixed(1)} 修为`}>
       {!rep ? (
         <>
-          <div className="hint" style={{ marginBottom: 10 }}>闭关期间光阴飞逝，年岁随之增长。遇到瓶颈、逆天改命机缘或寿元将尽时会自动出关。宗门、秘境与灵泉畔修炼更快。</div>
+          <div className="hint" style={{ marginBottom: 10 }}>闭关期间光阴飞逝，年岁随之增长。修为主要靠岁月苦修：筑基要十几二十年，结丹动辄数十年，结婴需百年之功；丹药只能锦上添花，服多了还会积下丹毒。遇到瓶颈、逆天改命机缘、大事将起或寿元将尽时会自动出关。宗门、秘境与灵泉畔修炼更快。</div>
           {bn !== 'none' && <div className="warn-box">修为已至瓶颈，闭关无益——请先在角色面板冲关。</div>}
           <div className="sec-opts">
             {opts.map(([n, d]) => (

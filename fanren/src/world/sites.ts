@@ -367,7 +367,7 @@ export class SiteSys {
         const got = loot(g, s.tier, ancient ? 1.6 : 0.9, { scroll: ancient ? 0.4 : 0.18, art: ancient ? 0.25 : 0.05, map: 0.2 });
         let extra = '';
         const r = Math.random();
-        if (r < 0.22) { const m: C.Msg[] = []; C.gainExp(h, C.need(h) * (0.03 + s.tier * 0.01), m); extra = '\n\n坟土落定的一刻，一缕微光没入你眉心——是死者残存的感悟。（修为小涨）'; }
+        if (r < 0.22) { const m: C.Msg[] = []; C.gainExp(h, C.need(h) * C.INSIGHT * (0.03 + s.tier * 0.01), m); extra = '\n\n坟土落定的一刻，一缕微光没入你眉心——是死者残存的感悟。（修为小涨）'; }
         else if (r < 0.4) { const t = this.revealNear(s.x, s.y, 9000); if (t) extra = `\n\n他怀里揣着一张手绘的地图，上面圈着「${this.name(t)}」。（地图上已标出）`; }
         return this.close(`你掘土成坑，将遗骸葬下，立了块无字木牌。\n\n获得：${got.join('、')}${extra}\n\n（正道声望 +2）`, '入土为安');
       } },
@@ -549,7 +549,7 @@ export class SiteSys {
         if (type === 0) {
           const sk = deep ? g.combat.randomScroll(Math.min(4, s.tier + 1)) : null;
           if (sk) { C.addItem(h, sk, 1); return this.close(`三日三夜，你将碑上古篆尽数拓印于玉简。\n\n获得：${itemDef(sk).name}`, '功法残篇', 'mystic'); }
-          C.gainExp(h, C.need(h) * 0.05, m); return this.close('古篆残缺太甚，你只悟出几分道理。（修为小涨）', '功法残篇');
+          C.gainExp(h, C.need(h) * C.INSIGHT * 0.05, m); return this.close('古篆残缺太甚，你只悟出几分道理。（修为小涨）', '功法残篇');
         }
         if (type === 1) {
           const a = this.revealNear(s.x, s.y, 14000), b = this.revealNear(s.x, s.y, 14000);
@@ -557,12 +557,12 @@ export class SiteSys {
           const names = [a, b].filter(Boolean).map((t) => this.name(t!));
           return this.close(`碑上的线条与你脑中的山川一一对上——\n\n${names.length ? `你记下了${names.join('、')}的位置。` : '附近的地脉你已尽知。'}${c ? '\n另有一处以朱砂点出的标记，像是藏宝之地。' : ''}\n\n（地图上已标出）`, '地脉图', 'mystic');
         }
-        if (type === 2) { C.gainExp(h, C.need(h) * (deep ? 0.1 + s.tier * 0.03 : 0.03), m); if (deep) h.senseBonus += 2; return this.close(`你在碑前枯坐三日，那个「道」字忽然活了过来，在你识海中缓缓舒展。\n\n修为大进${deep ? '，神识 +2' : ''}。`, '悟道', 'mystic'); }
+        if (type === 2) { C.gainExp(h, C.need(h) * C.INSIGHT * (deep ? 0.1 + s.tier * 0.03 : 0.03), m); if (deep) h.senseBonus += 2; return this.close(`你在碑前枯坐三日，那个「道」字忽然活了过来，在你识海中缓缓舒展。\n\n修为大进${deep ? '，神识 +2' : ''}。`, '悟道', 'mystic'); }
         if (type === 3) {
           let n = 0; for (const id of h.hotbar ?? []) { if (!id) continue; const a = h.arts.find((x: any) => x.id === id); if (a) { a.xp = (a.xp ?? 0) + (deep ? 40 : 15); n++; } }
           return this.close(`你以神识触碰那道剑痕——一道凌厉无匹的剑意直冲识海！你咬牙撑住，将其化为己用。\n\n${n ? `快捷栏中 ${n} 门法术熟练度提升。` : '你暂无可以印证的法术。'}`, '剑意', 'mystic');
         }
-        C.gainExp(h, C.need(h) * 0.04, m); h.lifeBonus += 1;
+        C.gainExp(h, C.need(h) * C.INSIGHT * 0.04, m); h.lifeBonus += 1;
         return this.close(`${STELE_LORE[s.seed % STELE_LORE.length]}\n\n你对着古碑一揖。（修为小涨，寿元 +1）`, '遗训', 'mystic');
       } },
       { label: '离开', act: () => null },
@@ -611,7 +611,7 @@ export class SiteSys {
     const drinkOk = (v.drink ?? -99) + 30 <= g.day, diveOk = (v.dive ?? -9999) + 720 <= g.day;
     const ch = clamp(0.5 + (h.realm - s.tier * 0.7) * 0.12, 0.2, 0.85);
     return { speaker: name, text: `${cold ? '潭水幽黑，寒气逼人，潭边石头上结着白霜。' : '池水清澈见底，水面浮着淡淡的灵雾。'}${diveOk ? '潭底深处，偶尔有一点宝光闪过。' : ''}`, mood: 'mystic', options: [
-      { label: '掬一捧水饮下', disabled: !drinkOk, hint: drinkOk ? '' : '灵气尚未恢复（每月一次）', act: () => { v.drink = g.day; const m: C.Msg[] = []; C.gainExp(h, C.need(h) * (0.02 + s.tier * 0.008), m); h.hp = Math.min(1, h.hp + 0.4); h.mp = Math.min(1, h.mp + 0.4); return this.close(`${cold ? '一股寒流直透丹田，激得你浑身一颤——随即化作精纯灵力。' : '池水入喉甘甜，灵气在经脉中缓缓化开。'}\n\n（修为小涨，气血法力恢复）`, name); } },
+      { label: '掬一捧水饮下', disabled: !drinkOk, hint: drinkOk ? '' : '灵气尚未恢复（每月一次）', act: () => { v.drink = g.day; const m: C.Msg[] = []; C.gainExp(h, C.need(h) * C.INSIGHT * (0.02 + s.tier * 0.008), m); h.hp = Math.min(1, h.hp + 0.4); h.mp = Math.min(1, h.mp + 0.4); return this.close(`${cold ? '一股寒流直透丹田，激得你浑身一颤——随即化作精纯灵力。' : '池水入喉甘甜，灵气在经脉中缓缓化开。'}\n\n（修为小涨，气血法力恢复）`, name); } },
       { label: `潜入潭底（约 ${Math.round(ch * 100)}%）`, disabled: !diveOk || h.hp < 0.5, hint: !diveOk ? '潭底已被你翻过（两年后再来）' : h.hp < 0.5 ? '气血太低' : cold ? '寒毒伤身' : '暗流凶险', tone: 'gold', act: () => {
         v.dive = g.day;
         if (Math.random() < ch) {

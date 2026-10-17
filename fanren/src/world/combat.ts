@@ -817,7 +817,7 @@ export class Combat {
     // 修为
     const pl = h.realm * 13 + h.stage;
     const gapK = e.level >= pl ? 1 + (e.level - pl) * 0.25 : Math.max(0.1, 1 - (pl - e.level) * 0.15);
-    const exp = expNeed(e.realm, e.stage) * 0.025 * e.def.hp * gapK;
+    const exp = expNeed(e.realm, e.stage) * 0.0045 * e.def.hp * gapK * (e.boss || e.def.lair ? 3 : 1);   // 第三十六步：杀怪只得少许感悟，修为主要靠苦修
     const msgs: C.Msg[] = [];
     C.gainExp(h, exp, msgs);
     this.texts.push({ x: e.x, y: e.y - 60, s: `修为 +${Math.round(exp)}`, color: '#9fe8c0', t: 0, vy: -40 });

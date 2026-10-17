@@ -66,7 +66,7 @@ export const CANON_EVENTS: CanonEvent[] = [
     onMiss: (g) => { const n = g.npcs.byId.get('yanruyan'); if (n && Math.random() < 0.5) g.npcs.die(n, '死于燕家堡之变'); },
   },
   {
-    id: 'modao', gate: [2, 1], name: '魔道六宗入侵越国', year: 12, month: 3, dur: 600, loc: 'huangfeng', radius: 10, minRealm: 2, special: 'invasion',
+    id: 'modao', gate: [2, 1], name: '魔道六宗入侵越国', year: 16, month: 3, dur: 600, loc: 'huangfeng', radius: 10, minRealm: 2, special: 'invasion',
     announce: '魔道六宗在越国边境集结，七派人心惶惶。一场大战，迫在眉睫。',
     intro: '黄枫谷护山大阵在魔光下剧烈震颤。鬼灵门、合欢宗的长老亲自督战，誓要踏平黄枫谷。\n\n「天南七派，今日便是你们的死期！」',
     win: '魔道长老伏诛，残余魔修溃逃出越国。七派守住了越国——这一次，历史改变了。', lose: '', missed: '七派节节败退，越国沦陷于魔道之手。七派残部退往九国盟。',
@@ -81,7 +81,7 @@ export const CANON_EVENTS: CanonEvent[] = [
     onMiss: (g) => { g.ws.flags.invasion = false; g.ws.flags.yueFallen = true; },
   },
   {
-    id: 'xutian', gate: [3, 0], name: '虚天殿开启', year: 20, month: 8, dur: 90, loc: 'xutian', radius: 10, minRealm: 3,
+    id: 'xutian', gate: [3, 0], name: '虚天殿开启', year: 60, month: 8, dur: 90, loc: 'xutian', radius: 10, minRealm: 3,
     announce: '乱星海传出消息：虚天殿将在明年现世，殿中藏有通天灵宝虚天鼎与乾蓝冰焰。乱星海各方老怪蠢蠢欲动。',
     intro: '海天之间，一座古殿自雾中浮现。殿门前，温天仁负手而立，身后是六道极圣的门人。\n\n「虚天鼎，我温天仁要了。不服的，上来送死。」',
     win: '温天仁败退，你踏入虚天殿深处，冰焰的寒光映亮了你的脸。', lose: '', missed: '虚天殿关闭了。据说乾蓝冰焰落入了某位元婴老怪之手。',
@@ -93,7 +93,7 @@ export const CANON_EVENTS: CanonEvent[] = [
     reward: (g) => { const roll = Math.random(); const id = roll < 0.12 ? 'art_xutian' : roll < 0.55 ? 'art_qianlan' : 'art_bamen'; C.addItem(g.hero, id, 1); C.addItem(g.hero, 'mat_lingshi', 8000); return `${itemDef(id).name}、灵石 8000`; },
   },
   {
-    id: 'zhuimo', gate: [3, 1], name: '坠魔谷异变', year: 32, month: 4, dur: 120, loc: 'zhuimo', radius: 10, minRealm: 3,
+    id: 'zhuimo', gate: [3, 1], name: '坠魔谷异变', year: 120, month: 4, dur: 120, loc: 'zhuimo', radius: 10, minRealm: 3,
     announce: '坠魔谷禁制日渐松动，上古魔气外泄。传说谷底封印着一具古魔分身。',
     intro: '谷底魔气如潮，一道漆黑的身影缓缓睁开了眼睛。那是上古遗留的魔物，单是威压，便让人神魂欲裂。',
     win: '古魔分身溃散，坠魔谷的封印重新稳固。你在谷底找到了上古修士的遗宝。', lose: '', missed: '坠魔谷魔气外泄，方圆百里化为死地。',
@@ -136,6 +136,18 @@ export class Events {
       shift[ev.id] = s0 - at;
       ws.evNext = at + 90;
     }
+  }
+  /** 第三十六步：下一件尚未开始的大事的开始日（闭关会在此前出关） */
+  nextStart(): { day: number; name: string } | null {
+    const g = this.game; let best: { day: number; name: string } | null = null;
+    for (const ev of CANON_EVENTS) {
+      const cyc = this.cycleOf(ev), st = g.ws.events[this.keyOf(ev, cyc)];
+      if (st && st.state !== 'pending') continue;
+      if (g.hero.realm < ev.minRealm - 1) continue;
+      const s0 = this.startDay(ev, cyc);
+      if (s0 > g.day && (!best || s0 < best.day)) best = { day: s0, name: ev.name };
+    }
+    return best;
   }
   keyOf(ev: CanonEvent, cycle: number) { return ev.repeat ? `${ev.id}#${cycle}` : ev.id; }
   cycleOf(ev: CanonEvent) { if (!ev.repeat) return 0; const d = this.game.day - this.startDay(ev, 0); return Math.max(0, Math.floor(d / (ev.repeat * 360))); }
@@ -266,7 +278,7 @@ export class Events {
     if (ev.special === 'shengxian') { if (!rewardText) { C.addItem(g.hero, 'item_shengxian', 1); g.openDialog({ speaker: ev.name, text: `三战三胜！台下一片哗然。\n\n${ev.win}\n\n（获得升仙令）`, options: [{ label: '好', act: () => null }] }); } g.news('韩立在太南小会夺得升仙令。', 'personal'); return; }
     const rw = ev.reward(g);
     ev.onWin?.(g);
-    const msgs: C.Msg[] = []; C.gainExp(g.hero, C.need(g.hero) * 0.25, msgs);
+    const msgs: C.Msg[] = []; C.gainExp(g.hero, C.need(g.hero) * C.INSIGHT * 0.25, msgs);
     g.news(ev.win.split('。')[0] + '。', 'canon');
     g.openDialog({ speaker: ev.name, title: '大功告成', text: `${ev.win}\n\n获得：${rw}\n修为大进。`, options: [{ label: '好', act: () => null }], mood: 'mystic' });
   }
@@ -470,8 +482,8 @@ export class Events {
       const order = [0, 1, 2].sort(() => Math.random() - 0.5);
       g.openDialog({ speaker: '白发老者', title: '高人', look: x.look, mood: 'mystic', text: `（老者睁开眼，目光仿佛看透了你的一切）小友，坐。老夫问你一句话。\n\n${q.q}`, options: order.map((i) => ({ label: q.a[i], act: () => {
         x.done = true;
-        if (i === q.right) { const msgs: C.Msg[] = []; C.gainExp(h, C.need(h) * 0.15, msgs); if (Math.random() < 0.5) { h.senseBonus += 3; return close('老者抚须大笑：「善！」他屈指一弹，一道灵光没入你的眉心——你的神识仿佛被洗过一般清明。\n\n修为大进，神识 +3', '高人点化'); } h.lifeBonus += 5; return close('老者点点头：「孺子可教。」他赠你一枚丹药，服下后浑身暖洋洋的。\n\n修为大进，寿元 +5', '高人点化'); }
-        const msgs: C.Msg[] = []; C.gainExp(h, C.need(h) * 0.03, msgs);
+        if (i === q.right) { const msgs: C.Msg[] = []; C.gainExp(h, C.need(h) * C.INSIGHT * 0.15, msgs); if (Math.random() < 0.5) { h.senseBonus += 3; return close('老者抚须大笑：「善！」他屈指一弹，一道灵光没入你的眉心——你的神识仿佛被洗过一般清明。\n\n修为大进，神识 +3', '高人点化'); } h.lifeBonus += 5; return close('老者点点头：「孺子可教。」他赠你一枚丹药，服下后浑身暖洋洋的。\n\n修为大进，寿元 +5', '高人点化'); }
+        const msgs: C.Msg[] = []; C.gainExp(h, C.need(h) * C.INSIGHT * 0.03, msgs);
         return close('老者摇摇头，闭目不语。再睁眼时，青石上已空无一人。\n\n（你仍有所得，修为小涨）', '高人点化');
       } })) });
       return true;

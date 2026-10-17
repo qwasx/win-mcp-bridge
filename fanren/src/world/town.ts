@@ -227,7 +227,7 @@ export class Towns {
     if (this.taskProgress(t) < t.need) return;
     if (t.kind === 'gather') C.removeItem(g.hero, t.target, t.need);
     s.contrib += Math.round(t.reward); s.done++;
-    const msgs: C.Msg[] = []; C.gainExp(g.hero, C.need(g.hero) * t.exp, msgs);
+    const msgs: C.Msg[] = []; C.gainExp(g.hero, C.need(g.hero) * C.INSIGHT * t.exp, msgs);
     s.tasks = s.tasks.filter((x) => x !== t);
     g.toast(`任务完成：贡献 +${Math.round(t.reward)}`, 'good');
     if (!s.tasks.length) this.refreshTasks();

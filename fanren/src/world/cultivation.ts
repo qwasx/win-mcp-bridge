@@ -22,8 +22,14 @@ export interface Hero {
   equip: { armor?: string; shield?: string; flight?: string; boots?: string };
   looted: string[];
   kills: number;
+  /** 第三十六步：本小境界已服修为丹药数（耐药） */
+  pillN?: number;
 }
 
+/** 第三十六步：奇遇、切磋、任务所得修为的折算（修为主要靠岁月苦修） */
+export const INSIGHT = 0.3;
+/** 同一小境界内服丹越多，药力越弱（耐药）：第 n 颗只剩 0.55^n */
+export const PILL_FATIGUE = 0.55;
 export const TALENT_LEVELS = [4, 7, 10, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28];
 export const BOTTLE_DAYS = 20;
 export const BOTTLE_MAX = 3;
@@ -128,7 +134,7 @@ export function gainExp(h: Hero, amount: number, out: Msg[]) {
 }
 
 function stageUp(h: Hero, out: Msg[]) {
-  h.exp = 0; h.stage++; h.stats.breaks++;
+  h.exp = 0; h.stage++; h.stats.breaks++; h.pillN = 0;
   out.push({ text: `修为精进，晋入${realmName(h.realm, h.stage)}！`, kind: 'good' });
   checkTalent(h);
 }
@@ -182,7 +188,7 @@ export function tryBreak(h: Hero, pills: number, bonus = 0): { ok: boolean; msgs
   const ch = majorChance(h, pills, bonus);
   if (mb.item) removeItem(h, mb.item, pills);
   if (Math.random() < ch) {
-    h.realm++; h.stage = 0; h.exp = 0; h.stats.breaks++;
+    h.realm++; h.stage = 0; h.exp = 0; h.stats.breaks++; h.pillN = 0;
     h.hp = 1; h.mp = 1;
     msgs.push({ text: `天地灵气倒灌，${REALMS[h.realm].name}成矣！寿元增至 ${maxLife(h)} 载。`, kind: 'good' });
     checkTalent(h);
@@ -239,7 +245,9 @@ export function usePill(h: Hero, id: string, out: Msg[]) {
     const before = h.exp, bs = h.stage, br = h.realm;
     // 高阶丹药对低境界效果更强，低阶丹药对高境界衰减
     const tierFit = Math.pow(0.35, Math.max(0, h.realm - 1 - d.tier));
-    gainExp(h, e.exp * tierFit * (gongfaDef(h).id === 'changchun' ? 1.1 : 1), out);
+    const fat = Math.pow(PILL_FATIGUE, h.pillN ?? 0); h.pillN = (h.pillN ?? 0) + 1;
+    gainExp(h, e.exp * tierFit * fat * (gongfaDef(h).id === 'changchun' ? 1.1 : 1), out);
+    if (fat < 0.3) out.push({ text: `丹毒积郁，药力已十不存${Math.max(1, Math.round(fat * 10))}——该静心苦修了。`, kind: 'warn' });
     if (h.stage === bs && h.realm === br && h.exp === before) out.push({ text: '修为已至瓶颈，药力白白流失。', kind: 'warn' });
     else out.push({ text: `药力化开，修为增长。`, kind: 'good' });
   }

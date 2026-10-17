@@ -417,7 +417,7 @@ export class NpcWorld {
       d.age += days / 360;
       if (d.realm > 0) {
         const R = REALMS[d.realm];
-        const need = (R.expDays[Math.min(d.stage, R.expDays.length - 1)] ?? 500) * 2.4;
+        const need = (R.expDays[Math.min(d.stage, R.expDays.length - 1)] ?? 500) * (d.realm <= 1 ? 1.6 : 0.9);
         if (rnd() < 1 - Math.pow(1 - 1 / need, days)) {
           if (d.stage < R.stages.length - 1) d.stage++;
           else if (d.realm < 5 && rnd() < [0, 0.4, 0.22, 0.12, 0.05][d.realm]) {
@@ -928,11 +928,11 @@ export class NpcWorld {
     d.spar = g.day;
     if (won) {
       d.favor = clamp(d.favor + (d.pers === 'arrogant' ? 4 : 10), -100, 100);
-      const msgs: C.Msg[] = []; const exp = C.need(g.hero) * clamp(0.03 + gap * 0.01, 0.01, 0.12);
+      const msgs: C.Msg[] = []; const exp = C.need(g.hero) * C.INSIGHT * clamp(0.03 + gap * 0.01, 0.01, 0.12);
       C.gainExp(g.hero, exp, msgs);
       g.toast(`切磋获胜！${d.name}${d.pers === 'arrogant' ? '面色铁青地拱了拱手' : '抱拳称服'}。（修为 +${Math.round(exp)}）`, 'good');
     } else {
-      const msgs: C.Msg[] = []; const exp = C.need(g.hero) * 0.02;
+      const msgs: C.Msg[] = []; const exp = C.need(g.hero) * C.INSIGHT * 0.02;
       C.gainExp(g.hero, exp, msgs);
       g.toast(`切磋落败，${d.name}点到为止。你从中有所领悟（修为 +${Math.round(exp)}）。`);
       d.favor = clamp(d.favor + 3, -100, 100);
@@ -1022,7 +1022,7 @@ export class NpcWorld {
     const g = this.game, d = a.d; d.taught = true;
     const sk = d.realm >= g.hero.realm && Math.random() < 0.5 ? g.combat.randomScroll(Math.min(4, d.realm)) : null;
     if (sk) { C.addItem(g.hero, sk, 1); return { speaker: d.name, title, look: a.look, text: `（${d.name}沉吟片刻，从储物袋中取出一枚玉简）这门法术我早已用不上了，送你吧。\n\n获得 ${itemDef(sk).name}（在储物袋中研读参悟）`, options: [{ label: '多谢道友！', act: () => null }] }; }
-    const msgs: C.Msg[] = []; const exp = C.need(g.hero) * 0.06; C.gainExp(g.hero, exp, msgs);
+    const msgs: C.Msg[] = []; const exp = C.need(g.hero) * C.INSIGHT * 0.06; C.gainExp(g.hero, exp, msgs);
     return { speaker: d.name, title, look: a.look, text: `（${d.name}与你论道半日，讲了些${d.realm > g.hero.realm ? REALMS[g.hero.realm + 1]?.name ?? '' : '运功'}的关窍）\n\n你有所领悟，修为 +${Math.round(exp)}`, options: [{ label: '受教了', act: () => null }] };
   }
   private giftNode(a: Active, title: string): DNode {

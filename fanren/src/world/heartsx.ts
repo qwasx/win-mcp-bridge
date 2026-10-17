@@ -170,7 +170,7 @@ export class HeartLife {
       const have = C.bagCount(h, r.id, r.minAge ?? 0) > 0;
       out.push({ label: `交给她${itemDef(r.id).name}（${r.minAge}年以上）`, tone: 'love', disabled: !have, hint: have ? '' : '储物袋里没有够年份的', act: () => {
         C.removeItem(h, r.id!, 1, r.minAge ?? 0); delete (s.flags as any).req; this.fav(b.id, 10);
-        const m: C.Msg[] = []; C.gainExp(h, C.need(h) * 0.06, m);
+        const m: C.Msg[] = []; C.gainExp(h, C.need(h) * C.INSIGHT * 0.06, m);
         const pill = ITEM_LIST.filter((it) => it.type === 'pill' && it.price > 0 && it.tier <= Math.max(1, h.realm + 1) && it.tier >= Math.max(0, h.realm - 1));
         const pp = pill.length ? pick(pill) : null; if (pp) C.addItem(h, pp.id, 2);
         return { ...head, mood: 'love', text: `（她接过灵药，仔细端详，眉眼舒展开来）${b.id === 'dongxuaner' ? '算你还记得！' : '……你真的找来了。'}\n\n几日后，她把炼成的丹药分了你一半。\n\n好感 +10　修为小涨${pp ? `　获得 ${pp.name}×2` : ''}`, options: [{ label: '……', act: () => this.game.hearts.mainNode(b) }] } as DNode;
@@ -189,7 +189,7 @@ export class HeartLife {
       const lastD = (s.flags as any).lastDual ?? -999;
       out.push({ label: '与她双修', tone: 'love', disabled: !atVein || g.day - lastD < 30, hint: !atVein ? '需在灵脉或洞府' : g.day - lastD < 30 ? '需调息一月' : '七日，修为大进', act: () => {
         (s.flags as any).lastDual = g.day; g.passDays(7);
-        const m: C.Msg[] = []; C.gainExp(h, C.need(h) * 0.28, m); this.fav(b.id, 4);
+        const m: C.Msg[] = []; C.gainExp(h, C.need(h) * C.INSIGHT * 0.28, m); this.fav(b.id, 4);
         g.news(`韩立与${b.name}于灵脉之上双修七日。`, 'personal');
         return { ...head, title: '双修', mood: 'love', text: `灵脉之上，两道气息缓缓交融，周天运转，阴阳相济。七日如一瞬。\n\n${L.dual}\n\n修为大进　好感 +4`, options: [{ label: '……', act: () => this.game.hearts.mainNode(b) }] } as DNode;
       } });
