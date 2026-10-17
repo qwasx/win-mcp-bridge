@@ -41,6 +41,33 @@ export type Statuses = Partial<Record<StatusKind, StatusInst>>;
 /** 各级妖丹的灵光颜色 */
 export const YAODAN_COL = ['', '200,220,190', '150,230,170', '120,220,220', '120,170,255', '190,140,255', '255,150,220', '255,120,90', '255,190,70', '255,230,120', '255,250,210'];
 
+// 第三十六步：飞剑克制与五行生克
+const ARMORED = new Set(['seaturtle', 'xuangui', 'tujia', 'jinbeiyao', 'tiejiaxie', 'ligui', 'bingjia', 'yinjiamang', 'shanhu', 'guimianxie', 'tiebiyuan', 'ironape', 'zhenhai', 'dujiao', 'jinjiaowang']);
+function swordSrc(skill?: string) {
+  if (!skill || !skill.startsWith('art:')) return false;
+  const k = itemDef(skill.slice(4))?.art?.kind; return k === 'sword' || k === 'needle';
+}
+type FoeEl = 'ice' | 'fire' | 'water' | 'yin' | 'earth' | '';
+function foeElem(e: Enemy): FoeEl {
+  const d = e.def as any, fx = d.ranged?.fx ?? '';
+  if (d.zone === 'cold' || fx === 'icicle' || fx === 'frost' || fx === 'icefire') return 'ice';
+  if (fx === 'fireball' || fx === 'flame' || fx === 'firesnake' || /fire|huo|yan|chi/.test(d.id)) return 'fire';
+  if (d.zone === 'sea' || fx === 'water') return 'water';
+  if (d.kind === 'ghost' || d.evil) return 'yin';
+  if (d.zone === 'arid' || fx === 'rock') return 'earth';
+  return '';
+}
+function elemK(s: School, el: FoeEl) {
+  switch (el) {
+    case 'ice': return s === '火' ? 1.45 : s === '冰' ? 0.55 : 1;
+    case 'fire': return s === '冰' ? 1.45 : s === '火' ? 0.55 : 1;
+    case 'water': return s === '雷' ? 1.4 : s === '土' ? 1.2 : s === '火' ? 0.75 : 1;
+    case 'yin': return s === '雷' || s === '火' ? 1.3 : s === '魔' ? 0.6 : 1;
+    case 'earth': return s === '木' || s === '风' ? 1.3 : 1;
+  }
+  return 1;
+}
+
 export class Enemy {
   id = Math.random();
   def: EnemyDef; x: number; y: number; hx: number; hy: number;
@@ -300,11 +327,12 @@ export class Combat {
       if (id === 'waifang') g.senseBurst(); else g.toggleConceal();
       this.setCd(id, s.cd); return;
     }
-    if (h.mp < s.mp - 1e-6) { g.toast('法力不足。', 'warn'); return; }
+    const sMp = s.mp * 0.85;   // 第三十六步：法术稍省法力，鼓励换着用
+    if (h.mp < sMp - 1e-6) { g.toast('法力不足。', 'warn'); return; }
     if (s.hpCost && h.hp <= s.hpCost + 0.02) { g.toast('气血不足，强行施展恐有性命之忧。', 'warn'); return; }
     if (g.player.sitting) g.stand();
     if (g.isFlying && g.player.flying && !g.canFlyNative) g.toggleFly();
-    h.mp -= s.mp; if (s.hpCost) h.hp -= s.hpCost;
+    h.mp -= sMp; if (s.hpCost) h.hp -= s.hpCost;
     const lv = this.artLv(id);
     this.setCd(id, s.cd * PROF_CD[lv]);
     this.castT = 0.32; this.combatT = 0;
@@ -660,12 +688,14 @@ export class Combat {
     const key = 'art:' + itemId;
     if (this.cdLeft(key) > 0) return;
     const ps = this.pStats;
-    const cost = art.mp / Math.max(1, ps.mp);
+    const swk = art.kind === 'sword' || art.kind === 'needle';
+    // 第三十六步：御器耗神——飞剑 / 飞针按法力比例耗费，件数越多越吃力
+    const cost = Math.max(art.mp / Math.max(1, ps.mp), swk ? 0.03 + 0.008 * Math.sqrt(Math.max(1, art.pieces)) : 0.025);
     if (h.mp < cost) { g.toast('法力不足，驱使不动法器。', 'warn'); return; }
     if (art.hpCost) h.hp -= art.hpCost;
     h.mp -= cost;
     const weak = h.realm < art.reqRealm ? (h.realm < art.reqRealm - 1 ? 0.25 : 0.5) : 1;
-    this.setCd(key, art.cd);
+    this.setCd(key, swk ? Math.max(1.6, art.cd * 1.5) : art.cd);
     this.castT = 0.3; this.combatT = 0;
     if (g.player.sitting) g.stand();
     const color = hexToRgb(art.color);
@@ -693,7 +723,7 @@ export class Combat {
     // 第十三步：法器以实体出手
     const L = lookOf(itemId);
     const handled = this.acts.spawn({
-      itemId, art, L, cc: hexToRgb01(L.glow), dmg: ps.atk * art.power * 1.3 * weak,
+      itemId, art, L, cc: hexToRgb01(L.glow), dmg: ps.atk * art.power * (swk ? 0.85 : 1.3) * weak,
       src: { realm: h.realm, status, stCh: status?.ch ?? 0, school: sch, evil: fake.vsEvil, skill: key },
       pieces: art.kind === 'needle' || art.kind === 'sword' ? pieces : 1, ax: a.x, ay: a.y, target: a.target,
     }, fake.dur ?? 15);
@@ -724,6 +754,26 @@ export class Combat {
   hitEnemy(e: Enemy, raw: number, src: { realm: number; status?: StatusSpec; stCh: number; school?: School; evil?: number; skill?: string }, fx: number, fy: number) {
     if (e.dead || e.hideT > 0) return;
     let d = raw * (e.guardT > 0 ? 0.35 : 1);
+    // 第三十六步：飞剑不再无往不利——同阶修士以法器格开、甲壳妖兽剑气难入、飞禽闪避
+    const sw = swordSrc(src.skill);
+    if (sw) {
+      const gapS = e.realm - src.realm;
+      if (e.def.flying && Math.random() < 0.22) { if (Math.random() < 0.5) this.texts.push({ x: e.x, y: e.y - 110, s: '闪开', color: '#d8e8f0', t: 0, vy: -40 }); e.aggro = true; return; }
+      if (e.def.kind === 'human' && gapS >= -1) {
+        const pc = gapS < 0 ? 0.12 : Math.min(0.78, 0.34 + 0.14 * gapS + (e.boss ? 0.15 : 0) + (e.ward ? 0.08 : 0) + (e.affix ? 0.06 : 0));
+        if (Math.random() < pc) {
+          d *= 0.1; e.aggro = true;
+          this.fxq.push({ k: 'block', x: e.x + (fx - e.x) * 0.25, y: e.y - 60, color: '220,230,255' });
+          if (Math.random() < 0.6) this.texts.push({ x: e.x, y: e.y - 110, s: '法器格开', color: '#cfd8ff', t: 0, vy: -40 });
+          audio.sfx('clang');
+        }
+      }
+      if (ARMORED.has(e.def.id)) { d *= 0.4; if (Math.random() < 0.25) this.texts.push({ x: e.x, y: e.y - 110, s: '剑气难入', color: '#d8c8a0', t: 0, vy: -36 }); }
+    } else if (src.school && src.school !== '剑') {
+      // 五行生克：法术打在克制的妖物身上更痛
+      const el = foeElem(e), k = elemK(src.school, el);
+      if (k !== 1) { d *= k; if (k > 1 && Math.random() < 0.3) this.texts.push({ x: e.x, y: e.y - 130, s: '克制', color: '#ffd27a', t: 0, vy: -34 }); }
+    }
     if (e.guardT > 0 && Math.random() < 0.3) this.texts.push({ x: e.x + rand(-14, 14), y: e.y - 100, s: '护体', color: '#f0d890', t: 0, vy: -36 });
     let combo = '';
     const st = e.st;
@@ -732,6 +782,9 @@ export class Combat {
     else if (st.burn && src.school === '风') { combo = '风助火势'; d *= 1.3; for (const o of this.enemies) if (o !== e && !o.dead && Math.hypot(o.x - e.x, o.y - e.y) < 180) o.st.burn = { t: 4, dps: st.burn.dps }; this.vfx.push({ kind: 'ring', x: e.x, y: e.y, r: 180, t: 0, dur: 0.6, color: '255,160,60', fx: 'flame' }); }
     else if (st.poison && src.school === '火') { combo = '毒焰爆'; d += st.poison.dps * st.poison.t * (st.poison.stacks ?? 1); delete st.poison; this.vfx.push({ kind: 'flash', x: e.x, y: e.y - 30, r: 100, t: 0, dur: 0.4, color: '160,220,60' }); }
     else if (st.shock && src.school === '冰') { combo = '寒雷相激'; d *= 1.5; }
+    else if (st.freeze && !sw && src.school !== '冰') { d *= 1.6; delete st.freeze; combo = '碎冰'; this.burstShards(e.x, e.y - 30, '200,235,255'); }
+    else if ((st.root || st.stun) && !sw && (src.school === '土' || src.school === '体' || src.school === '阵')) { d *= 1.35; combo = '定而后击'; }
+    else if (st.shock && src.school === '雷' && !sw) { d *= 1.3; combo = '雷霆连击'; }
     // 破甲、麻痹易伤
     let def = e.dfn * (st.break ? 0.5 : 1);
     d = Math.max(d * 0.15, d - def * 0.8);
