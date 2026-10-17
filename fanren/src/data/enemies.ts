@@ -251,7 +251,7 @@ export function bandRealm(k: number, rnd: () => number): { realm: number; stage:
     return { realm: 1, stage: Math.max(0, Math.min(12, Math.round(kk * 4 + rnd() * 3 - 1))) };
   }
   let lv = Math.round(kk - 1 + (rnd() - 0.5) * 1.7) + (rnd() < 0.1 ? 1 : 0);
-  lv = Math.max(1, Math.min(kk >= 7.6 ? 9 : 7, lv));   // 第三十六步：乱星海外沿（妖气 ≥7.6）八、九级野生
+  lv = Math.max(1, Math.min(kk >= 8.05 ? 9 : 7, lv));   // 第三十六步：只有乱星海外沿（妖气可超过 8）才有野生八、九级
   return lv === 1 ? { realm: 1, stage: 9 + Math.floor(rnd() * 4) } : lvRealm(lv);
 }
 
