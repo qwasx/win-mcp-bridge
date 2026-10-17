@@ -26,20 +26,30 @@ check('等阶↔境界互逆（1 炼气 · 2–4 筑基 · 5–7 结丹 · 8–1
 check('一级妖兽细分下/中/上/顶阶', EN.lvName(1, 1) === '一级下阶' && EN.lvName(1, 12) === '一级顶阶' && EN.lvName(7) === '七级');
 
 // 2. 刷怪分布
-const dist = (d: number, zone = '') => {
+const dist = (k: number, zone = '') => {
   const c = g.combat; const cnt: Record<number, number> = {}; let lair = 0, n = 0;
   const orig = c.dangerAt.bind(c);
-  c.dangerAt = () => ({ x: 0, y: 0, d, zone, region: '' });
+  c.dangerAt = () => ({ x: 0, y: 0, d: k * 0.75, k, zone, region: '' });
   const r0 = Math.random;
   for (let i = 0; i < 1500; i++) { c.enemies = []; (c as any).spawnTick(); for (const e of c.enemies) { if (!e.blv) continue; cnt[e.blv] = (cnt[e.blv] ?? 0) + 1; n++; if (e.def.lair) lair++; } }
   Math.random = r0; c.dangerAt = orig;
   return { cnt, n, lair };
 };
 fresh();
-{ const r = dist(1); const lv1 = (r.cnt[1] ?? 0) / r.n; check('危险度 1：几乎全是一级妖兽', lv1 > 0.97, JSON.stringify(r.cnt)); }
-{ const r = dist(4); const ok = Object.keys(r.cnt).every((k) => +k >= 2 && +k <= 5); check('危险度 4：二至四级（偶见五级越阶）', ok && r.n > 0, JSON.stringify(r.cnt)); }
-{ const r = dist(6, 'cold'); const hi = ((r.cnt[5] ?? 0) + (r.cnt[6] ?? 0) + (r.cnt[7] ?? 0)) / r.n; check('危险度 6（寒地）：五至七级为主', hi > 0.9 && r.n > 0, JSON.stringify(r.cnt)); }
-{ let lair = 0; for (const d of [0, 2, 4, 6]) lair += dist(d).lair; check('妖王从不随机刷新', lair === 0); }
+{ const r = dist(1); const lv1 = (r.cnt[1] ?? 0) / r.n; check('妖气 1：几乎全是一级妖兽', lv1 > 0.97, JSON.stringify(r.cnt)); }
+{ const r = dist(4); const ok = Object.keys(r.cnt).every((k) => +k >= 2 && +k <= 5); check('妖气 4：二至四级（偶见五级越阶）', ok && r.n > 0, JSON.stringify(r.cnt)); }
+{ const r = dist(5); const ok = Object.keys(r.cnt).every((k) => +k >= 2 && +k <= 6) && (r.cnt[3] ?? 0) + (r.cnt[4] ?? 0) + (r.cnt[5] ?? 0) > r.n * 0.8; check('妖气 5：三至五级真的存在', ok && r.n > 0, JSON.stringify(r.cnt)); }
+{ const r = dist(7, 'cold'); const hi = ((r.cnt[5] ?? 0) + (r.cnt[6] ?? 0) + (r.cnt[7] ?? 0)) / r.n; check('妖气 7（寒地）：五至七级为主', hi > 0.9 && r.n > 0, JSON.stringify(r.cnt)); }
+{ const r = dist(8); check('野外最高七级（八级以上只作妖王）', Object.keys(r.cnt).every((k) => +k <= 7) && (r.cnt[7] ?? 0) > r.n * 0.5, JSON.stringify(r.cnt)); }
+{ const r = dist(6, 'sea'); check('海中四至六级妖兽成群', r.n > 0 && Object.keys(r.cnt).every((k) => +k >= 3 && +k <= 7), JSON.stringify(r.cnt)); }
+{ let lair = 0; for (const d of [0, 2, 4, 6, 8]) lair += dist(d).lair; check('妖王从不随机刷新', lair === 0); }
+// 由近及远：黄枫谷 → 越国边境 → 天南西陲，妖气逐级加深
+if (ACTIVE_MAP === 'tiannan') {
+  const hf = LOC_BY_ID.get('huangfeng')!, S = WORLD_SCALE;
+  const at = (dx: number) => { let m = 0, n = 0; for (let dy = -40; dy <= 40; dy += 20) { const w = g.terrain.isLand((hf.x - dx) * S, (hf.y + dy) * S); if (!w) continue; m += g.combat.dangerCalc((hf.x - dx) * S, (hf.y + dy) * S).k; n++; } return n ? m / n : -1; };
+  const ks = [60, 200, 380, 560, 700].map(at);
+  check('离黄枫谷越远妖气越重', ks[0] < 1.5 && ks[1] > ks[0] && ks[2] > ks[1] + 0.8 && ks[3] > ks[2] && ks[4] >= 6, ks.map((k) => k.toFixed(1)).join(' → '));
+}
 
 // 3. 妖王巢穴（第十六步起风希洞府在乱星海图；在天南运行时验证“不在本图则不出现”，完整流程见 FANREN_MAP=luanxing）
 fresh();

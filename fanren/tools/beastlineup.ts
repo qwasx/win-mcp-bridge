@@ -13,7 +13,7 @@ import { ENEMIES } from '../src/data/enemies';
   for (const f of readdirSync(dir)) m[f.replace('.webp', '')] = await loadImage(new URL(f, dir).pathname);
   __injectBeastImages(m);
   const pre = process.argv[2] || '';
-  const keys = Object.keys(BEAST_SPR).filter((k) => k.startsWith(pre));
+  const keys = pre.includes(',') ? pre.split(',').map((k) => (k.includes(':') ? k : 'e:' + k)).filter((k) => BEAST_SPR[k]) : Object.keys(BEAST_SPR).filter((k) => k.startsWith(pre));
   warmBeastTex(keys); for (let i = 0; i < keys.length + 2; i++) pumpBeastTex();
   const K = +(process.env.K || 0.5), cw = 560, ch = 440, cols = +(process.env.COLS || 6);
   const rows = Math.ceil(keys.length / cols);

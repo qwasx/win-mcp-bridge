@@ -5,7 +5,8 @@
 import { BeastAnim } from './beast';
 
 type G = CanvasRenderingContext2D;
-type Op = ['hue', number] | ['sat', number] | ['bri', number] | ['sep', number] | ['tint', [number, number, number], number];
+/** lift：提亮暗部并染色（矩阵调色对纯黑无效；深色画材衍生浅色妖兽用它），在矩阵之后执行 */
+type Op = ['hue', number] | ['sat', number] | ['bri', number] | ['sep', number] | ['tint', [number, number, number], number] | ['lift', [number, number, number], number];
 /** m：动画类型。walk 走兽 · slither 蛇蛟虫 · fly 振翅 · float 鬼物飘浮 · stand 人形/直立 · swim 水族 */
 type Motion = 'walk' | 'slither' | 'fly' | 'float' | 'stand' | 'swim';
 export interface SprDef {
@@ -90,6 +91,34 @@ const S: Record<string, SprDef> = {
   'e:jinkui': { k: 'gold_puppet', f: -1, h: 96, m: 'walk' },
   'e:xuekui': { k: 'blood_puppet', f: 1, h: 130, m: 'stand' },
   'e:qinglinjiao': { k: 'fushou', f: -1, h: 172, m: 'slither' },
+  // —— 第三十一步新增（同画衍生 + 调色）
+  'e:yinlang': { k: 'wolf', f: 1, h: 86, m: 'walk', fx: [['sat', 0.15], ['bri', 1.3]] },
+  'e:heifeng': { k: 'vulture', f: -1, h: 112, m: 'fly', fx: [['sat', 0.2], ['bri', 0.55]] },
+  'e:sanyanmang': { k: 'python', f: 1, h: 116, m: 'slither', fx: [['hue', 50], ['sat', 1.2]] },
+  'e:hanzhu': { k: 'spider', f: 1, h: 78, m: 'walk', fx: [['sat', 0.2], ['lift', [200, 230, 255], 0.6]], glow: '160,220,255' },
+  'e:dihuoxi': { k: 'swamp_croc', f: -1, h: 100, m: 'walk', fx: [['lift', [220, 100, 40], 0.42]], glow: '255,120,50' },
+  'e:jifeng': { k: 'wolf', f: 1, h: 94, m: 'walk', fx: [['lift', [130, 200, 140], 0.4]], glow: '160,255,180' },
+  'e:shiwu': { k: 'centipede', f: -1, h: 98, m: 'slither', fx: [['lift', [130, 160, 90], 0.5]] },
+  'e:huoyuan': { k: 'mtn_ape', f: -1, h: 132, m: 'walk', fx: [['lift', [230, 110, 50], 0.45]], glow: '255,130,60' },
+  'e:leiying': { k: 'vulture', f: -1, h: 132, m: 'fly', fx: [['sat', 0.3], ['tint', [110, 140, 220], 0.5]], glow: '150,190,255' },
+  'e:bingpolang': { k: 'snow_wolf', f: 1, h: 122, m: 'walk', fx: [['tint', [170, 220, 255], 0.35], ['bri', 1.1]], glow: '160,220,255' },
+  'e:chiyanlu': { k: 'amb_deer', f: 1, h: 122, m: 'walk', fx: [['tint', [210, 80, 50], 0.55], ['sat', 1.3]], glow: '255,140,70' },
+  'e:liuwei': { k: 'chitong', f: -1, h: 96, m: 'walk', fx: [['sat', 0.1], ['lift', [250, 244, 255], 0.75]], glow: '230,200,255' },
+  'e:xiehuang': { k: 'sand_scorpion', f: -1, h: 124, m: 'walk', fx: [['sat', 1.4], ['bri', 0.82]] },
+  'e:xuesha': { k: 'bloodbat', f: -1, h: 112, m: 'fly', fx: [['bri', 0.75], ['sat', 1.3]], glow: '255,50,50' },
+  'e:lieshan': { k: 'mtn_ape', f: -1, h: 168, m: 'walk', fx: [['sat', 0.45], ['bri', 0.62]] },
+  'e:bilinmang': { k: 'python', f: 1, h: 160, m: 'slither', fx: [['hue', 95], ['sat', 1.3]], glow: '100,255,200' },
+  'e:jinhu': { k: 'lynx', f: -1, h: 156, m: 'walk', fx: [['tint', [240, 190, 80], 0.45], ['sat', 1.3], ['bri', 1.1]], glow: '255,220,120' },
+  'e:huochan2': { k: 'huochan', f: 1, h: 112, m: 'walk', fx: [['hue', 90], ['sat', 1.2]], glow: '120,255,160' },
+  'e:dihuojiao': { k: 'yinjiao', f: -1, h: 170, m: 'slither', fx: [['hue', -20], ['sat', 1.2], ['bri', 0.78]], glow: '255,110,40' },
+  'e:yinlinyu': { k: 'spirit_fish', f: -1, h: 80, m: 'swim', fx: [['sat', 0.25], ['bri', 1.25]] },
+  'e:bishuimu': { k: 'ghost_jellyfish', f: 1, h: 92, m: 'float', a: 0.88, fx: [['hue', 60], ['sat', 1.3]] },
+  'e:xuechisha': { k: 'huajing_shark', f: -1, h: 120, m: 'swim', fx: [['tint', [150, 70, 70], 0.4]] },
+  'e:guimianxie': { k: 'iron_crab', f: 1, h: 96, m: 'walk', fx: [['lift', [150, 90, 180], 0.45]], glow: '200,120,255' },
+  'e:jiaojiao': { k: 'yinjiao', f: -1, h: 146, m: 'slither', fx: [['hue', 150], ['sat', 1.1]] },
+  'e:haimang': { k: 'lightning_eel', f: -1, h: 150, m: 'swim', fx: [['hue', 70], ['sat', 1.2]], glow: '200,120,255' },
+  'e:bingjiao2': { k: 'huajing_shark', f: -1, h: 168, m: 'swim', fx: [['sat', 0.3], ['tint', [170, 215, 245], 0.5], ['bri', 1.15]], glow: '160,220,255' },
+  'e:haiyao': { k: 'qingfeng', f: -1, h: 150, m: 'fly', fx: [['hue', 40], ['sat', 1.1]], glow: '120,255,240' },
   // —— 元婴 · 八至十级 / 名地之主
   'e:mojiao': { k: 'mojiao', f: 1, h: 150, m: 'slither' },
   'e:gumo_xueyan': { k: 'gumo_xueyan', f: 1, h: 370, m: 'float', glow: '255,60,40' },
@@ -145,6 +174,7 @@ function matOf(ops: Op[]): number[] {
   const mul = (A: number[], B: number[]) => { const R = new Array(9).fill(0); for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) for (let k = 0; k < 3; k++) R[i * 3 + j] += A[i * 3 + k] * B[k * 3 + j]; return R; };
   const lr = 0.2126, lg = 0.7152, lb = 0.0722;
   for (const op of ops) {
+    if (op[0] === 'lift') continue;
     let N: number[];
     if (op[0] === 'sat') { const s = op[1]; N = [lr * (1 - s) + s, lg * (1 - s), lb * (1 - s), lr * (1 - s), lg * (1 - s) + s, lb * (1 - s), lr * (1 - s), lg * (1 - s), lb * (1 - s) + s]; }
     else if (op[0] === 'bri') { const b = op[1]; N = [b, 0, 0, 0, b, 0, 0, 0, b]; }
@@ -167,10 +197,12 @@ function prepare(def: SprDef): Prep | null {
   const x0 = c0.getContext('2d')!; x0.drawImage(im, 0, 0);
   if (def.fx?.length) {
     const M = matOf(def.fx), id = x0.getImageData(0, 0, W, H), d = id.data;
+    const lift = def.fx.find((o) => o[0] === 'lift') as ['lift', [number, number, number], number] | undefined;
     for (let i = 0; i < d.length; i += 4) {
       if (d[i + 3] === 0) continue;
       const r = d[i], g = d[i + 1], b = d[i + 2];
       d[i] = M[0] * r + M[1] * g + M[2] * b; d[i + 1] = M[3] * r + M[4] * g + M[5] * b; d[i + 2] = M[6] * r + M[7] * g + M[8] * b;
+      if (lift) { const L = (d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11) / 255, k = lift[2], sh = 0.45 + 0.55 * L; d[i] = d[i] * (1 - k) + lift[1][0] * sh * k; d[i + 1] = d[i + 1] * (1 - k) + lift[1][1] * sh * k; d[i + 2] = d[i + 2] * (1 - k) + lift[1][2] * sh * k; }
     }
     x0.putImageData(id, 0, 0);
   }

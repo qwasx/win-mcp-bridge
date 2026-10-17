@@ -618,6 +618,7 @@ export function drawCombatUI(g: G, c: Combat, t: number, z: number) {
     const tw = g.measureText(label).width + 10 * k;
     g.fillRect(e.x - tw / 2, top - 18 * k, tw, 15 * k);
     g.fillStyle = col; g.fillText(label, e.x, top - 10.5 * k);
+    if (e.blv) { const bx = e.x - tw / 2 - 7 * k, by = top - 10.5 * k, r = (3 + Math.min(4, e.blv) * 0.5) * k; g.fillStyle = `rgb(${YAODAN_COL[e.blv]})`; g.beginPath(); g.moveTo(bx, by - r); g.lineTo(bx + r * 0.75, by); g.lineTo(bx, by + r); g.lineTo(bx - r * 0.75, by); g.closePath(); g.fill(); }   // 妖丹色菱：一眼看出等阶
     if (e.aggro || e.hp < e.maxHp) {
       g.fillStyle = 'rgba(20,16,12,0.7)'; g.fillRect(e.x - w / 2 - 1, top - 1, w + 2, hh + 2);
       g.fillStyle = '#a82a22'; g.fillRect(e.x - w / 2, top, w * clamp(e.hp / e.maxHp, 0, 1), hh);

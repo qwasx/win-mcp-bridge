@@ -2,9 +2,9 @@
 import type { Game } from './game';
 import { ARTS, ArtSkill, PROF_CD, PROF_CH, PROF_DMG, PROF_NAME, PROF_RAD, profLevel, StatusKind, StatusSpec, STATUS_NAME, Fx, School, ART_LIST } from '../data/arts';
 import { beastSpriteTop } from '../gfx/beastTex';
-import { ENEMY_LIST, ENEMIES, EnemyDef, dangerRealm, lvOf, lvRealm, lvName, lvWeight, LAIRS } from '../data/enemies';
+import { ENEMY_LIST, ENEMIES, EnemyDef, dangerRealm, bandRealm, lvOf, lvRealm, lvName, lvWeight, LAIRS } from '../data/enemies';
 import { REALMS, realmName, expNeed } from '../data/realms';
-import { LOCATIONS, WORLD_SCALE, regionAt, LocDef, legacyHere } from '../data/world';
+import { LOCATIONS, WORLD_SCALE, regionAt, LocDef, legacyHere, ACTIVE_MAP, LOC_BY_ID } from '../data/world';
 import { itemDef } from '../data/items';
 import * as C from './cultivation';
 import { clamp } from '../core/rng';
@@ -147,7 +147,9 @@ export class Combat {
   castT = 0; hitT = 0; combatT = 99; invulnT = 0;
   lock: Enemy | null = null;
   private spawnT = 2;
-  private dangerCache = { x: -1e9, y: -1e9, d: 0, zone: '' as string, region: '' };
+  /** 第三十一步：兽潮剩余时间 / 冷却；当前所处的妖气档 */
+  tideT = 0; private tideCd = 240; private kTier = -1;
+  private dangerCache = { x: -1e9, y: -1e9, d: 0, k: 0, zone: '' as string, region: '' };
   fade = 0;
   /** 渲染特效事件队列（WebGL 层消费） */
   fxq: FxEvent[] = [];
@@ -894,24 +896,45 @@ export class Combat {
     if (Math.hypot(c.x - x, c.y - y) < 300) return c;
     return this.dangerCalc(x, y, c);
   }
-  /** 任意一点的危险度（不动玩家处的缓存） */
-  dangerCalc(x: number, y: number, c: { x: number; y: number; d: number; zone: string; region: string } = { x: 0, y: 0, d: 0, zone: '', region: '' }) {
+  /** 任意一点的危险度（不动玩家处的缓存）。
+   *  第三十一步：k = 妖气等级（0‥8），以新手之地（天南：黄枫谷；乱星海：天星城）为心一圈圈向外加深；
+   *  险地 / 秘境附近 +1‥2，城镇宗门与官道附近压低。d = 旧刻度（0‥6），供旧逻辑使用。 */
+  dangerCalc(x: number, y: number, c: { x: number; y: number; d: number; k: number; zone: string; region: string } = { x: 0, y: 0, d: 0, k: 0, zone: '', region: '' }) {
     const T = this.game.terrain;
     const land = T.isLand(x, y);
-    const reg = regionAt(x / WORLD_SCALE, y / WORLD_SCALE, land);
-    const BASE: Record<string, number> = { yue: 0, yuanwu: 1, cheqi: 0.8, zijin: 1, tiandao: 1.5, zhuimo: 2.5, modao: 2.2, jiuguo: 1.8, jixi: 2.5, tianlan: 2, mulan: 1.4, dajin: 3, luanxing_inner: 2, luanxing_outer: 3, wubian: 3.5, beihai: 4 };
-    let d = BASE[reg?.id ?? ''] ?? 1;
+    const mx = x / WORLD_SCALE, my = y / WORLD_SCALE;
+    const reg = regionAt(mx, my, land);
+    const rid = reg?.id ?? '';
+    let k = 0;
+    if (ACTIVE_MAP === 'luanxing') {
+      const a = LOC_BY_ID.get('tianxing');
+      const r = a ? Math.hypot(mx - a.x, my - a.y) : 300;
+      // 内星海一–四级；外星海四–七级；无边海、北海深处七级
+      k = rid === 'wubian' || rid === 'beihai' ? 7.7 : r < 250 ? 1 + (r / 250) * 3.6 : 5 + Math.min(1, (r - 250) / 300) * 2.6;
+    } else if (ACTIVE_MAP === 'dajin') {
+      k = 5 + (1 - my / T.H) * 2.6;   // 大晋：南境三–五级，越往北寒越凶
+    } else {
+      const a = LOC_BY_ID.get('huangfeng');
+      const r = a ? Math.hypot(mx - a.x, (my - a.y) * 1.15) : 400;
+      const ADJ: Record<string, number> = { zhuimo: 1.2, modao: 0.6, jixi: 1, tianlan: 0.4, jiuguo: 0.2, tiandao: 0.3 };
+      k = Math.min(7.2, r / 100) + (ADJ[rid] ?? 0);
+    }
+    const ring = k;
+    let boost = 0, damp = 0;
     for (const l of LOCATIONS) {
       const dl = l.danger ?? 0;
       const dx = l.x * WORLD_SCALE - x, dy = l.y * WORLD_SCALE - y;
       if (Math.abs(dx) > 9000 || Math.abs(dy) > 9000) continue;
       const dist = Math.hypot(dx, dy);
-      if (l.type === 'danger' || l.type === 'secret') { const fall = 2500 + dl * 900; if (dist < fall) d = Math.max(d, dl * (1 - dist / fall * 0.6)); }
-      if ((l.type === 'city' || l.type === 'sect' || l.type === 'town') && dist < 2600) d *= 0.4 + 0.6 * dist / 2600;
+      if (l.type === 'danger' || l.type === 'secret') { const fall = 2500 + dl * 900; if (dist < fall) boost = Math.max(boost, (0.5 + dl * 0.45) * (1 - dist / fall)); }
+      if ((l.type === 'city' || l.type === 'sect' || l.type === 'town' || l.type === 'isle') && dist < 3000) damp = Math.max(damp, 1 - dist / 3000);
     }
+    k += boost * clamp(0.45 + ring / 3, 0.45, 1) - damp * 2.2;
+    if (land && T.onRoad(x, y)) k -= 0.8;
+    k = clamp(k, 0, 8);
     const s = T.sample(x, y);
-    const zone = !land ? 'sea' : T.demonNear(x, y) ? 'demon' : s.cold > 0.6 ? 'cold' : s.arid > 0.6 ? 'arid' : reg?.id === 'tianlan' ? 'grass' : s.forest > 0.4 ? 'forest' : '';
-    Object.assign(c, { x, y, d, zone, region: reg?.id ?? '' });
+    const zone = !land ? 'sea' : T.demonNear(x, y) ? 'demon' : s.cold > 0.6 ? 'cold' : s.arid > 0.6 ? 'arid' : rid === 'tianlan' ? 'grass' : s.forest > 0.4 ? 'forest' : '';
+    Object.assign(c, { x, y, d: k * 0.75, k, zone, region: rid });
     return c;
   }
 
@@ -928,10 +951,13 @@ export class Combat {
     if (g.story?.fight) return;
     if (this.safeAt(p.x, p.y)) return;
     const dz = this.dangerAt(p.x, p.y);
-    const alive = this.enemies.filter((e) => !e.dead).length;
-    const cap = 1 + Math.round(dz.d * 1.4) + (g.night > 0.5 ? 1 : 0);
+    // 第三十一步：只数身边的野兽（追兵、护宝兽、妖王不占名额）；妖气越重、夜里，妖兽越多
+    let alive = 0;
+    for (const e of this.enemies) if (!e.dead && !e.boss && e.def.kind !== 'human' && Math.abs(e.x - p.x) < 2800 && Math.abs(e.y - p.y) < 2800) alive++;
+    const night = g.night > 0.5;
+    const cap = 3 + Math.round(dz.k * 0.8) + (night ? 2 : 0) + (this.tideT > 0 ? 6 : 0);
     if (alive >= cap) return;
-    if (Math.random() > 0.28 + dz.d * 0.12) return;
+    if (Math.random() > 0.42 + dz.k * 0.06 + (this.tideT > 0 ? 0.4 : 0)) return;
     const R = g.senseRadius;
     const dist = clamp(R * 1.05, 520, 1500) + rand(0, 300);
     for (let tries = 0; tries < 6; tries++) {
@@ -940,14 +966,14 @@ export class Combat {
       const sea = !T.isLand(x, y);
       if (this.safeAt(x, y)) continue;
       const zone = sea ? 'sea' : dz.zone === 'sea' ? '' : dz.zone;
-      const rk = dangerRealm(dz.d, Math.random);
+      const rk = bandRealm(dz.k + (night ? 0.35 : 0), Math.random);
       const band = lvOf(rk.realm, rk.stage);
-      // 越阶妖兽（高一级）只在危险度 ≥1.5 处偶尔出没，新手地带不至于撞上筑基妖兽
+      const up = false;   // 越阶（高一级）已由 bandRealm 按妖气掷出，这里不再叠加
       const place = (e: EnemyDef) => !e.lair && !e.lm && (!e.regions || e.regions.includes(dz.region)) && (sea ? e.zone === 'sea' || e.flying : e.zone !== 'sea') && (!e.zone || e.zone === zone);
-      const cands = ENEMY_LIST.filter((e) => place(e) && (e.lv ? lvWeight(e, band, dz.d >= 1.5) > 0 : e.minDanger <= dz.d + 0.4 && dz.d <= e.maxDanger + 0.5));
+      const cands = ENEMY_LIST.filter((e) => place(e) && (e.lv ? lvWeight(e, band, up) > 0 : e.minDanger <= dz.d + 0.4 && dz.d <= e.maxDanger + 0.5));
       if (!cands.length) continue;
       // 珍稀妖兽（见人即逃 / 擅隐匿）出现得少
-      const w = cands.map((e) => (e.zone && e.zone === zone ? 3 : 1) * (e.kind === 'human' ? 0.6 : 1) * (e.lv ? lvWeight(e, band, dz.d >= 1.5) : 1) * (e.behave === 'flee' ? (e.lv && e.lv[0] >= 4 ? 0.12 : 0.35) : e.behave === 'call' ? 0.5 : 1));
+      const w = cands.map((e) => (e.zone && e.zone === zone ? 3 : 1) * (e.kind === 'human' ? 0.6 : 1) * (e.lv ? lvWeight(e, band, up) : 1) * (e.behave === 'flee' ? (e.lv && e.lv[0] >= 4 ? 0.12 : 0.35) : e.behave === 'call' ? 0.5 : 1));
       let r = Math.random() * w.reduce((a, b) => a + b, 0), def = cands[0];
       for (let i = 0; i < cands.length; i++) { r -= w[i]; if (r <= 0) { def = cands[i]; break; } }
       // 第十九步：原著名地里多半是本地特有的妖物
@@ -958,9 +984,39 @@ export class Combat {
         if (!def.flying && !sea && T.walkFactor(ex, ey) <= 0) continue;
         const rs = this.beastRS(def, rk);
         const st = rs.realm === 1 ? clamp(rs.stage + rint(-1, 1), 0, REALMS[1].hp.length - 1) : def.lv ? rs.stage : clamp(rs.stage + rint(-1, 1), 0, REALMS[rs.realm].hp.length - 1);
-        this.enemies.push(new Enemy(def, ex, ey, rs.realm, st, sea));
+        const ne = new Enemy(def, ex, ey, rs.realm, st, sea);
+        if (this.tideT > 0) ne.aggro = true;   // 兽潮里的妖兽直扑而来
+        this.enemies.push(ne);
       }
       return;
+    }
+  }
+
+  /** 第三十一步：妖气档提示 + 夜间兽潮 */
+  private wildTick(dt: number) {
+    const g = this.game, p = g.player, h = g.hero;
+    if (g.paused || h.dead) return;
+    const dz = this.dangerAt(p.x, p.y);
+    const tierOf = (k: number) => (k < 1.5 ? 0 : k < 2.6 ? 1 : k < 3.6 ? 2 : k < 4.6 ? 3 : k < 5.6 ? 4 : k < 6.6 ? 5 : 6);
+    const TXT = ['一级下中阶', '一级上阶', '一至三级', '二至四级', '三至五级', '四至六级', '五至七级'];
+    const safe = this.safeAt(p.x, p.y);
+    if (this.kTier < 0) this.kTier = tierOf(dz.k);
+    else if (!safe && !g.story?.fight) {
+      const up = tierOf(dz.k - 0.25), dn = tierOf(dz.k + 0.25);
+      if (up > this.kTier) {
+        this.kTier = up;
+        const hl = h.realm <= 1 ? 1 : h.realm === 2 ? 2 + Math.min(2, Math.floor(h.stage / 4)) : h.realm === 3 ? 5 + Math.min(2, Math.floor(h.stage / 4)) : 8;
+        const top = [1, 1, 3, 4, 5, 6, 7][up];
+        g.toast(`妖气渐浓——此地常有${TXT[up]}妖兽出没。${top > hl + 1 ? '远超你的修为，小心行事。' : ''}`, top > hl ? 'warn' : 'info');
+      } else if (dn < this.kTier) { this.kTier = dn; g.toast(`妖气稍淡，此地多是${TXT[dn]}妖兽。`, 'info'); }
+    }
+    // 兽潮：妖气 ≥2.5 的荒野，入夜后偶发；四十息内妖兽成群扑来
+    if (this.tideT > 0) { this.tideT -= dt; if (this.tideT <= 0) g.toast('兽吼声渐渐远去，兽潮退了。', 'info'); return; }
+    this.tideCd -= dt;
+    if (this.tideCd <= 0 && g.night > 0.6 && dz.k >= 2.5 && !safe && !g.story?.fight && Math.random() < 0.12) {
+      this.tideCd = 420 + Math.random() * 300; this.tideT = 40;
+      g.toast('四面八方兽吼连绵，大地隐隐震颤——兽潮来了！', 'warn');
+      g.juice(0.05, 0.6); audio.sfx('thunder');
     }
   }
 
@@ -970,7 +1026,7 @@ export class Combat {
     const sea = !T.isLand(x, y);
     const zone = sea ? 'sea' : dz.zone === 'sea' ? '' : dz.zone;
     const d = clamp(dz.d + dAdd, 0, 6);
-    const rk = dangerRealm(d, Math.random);
+    const rk = bandRealm(Math.min(8, dz.k + dAdd * 1.33), Math.random);
     const band = lvOf(rk.realm, rk.stage);
     const ok = (e: EnemyDef) => !e.lair && !e.lm && e.kind !== 'human' && e.kind !== 'ghost' && (!e.regions || e.regions.includes(dz.region)) && (sea ? e.zone === 'sea' : e.zone !== 'sea') && (!e.zone || e.zone === zone) && (!opt.noFlee || (e.behave !== 'flee' && e.behave !== 'shy')) && (opt.flying === undefined || !!e.flying === opt.flying);
     let cands = ENEMY_LIST.filter((e) => ok(e) && (e.lv ? lvWeight(e, band, true) > 0 : e.minDanger <= d + 0.6 && d <= e.maxDanger + 0.8));
@@ -1053,7 +1109,7 @@ export class Combat {
     const stealth = (this.buffs.until.stealth ?? 0) > t;
     // 刷怪
     this.spawnT -= dt;
-    if (this.spawnT <= 0) { this.spawnT = 2.5; this.spawnTick(); this.lairTick(); }
+    if (this.spawnT <= 0) { this.spawnT = 2.5; this.spawnTick(); this.lairTick(); this.wildTick(2.5); }
     // 玩家异状
     this.tickStatuses(this.pst, dt, (dmg) => { h.hp -= dmg / this.pStats.hp; if (Math.random() < dt * 3) this.texts.push({ x: p.x, y: p.y - 110, s: '-' + Math.round(dmg * 0.5), color: '#e09060', t: 0, vy: -40 }); if (h.hp <= 0) this.playerDown(); });
     // 回复
