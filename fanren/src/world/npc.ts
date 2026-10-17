@@ -68,6 +68,8 @@ const MN = ['云', '风', '清', '玄', '明', '远', '松', '鹤', '天', '道'
 const FN = ['婉', '月', '雪', '灵', '儿', '秀', '芸', '霜', '凝', '烟', '琴', '瑶', '思', '玉', '蓉', '菲', '素', '青', '璇', '若', '紫', '晴', '湘', '莲'];
 const COMPOUND = ['欧阳', '慕容', '上官', '司马'];
 
+/** 第三十六步：宗门 → 流派（名册新增宗门） */
+const SCHOOL_ALIAS: Record<string, string> = { tianxing: 'xinggong', leikong: 'nixing', tianlan: 'mulan', mulan: 'mulan', yejia: 'taiyi', miaoyin: 'miaoyin' };
 export const SECT_ROBE_OF = (sid: string) => SECT_ROBE[sid];
 export function makeName(rnd: () => number, sex: 'm' | 'f') {
   let s: string;
@@ -531,7 +533,9 @@ export class NpcWorld {
     }
     // 跟随（红颜同行）
     if (a.act === 'follow') {
-      const tx = p.x - 70 * Math.sin(p.st.yaw + 0.9), ty = p.y - 40 * Math.cos(p.st.yaw + 0.9);
+      // 第三十六步：多人同行时散成阵形，不再叠在一处
+      let tx = p.x - 70 * Math.sin(p.st.yaw + 0.9), ty = p.y - 40 * Math.cos(p.st.yaw + 0.9);
+      if (!d.beauty) { let k = 0, i = 0; for (const o of this.active.values()) { if (o.act !== 'follow' || o.d.beauty) continue; if (o === a) i = k; k++; } if (k > 1 || i > 0) { const an = p.st.yaw + Math.PI + (i - (k - 1) / 2) * 0.55; tx = p.x + Math.sin(an) * (110 + (i % 2) * 50); ty = p.y + Math.cos(an) * (70 + (i % 2) * 30); } }
       const dx = tx - st.x, dy = ty - st.y, dd = Math.hypot(dx, dy);
       if (dd > 2400) { st.x = tx; st.y = ty; }
       const fly = p.flying || dd > 900;
@@ -882,7 +886,7 @@ export class NpcWorld {
     if (d.realm === 0) { e.maxHp = e.hp = 40; e.atk *= 0.5; }
     if (d.realm >= 3) { e.maxHp = e.hp = Math.round(e.hp * 1.3); }
     e.look = a.look; e.cs = a.st; e.name = d.name; e.npcId = d.id; e.aggro = aggro; e.spar = spar;
-    e.school = d.sect ?? (d.faction === 'rogue' || d.faction === 'merchant' ? 'sanxiu' : undefined);   // 第三十五步：按门派出招
+    e.school = (d.sect && SCHOOL_ALIAS[d.sect]) ?? d.sect ?? (d.faction === 'rogue' || d.faction === 'merchant' ? 'sanxiu' : undefined);   // 第三十五步：按门派出招
     if (aggro && !spar && d.realm > 0 && !d.beauty) {
       const oy = g.orig?.yieldAt(d);
       const P: Record<Pers, number> = { kind: 0.85, cautious: 0.85, greedy: 0.8, righteous: 0.5, aloof: 0.4, arrogant: 0.3, ruthless: 0.25 };

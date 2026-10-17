@@ -15,6 +15,7 @@ import { itemDef } from '../data/items';
 import * as C from './cultivation';
 import { PursuitSys } from './pursuit';
 import { Roster } from './roster';
+import { WarSys } from './war';
 import { Relations } from './relations';
 import { OrigStory } from './origstory';
 import { talentById } from '../data/skills';
@@ -110,6 +111,8 @@ export class Game {
   rel: Relations;
   /** 第三十六步：宗门名册 */
   roster: Roster;
+  /** 第三十六步：大战与传音玉符 */
+  war: WarSys;
   orig: OrigStory;
   private relAcc = 0;
   /** 高空：0 地面 – 1 高空疾遁（镜头拉远、云层掠过） */
@@ -154,6 +157,7 @@ export class Game {
     this.pursuit = new PursuitSys(this);
     this.rel = new Relations(this);
     this.roster = new Roster(this);
+    this.war = new WarSys(this);
     this.orig = new OrigStory(this);
     this.npcs = new NpcWorld(this);
     this.npcs.newWorld();
@@ -782,6 +786,7 @@ export class Game {
       this.npcs.update(dt);
       this.rel.update(dt);
       this.roster.update(dt);
+      this.war.update(dt);
       this.travel.update(dt);
       this.events.update(dt);
       this.story.update(dt);
@@ -798,7 +803,7 @@ export class Game {
       this.timeScale = p.sitting ? MEDITATE_SPEED : 1;
       const days = dt * DAYS_PER_SEC * this.timeScale;
       this.day += days;
-      this.relAcc += days; if (this.relAcc >= 0.5) { this.rel.daily(this.relAcc); this.roster.daily(this.relAcc); this.orig.daily(this.relAcc); this.relAcc = 0; }
+      this.relAcc += days; if (this.relAcc >= 0.5) { this.rel.daily(this.relAcc); this.roster.daily(this.relAcc); this.war.daily(this.relAcc); this.orig.daily(this.relAcc); this.relAcc = 0; }
       const msgs: Msg[] = [];
       const hadTalent = !!h.pendingTalent;
       const expB = this.hearts.bonus('exp'), e0 = h.exp;
@@ -868,7 +873,7 @@ export class Game {
   passDays(n: number) { const msgs: Msg[] = []; C.passDays(this.hero, n, false, 1, msgs); this.day += n; this.flushMsgs(msgs.filter((m) => m.kind)); }
   /** 第十八步：地图上的通用标记（世界坐标） */
   mapMarks(): { x: number; y: number; glyph: string; color: string; ring?: number; name: string }[] {
-    const out = [...this.sites.marks(), ...this.happen.marks(), ...this.heartx.marks(), ...this.landmarks.marks(), ...this.combat.lairMarks()];
+    const out = [...this.sites.marks(), ...this.happen.marks(), ...this.heartx.marks(), ...this.landmarks.marks(), ...this.combat.lairMarks(), ...this.war.marks()];
     const h = this.ws.home; if (h && h.map === ACTIVE_MAP) out.push({ x: h.x, y: h.y, glyph: '府', color: '#ffd890', name: h.name });
     return out;
   }
@@ -1222,6 +1227,7 @@ export class Game {
       if (k === 'h') this.openModal({ kind: 'hearts' });
       if (k === 'j') this.openModal({ kind: 'chronicle' });
       if (k === 'n') this.openModal({ kind: 'relations' });
+      if (k === 'o') this.openDialog(this.war.inboxNode());
       if (k === '?' || k === 'f1' || k === '/') { e.preventDefault(); this.openModal({ kind: 'help' }); }
       if (k === '=' || k === '+') this.zoomBy(1.2);
       if (k === '-') this.zoomBy(1 / 1.2);

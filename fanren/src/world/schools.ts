@@ -178,6 +178,27 @@ export const SCHOOLS: Record<string, School> = {
     [3, S({ id: 'jy_ult', name: '玄阴寒狱', k: 'nova', r: 420, tele: 1.5, pow: 3.2, range: 420, cd: 18, ult: true, status: ST.freeze }, 'ice')],
   ] },
   sanxiu: { name: '散修', el: 'fire', kit: [] },   // 随机两系（见 sanxiuKit）
+  // 第三十六步：慕兰法士 / 逆星盟 / 妙音门
+  mulan: { name: '慕兰法士', el: 'wind', kit: [
+    [1, S({ id: 'ml_wind', name: '天澜风刃', k: 'salvo', n: 5, waves: 2, spread: 0.7, tele: 0.4, pow: 0.75, range: 640, min: 120, cd: 6 }, 'wind')],
+    [1, S({ id: 'ml_totem', name: '图腾雷咒', k: 'rain', n: 6, r: 95, tele: 1.0, pow: 1.6, range: 620, cd: 9, status: ST.shock }, 'thunder')],
+    [2, S({ id: 'ml_beast', name: '召唤图腾兽', k: 'summon', n: 2, minion: 'steppewolf', tele: 0.9, range: 900, cd: 28, once: true, hpBelow: 0.8 }, 'earth')],
+    [2, S({ id: 'ml_sand', name: '黄沙缚', k: 'circle', r: 150, tele: 0.8, pow: 1.4, range: 600, cd: 10, status: ST.root, pool: 3 }, 'earth')],
+    [3, S({ id: 'ml_ult', name: '天澜圣光', k: 'beam', len: 760, w: 80, tele: 1.1, dur: 0.6, pow: 3.0, range: 720, min: 100, cd: 18, ult: true, status: ST.stun }, 'gold')],
+  ] },
+  nixing: { name: '逆星盟', evil: true, el: 'blood', kit: [
+    [1, S({ id: 'nx_blade', name: '血煞刀芒', k: 'cone', r: 240, spread: 0.55, tele: 0.5, pow: 1.8, range: 240, cd: 6, status: ST.break }, 'blood')],
+    [1, S({ id: 'nx_star', name: '逆星锥', k: 'salvo', n: 4, waves: 2, spread: 0.4, tele: 0.35, pow: 0.85, range: 600, min: 120, cd: 6 }, 'metal')],
+    [2, S({ id: 'nx_leap', name: '血遁突袭', k: 'blink', tele: 0.3, pow: 2.0, range: 620, min: 150, cd: 7 }, 'blood')],
+    [2, S({ id: 'nx_bomb', name: '阴雷', k: 'circle', r: 150, tele: 0.9, pow: 2.5, range: 580, cd: 12, status: ST.shock }, 'thunder')],
+    [3, S({ id: 'nx_ult', name: '万魂血河', k: 'nova', r: 440, tele: 1.4, pow: 3.1, range: 440, cd: 18, ult: true, status: ST.poison }, 'blood')],
+  ] },
+  miaoyin: { name: '妙音门', el: 'wind', kit: [
+    [1, S({ id: 'my_note', name: '天魔音刃', k: 'salvo', n: 5, waves: 2, spread: 0.6, tele: 0.35, pow: 0.75, range: 620, min: 110, cd: 6, status: ST.stun }, 'wind')],
+    [1, S({ id: 'my_ring', name: '摄魂琴音', k: 'ring', n: 14, waves: 1, tele: 0.6, pow: 0.8, range: 480, cd: 8, status: ST.slow }, 'ghost')],
+    [2, S({ id: 'my_heal', name: '清心曲', k: 'heal', tele: 0.5, range: 2000, cd: 36, hpBelow: 0.55 }, 'water')],
+    [3, S({ id: 'my_ult', name: '万籁俱寂', k: 'nova', r: 420, tele: 1.3, pow: 2.8, range: 420, cd: 18, ult: true, status: ST.stun }, 'wind')],
+  ] },
   jiexiu: { name: '劫修', evil: true, el: 'metal', kit: [
     [1, S({ id: 'jx_needle', name: '暴雨梨花针', k: 'salvo', n: 9, waves: 1, spread: 0.9, tele: 0.45, pow: 0.6, range: 520, min: 100, cd: 6, status: ST.poison }, 'metal')],
     [1, S({ id: 'jx_smoke', name: '迷烟弹', k: 'circle', r: 130, tele: 0.75, pow: 1.1, range: 540, cd: 8, status: ST.slow, pool: 3 }, 'poison')],
