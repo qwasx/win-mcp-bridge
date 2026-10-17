@@ -884,6 +884,15 @@ export class NpcWorld {
     a.enemy = e; a.act = 'idle'; a.duel = undefined;
     return e;
   }
+  /** 第三十五步：原著人物的成名法宝——杀之必得（杀人夺宝） */
+  static TREASURE: Record<string, string> = {
+    lvtianmeng: 'art_pingtianchi', fengyue: 'art_tayun', jinguang: 'art_jinguangzhuan', duobaonv: 'art_yueyang', nichang: 'art_xuehongling',
+    qionglaoguai: 'art_liangyihuan', fuyunzi: 'art_qingmingzhen', wuchi: 'art_qianchongfeng', wangtiansheng: 'art_juhunbo', suihun: 'art_luohunsha',
+    tianku: 'art_guiluo', fangzongzhu: 'art_heifengqi', weizhanglao: 'art_wuxingzhen', luzhanglao: 'art_xuanhuangjing', lvluo: 'art_huangluosan',
+    jiangyun: 'art_guanrijian', changzheng: 'art_yufengche', liudao: 'art_sanshen', qimiao: 'art_xueleizi', miaohe: 'art_leihuogong', ouyang: 'art_fengyunfan',
+    hantianya: 'art_molongren', mayunlong: 'art_sifangxue', xuanqingzi: 'art_tianajian', wangtiangu: 'art_zhenhaizhong', chengtiankun: 'art_balingchi', hehuanlaomo: 'art_jingangzhao',
+    qianlaomo: 'art_wuzi', wentianren: 'art_tianyang', manhuzi: 'art_zibing',
+  };
   onEnemyKilled(e: Enemy) {
     if (!e.npcId) return;
     const g = this.game, d = this.byId.get(e.npcId); if (!d) return;
@@ -892,6 +901,8 @@ export class NpcWorld {
     g.combat.dropLoot(e.x, e.y, 'mat_lingshi', Math.max(2, Math.round(d.wealth * 0.7)));
     if (d.realm >= 1 && Math.random() < 0.55) { const sk = g.combat.randomScroll(Math.min(4, d.realm + 1)); if (sk) g.combat.dropLoot(e.x, e.y, sk, 1); }
     if (d.realm >= 2 && Math.random() < 0.35) { const pool = ITEM_LIST.filter((it) => it.type === 'artifact' && it.tier <= d.realm && it.price > 0); const it = pool[Math.floor(Math.random() * pool.length)]; if (it) g.combat.dropLoot(e.x, e.y, it.id, 1); }
+    const tr = NpcWorld.TREASURE[d.id];
+    if (tr) { g.combat.dropLoot(e.x, e.y, tr, 1); g.toast(`${d.name}的成名法宝「${itemDef(tr).name}」灵光一黯，跌落在地。`, 'good'); }
     if (wasHostile) { g.ws.rep = clamp(g.ws.rep + (d.faction === 'demon' ? 4 : 2), -100, 100); }
     else {
       g.ws.rep = clamp(g.ws.rep - (d.faction === 'sect' ? 18 : 10), -100, 100);

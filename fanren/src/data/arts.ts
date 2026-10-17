@@ -1,4 +1,4 @@
-// 法术神通库（第三步）：67 门，按系别、品阶（凡/黄/玄/地/天）与境界要求划分
+// 法术神通库（第三步）：67 门（第三十五步增至 80 门），按系别、品阶（凡/黄/玄/地/天）与境界要求划分
 // 熟练度：初学 → 小成 → 大成 → 圆满，威力、数量、范围、异状几率逐级提升，部分法术在大成/圆满时形态改变。
 
 export type School = '火' | '冰' | '雷' | '风' | '土' | '木' | '剑' | '体' | '御' | '魔' | '识' | '阵' | '身' | '符';
@@ -163,6 +163,15 @@ const A: ArtSkill[] = [
   // ---------------- 主线所得（七玄门）----------------
   { id: 'zhayan', name: '眨眼剑法', school: '剑', tier: 0, realm: 1, cast: 'cone', fx: 'sword', mp: 0.02, cd: 0.55, power: 1.15, range: 170, radius: 0.55, status: { k: 'break', dur: 2, ch: 0.12 }, color: '225,232,240', desc: '七玄门的冷门剑法，出剑快在一眨眼之间。厉飞雨练不成，你身法好，反倒练成了。', evo: ['出剑更快', '破甲更易', '一息七剑'] },
   { id: 'quhun', name: '曲魂', school: '御', tier: 2, realm: 1, cast: 'summon', fx: 'none', mp: 0.15, cd: 40, power: 1.5, range: 0, dur: 30, summon: { kind: 'quhun', n: 1 }, color: '170,160,150', desc: '墨大夫以张铁之躯炼成的尸傀，眉心打着你的神识烙印。力大无穷，不知疼痛，替你挡在身前。', evo: ['存在更久', '一拳震退', '刀枪不入'] },
+  // —— 第三十五步：原著神通
+  { id: 'beiji', name: '北极元光', school: '冰', tier: 4, realm: 4, cast: 'beam', fx: 'icefire', mp: 0.3, cd: 14, power: 6.5, range: 820, radius: 44, status: { k: 'freeze', dur: 3, ch: 1 }, color: '190,235,255', desc: '极北玄冰之精所化的元光，照处万物冰封，元婴修士也难以挣脱。', evo: ['元光加粗', '冰封更久，余寒冻结周身', '北极元光化作三道交错横扫'] },
+  { id: 'ziluo', name: '紫罗极火', school: '火', tier: 4, realm: 3, cast: 'field', fx: 'flame', mp: 0.28, cd: 16, power: 1.3, range: 620, radius: 210, dur: 5, status: { k: 'burn', dur: 4, ch: 0.9 }, color: '190,90,255', desc: '天地奇火之一，紫焰如罗网铺开，焚尽其中一切生灵。', evo: ['火网扩大', '燃烧必定触发', '紫焰冲天，化作火海'] },
+  { id: 'tiandushihuo', name: '天都尸火', school: '魔', tier: 3, realm: 3, cast: 'cone', fx: 'flame', mp: 0.18, cd: 7, power: 2.8, range: 460, radius: 70, status: { k: 'poison', dur: 5, ch: 0.85 }, vsEvil: 0.6, color: '110,255,150', desc: '极阴祖师的成名神通，碧绿尸火过处生机断绝，中者毒入骨髓。', evo: ['火舌更长', '中毒必定触发', '尸火化作骷髅扑噬'] },
+  { id: 'qinxian', name: '大五行擒仙手', school: '土', tier: 4, realm: 4, cast: 'burst', fx: 'gold', mp: 0.3, cd: 15, power: 5.2, range: 640, radius: 150, status: { k: 'root', dur: 3, ch: 1 }, color: '230,200,120', desc: '五色巨掌自天而降，五行之力合一，被擒者寸步难移。', evo: ['巨掌更大', '定身更久', '五掌齐落'] },
+  { id: 'qingyang', name: '青阳魔火', school: '魔', tier: 3, realm: 2, cast: 'bolt', fx: 'firesnake', mp: 0.12, cd: 4, power: 2.6, range: 620, speed: 520, homing: true, status: { k: 'burn', dur: 3, ch: 0.6 }, color: '80,230,210', desc: '魔道真火，青焰如蛇，追噬不休。', evo: ['火蛇更快', '分出两条', '化作青阳火龙'], lvCount: [0, 0, 1, 2] },
+  { id: 'tuotian', name: '托天魔功', school: '体', tier: 4, realm: 3, cast: 'buff', fx: 'rock', mp: 0.25, cd: 30, power: 0, range: 0, dur: 12, buff: { atk: 0.3, def: 0.45 }, color: '170,60,60', desc: '魔道炼体奇功，催动后肌肤化作暗红魔铁，力可托天。', evo: ['持续更久', '攻防再增', '魔躯三丈，周身煞气冲霄'] },
+  { id: 'wugui', name: '五鬼锁神', school: '识', tier: 3, realm: 3, cast: 'chain', fx: 'ghost', mp: 0.18, cd: 8, power: 2.2, range: 620, count: 5, status: { k: 'stun', dur: 1.4, ch: 0.7 }, color: '150,220,170', desc: '大衍诀秘术，五只鬼影循神识锁定敌人神魂，中者呆立当场。', evo: ['多锁一人', '眩晕必定触发', '五鬼化作锁链缠魂'], lvCount: [0, 1, 1, 2] },
+  { id: 'shishen', name: '失神刺', school: '识', tier: 2, realm: 2, cast: 'bolt', fx: 'mind', mp: 0.1, cd: 5, power: 2.2, range: 640, speed: 700, pierce: true, status: { k: 'stun', dur: 1, ch: 0.5 }, color: '200,170,255', desc: '大衍诀衍生的神识秘术，无形神识之刺贯穿敌人识海。', evo: ['刺得更深', '必定失神', '一刺化三'], lvCount: [0, 0, 1, 2] },
 ];
 
 export const ARTS: Record<string, ArtSkill> = Object.fromEntries(A.map((s) => [s.id, s]));
