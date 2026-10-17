@@ -11,6 +11,8 @@ export interface WorldState {
   hearts: Record<string, HeartState>;
   flags: Record<string, any>;
   events: Record<string, EventState>;
+  /** 第三十五步：按境界提前开启的大事（提前的天数）与下一件的最早开启日 */
+  evShift?: Record<string, number>; evNext?: number;
   news: { day: number; text: string; kind?: 'canon' | 'rumor' | 'personal' }[];
   tp: string[];                        // 已激活的传送阵
   kills: Record<string, number>;       // 按敌人种类计数（宗门任务）

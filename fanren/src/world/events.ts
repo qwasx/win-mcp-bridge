@@ -22,6 +22,8 @@ interface Wave { list: [string, number][]; boss?: { def: string; name: string; r
 interface CanonEvent {
   id: string; name: string; year: number; month: number; dur: number; repeat?: number;
   loc: string; radius: number; minRealm: number;
+  /** 第三十五步：到达此境界（[大境界, 小层]）就提前开启，不必苦等年份；原年份作兜底 */
+  gate?: [number, number];
   announce: string; intro: string; win: string; lose: string; missed: string;
   waves: (g: Game) => Wave[];
   reward: (g: Game) => string;
@@ -32,14 +34,14 @@ const lvR = (g: Game, add = 0) => { const h = g.hero; return { realm: Math.max(1
 
 export const CANON_EVENTS: CanonEvent[] = [
   {
-    id: 'shengxian', name: '升仙大会', year: 2, month: 3, dur: 120, loc: 'tainan', radius: 9, minRealm: 1, special: 'shengxian',
+    id: 'shengxian', gate: [1, 0], name: '升仙大会', year: 2, month: 3, dur: 120, loc: 'tainan', radius: 9, minRealm: 1, special: 'shengxian',
     announce: '七派将于明年春在太南山举办升仙大会，广招有灵根的少年。持升仙令者，可直入黄枫谷。',
     intro: '太南小会人头攒动，各派执事高坐台上。散修们为了一枚升仙令争得面红耳赤——有人愿出两千灵石，也有人在擂台上以命相搏。',
     win: '你手握升仙令，众人或羡或妒。', lose: '', missed: '升仙大会已经落幕，几个幸运儿拿着升仙令进了黄枫谷。',
     waves: () => [], reward: () => '',
   },
   {
-    id: 'xuese', name: '血色禁地试炼', year: 4, month: 6, dur: 40, repeat: 5, loc: 'xuese', radius: 10, minRealm: 1,
+    id: 'xuese', gate: [1, 7], name: '血色禁地试炼', year: 4, month: 6, dur: 40, repeat: 5, loc: 'xuese', radius: 10, minRealm: 1,
     announce: '越国七派将再度联手开启血色禁地。禁地中生满筑基丹主药，亦遍布妖兽与杀机。',
     intro: '禁地禁制缓缓开启，血雾弥漫。七派弟子一拥而入——这里没有同门，只有灵药和敌人。\n\n你察觉到不止一道不怀好意的神识，正黏在你身上。',
     win: '你带着满袋灵药走出血雾。身后，有人没能出来。', lose: '', missed: '血色禁地关闭了。据说这一次，七派弟子十不存三。',
@@ -51,7 +53,7 @@ export const CANON_EVENTS: CanonEvent[] = [
     reward: (g) => { const h = g.hero; C.addItem(h, 'herb_zihou', 1, 120 + rint(0, 200)); C.addItem(h, 'herb_tianling', 1, 120 + rint(0, 200)); C.addItem(h, 'herb_huangjing', 3, 110 + rint(0, 100)); if (Math.random() < 0.35) C.addItem(h, 'pill_zhuji', 1); return '百年紫猴花、天灵果、黄精（筑基丹主材）'; },
   },
   {
-    id: 'yanjia', name: '燕家堡之变', year: 9, month: 5, dur: 60, loc: 'yanling', radius: 9, minRealm: 2,
+    id: 'yanjia', gate: [2, 0], name: '燕家堡之变', year: 9, month: 5, dur: 60, loc: 'yanling', radius: 9, minRealm: 2,
     announce: '燕家堡将为燕家女儿择婿，七派与魔道皆有人前往。江湖传言，这场喜宴怕是要见血。',
     intro: '喜宴的红绸还未撤下，堡外便升起了冲天魔气。鬼灵门少主王蝉狞笑着站在血光之中：「燕家，今日除名！」\n\n七派弟子仓皇应战，到处是惨叫声。',
     win: '王蝉的魔影溃散，燕家堡保住了。燕如嫣远远向你行了一礼。', lose: '', missed: '燕家堡被鬼灵门血洗，燕家几乎满门覆灭。',
@@ -64,7 +66,7 @@ export const CANON_EVENTS: CanonEvent[] = [
     onMiss: (g) => { const n = g.npcs.byId.get('yanruyan'); if (n && Math.random() < 0.5) g.npcs.die(n, '死于燕家堡之变'); },
   },
   {
-    id: 'modao', name: '魔道六宗入侵越国', year: 12, month: 3, dur: 600, loc: 'huangfeng', radius: 10, minRealm: 2, special: 'invasion',
+    id: 'modao', gate: [2, 1], name: '魔道六宗入侵越国', year: 12, month: 3, dur: 600, loc: 'huangfeng', radius: 10, minRealm: 2, special: 'invasion',
     announce: '魔道六宗在越国边境集结，七派人心惶惶。一场大战，迫在眉睫。',
     intro: '黄枫谷护山大阵在魔光下剧烈震颤。鬼灵门、合欢宗的长老亲自督战，誓要踏平黄枫谷。\n\n「天南七派，今日便是你们的死期！」',
     win: '魔道长老伏诛，残余魔修溃逃出越国。七派守住了越国——这一次，历史改变了。', lose: '', missed: '七派节节败退，越国沦陷于魔道之手。七派残部退往九国盟。',
@@ -79,7 +81,7 @@ export const CANON_EVENTS: CanonEvent[] = [
     onMiss: (g) => { g.ws.flags.invasion = false; g.ws.flags.yueFallen = true; },
   },
   {
-    id: 'xutian', name: '虚天殿开启', year: 20, month: 8, dur: 90, loc: 'xutian', radius: 10, minRealm: 3,
+    id: 'xutian', gate: [3, 0], name: '虚天殿开启', year: 20, month: 8, dur: 90, loc: 'xutian', radius: 10, minRealm: 3,
     announce: '乱星海传出消息：虚天殿将在明年现世，殿中藏有通天灵宝虚天鼎与乾蓝冰焰。乱星海各方老怪蠢蠢欲动。',
     intro: '海天之间，一座古殿自雾中浮现。殿门前，温天仁负手而立，身后是六道极圣的门人。\n\n「虚天鼎，我温天仁要了。不服的，上来送死。」',
     win: '温天仁败退，你踏入虚天殿深处，冰焰的寒光映亮了你的脸。', lose: '', missed: '虚天殿关闭了。据说乾蓝冰焰落入了某位元婴老怪之手。',
@@ -91,7 +93,7 @@ export const CANON_EVENTS: CanonEvent[] = [
     reward: (g) => { const roll = Math.random(); const id = roll < 0.12 ? 'art_xutian' : roll < 0.55 ? 'art_qianlan' : 'art_bamen'; C.addItem(g.hero, id, 1); C.addItem(g.hero, 'mat_lingshi', 8000); return `${itemDef(id).name}、灵石 8000`; },
   },
   {
-    id: 'zhuimo', name: '坠魔谷异变', year: 32, month: 4, dur: 120, loc: 'zhuimo', radius: 10, minRealm: 3,
+    id: 'zhuimo', gate: [3, 1], name: '坠魔谷异变', year: 32, month: 4, dur: 120, loc: 'zhuimo', radius: 10, minRealm: 3,
     announce: '坠魔谷禁制日渐松动，上古魔气外泄。传说谷底封印着一具古魔分身。',
     intro: '谷底魔气如潮，一道漆黑的身影缓缓睁开了眼睛。那是上古遗留的魔物，单是威压，便让人神魂欲裂。',
     win: '古魔分身溃散，坠魔谷的封印重新稳固。你在谷底找到了上古修士的遗宝。', lose: '', missed: '坠魔谷魔气外泄，方圆百里化为死地。',
@@ -115,7 +117,26 @@ export class Events {
   constructor(game: Game) { this.game = game; }
 
   get year() { return Math.floor(this.game.day / 360) + 1; }
-  startDay(ev: CanonEvent, cycle = 0) { return (ev.year - 1 + cycle * (ev.repeat ?? 0)) * 360 + (ev.month - 1) * 30; }
+  startDay(ev: CanonEvent, cycle = 0) { return (ev.year - 1 + cycle * (ev.repeat ?? 0)) * 360 + (ev.month - 1) * 30 - (this.game.ws.evShift?.[ev.id] ?? 0); }
+  /** 提前开启的大事给足赶路时间（至少约 8 分钟现实时间） */
+  durOf(ev: CanonEvent) { return this.game.ws.evShift?.[ev.id] ? Math.max(ev.dur, 240) : ev.dur; }
+  /** 第三十五步：按境界推进——修为到了，大事就依次到来（每件间隔约 3 分钟，不会一齐涌来） */
+  private gateTick() {
+    const g = this.game, h = g.hero, ws = g.ws;
+    const shift = ws.evShift ?? (ws.evShift = {});
+    for (const ev of CANON_EVENTS) {
+      if (!ev.gate || shift[ev.id] !== undefined) continue;
+      const [r, s] = ev.gate;
+      if (h.realm < r || (h.realm === r && h.stage < s)) continue;
+      const cyc = this.cycleOf(ev), st = ws.events[this.keyOf(ev, cyc)];
+      if (st && st.state !== 'pending') { shift[ev.id] = 0; continue; }
+      const s0 = this.startDay(ev, cyc);
+      const at = Math.max(ws.evNext ?? 0, g.day + 45);
+      if (s0 <= at) { shift[ev.id] = 0; continue; }
+      shift[ev.id] = s0 - at;
+      ws.evNext = at + 90;
+    }
+  }
   keyOf(ev: CanonEvent, cycle: number) { return ev.repeat ? `${ev.id}#${cycle}` : ev.id; }
   cycleOf(ev: CanonEvent) { if (!ev.repeat) return 0; const d = this.game.day - this.startDay(ev, 0); return Math.max(0, Math.floor(d / (ev.repeat * 360))); }
 
@@ -123,6 +144,7 @@ export class Events {
   update(dt: number) {
     const g = this.game;
     if (g.paused || g.hero.dead) return;
+    this.gateTick();
     this.timeline();
     this.canonTick();
     this.encTick(dt);
@@ -134,10 +156,10 @@ export class Events {
       const cyc = this.cycleOf(ev), key = this.keyOf(ev, cyc), s0 = this.startDay(ev, cyc);
       const st = ws.events[key] ?? (ws.events[key] = { state: 'pending' });
       if (st.state === 'pending') {
-        if (g.day >= s0 - 360 && !st.t) { st.t = 1; g.news(`【传闻】${ev.announce}`, 'canon'); g.toast(`江湖传闻：${ev.name}将于第${ev.year + cyc * (ev.repeat ?? 0)}年开启（J 查看大事记）`, 'info'); }
+        if (g.day >= s0 - 360 && !st.t) { st.t = 1; g.news(`【传闻】${ev.announce}`, 'canon'); g.toast(`江湖传闻：${ev.name}将于第${Math.floor(this.startDay(ev, cyc) / 360) + 1}年开启（J 查看大事记）`, 'info'); }
         if (g.day >= s0) { st.state = 'active'; st.t = s0; ev.onStart?.(g); g.news(`${ev.name}开始了！地点：${locLabel(ev.loc)}`, 'canon'); g.toast(`${ev.name}开始了——地点：${locLabel(ev.loc)}`, 'warn'); }
       }
-      if (st.state === 'active' && g.day > s0 + ev.dur) {
+      if (st.state === 'active' && g.day > s0 + this.durOf(ev)) {
         if (this.active?.ev === ev) this.disengage();
         st.state = 'missed'; ev.onMiss?.(g);
         g.news(ev.missed, 'canon');
@@ -283,7 +305,7 @@ export class Events {
     const g = this.game, out: string[] = [];
     for (const ev of CANON_EVENTS) {
       const cyc = this.cycleOf(ev), key = this.keyOf(ev, cyc), st = g.ws.events[key];
-      const y = ev.year + cyc * (ev.repeat ?? 0);
+      const y = Math.floor(this.startDay(ev, cyc) / 360) + 1;
       if (st?.state === 'active') out.push(`「${ev.name}」正在${locLabel(ev.loc)}进行！`);
       else if (st?.state === 'pending' && st.t) out.push(`第${y}年，${ev.name}将于${locLabel(ev.loc)}开启。`);
     }
@@ -293,7 +315,7 @@ export class Events {
     const g = this.game;
     return CANON_EVENTS.map((ev) => {
       const cyc = this.cycleOf(ev), key = this.keyOf(ev, cyc), st = g.ws.events[key];
-      const y = ev.year + cyc * (ev.repeat ?? 0);
+      const y = Math.floor(this.startDay(ev, cyc) / 360) + 1;
       const known = !!st?.t || st?.state === 'active' || st?.state === 'done' || st?.state === 'missed';
       const state = !st || st.state === 'pending' ? (known ? '将至' : '未闻') : st.state === 'active' ? '进行中' : st.state === 'done' ? '已参与' : '已错过';
       return { name: known ? ev.name : '？？？', year: y, loc: known ? locLabel(ev.loc) : '', state, desc: known ? ev.announce : '尚无传闻。', score: ev.special === 'invasion' && st ? st.score ?? 0 : undefined };
