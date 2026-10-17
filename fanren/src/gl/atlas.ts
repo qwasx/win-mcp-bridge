@@ -1,7 +1,8 @@
-// 特效图集：全部由代码生成（无图片资源）。8×4 格，每格 128px，白色预乘 alpha。
+// 特效图集：前 4 行由代码生成；第 5–8 行（第三十四步）为 CC0 粒子贴图（Kenney / RPicster），异步载入后补画并重新上传。
+// 8×8 格，每格 128px，白色预乘 alpha。
 import { mulberry32 } from '../core/rng';
 
-export const CELL = 128, COLS = 8, ROWS = 4;
+export const CELL = 128, COLS = 8, ROWS = 8;
 export const AW = CELL * COLS, AH = CELL * ROWS;
 
 /** 图集格子编号 */
@@ -38,6 +39,16 @@ export const enum C {
   Water = 29,   // 水花
   Fang = 30,    // 爪痕三道
   Moon = 31,    // 月牙
+  // —— 第三十四步：CC0 贴图 ——
+  KSmoke1 = 32, KSmoke2 = 33, KSmoke3 = 34, KSmokeRing = 35,   // 真实烟团 ×3、烟环
+  KFire1 = 36, KFire2 = 37, KFire3 = 38, KFlick = 39,          // 火焰（尖朝上）：烈焰柱、火团、火舌、小火苗
+  KWisp1 = 40, KWisp2 = 41,                                    // 烟缕 / 鬼雾
+  KBurst1 = 42, KBurst2 = 43, KBurst3 = 44,                    // 爆闪碎芒
+  KSpark1 = 45, KSpark2 = 46,                                  // 电火花团
+  KBoltV1 = 47, KBoltV2 = 48, KBoltH = 49,                     // 竖直落雷 ×2、横向电弧
+  KRays1 = 50, KRays2 = 51, KRays3 = 52,                       // 放射光芒
+  KVortex = 53, KFlare = 54, KGlint = 55, KStarBurst = 56,     // 旋涡、横向镜头光、X 形闪光、星爆
+  KDots = 57, KCompass = 58, KBubble = 59, KArc = 60, KTwirl = 61, KDirt = 62, KScratch = 63,
 }
 
 export function cellUV(c: number): [number, number, number, number] {
@@ -46,7 +57,28 @@ export function cellUV(c: number): [number, number, number, number] {
   return [(cx * CELL + p) / AW, (cy * CELL + p) / AH, ((cx + 1) * CELL - p) / AW, ((cy + 1) * CELL - p) / AH];
 }
 
-export function buildAtlas(): HTMLCanvasElement {
+let extImg: CanvasImageSource | null = null;
+let extLoading: Promise<CanvasImageSource | null> | null = null;
+function loadExt(): Promise<CanvasImageSource | null> {
+  if (extLoading) return extLoading;
+  extLoading = import('./fxAtlasData').then((m) => new Promise<CanvasImageSource | null>((res) => {
+    if (typeof Image === 'undefined') { res(null); return; }
+    const im = new Image(); im.onload = () => { extImg = im; res(im); }; im.onerror = () => res(null); im.src = m.FX_ATLAS_URL;
+  })).catch(() => null);
+  return extLoading;
+}
+/** 图集是否已含 CC0 贴图行 */
+export const atlasExtReady = () => !!extImg;
+
+export function buildAtlas(onExt?: (cv: HTMLCanvasElement) => void): HTMLCanvasElement {
+  const cv = buildCode();
+  const put = (im: CanvasImageSource) => { const g = cv.getContext('2d')!; g.clearRect(0, CELL * 4, AW, CELL * 4); g.drawImage(im, 0, CELL * 4); };
+  if (extImg) put(extImg);
+  else loadExt().then((im) => { if (im) { put(im); onExt?.(cv); } });
+  return cv;
+}
+
+function buildCode(): HTMLCanvasElement {
   const cv = document.createElement('canvas'); cv.width = AW; cv.height = AH;
   const g = cv.getContext('2d')!;
   const at = (c: number, fn: (g: CanvasRenderingContext2D) => void) => {

@@ -240,7 +240,8 @@ export class GLStage {
     gl.bindVertexArray(null);
     this.sceneTex = this.newTex(gl.LINEAR);
     this.atmoTex = this.newTex(gl.LINEAR);
-    this.atlas = this.uploadStatic(buildAtlas(), true);
+    const acv = buildAtlas((cv) => this.reuploadAtlas(cv));
+    this.atlas = this.uploadStatic(acv, true);
     this.noiseTex = this.makeNoise();
     this.maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
     try { this.ground = new Ground(gl); if (this.groundData) this.ground.setTerrain(this.groundData); }
@@ -294,6 +295,17 @@ export class GLStage {
     return t;
   }
   /** 上传静态位图（带 mipmap，旋转缩放都平滑），按画布对象缓存 */
+  /** 第三十四步：CC0 贴图行载入后重新上传图集 */
+  private reuploadAtlas(cv: HTMLCanvasElement) {
+    if (this.lost) return;
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.atlas);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cv);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+  }
   uploadStatic(cv: HTMLCanvasElement, mip = true): WebGLTexture {
     const hit = this.texCache.get(cv); if (hit) return hit;
     const gl = this.gl;

@@ -1,6 +1,6 @@
 // 第二十八步：我方身上的特效——风雷翅（青紫雷翼）、雷遁 / 血遁残影光、护体剑盾（剑网）
 import type { Combat } from '../world/combat';
-import { FxSys, col, mixc, RGB } from './fx';
+import { FxSys, col, mixc, RGB, fireCell, smokeCell } from './fx';
 import { C } from './atlas';
 
 const TAU = Math.PI * 2;
@@ -50,7 +50,7 @@ function runDust(F: FxSys, p: any) {
   const sp = Math.hypot(st.vx, st.vy) || 1, ux = st.vx / sp, uy = st.vy / sp;
   const side = (k & 1) ? 1 : -1, fx = p.x - uy * 6 * side, fy = p.y + ux * 3 * side;
   const DUST: RGB = [0.56, 0.5, 0.4];
-  for (let i = 0; i < 3; i++) F.emit({ x: fx + rnd(-5, 5), y: fy + rnd(-2, 2), vx: -ux * rnd(40, 90) + rnd(-25, 25), vy: -uy * rnd(20, 45) - rnd(8, 24), life: rnd(0.45, 0.75), s0: rnd(7, 11), s1: rnd(20, 30), rot: Math.random() * TAU, vr: rnd(-1.5, 1.5), c: DUST, a: 0.2, add: 0, cell: C.Smoke, drag: 3 });
+  for (let i = 0; i < 3; i++) F.emit({ x: fx + rnd(-5, 5), y: fy + rnd(-2, 2), vx: -ux * rnd(40, 90) + rnd(-25, 25), vy: -uy * rnd(20, 45) - rnd(8, 24), life: rnd(0.45, 0.75), s0: rnd(7, 11), s1: rnd(20, 30), rot: Math.random() * TAU, vr: rnd(-1.5, 1.5), c: DUST, a: 0.2, add: 0, cell: smokeCell(), drag: 3 });
   if (Math.random() < 0.5) F.emit({ x: fx, y: fy - 2, vx: -ux * 60, vy: -30, life: 0.3, s0: 2, s1: 1, c: [0.45, 0.4, 0.32], a: 0.5, add: 0, cell: C.Dot, grav: 200 });
 }
 
@@ -77,7 +77,7 @@ export function drawHeroGL(F: FxSys, c: Combat, t: number, dt: number) {
     const k = 1 - g.t / g.dur, cc = col(g.color);
     F.sprite(C.Glow, g.x, g.y - 60, 70, 150, 0, cc, 0.22 * k);
     if (g.color.startsWith('170') && Math.random() < 0.25) F.bolt(g.x + rnd(-20, 20), g.y - rnd(20, 120), g.x + rnd(-30, 30), g.y - rnd(0, 120), Math.random() * 1e6, 10, 1, cc, 0.7 * k, 4, false);
-    if (!g.color.startsWith('170') && Math.random() < 0.3) F.emit({ x: g.x + rnd(-14, 14), y: g.y - rnd(20, 110), vy: rnd(10, 40), life: 0.5, s0: rnd(8, 14), s1: 20, c: [0.5, 0.03, 0.05], a: 0.35, add: 0, cell: C.Smoke });
+    if (!g.color.startsWith('170') && Math.random() < 0.3) F.emit({ x: g.x + rnd(-14, 14), y: g.y - rnd(20, 110), vy: rnd(10, 40), life: 0.5, s0: rnd(8, 14), s1: 20, c: [0.5, 0.03, 0.05], a: 0.35, add: 0, cell: smokeCell() });
   }
 }
 

@@ -4,7 +4,7 @@
 import type { Combat } from '../world/combat';
 import type { Hz, El } from '../world/foeskills';
 import { EL_COL } from '../world/foeskills';
-import { FxSys, col, mixc, RGB } from './fx';
+import { FxSys, col, mixc, RGB, fireCell, smokeCell, extOK } from './fx';
 import { C } from './atlas';
 
 const TAU = Math.PI * 2;
@@ -29,7 +29,7 @@ function flair(F: FxSys, h: Hz, x: number, y: number, r: number, u: number, dt: 
       if (u > 0.5) F.bolt(px, py - rnd(40, 90), px + rnd(-10, 10), py, Math.random() * 1e6, 8, 0.9, cc, 0.7, 5, false);
       else F.emit({ x: px, y: py, vy: rnd(-60, -20), life: 0.3, s0: 3, s1: 1, c: cc, cell: C.Star }); break;
     case 'fire': case 'blood':
-      F.emit({ x: px, y: py, vx: rnd(-10, 10), vy: rnd(-90, -40), life: rnd(0.3, 0.6), s0: rnd(10, 18), s1: 3, c: h.el === 'fire' ? [1, 0.55, 0.18] : [0.9, 0.1, 0.15], a: 0.7, cell: C.Flame }); break;
+      F.emit({ x: px, y: py, vx: rnd(-10, 10), vy: rnd(-90, -40), life: rnd(0.3, 0.6), s0: rnd(10, 18), s1: 3, c: h.el === 'fire' ? [1, 0.55, 0.18] : [0.9, 0.1, 0.15], a: 0.7, cell: fireCell() }); break;
     case 'ice':
       F.emit({ x: px, y: py, vy: rnd(-30, -10), life: rnd(0.4, 0.8), s0: 6, s1: 2, c: [0.85, 0.95, 1], cell: C.Shard, rot: rnd(0, TAU) }); break;
     case 'poison':
@@ -55,6 +55,7 @@ function drawCircleWarn(F: FxSys, h: Hz, t: number, dt: number) {
   if (h.big) {
     F.ground(C.Rune, h.x, h.y, h.r * 0.98, t * 0.8, ic, 0.5, 0, SQ);
     F.ground(C.Rune, h.x, h.y, h.r * 0.98, t * 0.8, wc, 0.25 + 0.35 * end, 1, SQ);
+    if (extOK()) { F.ground(C.KDots, h.x, h.y, h.r * 0.8, -t * 1.1, wc, 0.3 + 0.4 * end, 1, SQ); F.ground(C.KVortex, h.x, h.y, h.r * 0.55 * (0.6 + 0.4 * u), -t * 2.5, wc, 0.2 + 0.3 * end, 1, SQ); }
     F.ground(C.Bagua, h.x, h.y, h.r * 0.55, -t * 1.4, mixc(wc, WHITE, 0.3), 0.25 + 0.3 * end, 1, SQ);
     if (Math.random() < dt * 30) { const a = Math.random() * TAU; F.emit({ x: h.x + Math.cos(a) * h.r, y: h.y + Math.sin(a) * h.r * SQ, vy: rnd(-160, -80), life: rnd(0.5, 0.9), s0: 5, s1: 1, c: wc, cell: C.Glow }); }
   }
@@ -68,12 +69,12 @@ function drawPool(F: FxSys, h: Hz, t: number, dt: number) {
   if (h.el === 'fire' || h.el === 'blood') {
     F.ground(C.Disc, h.x, h.y, h.r, 0, h.el === 'fire' ? [0.35, 0.1, 0.02] : [0.3, 0.02, 0.04], 0.35 * k, 0, SQ);
     F.ground(C.FireRing, h.x, h.y, h.r * 0.95, t * 0.7, cc, 0.55 * k, 1, SQ);
-    if (Math.random() < dt * 18 * k) { const a = Math.random() * TAU, rr = h.r * Math.sqrt(Math.random()); F.emit({ x: h.x + Math.cos(a) * rr, y: h.y + Math.sin(a) * rr * SQ, vy: rnd(-110, -60), life: rnd(0.3, 0.6), s0: rnd(14, 26), s1: 4, c: h.el === 'fire' ? [1, 0.55, 0.18] : [0.9, 0.12, 0.16], a: 0.75, cell: C.Flame }); }
+    if (Math.random() < dt * 18 * k) { const a = Math.random() * TAU, rr = h.r * Math.sqrt(Math.random()); F.emit({ x: h.x + Math.cos(a) * rr, y: h.y + Math.sin(a) * rr * SQ, vy: rnd(-110, -60), life: rnd(0.3, 0.6), s0: rnd(14, 26), s1: 4, c: h.el === 'fire' ? [1, 0.55, 0.18] : [0.9, 0.12, 0.16], a: 0.75, cell: fireCell() }); }
   } else if (h.el === 'poison') {
     F.ground(C.Smoke, h.x, h.y, h.r * 1.1, t * 0.1, [0.18, 0.32, 0.06], 0.45 * k, 0, SQ);
     F.ground(C.Disc, h.x, h.y, h.r, 0, cc, 0.16 * k, 1, SQ);
     if (Math.random() < dt * 14 * k) { const a = Math.random() * TAU, rr = h.r * Math.sqrt(Math.random()); F.emit({ x: h.x + Math.cos(a) * rr, y: h.y + Math.sin(a) * rr * SQ, vy: rnd(-30, -10), life: rnd(0.6, 1), s0: rnd(4, 9), s1: rnd(12, 18), c: [0.55, 0.9, 0.3], a: 0.55, cell: C.Ring }); }
-    if (Math.random() < dt * 5 * k) F.emit({ x: h.x + rnd(-h.r, h.r) * 0.6, y: h.y + rnd(-h.r, h.r) * 0.3, vy: rnd(-25, -10), life: 1.2, s0: 30, s1: 60, c: [0.35, 0.6, 0.15], a: 0.22, add: 0.4, cell: C.Smoke, rot: rnd(0, TAU) });
+    if (Math.random() < dt * 5 * k) F.emit({ x: h.x + rnd(-h.r, h.r) * 0.6, y: h.y + rnd(-h.r, h.r) * 0.3, vy: rnd(-25, -10), life: 1.2, s0: 30, s1: 60, c: [0.35, 0.6, 0.15], a: 0.22, add: 0.4, cell: smokeCell(), rot: rnd(0, TAU) });
   } else if (h.el === 'ice' || h.el === 'water') {
     F.ground(C.Disc, h.x, h.y, h.r, 0, cc, 0.2 * k, 1, SQ);
     F.ground(C.Rune, h.x, h.y, h.r * 0.9, t * 0.3, cc, 0.25 * k, 1, SQ);
@@ -149,7 +150,7 @@ export function drawFoeGL(F: FxSys, c: Combat, t: number, dt: number) {
     if (e.rage > 0) {
       const cc: RGB = e.rage > 1 ? [1, 0.15, 0.1] : [1, 0.45, 0.15];
       F.glow(e.x, hy, 80 + 14 * Math.sin(t * 8), cc, 0.18 + 0.08 * e.rage);
-      if (Math.random() < dt * 16 * e.rage) F.emit({ x: e.x + rnd(-40, 40), y: e.y - rnd(0, 80) - e.lift, vy: rnd(-140, -60), life: rnd(0.4, 0.7), s0: rnd(10, 18), s1: 3, c: cc, a: 0.6, cell: C.Flame });
+      if (Math.random() < dt * 16 * e.rage) F.emit({ x: e.x + rnd(-40, 40), y: e.y - rnd(0, 80) - e.lift, vy: rnd(-140, -60), life: rnd(0.4, 0.7), s0: rnd(10, 18), s1: 3, c: cc, a: 0.6, cell: fireCell() });
     }
     if (e.lift > 0) F.ground(C.Disc, e.x, e.y, 40 + e.lift * 0.1, 0, [0, 0, 0], 0.25, 0, SQ);
   }

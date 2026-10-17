@@ -5,7 +5,7 @@
 // 约定：亮色用加色，暗色底（墨、血、尘）用覆盖混合，避免在亮地面 + 泛光下洗成白片。
 import type { Combat } from '../world/combat';
 import type { FxEvent } from './combatgl';
-import { FxSys, col, mixc, RGB } from './fx';
+import { FxSys, col, mixc, RGB, fireCell, smokeCell } from './fx';
 import { C } from './atlas';
 
 const TAU = Math.PI * 2;
@@ -29,7 +29,7 @@ export function summonEvent(F: FxSys, ev: FxEvent) {
     case 'foxfire': {
       // 狐火弹：0.22 秒飞到目标（与伤害延迟一致）
       const x2 = ev.x2 ?? x, y2 = ev.y2 ?? y, T = 0.22, vx = (x2 - x) / T, vy = (y2 - y) / T;
-      F.emit({ x, y, vx, vy, life: T, s0: 26, s1: 22, c, a: 0.7, cell: C.Flame, rot: Math.atan2(vy, vx) + Math.PI / 2 });
+      F.emit({ x, y, vx, vy, life: T, s0: 26, s1: 22, c, a: 0.7, cell: fireCell(), rot: Math.atan2(vy, vx) + Math.PI / 2 });
       F.emit({ x, y, vx, vy, life: T, s0: 10, s1: 9, c: mixc(c, WHITE, 0.7), a: 0.9, cell: C.Core });
       for (let i = 0; i < 7; i++) { const u = i / 7; F.emit({ x: x + (x2 - x) * u * 0.3, y: y + (y2 - y) * u * 0.3, vx: vx * (0.7 + u * 0.2), vy: vy * (0.7 + u * 0.2) - 20, life: T * (0.9 + u * 0.8), s0: 9, s1: 2, c, a: 0.55, cell: C.Glow }); }
       break;
@@ -75,7 +75,7 @@ export function summonEvent(F: FxSys, ev: FxEvent) {
         F.sparks(x, y - 50, [0.9, 1, 0.9], 6, 300, 0.25, 2.5, dir, 1.2);
       } else if (kind === 'foxland') {
         // 狐火命中：一团青白狐火绽开
-        for (let i = 0; i < 10; i++) { const a = Math.random() * TAU, v = rnd(60, 200); F.emit({ x, y: y - 30, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6 - 60, life: rnd(0.35, 0.6), s0: 6, s1: rnd(12, 18), c: KC.fox, a: 0.55, cell: C.Flame, rot: a }); }
+        for (let i = 0; i < 10; i++) { const a = Math.random() * TAU, v = rnd(60, 200); F.emit({ x, y: y - 30, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6 - 60, life: rnd(0.35, 0.6), s0: 6, s1: rnd(12, 18), c: KC.fox, a: 0.55, cell: fireCell(), rot: a }); }
         F.flash(x, y - 30, 26, KC.fox, 0.14);
       } else {
         F.sparks(x, y - 30, c, 10, 300, 0.35, 2.5, dir, 1.6); F.flash(x, y - 30, 24, c, 0.12);
@@ -136,11 +136,11 @@ export function drawSummonsGL(F: FxSys, c: Combat, t: number, dt: number) {
     switch (s.kind) {
       case 'fox': {
         for (let i = 0; i < 2; i++) { const a = t * 2.4 + i * Math.PI + s.slot; F.glow(x + Math.cos(a) * 34, hy - 6 + Math.sin(a) * 12, 7, k, 0.55, C.Star); F.glow(x + Math.cos(a) * 34, hy - 6 + Math.sin(a) * 12, 16, k, 0.16); }
-        if (Math.random() < dt * 5) F.emit({ x: x + rnd(-20, 20), y: hy + rnd(-10, 10), vx: rnd(-10, 10), vy: rnd(-60, -30), life: 0.6, s0: 9, s1: 2, c: k, a: 0.45, cell: C.Flame });
+        if (Math.random() < dt * 5) F.emit({ x: x + rnd(-20, 20), y: hy + rnd(-10, 10), vx: rnd(-10, 10), vy: rnd(-60, -30), life: 0.6, s0: 9, s1: 2, c: k, a: 0.45, cell: fireCell() });
         break;
       }
       case 'tihun': {
-        if (Math.random() < dt * 6) F.emit({ x: x + rnd(-30, 30), y: y - rnd(10, 60), vx: rnd(-15, 15), vy: rnd(-50, -20), life: rnd(0.8, 1.3), s0: 20, s1: 36, c: [0.5, 0.4, 0.62], a: 0.14, add: 0, cell: C.Smoke, rot: Math.random() * TAU, vr: rnd(-1, 1), drag: 1 });
+        if (Math.random() < dt * 6) F.emit({ x: x + rnd(-30, 30), y: y - rnd(10, 60), vx: rnd(-15, 15), vy: rnd(-50, -20), life: rnd(0.8, 1.3), s0: 20, s1: 36, c: [0.5, 0.4, 0.62], a: 0.14, add: 0, cell: smokeCell(), rot: Math.random() * TAU, vr: rnd(-1, 1), drag: 1 });
         if (Math.random() < dt * 3) F.emit({ x: x + rnd(-24, 24), y: hy, vx: rnd(-10, 10), vy: rnd(-70, -40), life: 0.8, s0: 24, s1: 8, c: mixc(k, WHITE, 0.3), a: 0.35, cell: C.Wisp, rot: 0 });
         // 吞魂时口边的魂光
         if ((s.atk ?? 0) > 0) F.glow(x + s.facing * 28, hy - 6, 30, k, 0.4 * s.atk);
@@ -148,7 +148,7 @@ export function drawSummonsGL(F: FxSys, c: Combat, t: number, dt: number) {
       }
       case 'demon': {
         const B = s.big ?? 1;
-        if (Math.random() < dt * 8 * B) F.emit({ x: x + rnd(-20, 20) * B, y: hy + rnd(-10, 20) * B, vx: -s.facing * rnd(20, 60), vy: rnd(-40, -10), life: rnd(0.6, 1), s0: 18 * B, s1: 34 * B, c: [0.32, 0.03, 0.05], a: 0.2, add: 0, cell: C.Smoke, rot: Math.random() * TAU, vr: rnd(-1, 1), drag: 1 });
+        if (Math.random() < dt * 8 * B) F.emit({ x: x + rnd(-20, 20) * B, y: hy + rnd(-10, 20) * B, vx: -s.facing * rnd(20, 60), vy: rnd(-40, -10), life: rnd(0.6, 1), s0: 18 * B, s1: 34 * B, c: [0.32, 0.03, 0.05], a: 0.2, add: 0, cell: smokeCell(), rot: Math.random() * TAU, vr: rnd(-1, 1), drag: 1 });
         F.glow(x, hy, 28 * B, [1, 0.22, 0.18], 0.12);
         F.glow(x + s.facing * 10 * B, hy - 14 * B, 4 * B, [1, 0.85, 0.3], 0.8, C.Star);
         if (B > 1.2) F.ground(C.Swirl, x, y, 90, -t * 2, [0.9, 0.15, 0.12], 0.16, 1, 0.5);

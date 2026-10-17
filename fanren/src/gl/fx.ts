@@ -1,7 +1,7 @@
 // 特效系统：粒子池 + 常用图元 + 预设（命中、爆炸、墨溅、余烬……）
 // 粒子全部在 CPU 上以定长数组更新，GPU 一次绘制。
 import { Batch } from './batch';
-import { C } from './atlas';
+import { C, atlasExtReady } from './atlas';
 
 export type RGB = [number, number, number];
 const cache = new Map<string, RGB>();
@@ -20,6 +20,19 @@ export const mixc = (a: RGB, b: RGB, k: number): RGB => [a[0] + (b[0] - a[0]) * 
 const WHITE: RGB = [1, 1, 1];
 const TAU = Math.PI * 2;
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+// 第三十四步：CC0 贴图格（图集未就绪时退回代码格）
+const SMOKES = [C.KSmoke1, C.KSmoke2, C.KSmoke3];
+const RAYS = [C.KRays1, C.KRays2, C.KRays3];
+const BURSTS = [C.KBurst1, C.KBurst2, C.KBurst3];
+const FIRES = [C.KFire2, C.KFlick, C.KFire3];
+const pk = (a: number[]) => a[(Math.random() * a.length) | 0];
+/** 随机烟团格 */
+export const smokeCell = () => (atlasExtReady() ? pk(SMOKES) : C.Smoke);
+/** 随机火舌格（尖朝上） */
+export const fireCell = () => (atlasExtReady() ? (Math.random() < 0.45 ? C.Flame : pk(FIRES)) : C.Flame);
+export const rayCell = () => (atlasExtReady() ? pk(RAYS) : C.Star);
+export const burstCell = () => (atlasExtReady() ? pk(BURSTS) : C.Core);
+export const extOK = atlasExtReady;
 
 // 粒子字段
 const F = 20;
@@ -164,7 +177,7 @@ export class FxSys {
     for (let i = 0; i < n; i++) this.emit({ x: x + rnd(-r, r), y: y + rnd(-r, r) * 0.6, vx: rnd(-20, 20), vy: rnd(-90, -30), life: rnd(0.5, 1.2), s0: rnd(3, 7), s1: 1, c, drag: 1.5, grav: -20, cell: C.Glow });
   }
   smoke(x: number, y: number, n: number, c: RGB = [0.16, 0.15, 0.14], a = 0.35, r = 16, size = 40) {
-    for (let i = 0; i < n; i++) this.emit({ x: x + rnd(-r, r), y: y + rnd(-r, r) * 0.6, vx: rnd(-30, 30), vy: rnd(-50, -10), life: rnd(0.7, 1.4), s0: size * 0.5, s1: size * rnd(1.2, 1.8), rot: Math.random() * TAU, vr: rnd(-1, 1), c, a, add: 0, cell: C.Smoke, drag: 2 });
+    for (let i = 0; i < n; i++) this.emit({ x: x + rnd(-r, r), y: y + rnd(-r, r) * 0.6, vx: rnd(-30, 30), vy: rnd(-50, -10), life: rnd(0.7, 1.4), s0: size * 0.5, s1: size * rnd(1.2, 1.8), rot: Math.random() * TAU, vr: rnd(-1, 1), c, a: a * (atlasExtReady() ? 0.85 : 1), add: 0, cell: smokeCell(), drag: 2 });
   }
   /** 墨溅：水墨风受击（覆盖混合） */
   ink(x: number, y: number, s: number, a = 0.6, c: RGB = [0.1, 0.09, 0.09]) {
@@ -173,6 +186,29 @@ export class FxSys {
   flash(x: number, y: number, r: number, c: RGB, life = 0.16) {
     this.emit({ x, y, life, s0: r * 1.6, s1: r * 2.2, c: mixc(c, WHITE, 0.4), a: 0.75, cell: C.Core });
     this.emit({ x, y, life: life * 1.6, s0: r * 2.4, s1: r * 3.6, c, a: 0.32, cell: C.Glow });
+    if (r > 26 && atlasExtReady()) this.emit({ x, y, life: life * 1.4, s0: r * 2.2, s1: r * 4, c: mixc(c, WHITE, 0.3), a: 0.32, cell: rayCell(), rot: Math.random() * TAU });
+  }
+  /** 放射光芒（短促） */
+  rays(x: number, y: number, r: number, c: RGB, a = 0.45, life = 0.25) { if (!atlasExtReady()) return; this.emit({ x, y, life, s0: r * 0.8, s1: r * 2, c, a, cell: rayCell(), rot: Math.random() * TAU, vr: rnd(-0.6, 0.6) }); }
+  /** 横向镜头光 + X 形闪光（暴击、剑芒） */
+  glint(x: number, y: number, r: number, c: RGB, a = 0.8, life = 0.22) {
+    if (!atlasExtReady()) { this.emit({ x, y, life, s0: r, s1: r * 1.6, c, a, cell: C.Star }); return; }
+    this.emit({ x, y, life, s0: r * 2.2, s1: r * 3.4, c, a: a * 0.7, cell: C.KFlare });
+    this.emit({ x, y, life: life * 0.8, s0: r * 0.9, s1: r * 1.5, c: mixc(c, WHITE, 0.5), a, cell: C.KGlint, rot: Math.random() * 0.6 });
+  }
+  /** 电火花团 */
+  crackle(x: number, y: number, r: number, c: RGB, a = 0.9, n = 2) {
+    if (!atlasExtReady()) return;
+    for (let i = 0; i < n; i++) this.emit({ x: x + rnd(-r, r) * 0.4, y: y + rnd(-r, r) * 0.3, life: rnd(0.08, 0.16), s0: r * rnd(0.8, 1.2), s1: r * 1.3, c: mixc(c, WHITE, 0.45), a, cell: Math.random() < 0.5 ? C.KSpark1 : C.KSpark2, rot: Math.random() * TAU });
+  }
+  /** 火舌升腾（爆炸 / 火系落点） */
+  flames(x: number, y: number, r: number, c: RGB, n: number, a = 0.85) {
+    for (let i = 0; i < n; i++) { const an = Math.random() * TAU, d = Math.sqrt(Math.random()) * r; this.emit({ x: x + Math.cos(an) * d, y: y + Math.sin(an) * d * 0.5, vx: rnd(-20, 20), vy: rnd(-160, -60), life: rnd(0.35, 0.75), s0: rnd(0.35, 0.6) * r, s1: r * 0.12, c: mixc(c, [1, 0.95, 0.7], Math.random() * 0.35), a, cell: fireCell(), drag: 1.5, grav: -60 }); }
+  }
+  /** 烟环（爆点向外推开的烟圈，覆盖混合） */
+  smokeRing(x: number, y: number, r: number, c: RGB = [0.2, 0.17, 0.14], a = 0.4, life = 0.9) {
+    if (!atlasExtReady()) return;
+    this.emit({ x, y, life, s0: r * 0.6, s1: r * 2.1, c, a, add: 0, cell: C.KSmokeRing, rot: Math.random() * TAU, vr: rnd(-0.5, 0.5) });
   }
   shockRing(x: number, y: number, r: number, c: RGB, life = 0.4, squash = 0.55, alpha = 1) {
     // 用“椭圆环”粒子：S0->S1 扩张；粒子系统不支持非等比，故用竖向压扁的单帧图元在 update 里画——这里改为多段环粒子近似
@@ -197,6 +233,12 @@ export class FxSys {
     this.sparks(x, y, c, Math.round(6 + p * 5 + (crit ? 10 : 0)), 280 + p * 80, 0.4, 3 + p, dir, dir === undefined ? TAU : 1.6);
     if (p >= 0.8 || crit) this.ink(x, y + 6, 40 + p * 18, 0.35 + (crit ? 0.15 : 0));
     if (crit || p >= 1.5) { this.shockRing(x, y + 20, 70 + p * 30, c, 0.35, 0.55, 0.55); this.emit({ x, y, life: 0.2, s0: 40 + p * 20, s1: 80 + p * 26, c: WHITE, a: 0.7, cell: C.Star, rot: Math.random() }); }
+    if (atlasExtReady()) {
+      // 碎芒（随机三种之一）+ 放射光
+      this.emit({ x, y, life: 0.12 + p * 0.03, s0: 26 + p * 14, s1: 44 + p * 22, c: mixc(c, WHITE, 0.5), a: 0.55 + p * 0.1, cell: burstCell(), rot: Math.random() * TAU });
+      if (p >= 1 || crit) this.rays(x, y, 50 + p * 26, c, 0.28 + p * 0.06, 0.2);
+      if (crit) this.glint(x, y, 40 + p * 10, mixc(c, WHITE, 0.6), 0.85, 0.26);
+    }
   }
   /** 爆炸：火球、雷爆等 */
   explode(x: number, y: number, r: number, c: RGB, opts: { smoke?: boolean; shock?: boolean; debris?: boolean } = {}) {
@@ -205,8 +247,16 @@ export class FxSys {
     this.sparks(x, y, c, Math.round(14 + r / 6), 260 + r * 2.5, 0.6, 4);
     for (let i = 0; i < 10; i++) { const a = Math.random() * TAU, v = rnd(40, 140); this.emit({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6 - 30, life: rnd(0.35, 0.7), s0: r * 0.45, s1: r * 0.12, c, drag: 3, cell: C.Glow, a: 0.45 }); }
     if (opts.smoke !== false) this.smoke(x, y, 6, [0.14, 0.12, 0.1], 0.3, r * 0.4, r * 0.9);
+    if (atlasExtReady()) {
+      this.emit({ x, y, life: 0.2, s0: r * 0.9, s1: r * 1.7, c: mixc(c, WHITE, 0.55), a: 0.85, cell: burstCell(), rot: Math.random() * TAU });
+      this.rays(x, y, r * 1.6, c, 0.35, 0.3);
+      if (opts.smoke !== false) this.smokeRing(x, y + r * 0.1, r * 1.1, [0.18, 0.15, 0.12], 0.35, 0.9);
+      // 暖色爆炸：火舌冲起
+      if (c[0] > 0.7 && c[2] < 0.55) this.flames(x, y, r * 0.7, c, Math.round(5 + r / 18), 0.8);
+    }
     if (opts.shock !== false) this.shock(x, y, r * 2.2, 10 + r * 0.05, 0.55);
     if (opts.debris) for (let i = 0; i < 8; i++) { const a = -Math.PI / 2 + rnd(-1.2, 1.2), v = rnd(200, 420); this.emit({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: rnd(0.5, 0.9), s0: rnd(5, 10), c: [0.35, 0.28, 0.2], a: 0.9, add: 0, cell: C.Shard, rot: Math.random() * TAU, vr: rnd(-8, 8), grav: 900 }); }
+    if (opts.debris && atlasExtReady()) this.emit({ x, y: y + 6, life: 0.9, s0: r * 0.8, s1: r * 1.5, c: [0.3, 0.24, 0.17], a: 0.55, add: 0, cell: C.KDirt, rot: Math.random() * TAU });
   }
 }
 
