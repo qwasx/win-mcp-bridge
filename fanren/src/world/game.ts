@@ -14,6 +14,7 @@ import { NodeField, GatherNode } from './nodes';
 import { itemDef } from '../data/items';
 import * as C from './cultivation';
 import { PursuitSys } from './pursuit';
+import { Roster } from './roster';
 import { Relations } from './relations';
 import { OrigStory } from './origstory';
 import { talentById } from '../data/skills';
@@ -107,6 +108,8 @@ export class Game {
   pursuit: PursuitSys;
   /** 第二十九步：人情世故 */
   rel: Relations;
+  /** 第三十六步：宗门名册 */
+  roster: Roster;
   orig: OrigStory;
   private relAcc = 0;
   /** 高空：0 地面 – 1 高空疾遁（镜头拉远、云层掠过） */
@@ -150,6 +153,7 @@ export class Game {
     this.combat = new Combat(this);
     this.pursuit = new PursuitSys(this);
     this.rel = new Relations(this);
+    this.roster = new Roster(this);
     this.orig = new OrigStory(this);
     this.npcs = new NpcWorld(this);
     this.npcs.newWorld();
@@ -777,6 +781,7 @@ export class Game {
       this.pursuitTriggers(dt);
       this.npcs.update(dt);
       this.rel.update(dt);
+      this.roster.update(dt);
       this.travel.update(dt);
       this.events.update(dt);
       this.story.update(dt);
@@ -793,7 +798,7 @@ export class Game {
       this.timeScale = p.sitting ? MEDITATE_SPEED : 1;
       const days = dt * DAYS_PER_SEC * this.timeScale;
       this.day += days;
-      this.relAcc += days; if (this.relAcc >= 0.5) { this.rel.daily(this.relAcc); this.orig.daily(this.relAcc); this.relAcc = 0; }
+      this.relAcc += days; if (this.relAcc >= 0.5) { this.rel.daily(this.relAcc); this.roster.daily(this.relAcc); this.orig.daily(this.relAcc); this.relAcc = 0; }
       const msgs: Msg[] = [];
       const hadTalent = !!h.pendingTalent;
       const expB = this.hearts.bonus('exp'), e0 = h.exp;

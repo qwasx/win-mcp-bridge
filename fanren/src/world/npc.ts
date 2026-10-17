@@ -16,6 +16,7 @@ import type { DNode, DOpt, ShopStock } from './modal';
 import { BEAUTY_BY_ID, BEAUTIES, beautyLook } from '../data/beauties';
 import type { Tie, Bond } from './relations';
 import { TIER_COLOR, relWord as relWordOf } from './relations';
+import { Roster } from './roster';
 
 type G = CanvasRenderingContext2D;
 export type Pers = 'righteous' | 'greedy' | 'cautious' | 'arrogant' | 'kind' | 'ruthless' | 'aloof';
@@ -37,6 +38,8 @@ export interface NpcData {
   /** 第三十二步：正亲自追杀中（由追杀系统接管） / 追杀失败的次数（下次更有准备） */
   chasing?: boolean; prep?: number;
   bond?: Bond; bondUntil?: number; helpUntil?: number; lastParley?: number; lunDao?: number; home0?: string; orig?: boolean; vow?: boolean;
+  /** 第三十六步：宗门名册上的门人（宗门 id / 名册序号） */
+  ros?: string; rosI?: number;
 }
 export const npcMap = (d: NpcData): MapId => d.map ?? 'tiannan';
 /** 各图常住修士 / 凡人数量 */
@@ -65,7 +68,8 @@ const MN = ['云', '风', '清', '玄', '明', '远', '松', '鹤', '天', '道'
 const FN = ['婉', '月', '雪', '灵', '儿', '秀', '芸', '霜', '凝', '烟', '琴', '瑶', '思', '玉', '蓉', '菲', '素', '青', '璇', '若', '紫', '晴', '湘', '莲'];
 const COMPOUND = ['欧阳', '慕容', '上官', '司马'];
 
-function makeName(rnd: () => number, sex: 'm' | 'f') {
+export const SECT_ROBE_OF = (sid: string) => SECT_ROBE[sid];
+export function makeName(rnd: () => number, sex: 'm' | 'f') {
   let s: string;
   const r = rnd();
   if (r < 0.06) s = COMPOUND[Math.floor(rnd() * COMPOUND.length)];
@@ -255,7 +259,7 @@ export class NpcWorld {
 
   constructor(game: Game) { this.game = game; }
   /** 第二十二步：在某地的街巷 / 广场上找个落脚点（贴图布局的城镇宗门）；否则按旧法随机散布 */
-  private homeAt(l: LocDef, rnd: () => number, sx: number, sy: number, dy = 0) {
+  homeAt(l: LocDef, rnd: () => number, sx: number, sy: number, dy = 0) {
     const s = l.map === ACTIVE_MAP ? this.game.space?.spot(l, rnd) : null;
     return s ?? { x: l.x * WORLD_SCALE + (rnd() - 0.5) * sx, y: l.y * WORLD_SCALE + (rnd() - 0.5) * sy + dy };
   }
@@ -318,7 +322,9 @@ export class NpcWorld {
   }
   private reindex() { this.byId = new Map(this.list.map((n) => [n.id, n])); }
 
-  toSave() { return this.list.map((n) => ({ ...n, x: Math.round(n.x), y: Math.round(n.y), tx: Math.round(n.tx), ty: Math.round(n.ty), age: +n.age.toFixed(2) })); }
+  /** 第三十六步：名册门人散去时，从在场名单中抹掉 */
+  forget(id: string) { this.active.delete(id); }
+  toSave() { return this.list.filter((n) => !n.ros || Roster.notable(n)).map((n) => ({ ...n, x: Math.round(n.x), y: Math.round(n.y), tx: Math.round(n.tx), ty: Math.round(n.ty), age: +n.age.toFixed(2) })); }
   fromSave(a: NpcData[] | undefined, wk = 1) {
     this.active.clear();
     if (!a || !a.length) { this.newWorld(); return; }
@@ -363,6 +369,8 @@ export class NpcWorld {
     if (d.grudge > 0) return true;
     if (d.bond || d.helpUntil) return false;
     if (this.game.rel?.hostileExtra(d)) return true;
+    // 第三十六步：名册门人守山门的规矩——宗门未与你翻脸，就不会无故出手
+    if (d.ros && !d.hunting) return false;
     if (d.faction === 'demon' && (d.pers === 'ruthless' || d.pers === 'greedy')) return true;
     if ((d.pers === 'greedy' || d.pers === 'ruthless') && d.faction === 'rogue') return true;
     if (d.pers === 'righteous' && rep < -40) return true;
@@ -434,7 +442,7 @@ export class NpcWorld {
     }
     // 补员：新入道的修士
     for (const m of ['tiannan', 'luanxing', 'dajin'] as MapId[]) {
-      const alive = this.list.filter((n) => n.alive && !n.canon && npcMap(n) === m).length, cap = POP[m] - 10;
+      const alive = this.list.filter((n) => n.alive && !n.canon && !n.ros && npcMap(n) === m).length, cap = POP[m] - 10;
       if (alive >= cap) continue;
       const homes = locsOf(m).filter((l) => l.type !== 'danger' && l.type !== 'secret');
       const rr = mulberry32((g.day * 7919 + m.length * 131) | 0);

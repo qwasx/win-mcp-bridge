@@ -1,4 +1,5 @@
 // 第四～六步的界面：对话、交易、城镇、拍卖会、红颜录、大事记
+import { SECT_DEFS, SECT_DEF, sectTitle, RANKS } from '../world/roster';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Game } from '../world/game';
 import type { DNode, DOpt, Shop, ShopStock } from '../world/modal';
@@ -357,6 +358,7 @@ function RelationsPanel({ game }: { game: Game }) {
   // 第三十五步：宗门名册——所有宗门（有门人在册的）按同盟分组，附声望、门人、你杀过几人、原著人物
   const sectIds = new Set<string>(Object.keys(S.sect));
   for (const d of game.npcs.list) if (d.sect && LOC_BY_ID.get(d.sect)) sectIds.add(d.sect);
+  for (const sd of SECT_DEFS) if (LOC_BY_ID.get(sd.id)) sectIds.add(sd.id);
   const groupOf = (id: string) => allyGroup(id)?.name ?? '';
   const sects = [...sectIds].map((id) => [id, S.sect[id] ?? 0] as [string, number])
     .sort((a, b) => (SECT_ALLY.findIndex((g) => g.ids.includes(a[0])) + 1 || 99) - (SECT_ALLY.findIndex((g) => g.ids.includes(b[0])) + 1 || 99) || a[1] - b[1]);
@@ -424,13 +426,20 @@ function RelationsPanel({ game }: { game: Game }) {
               <div key={id}>
                 {grp !== prevGrp && <div className="sec-title" style={{ marginTop: i ? 10 : 2 }}>{grp || '其余宗门'}</div>}
                 <div className="rel-sect" style={{ cursor: 'pointer' }} onClick={() => { click(); setOpenSect(openSect === id ? null : id); }}>
-                  <b>{openSect === id ? '▾ ' : '▸ '}{LOC_BY_ID.get(id)?.name ?? id}{id === mySect ? <small>（本门）</small> : null}</b>
+                  <b>{openSect === id ? '▾ ' : '▸ '}{sectTitle(id)}{SECT_DEF.has(id) ? <small style={{ fontWeight: 400 }}>　{game.roster.aliveCount(id)}人</small> : null}{id === mySect ? <small>（本门）</small> : null}</b>
                   <div className="favor-bar"><i style={{ width: `${(v + 100) / 2}%`, background: v >= 0 ? 'linear-gradient(90deg,#9fd08a,#3f9a5a)' : 'linear-gradient(90deg,#d88a5a,#b8302a)' }} /></div>
                   <span style={{ color: v <= SECT_SIEGE ? '#c0302a' : v <= SECT_HOSTILE ? '#d06a3a' : v >= 30 ? '#3f9a5a' : '#7a6a58' }}>{v <= SECT_ELDER ? '长老出手' : v <= SECT_SIEGE ? '围剿' : v <= SECT_HOSTILE ? '敌视' : v <= -15 ? '冷淡' : v >= 30 ? '友善' : '中立'} {Math.round(v)}</span>
                 </div>
                 {openSect === id && (
                   <div className="rel-roster" style={{ padding: '4px 10px 10px 22px', fontSize: 13, lineHeight: 1.7, color: '#4a3f34' }}>
-                    <div>门人在册 {alive.length} 人{top ? `（最高 ${REALMS[top].name}）` : ''}{mem.length - alive.length ? `　·　已故 ${mem.length - alive.length}` : ''}{kills ? <b style={{ color: '#a8352a' }}>　·　死于你手 {kills} 人</b> : null}</div>
+                    {SECT_DEF.has(id) ? (() => { const sm = game.roster.summary(id); return (<>
+                      <div>名册 {game.roster.aliveCount(id)} / {SECT_DEF.get(id)!.n} 人　·　{RANKS.filter((r) => sm[r].n).map((r) => `${r} ${sm[r].alive}`).join(' · ')}{kills ? <b style={{ color: '#a8352a' }}>　·　死于你手 {kills} 人</b> : null}</div>
+                      {game.roster.leaders(id).map((m) => (
+                        <div key={m.i} style={{ display: 'flex', gap: 10, alignItems: 'baseline', opacity: m.dead ? 0.45 : 1 }}>
+                          <b style={{ fontWeight: 400, minWidth: 64 }}>{m.name}</b><small style={{ minWidth: 96 }}>{m.rank}</small>
+                          <span style={{ minWidth: 64 }}>{m.realmText}</span><span style={{ color: '#7a6a58' }}>{m.dead ? '已故' : ''}</span>
+                        </div>))}
+                    </>); })() : <div>门人在册 {alive.length} 人{top ? `（最高 ${REALMS[top].name}）` : ''}{mem.length - alive.length ? `　·　已故 ${mem.length - alive.length}` : ''}{kills ? <b style={{ color: '#a8352a' }}>　·　死于你手 {kills} 人</b> : null}</div>}
                     {named.map((d) => { const t = R.tier(d) as Tier; return (
                       <div key={d.id} style={{ display: 'flex', gap: 10, alignItems: 'baseline', opacity: d.alive ? 1 : 0.45 }}>
                         <b style={{ fontWeight: 400, minWidth: 64 }}>{d.name}</b><small style={{ minWidth: 96 }}>{d.title ?? ''}</small>
@@ -438,7 +447,7 @@ function RelationsPanel({ game }: { game: Game }) {
                         <span style={{ color: d.alive ? REL_COLOR[t] : '#7a6a58' }}>{d.alive ? (d.met ? t : '未曾谋面') : '已故'}</span>
                       </div>
                     ); })}
-                    {!named.length && <div className="hint">名册上多是无名弟子。</div>}
+                    {!named.length && !SECT_DEF.has(id) && <div className="hint">名册上多是无名弟子。</div>}
                   </div>
                 )}
               </div>

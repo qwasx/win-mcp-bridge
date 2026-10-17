@@ -187,7 +187,7 @@ export function genericFor(d: NpcData): string {
   }
   if (d.role === 'monk') return pick(old ? P.monkOld : P.monk, k);
   // 地域：慕兰、乱星海、大晋的散修与商人有一半用地域装束
-  const regional = d.faction !== 'sect' && d.faction !== 'demon' && (hash(k + 'r') & 1) === 0;
+  const regional = (d.faction !== 'demon' && (d.faction !== 'sect' || map !== 'tiannan')) && (hash(k + 'r') & 1) === 0;   // 第三十六步：星宫 / 逆星盟 / 太一门 / 叶家的门人也有一半着地域装束
   if (d.home === 'mulan' || d.home === 'tuwu' || d.home === 'tianlan') return pick(f ? P.mulanF : P.mulanM, k);
   if (regional && map === 'luanxing') return pick(f ? P.seaF : old ? P.seaOld : P.seaM, k);
   if (regional && map === 'dajin') return pick(f ? P.jinF : P.jinM, k);

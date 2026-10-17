@@ -13,6 +13,7 @@ import { REALMS, realmName } from '../data/realms';
 import * as C from './cultivation';
 import { ITEM_LIST, itemDef } from '../data/items';
 import type { DNode, DOpt } from './modal';
+import { SECT_DEF, sectTitle, rankOf } from './roster';
 
 export type TieKind = 'kin' | 'friend' | 'master' | 'disciple' | 'sworn' | 'lover' | 'foe';
 /** r：对方是我的什么人（兄 / 妹 / 父 / 师父 / 徒儿 / 好友 / 道侣 / 义兄 / 宿敌……） */
@@ -28,6 +29,8 @@ export interface RelState {
   siegeCd: number; hireCd: number; hunterCd: number; mediateCd: number; monthly: number;
   /** 第三十五步：你亲手杀了各宗多少门人 */
   killed?: Record<string, number>;
+  /** 第三十六步：宗门寻仇（待发） / 冷却 */
+  rev?: { sid: string; day: number; n: number; vr: number; top: boolean; who: string }[]; revCd?: Record<string, number>;
 }
 
 /** 第三十五步：同盟宗门——杀其一派门人，盟友也记一半的账 */
@@ -37,6 +40,8 @@ export const SECT_ALLY: { name: string; ids: string[] }[] = [
   { name: '魔道六宗', ids: ['guiling', 'hehuan', 'yuling', 'qianhuan', 'tiansha', 'yinluo'] },
   { name: '大晋魔道', ids: ['tianmo', 'yinluo'] },
   { name: '大晋正道', ids: ['taiyi', 'yejia'] },
+  { name: '逆星盟', ids: ['leikong', 'jiyin'] },
+  { name: '慕兰法士', ids: ['tianlan', 'mulan'] },
 ];
 export const allyGroup = (sid?: string) => (sid ? SECT_ALLY.find((g) => g.ids.includes(sid)) : undefined);
 export const allyOf = (sid?: string) => { const o = new Set<string>(); if (sid) for (const g of SECT_ALLY) if (g.ids.includes(sid)) for (const x of g.ids) if (x !== sid) o.add(x); return [...o]; };
@@ -82,7 +87,7 @@ export class Relations {
   get npcs() { return this.game.npcs; }
   power(d: NpcData) { return lv(d.realm, d.stage); }
   playerLv() { const h = this.game.hero; return lv(h.realm, h.stage); }
-  sectName(id?: string) { return id ? LOC_BY_ID.get(id)?.name ?? id : ''; }
+  sectName(id?: string) { return sectTitle(id); }
   log(text: string, kind: RelLog['kind'] = 'info') { const L = this.S.log; L.push({ day: Math.floor(this.game.day), text, kind }); if (L.length > 120) L.splice(0, L.length - 120); }
 
   // ------------------------------------------------------------ 关系网生成
@@ -224,6 +229,14 @@ export class Relations {
       if (rep <= SECT_ELDER) this.log(`${this.sectName(d.sect)}震怒——门中长老放话，要亲手取你性命！`, 'bad');
       else if (rep <= SECT_SIEGE) this.log(`${this.sectName(d.sect)}将你列为头号大敌，执法堂已在调派人手。`, 'bad');
     }
+    // 第三十六步：宗门名册在，便有人寻仇——杀一个外门弟子来三个师兄，杀了长老便是倾巢而出
+    if (d.sect && SECT_DEF.has(d.sect) && !selfDefense) {
+      const S = this.S, day = g.day, top = d.rosI !== undefined ? rankOf(SECT_DEF.get(d.sect)!, d.rosI) : '';
+      const high = d.canon && d.realm >= 3 || top === '掌门' || top === '太上长老' || top === '长老';
+      const p = (S.rev ??= []).find((r) => r.sid === d.sect);
+      if (p) { p.n = Math.min(8, p.n + 1); p.vr = Math.max(p.vr, d.realm); p.top ||= high; }
+      else if ((S.revCd?.[d.sect] ?? -1) <= day || high) S.rev.push({ sid: d.sect, day: day + rand(0.4, 2.5), n: Math.min(8, 3 + (d.realm >= 3 ? 3 : d.realm >= 2 ? 1 : 0) + (high ? 2 : 0)), vr: d.realm, top: high, who: d.name });
+    }
     // 他张贴的悬赏随之作废
     this.S.wanted = this.S.wanted.filter((w) => w.by !== d.id);
     if (heard.length) {
@@ -331,6 +344,18 @@ export class Relations {
       if (!d.bond && d.met && Math.random() < days / 45) { if (d.favor > 5 && d.favor < 60) d.favor -= 1; else if (d.favor < -5 && !d.grudge) d.favor += 1; }
       if (d.grudge === 1 && d.why !== undefined && Math.random() < days / 1500) { d.grudge = 0; d.why = undefined; }
     }
+    // 第三十六步：宗门寻仇队
+    if (S.rev?.length) {
+      for (const r of [...S.rev]) {
+        if (r.day > day) continue;
+        const loc = LOC_BY_ID.get(r.sid);
+        if (day - r.day > 120) { S.rev.splice(S.rev.indexOf(r), 1); continue; }
+        if (!loc || loc.map !== ACTIVE_MAP || g.pursuit.active || h.realm < 1) { r.day = day + 0.5; continue; }
+        S.rev.splice(S.rev.indexOf(r), 1); (S.revCd ??= {})[r.sid] = day + 15;
+        this.revenge(r.sid, r.n, r.vr, r.top, r.who);
+        break;
+      }
+    }
     // 宗门围剿
     for (const [sid, rep] of Object.entries(S.sect)) {
       if (rep > SECT_SIEGE || S.siegeCd > day || h.realm < 1) continue;
@@ -409,14 +434,33 @@ export class Relations {
     this.log(`${d.name}（${d.why ?? '仇家'}）开始追杀你。`, 'bad');
     return true;
   }
+  /** 第三十六步：从名册里点出寻仇的门人（3–8 人），头领驾遁光追来，其余循迹合围 */
+  revenge(sid: string, n: number, vr: number, top: boolean, who: string) {
+    const g = this.game, h = g.hero, def = SECT_DEF.get(sid); if (!def) return;
+    // 以死者与你二者中较高的境界为准；杀了长老或运气不好，还会多来一位高一个大境界的师长领队
+    const base = Math.max(1, Math.min(def.top, Math.max(vr, h.realm)));
+    const team = top || Math.random() < 0.35 ? g.roster.pick(sid, 1, Math.min(def.top, base + 1), Math.min(def.top, base + 1), { skipTop: !top }) : [];
+    team.push(...g.roster.pick(sid, n - team.length, Math.max(1, base - 1), base, { skipTop: true }));
+    if (!team.length) return;
+    const why = `为同门${who}报仇`;
+    for (const d of team) { d.grudge = Math.max(d.grudge ?? 0, 1); d.why = why; this.setFavor(d, Math.min(d.favor, -60)); }
+    const lead = team[0];
+    const viaP = lead.realm >= 2 && !g.pursuit.active && this.startHunt(lead, true, true, team.slice(1, 3));
+    for (const d of team) { if (viaP && (d === lead || d.chasing)) continue; this.startHunt(d, true, true); if (d !== lead) { d.x = lead.x + rand(-260, 260); d.y = lead.y + rand(-200, 200); } }
+    const s = `${def.name}${lead.title?.replace(def.name, '') ?? ''}${lead.name}（${realmName(lead.realm, lead.stage)}）率门人${team.length - 1}人下山，${why}！`;
+    g.news(s, 'rumor'); this.log(s, 'bad');
+    g.toast(`${def.name}派出${team.length}人寻仇——${lead.name}的神识已远远锁定了你！`, 'warn');
+  }
   siege(sid: string) {
     const g = this.game, S = this.S, pl = this.playerLv();
+    // 第三十六步：先从名册里点齐执法弟子
+    if (SECT_DEF.has(sid)) { g.roster.pick(sid, 4, Math.max(1, g.hero.realm - 1), g.hero.realm + 1, { skipTop: true }); if (this.sectRep(sid) <= SECT_ELDER) g.roster.pick(sid, 1, Math.max(3, g.hero.realm), 9, {}); }
     const mem = this.npcs.list.filter((d) => d.alive && d.sect === sid && d.realm >= 1 && !d.stay && !d.beauty && !d.bond).sort((a, b) => this.power(b) - this.power(a));
     const pickd = mem.filter((d) => this.power(d) >= pl - 8).slice(0, 4);
     const team = pickd.length >= 2 ? pickd : mem.slice(0, 3);
     // 第三十五步：声望跌破 -80，门中原著长老亲自出手，领队围剿
     if (this.sectRep(sid) <= SECT_ELDER) {
-      const elder = this.npcs.list.filter((d) => d.alive && d.sect === sid && d.canon && d.realm >= 2 && !d.bond && !d.beauty && !team.includes(d) && !this.npcs.activeOf(d.id)).sort((a, b) => this.power(b) - this.power(a))[0];
+      const elder = this.npcs.list.filter((d) => d.alive && d.sect === sid && (d.canon || /长老|掌门/.test(d.title ?? '')) && d.realm >= 2 && !d.bond && !d.beauty && !team.includes(d) && !this.npcs.activeOf(d.id)).sort((a, b) => this.power(b) - this.power(a))[0];
       if (elder) { team.unshift(elder); if (team.length > 4) team.length = 4; }
     }
     if (!team.length) return;
