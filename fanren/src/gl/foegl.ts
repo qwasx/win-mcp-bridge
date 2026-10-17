@@ -6,6 +6,7 @@ import type { Hz, El } from '../world/foeskills';
 import { EL_COL } from '../world/foeskills';
 import { FxSys, col, mixc, RGB, fireCell, smokeCell, extOK } from './fx';
 import { C } from './atlas';
+import { bakeWarnBig, bakeFoeFire } from './bakefx';
 
 const TAU = Math.PI * 2;
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
@@ -57,6 +58,7 @@ function drawCircleWarn(F: FxSys, h: Hz, t: number, dt: number) {
     F.ground(C.Rune, h.x, h.y, h.r * 0.98, t * 0.8, wc, 0.25 + 0.35 * end, 1, SQ);
     if (extOK()) { F.ground(C.KDots, h.x, h.y, h.r * 0.8, -t * 1.1, wc, 0.3 + 0.4 * end, 1, SQ); F.ground(C.KVortex, h.x, h.y, h.r * 0.55 * (0.6 + 0.4 * u), -t * 2.5, wc, 0.2 + 0.3 * end, 1, SQ); }
     F.ground(C.Bagua, h.x, h.y, h.r * 0.55, -t * 1.4, mixc(wc, WHITE, 0.3), 0.25 + 0.3 * end, 1, SQ);
+    bakeWarnBig(F, h.x, h.y, h.r, t, wc, ic, end);
     if (Math.random() < dt * 30) { const a = Math.random() * TAU; F.emit({ x: h.x + Math.cos(a) * h.r, y: h.y + Math.sin(a) * h.r * SQ, vy: rnd(-160, -80), life: rnd(0.5, 0.9), s0: 5, s1: 1, c: wc, cell: C.Glow }); }
   }
   flair(F, h, h.x, h.y, h.r, u, dt);
@@ -134,7 +136,10 @@ export function drawFoeGL(F: FxSys, c: Combat, t: number, dt: number) {
       if (h.k === 'circle') drawCircleWarn(F, h, t, dt);
       else if (h.k === 'cone') drawConeWarn(F, h, t, dt);
       else drawLineWarn(F, h, t, dt);
-    } else if (h.pooling) drawPool(F, h, t, dt);
+    } else {
+      if (!(h as any)._bk) { (h as any)._bk = 1; bakeFoeFire(h); }
+      if (h.pooling) drawPool(F, h, t, dt);
+    }
   }
   const sh = (c as any).fxShock; if (sh) { F.shock(sh.x, sh.y, sh.r, 18, 0.6); (c as any).fxShock = null; }
   // 护体与狂暴

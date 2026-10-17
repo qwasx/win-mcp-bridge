@@ -2,6 +2,8 @@
 // 所有图样都是白色遮罩，按元素上色；add=0 时为普通覆盖（墨色），add=1 为发光。
 import { K } from './fxbake';
 import { FxSys, RGB, mixc, col } from './fx';
+import { EL_COL } from '../world/foeskills';
+const EL_COL_FN = (el: string) => (EL_COL as any)[el] ?? '255,236,200';
 
 const TAU = Math.PI * 2;
 const rnd = (a: number, b: number) => a + Math.random() * (b - a);
@@ -17,6 +19,7 @@ interface Decal { k: number; x: number; y: number; r0: number; r1: number; t: nu
 const D: Decal[] = [];
 /** r0→r1 半径随寿命变化；sq<1 为地面贴花；h 为纵横比（1 为正方） */
 export function decal(k: number, x: number, y: number, r0: number, r1: number, life: number, c: RGB, a: number, o: { add?: number; sq?: number; rot?: number; vr?: number; h?: number; ease?: number; fin?: number } = {}) {
+  if (!Number.isFinite(x + y + r0 + r1 + life) || life <= 0) return;
   if (D.length >= 180) D.shift();
   D.push({ k, x, y, r0, r1, t: 0, life, c, a, add: o.add ?? 1, sq: o.sq ?? 1, rot: o.rot ?? 0, vr: o.vr ?? 0, h: o.h ?? 1, ease: o.ease ?? 2.2, fin: o.fin ?? 0.06 });
 }
@@ -111,12 +114,11 @@ export function bakeSpawn(v: any) {
       if (fx === 'blood') inkSplat(v.x2, v.y2 + 20, 110, 0.45, [0.45, 0.03, 0.05]);
       break;
     }
-    case 'bigsword': {   // 巨剑：一笔浓墨剑痕 + 金芒，落点裂地
-      const ang = Math.atan2(v.y2 - v.y, v.x2 - v.x), len = Math.hypot(v.x2 - v.x, v.y2 - v.y);
-      const mx = (v.x + v.x2) / 2, my = (v.y + v.y2) / 2;
-      decal(K.Brush0, mx, my, len * 0.62, len * 0.7, 1.1, INK, 0.55, { add: 0, rot: ang + Math.PI / 2, h: 0.55, ease: 7 });
-      decal(K.Brush1, mx, my, len * 0.6, len * 0.68, 0.45, mixc(cc, WHITE, 0.5), 0.9, { rot: ang + Math.PI / 2, h: 0.55, ease: 7 });
-      decal(K.Crack, v.x2, v.y2, 120, 200, 1.6, INK, 0.55, { add: 0, sq: SQ, rot: Math.random() * TAU, ease: 9 });
+    case 'bigsword': {   // 巨剑：落点一笔浓墨剑痕 + 金芒新月，裂地
+      const ang = Math.atan2(v.y2 - v.y, v.x2 - v.x), R = Math.min(260, 120 + (v.r ?? 60) * 1.4);
+      decal(K.Brush0, v.x2, v.y2, R * 0.85, R, 1.2, INK, 0.5, { add: 0, rot: ang, h: 0.6, ease: 7 });
+      decal(K.Brush1, v.x2, v.y2 - 20, R * 0.8, R * 0.95, 0.4, mixc(cc, WHITE, 0.5), 0.85, { rot: ang, h: 0.6, ease: 7 });
+      decal(K.Crack, v.x2, v.y2, R * 0.6, R * 0.95, 1.6, INK, 0.55, { add: 0, sq: SQ, rot: Math.random() * TAU, ease: 9 });
       break;
     }
     case 'cone': {
@@ -192,6 +194,7 @@ export function bakeEvent(ev: any) {
     case 'shatter': { const r = ev.r ?? 60; decal(K.Hex, ev.x, ev.y, r * 1.0, r * 2.4, 0.45, mixc(cc, WHITE, 0.3), 0.8, { ease: 3 }); decal(K.Wave12, ev.x, ev.y + r * 0.5, r, r * 3.2, 0.5, cc, 0.6, { sq: SQ }); break; }
     case 'ward': { const r = ev.r ?? 60; decal(K.Hex, ev.x, ev.y, r * 2.2, r * 1.1, 0.45, cc, 0.6, { ease: 3 }); break; }
     case 'dunflash': if (ev.kind === 'thunder') { decal(K.ElecRing0, ev.x, ev.y, 40, 170, 0.35, cc, 0.9, { sq: SQ, vr: 6 }); decal(K.ElecRing1, ev.x2 ?? ev.x, ev.y2 ?? ev.y, 200, 60, 0.35, cc, 0.9, { sq: SQ, vr: -6 }); } break;
+    case 'cast': { const k = ev.power ?? 1; decal(k >= 0.8 ? K.Seal : K.Flower8, ev.x, ev.y + 40 * k, 30 * k, 110 * k, 0.5, cc, 0.4, { sq: SQ, vr: 2 }); break; }
     case 'block': decal(K.Hex, ev.x, ev.y, 30, 70, 0.25, mixc(cc, WHITE, 0.3), 0.7); break;
   }
 }
@@ -201,8 +204,8 @@ export function bakeStatus(F: FxSys, x: number, y: number, H: number, st: Record
   if (vis <= 0.03) return;
   const cy = y - H * 0.5;
   if (st.freeze) {   // 冰壳：六角晶格罩住全身，脚下霜环
-    F.bk(K.Hex, x, cy, 92 * s, H * 1.25, 0, [0.72, 0.9, 1], 0.42 * vis);
-    F.bk(K.Hex, x, cy, 92 * s, H * 1.25, 0, [1, 1, 1], 0.12 * vis, 0);
+    F.bk(K.Hex, x, cy, 92 * s, H * 1.25, 0, [0.72, 0.9, 1], 0.34 * vis);
+    F.bk(K.Hex, x, cy, 92 * s, H * 1.25, 0, [0.85, 0.95, 1], 0.06 * vis, 0);
     F.bkG(K.RingThin, x, y, 60 * s, 0, [0.8, 0.95, 1], 0.5 * vis, 1, SQ);
   }
   if (st.burn) {
@@ -227,4 +230,43 @@ export function bakeWarnBig(F: FxSys, x: number, y: number, r: number, t: number
   F.bkG(K.Seal, x, y, r * 1.0, t * 0.6, ic, 0.45, 0, SQ);
   F.bkG(K.Seal, x, y, r * 1.0, t * 0.6, wc, 0.25 + 0.4 * end, 1, SQ);
   F.bkG(K.Gear24, x, y, r * 0.6, -t * 1.3, mixc(wc, WHITE, 0.3), 0.2 + 0.4 * end, 1, SQ);
+}
+
+// ---------------------------------------------------------------- 敌方招式落下：按元素留下印记（大招更大更狠）
+export function bakeFoeFire(h: any) {
+  const cc = col(EL_COL_FN(h.el)), big = !!h.big;
+  if (h.k === 'circle') {
+    const x = h.x, y = h.y, r = h.r;
+    switch (h.el) {
+      case 'thunder': case 'gold':
+        decal(K.ElecRing0, x, y, r * 0.4, r * 1.1, 0.45, mixc(cc, WHITE, 0.3), 1, { sq: SQ, vr: 5 });
+        decal(K.Crack, x, y, r * 0.6, r * 0.95, 1.6, INK, 0.5, { add: 0, sq: SQ, rot: Math.random() * TAU, ease: 9 });
+        if (big) decal(K.Solar, x, y - 60, r * 0.6, r * 1.4, 0.3, mixc(cc, WHITE, 0.5), 0.9);
+        break;
+      case 'fire': case 'blood':
+        decal(K.Swirl, x, y, r * 0.4, r * 1.05, 0.6, cc, 0.75, { sq: SQ, vr: 5 });
+        inkSplat(x, y, r * 1.0, 0.35, h.el === 'fire' ? [0.18, 0.07, 0.03] : [0.35, 0.02, 0.04], 2);
+        break;
+      case 'ice': case 'water':
+        decal(K.Hex, x, y, r * 0.5, r * 1.0, 0.9, [0.75, 0.92, 1], 0.4, { sq: SQ });
+        decal(K.Wave8, x, y, r * 0.3, r * 1.2, 0.5, cc, 0.6, { sq: SQ });
+        break;
+      case 'poison': decal(K.Swirl, x, y, r * 0.5, r * 1.0, 1.0, cc, 0.5, { sq: SQ, vr: 2 }); break;
+      case 'earth': case 'phys': case 'metal':
+        decal(K.Crack, x, y, r * 0.7, r * 1.05, 1.8, INK, 0.55, { add: 0, sq: SQ, rot: Math.random() * TAU, ease: 9 });
+        break;
+      case 'ghost': decal(K.Flower12, x, y, r * 0.3, r * 1.0, 0.7, cc, 0.6, { sq: SQ, vr: -2 }); inkSplat(x, y, r * 0.9, 0.35); break;
+      default: decal(K.Wave8, x, y, r * 0.3, r * 1.15, 0.5, cc, 0.6, { sq: SQ });
+    }
+    if (big) { decal(K.Wave12, x, y, r * 0.5, r * 1.6, 0.7, cc, 0.5, { sq: SQ }); decal(K.Rays, x, y - 80, r * 0.3, r * 1.2, 0.35, mixc(cc, WHITE, 0.4), 0.7, { rot: Math.random() * TAU }); }
+  } else if (h.k === 'cone') {
+    const A = Math.atan2(Math.sin(h.ang) / 0.7, Math.cos(h.ang)), d = h.r * 0.55;
+    const x = h.x + Math.cos(A) * d, y = h.y + Math.sin(A) * d * 0.7;
+    if (h.el === 'fire' || h.el === 'blood') for (let i = 0; i < 4; i++) { const a = A + (i - 1.5) * h.spread * 0.45, dd = h.r * rnd(0.35, 0.85); decal(K.Flame, h.x + Math.cos(a) * dd, h.y + Math.sin(a) * dd * 0.7 - 30, 40, h.r * 0.35, rnd(0.35, 0.55), cc, 0.7, { h: 1.6, ease: 1.4 }); }
+    else if (h.el === 'thunder') decal(K.Elec0 + ((Math.random() * 4) | 0), x, y, h.r * 0.5, h.r * 0.55, 0.3, mixc(cc, WHITE, 0.3), 0.9, { rot: A, h: 0.3 });
+    else decal(K.Brush1, x, y, h.r * 0.45, h.r * 0.55, 0.35, mixc(cc, WHITE, 0.4), 0.7, { rot: A + Math.PI / 2, h: 0.7, ease: 6 });
+  } else if (h.dmg > 0) {   // 冲锋 / 直线
+    const x2 = h.x + Math.cos(h.ang) * h.len, y2 = h.y + Math.sin(h.ang) * h.len;
+    decal(K.Crack, x2, y2, h.w * 0.6, h.w * 1.0, 1.4, INK, 0.45, { add: 0, sq: SQ, rot: Math.random() * TAU, ease: 9 });
+  }
 }

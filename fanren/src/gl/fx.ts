@@ -59,7 +59,7 @@ export class FxSys {
   private bq = new Float32Array(16 * 1024); private nbq = 0;
   /** 世界坐标、世界尺寸的烘焙贴图四边形。sq：纵向压扁（地面贴花传 0.5 左右） */
   bk(k: number, x: number, y: number, w: number, h: number, rot: number, c: RGB, a: number, add = 1, sq = 1) {
-    if (a <= 0.004 || this.nbq >= 1024) return;
+    if (!(a > 0.004) || this.nbq >= 1024 || !(w > 0.5 && h > 0.5 && w < 8000 && h < 8000) || !Number.isFinite(x + y + rot)) return;
     const o = this.nbq * 16, q = this.bq;
     q[o] = k; q[o + 1] = x; q[o + 2] = y; q[o + 3] = w; q[o + 4] = h; q[o + 5] = rot; q[o + 6] = c[0]; q[o + 7] = c[1]; q[o + 8] = c[2]; q[o + 9] = a; q[o + 10] = add; q[o + 11] = sq;
     this.nbq++;
@@ -69,7 +69,7 @@ export class FxSys {
   /** 帧末：切到烘焙贴图画完队列，再切回图集 */
   flushBake(atlas: WebGLTexture | null) {
     const T = bakeTex(), n = this.nbq; this.nbq = 0;
-    if (!T || !n) return;
+    if (!T || !n || (globalThis as any).__noBake) return;
     const B = this.B, q = this.bq;
     B.tex(T);
     for (let i = 0; i < n; i++) {

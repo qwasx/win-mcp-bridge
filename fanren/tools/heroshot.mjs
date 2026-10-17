@@ -10,7 +10,7 @@ p.on('pageerror', (e) => console.log('[pageerror] ' + e.message));
 p.on('console', (m) => { if (m.type() === 'error') console.log('[console] ' + m.text()); });
 await p.goto('http://localhost:4173/?auto=new', { waitUntil: 'load' });
 await p.waitForFunction(() => !!window.__game && window.__game.renderer, { timeout: 90000 });
-await p.evaluate((Z) => { window.__FANREN_NORELOAD = true; const g = window.__game; g.story.skipAll(); g.story.openT = -1; g.modal = null; g.emitModal(); g.revealAll = true; g.debugSeeAll = true; g.teleport(251520, 143800); g.cam.targetZoom = g.cam.zoom = Z; g.cinema = () => {}; setInterval(() => { g.hero.hp = 1; g.hero.mp = 1; }, 100); }, Number(process.env.Z || 0.6));
+await p.evaluate((Z, NB) => { window.__FANREN_NORELOAD = true; const g = window.__game; g.story.skipAll(); g.story.openT = -1; g.modal = null; g.emitModal(); g.revealAll = true; g.debugSeeAll = true; g.teleport(251520, 143800); g.cam.targetZoom = g.cam.zoom = Z; g.cinema = () => {}; if (NB) window.__noBake = true; setInterval(() => { g.hero.hp = 1; g.hero.mp = 1; }, 100); }, Number(process.env.Z || 0.6), !!process.env.NOBAKE);
 await new Promise((r) => setTimeout(r, 8000));
 let i = 0;
 for (const spec of args.slice(1)) {
