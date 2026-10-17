@@ -310,7 +310,7 @@ export class Combat {
     g.player.st.faceToward(a.dx, a.dy, false);
     this.exec(sr, lv, a, this.pStats.atk, this.pStats.realm);
     this.gainXp(id, 1);
-    audio.sfx(s.school === '雷' ? 'thunder' : 'whoosh');
+    audio.dir.cast(s, g.player.x, g.player.y);
   }
 
   private setCd(id: string, cd: number) { this.cds.set(id, cd); this.cdMax.set(id, cd); }
@@ -752,6 +752,7 @@ export class Combat {
     e.kx += kdx / kd * kb; e.ky += kdy / kd * kb * 0.7;
     const power = Math.min(3, 0.6 + frac * 6 + (crit ? 0.8 : 0));
     this.fxq.push({ k: 'hit', x: e.x + rand(-8, 8), y: e.y - this.hitY(e), color: SCHOOL_COL[src.school as School] ?? '255,236,200', power, crit, dir: Math.atan2(kdy, kdx) });
+    audio.dir.hit(e.x, e.y, src.school, power);
     this.game.juice(crit ? 0.055 : frac > 0.25 ? 0.04 : 0, crit ? 0.22 : 0.06 + Math.min(0.2, frac));
     if (gap > 0 && Math.random() < 0.3) this.texts.push({ x: e.x, y: e.y - 140, s: '境界压制', color: '#c0a8ff', t: 0, vy: -30 });
     this.texts.push({ x: e.x + rand(-14, 14), y: e.y - 80, s: String(d), color: crit ? '#ffd040' : combo ? '#ff9a5a' : '#fff4e0', t: 0, big: crit || !!combo, vy: -70 });
@@ -800,6 +801,7 @@ export class Combat {
     const g = this.game, h = g.hero;
     e.dead = true; e.deathT = 0;
     h.kills = (h.kills ?? 0) + 1;
+    audio.dir.kill(e);
     this.onKill?.(e);
     if (this.lock === e) this.lock = null;
     // 斩杀魔修：血气未散，偶尔引来其同门长老

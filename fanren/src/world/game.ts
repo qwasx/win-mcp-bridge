@@ -832,6 +832,7 @@ export class Game {
     if (this.uiTimer <= 0) { this.uiTimer = 0.12; this.updateUI(); }
     this.saveTimer += dt;
     if (this.saveTimer > 20) { this.saveTimer = 0; this.save(0); }
+    audio.tick(this, dt);
   }
   private bnWarned = false;
 
