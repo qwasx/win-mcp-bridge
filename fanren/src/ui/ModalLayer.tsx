@@ -16,6 +16,7 @@ import { TIER_COLOR as REL_COLOR } from '../world/relations';
 import type { Tier } from '../world/relations';
 import type { NpcData } from '../world/npc';
 import { PERS_NAME } from '../world/npc';
+import { portraitFor } from '../data/portraits';
 
 const TIER_COLOR = ['#5a544a', '#2f6b5e', '#2b5a8a', '#7a3a9a', '#b8802a', '#a8352a', '#d04a20'];
 const TYPE_NAME: Record<string, string> = { pill: '丹药', herb: '灵草', material: '材料', talisman: '符箓', scroll: '功法', artifact: '法宝', misc: '杂物' };
@@ -72,6 +73,7 @@ function DialogBox({ game, node }: { game: Game; node: DNode }) {
     return () => clearInterval(id);
   }, [node]);
   const done = shown >= full.length;
+  const portrait = portraitFor(node, game.npcs?.list);
   const pick = (o: DOpt) => {
     if (o.disabled) return;
     audio.sfx(o.tone === 'love' ? 'chime' : 'click');
@@ -91,7 +93,7 @@ function DialogBox({ game, node }: { game: Game; node: DNode }) {
     <div className="dlg-mask">
       <div className={'dlg ' + (node.mood ?? 'normal')} onClick={() => !done && setShown(full.length)}>
         <div className="dlg-face">
-          {node.portrait ? <div className="dlg-portrait" style={{ backgroundImage: `url(${node.portrait})` }} /> : node.look ? <Bust look={node.look} /> : <div className="dlg-seal">{node.speaker.slice(0, 1)}</div>}
+          {portrait ? <div className="dlg-portrait" style={{ backgroundImage: `url(${portrait})` }} /> : node.look ? <Bust look={node.look} /> : <div className="dlg-seal">{node.speaker.slice(0, 1)}</div>}
         </div>
         <div className="dlg-main">
           <div className="dlg-head"><span className="dlg-name">{node.speaker}</span>{node.title && <span className="dlg-title">{node.title}</span>}</div>
@@ -459,7 +461,7 @@ function ChroniclePanel({ game }: { game: Game }) {
 }
 
 // ---------------------------------------------------------------- 帮助
-export const VERSION = 'v0.34 · 万象流光';
+export const VERSION = 'v0.34.1 · 众生有相';
 function HelpPanel({ game }: { game: Game }) {
   const [tab, setTab] = useState(0);
   const T = ['操作', '修炼', '战斗', '人界', '神识', '机缘'];

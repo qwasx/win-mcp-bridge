@@ -2,6 +2,7 @@
 // - 每个修士都是一个“人”：姓名、境界、门派、性格、目标、钱财、对你的好感与仇怨
 // - 神识外：粗略模拟（赶路、闭关、突破、衰老、坐化、死于险地）；神识附近：完整行为（走/飞/打坐/采药/斗法/劫道/逃命）
 // - 互相以神识感知：比你强又贪婪的会来劫道；比你弱的见你恶名会逃；你可以交谈、交易、切磋、赠礼、请教、出手
+import { tagLook } from '../data/portraits';
 import type { Game } from './game';
 import { CharState, drawCharacter, drawSwordUnderFeet, randomLook, Look, NpcRole } from '../gfx/character';
 import { LOCATIONS, LOC_BY_ID, WORLD_SCALE, LocDef, ACTIVE_MAP, locHere, locsOf, MapId } from '../data/world';
@@ -250,7 +251,9 @@ export class NpcWorld {
   }
 
   // ------------------------------------------------------------ 工具
-  look(d: NpcData): Look {
+  /** 外貌（同时登记对话立绘，对话框凭外貌找到这张立绘） */
+  look(d: NpcData): Look { return tagLook(this.lookRaw(d), d); }
+  private lookRaw(d: NpcData): Look {
     if (d.beauty) return beautyLook(d.beauty);
     let s = d.seed;
     const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
