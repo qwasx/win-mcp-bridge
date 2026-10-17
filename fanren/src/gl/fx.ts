@@ -4,6 +4,7 @@ import { Batch } from './batch';
 import { C, atlasExtReady } from './atlas';
 
 export type RGB = [number, number, number];
+import { bakeTex, bakeUV } from './fxbake';
 const cache = new Map<string, RGB>();
 /** "255,130,40" / "#ff8228" -> [1, .51, .16] */
 export function col(s: string | RGB): RGB {
@@ -53,6 +54,30 @@ export class FxSys {
   shocks: { x: number; y: number; r: number; amp: number; t: number; dur: number; R: number; A: number }[] = [];
 
   constructor(B: Batch) { this.B = B; }
+
+  // ---------------------------------------------------------------- 第三十五步：烘焙特效贴图（先入队，帧末一次性画）
+  private bq = new Float32Array(16 * 1024); private nbq = 0;
+  /** 世界坐标、世界尺寸的烘焙贴图四边形。sq：纵向压扁（地面贴花传 0.5 左右） */
+  bk(k: number, x: number, y: number, w: number, h: number, rot: number, c: RGB, a: number, add = 1, sq = 1) {
+    if (a <= 0.004 || this.nbq >= 1024) return;
+    const o = this.nbq * 16, q = this.bq;
+    q[o] = k; q[o + 1] = x; q[o + 2] = y; q[o + 3] = w; q[o + 4] = h; q[o + 5] = rot; q[o + 6] = c[0]; q[o + 7] = c[1]; q[o + 8] = c[2]; q[o + 9] = a; q[o + 10] = add; q[o + 11] = sq;
+    this.nbq++;
+  }
+  /** 地面贴花（半径 r，先旋转再按透视压扁） */
+  bkG(k: number, x: number, y: number, r: number, rot: number, c: RGB, a: number, add = 1, squash = 0.5) { this.bk(k, x, y, r * 2, r * 2, rot, c, a, add, squash); }
+  /** 帧末：切到烘焙贴图画完队列，再切回图集 */
+  flushBake(atlas: WebGLTexture | null) {
+    const T = bakeTex(), n = this.nbq; this.nbq = 0;
+    if (!T || !n) return;
+    const B = this.B, q = this.bq;
+    B.tex(T);
+    for (let i = 0; i < n; i++) {
+      const o = i * 16;
+      B.quadS(-2, B.sx(q[o + 1]), B.sy(q[o + 2]), q[o + 3] * B.z, q[o + 4] * B.z, q[o + 5], q[o + 6], q[o + 7], q[o + 8], q[o + 9], q[o + 10], bakeUV(q[o]), q[o + 11]);
+    }
+    B.tex(atlas);
+  }
 
   get count() { return this.np; }
 

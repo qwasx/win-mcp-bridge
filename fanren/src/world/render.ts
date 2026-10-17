@@ -643,6 +643,7 @@ export class Renderer {
       game.story.drawGL(F, t);
       F.drawRings(dt);
       F.drawParticles();
+      F.flushBake(this.stage!.atlas);
     } else {
       game.combat.fxq.length = 0;
     }

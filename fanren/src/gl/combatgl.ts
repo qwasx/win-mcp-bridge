@@ -1,4 +1,5 @@
 // 战斗特效（WebGL）：弹道、法术、领域、护盾、受击。读取 Combat 的状态绘制，并在新特效出现时触发粒子爆发。
+import { bakeSpawn, bakeVfx, bakeField, bakeEvent, bakeStatus, drawDecals } from './bakefx';
 import type { Combat } from '../world/combat';
 import { FxSys, col, mixc, RGB, fireCell, smokeCell, extOK } from './fx';
 import { C } from './atlas';
@@ -170,6 +171,7 @@ function drawFoeDun(F: FxSys, c: Combat, dt: number) {
 
 export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
   const p = c.game.player;
+  drawDecals(F, dt);
   drawScorch(F, c, dt);
   drawBoost(F, c, dt);
   drawFoeDun(F, c, dt);
@@ -180,6 +182,7 @@ export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
   const hitSeen: [number, number, number][] = [];
   for (const ev of c.fxq) {
     const cc = col(ev.color ?? '255,236,200');
+    bakeEvent(ev);
     if (ev.k === 'hit') {
       const near = hitSeen.find((h) => Math.abs(h[0] - ev.x) < 50 && Math.abs(h[1] - ev.y) < 50);
       if (near) { near[2]++; if (near[2] > 2) { F.sparks(ev.x, ev.y, cc, 4, 300, 0.3, 2.5, ev.dir, 1.6); continue; } }
@@ -190,7 +193,7 @@ export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
     else if (SUMMON_EVENTS.has(ev.k)) summonEvent(F, ev);
     else if (ev.k === 'kill') {
       F.explode(ev.x, ev.y, 46, cc, { smoke: true, shock: true });
-      F.ink(ev.x, ev.y + 30, 120, 0.45);
+      F.ink(ev.x, ev.y + 30, 120, 0.25);
       F.smokeRing(ev.x, ev.y + 40, 90, [0.2, 0.17, 0.15], 0.35, 0.8);
       if (extOK()) for (let i = 0; i < 3; i++) F.emit({ x: ev.x + rnd(-14, 14), y: ev.y - 10, vx: rnd(-14, 14), vy: rnd(-90, -50), life: rnd(1, 1.5), s0: 40, s1: 90, c: mixc(cc, WHITE, 0.3), a: 0.32, cell: i % 2 ? C.KWisp1 : C.KWisp2, rot: rnd(-0.3, 0.3), drag: 0.6 });
       for (let i = 0; i < 18; i++) F.emit({ x: ev.x + rnd(-20, 20), y: ev.y + rnd(-30, 20), vx: rnd(-30, 30), vy: rnd(-120, -40), life: rnd(0.8, 1.6), s0: rnd(4, 8), s1: 1, c: mixc(cc, WHITE, 0.4), drag: 1, grav: -30, cell: C.Glow });
@@ -279,13 +282,14 @@ export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
     if (e.st.poison && Math.random() < dt * 8) F.emit({ x: e.x + rnd(-18, 18), y: e.y - rnd(10, 60), vy: rnd(-40, -20), life: rnd(0.5, 0.9), s0: rnd(12, 20), s1: 32, c: [0.35, 0.7, 0.15], cell: extOK() ? C.KWisp2 : C.Smoke, a: 0.4, add: 0.5, rot: rnd(-0.4, 0.4) });
     if (e.st.shock && Math.random() < dt * 4) F.crackle(e.x, e.y - 50, 46, [0.7, 0.75, 1], 0.8, 1);
     if (e.st.shock && Math.random() < dt * 10) { const a = Math.random() * TAU; F.bolt(e.x + Math.cos(a) * 30, e.y - 60 + Math.sin(a) * 30, e.x, e.y - 50, Math.random() * 1e6, 10, 1.6, [0.7, 0.75, 1], 0.9, 4, false); }
+    bakeStatus(F, e.x, e.y - e.lift - (e.flyH ?? 0), (e.def.kind === 'human' ? 120 : 70 * (e.def.look?.size ?? 1)), e.st as any, t, vis, Math.max(0.8, Math.min(2.2, e.def.look?.size ?? 1)), e.id);
     if (e.st.freeze) { F.sprite(C.Shard, e.x - 16, e.y - 30, 50, 22, -1.9, [0.75, 0.9, 1], 0.55, 0.5); F.sprite(C.Shard, e.x + 18, e.y - 40, 60, 24, -1.2, [0.75, 0.9, 1], 0.55, 0.5); F.glow(e.x, e.y - 40, 50, [0.6, 0.85, 1], 0.3); }
   }
 
   // ---- 法术特效
   for (const v of c.vfx as any[]) {
-    if (!v._seen) { v._seen = 1; spawnVfx(F, v); }
-    drawVfx(F, v, t);
+    if (!v._seen) { v._seen = 1; spawnVfx(F, v); bakeSpawn(v); }
+    drawVfx(F, v, t); bakeVfx(F, v, t);
   }
   // ---- 弹道
   for (const pr of c.projs as any[]) {
@@ -298,6 +302,7 @@ export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
   c.swarm?.draw(F, t); c.petSwarm?.draw(F, t);
   drawSummonsGL(F, c, t, dt);   // 第三十步：召唤物特效
   drawHeroGL(F, c, t, dt);
+  bakeStatus(F, p.x, p.y, 120, c.pst as any, t, 1, 1, 7);
   // ---- 噬金虫
   for (const s of c.summons) if (s.kind === 'bugs' && s.dots) {
     for (const d of s.dots) { const a = d.a + t * d.s; const x = s.x + Math.cos(a) * d.r, y = s.y - 40 + Math.sin(a * 1.3) * d.r * 0.6; F.glow(x, y, 6, [1, 0.85, 0.35], 0.9, C.Dot); F.glow(x, y, 12, [1, 0.75, 0.3], 0.35); }
@@ -595,6 +600,7 @@ function drawField(F: FxSys, f: any, t: number, dt: number) {
   const k = clamp(f.t / 0.3, 0, 1) * clamp((f.dur - f.t) / 0.4, 0, 1);
   if (k <= 0.01) return;
   const cc = col(f.color);
+  bakeField(F, f, t, k);
   switch (f.fx) {
     case 'flame': {
       F.ground(C.Glow, f.x, f.y, f.r * 1.1, 0, FIRE, 0.4 * k, 1, 0.55);

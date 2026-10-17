@@ -5,6 +5,7 @@
 // 旧版需要 8~10 次全屏 Canvas2D 合成，现在合为一次着色器，移动端也能流畅。
 import { Batch, FLOATS } from './batch';
 import { buildAtlas } from './atlas';
+import { bakeFx } from './fxbake';
 import { Ground, GLSL_COMMON, GLSL_WATER, type GroundView, type SegProvider, type GroundTerrain } from './ground';
 
 const VS_SPRITE = `#version 300 es
@@ -242,6 +243,7 @@ export class GLStage {
     this.atmoTex = this.newTex(gl.LINEAR);
     const acv = buildAtlas((cv) => this.reuploadAtlas(cv));
     this.atlas = this.uploadStatic(acv, true);
+    bakeFx(gl);   // 第三十五步：程序特效贴图
     this.noiseTex = this.makeNoise();
     this.maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
     try { this.ground = new Ground(gl); if (this.groundData) this.ground.setTerrain(this.groundData); }
