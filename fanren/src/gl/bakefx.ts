@@ -140,9 +140,9 @@ export function bakeVfx(F: FxSys, v: any, t: number) {
   const u = Math.min(1, Math.max(0, v.t / v.dur)), a = 1 - u, cc = col(v.color), fx = v.fx as string;
   if (v.kind === 'strike' && (fx === 'lightning' || fx === 'goldthunder')) {
     const fl = u < 0.3 ? 1 : (Math.floor(v.t * 30) % 2 ? 0.4 : 0.9) * a;
-    elecLine(F, v.x + 40, v.y - 720, v.x, v.y, Math.max(60, (v.r ?? 80) * 0.7), cc, fl * 0.9, t, v.seed | 0);
+    elecLine(F, v.x + 40, v.y - 720, v.x, v.y, 30, mixc(cc, WHITE, 0.25), fl * 0.75, t, v.seed | 0);
   } else if (v.kind === 'chain') {
-    elecLine(F, v.x, v.y, v.x2, v.y2, fx === 'goldthunder' ? 56 : 40, cc, a * (fx === 'goldthunder' ? 0.95 : 0.7), t, v.seed | 0);
+    elecLine(F, v.x, v.y, v.x2, v.y2, 30, cc, a * 0.6, t, v.seed | 0);
   } else if (v.kind === 'beam' && (fx === 'lightning' || fx === 'goldthunder' || fx === 'magnet' || fx === 'icefire')) {
     const w = (v.r ?? 30) * (u < 0.15 ? u / 0.15 : 1 - (u - 0.15) / 0.85 * 0.7);
     elecLine(F, v.x, v.y, v.x2, v.y2, Math.max(40, w * 3), fx === 'icefire' ? [0.75, 0.92, 1] : cc, a * (fx === 'icefire' ? 0.5 : 0.85), t, v.seed | 0);
@@ -156,11 +156,11 @@ export function bakeField(F: FxSys, f: any, t: number, k: number) {
   const cc = col(f.color), r = f.r;
   switch (f.fx) {
     case 'flame': {
-      F.bkG(K.Swirl, f.x, f.y, r * 0.95, t * 1.6, mixc(FIRE, cc, 0.35), 0.45 * k, 1, SQ);
-      F.bkG(K.Swirl, f.x, f.y, r * 0.7, -t * 2.3 + 1, [1, 0.8, 0.45], 0.25 * k, 1, SQ);
+      F.bkG(K.Swirl, f.x, f.y, r * 0.95, t * 1.6, mixc([1, 0.42, 0.1], cc, 0.25), 0.2 * k, 1, SQ);
+      F.bkG(K.Swirl, f.x, f.y, r * 0.7, -t * 2.3 + 1, [1, 0.6, 0.25], 0.1 * k, 1, SQ);
       for (let i = 0; i < 7; i++) {
         const an = i / 7 * TAU + t * 0.4, rr = r * (0.35 + 0.45 * ((i * 0.37) % 1)), h = r * (0.35 + 0.18 * Math.sin(t * 6 + i * 2.1));
-        F.bk(K.Flame, f.x + Math.cos(an) * rr, f.y + Math.sin(an) * rr * SQ - h * 0.45, h * 0.6, h, 0, mixc(FIRE, cc, 0.35), 0.55 * k);
+        F.bk(K.Flame, f.x + Math.cos(an) * rr, f.y + Math.sin(an) * rr * SQ - h * 0.45, h * 0.6, h, 0, mixc([1, 0.45, 0.12], cc, 0.3), 0.4 * k);
       }
       break;
     }
