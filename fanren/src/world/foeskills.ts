@@ -186,6 +186,24 @@ const LAIR_KIT: Record<string, (e: Enemy) => FoeSkill[]> = {
   ],
 };
 
+// 第三十五步：新增妖王
+Object.assign(LAIR_KIT, {
+  jinjiaowang: () => [
+    S({ id: 'jj_beam', name: '金蛟雷光', k: 'beam', len: 820, w: 100, tele: 0.9, dur: 0.6, pow: 2.7, range: 780, min: 120, cd: 8, status: { k: 'shock', dur: 1, ch: 0.6 } }, 'gold'),
+    S({ id: 'jj_rain', name: '金雷落', k: 'rain', n: 8, r: 100, tele: 1.0, pow: 2, range: 660, cd: 9, status: { k: 'shock', dur: 0.8, ch: 0.5 } }, 'gold'),
+    S({ id: 'jj_tail', name: '蛟尾断海', k: 'nova', r: 240, tele: 0.75, pow: 2.1, range: 230, cd: 7, status: { k: 'knock', dur: 0.4, ch: 0.9 } }, 'water'),
+    S({ id: 'jj_call', name: '号令蛟族', k: 'summon', n: 2, minion: 'jiaojiao', tele: 1, range: 900, cd: 40, once: true, hpBelow: 0.65 }, 'water'),
+    S({ id: 'jj_ult', name: '金蛟翻海·万雷', k: 'rain', n: 14, r: 110, tele: 1.3, pow: 2.4, range: 760, cd: 16, ult: true, status: { k: 'shock', dur: 1, ch: 0.6 } }, 'gold'),
+  ],
+  bingfeng: () => [
+    S({ id: 'bf_feather', name: '冰翎', k: 'ring', n: 22, waves: 3, tele: 0.6, pow: 0.95, range: 640, cd: 7, status: { k: 'slow', dur: 2, ch: 0.6 } }, 'ice'),
+    S({ id: 'bf_breath', name: '冰凤寒息', k: 'cone', r: 380, spread: 0.6, tele: 0.85, pow: 2.3, range: 360, cd: 7, status: { k: 'freeze', dur: 1.3, ch: 0.6 } }, 'ice'),
+    S({ id: 'bf_dive', name: '凤击长空', k: 'charge', len: 800, w: 120, tele: 0.55, pow: 2.5, range: 760, min: 100, cd: 5 }, 'ice'),
+    S({ id: 'bf_blink', name: '冰遁', k: 'blink', tele: 0.2, pow: 1.8, range: 700, min: 160, cd: 7 }, 'ice'),
+    S({ id: 'bf_ult', name: '冰封万里', k: 'nova', r: 480, tele: 1.6, pow: 3.6, range: 480, cd: 17, ult: true, status: { k: 'freeze', dur: 1.6, ch: 0.85 } }, 'ice'),
+  ],
+});
+
 /** 首领通用大招 */
 function ultFor(el: El, e: Enemy): FoeSkill {
   const n = EL_NAME[el] || '妖';
@@ -204,10 +222,13 @@ export function kitOf(e: Enemy): FoeSkill[] {
   else {
     const all = autoKit(e);
     const tier = e.blv || Math.max(1, e.realm * 2 - 1);
-    const n = tier <= 4 ? 3 : 4;
+    const n = (tier <= 2 ? 3 : tier <= 4 ? 4 : 5) + (e.affix ? 1 : 0);
     // 先保留召唤/护体这类“一次性”招，其余按顺序取
     kit = all.slice(0, n);
-    if (isBoss(e)) kit.push(ultFor(elOf(e), e));
+    // 第三十五步：五级以上妖兽炼成妖丹神通——一记本命光柱 / 爆裂；七级另有本命大招
+    const el = elOf(e), elN = EL_NAME[el] || '妖';
+    if (tier >= 5 && !kit.some((s) => s.k === 'beam')) kit.push(S({ id: 'dan_beam', name: `妖丹·${elN}光`, k: 'beam', len: 720, w: 80, tele: 0.85, dur: 0.5, pow: 2.5, range: 680, min: 110, cd: 10, status: EL_ST[el] }, el === 'phys' ? 'earth' : el));
+    if (isBoss(e) || tier >= 7 || (e.affix && tier >= 4)) kit.push(ultFor(el, e));
   }
   // 见人就逃 / 不主动伤人的小兽不配招
   if (e.def.behave === 'flee' || e.def.behave === 'shy') kit = [];

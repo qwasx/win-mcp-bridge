@@ -106,6 +106,8 @@ const I: ItemDef[] = [
   { id: 'mat_qingfengjiao', name: '青风牛角', type: 'material', tier: 3, price: 6000, desc: '七级青风牛的牛角，风属灵材。天澜圣殿以之铸圣兽之体。', glyph: '角', stack: true },
   { id: 'mat_bingjialin', name: '冰甲蟒鳞', type: 'material', tier: 3, price: 6000, desc: '七级冰甲蟒的雪白鳞甲，寒气逼人。', glyph: '鳞', stack: true },
   { id: 'mat_tujiapi', name: '土甲龙皮', type: 'material', tier: 4, price: 18000, desc: '土甲龙以防御著称，其土黄厚皮刀剑难伤，是炼制护身法宝的上材。', glyph: '甲', stack: true },
+  { id: 'mat_jinjiaolin', name: '金蛟鳞', type: 'material', tier: 5, price: 60000, desc: '九级金蛟王的金色逆鳞，坚逾精金，可炼护身宝甲或剑胚。', glyph: '鳞', stack: true },
+  { id: 'mat_bingfengyu', name: '冰凤羽', type: 'material', tier: 5, price: 150000, desc: '十级冰凤的翎羽，寒气凝而不散。原著中可炼制冰属至宝。', glyph: '羽', stack: true },
   { id: 'mat_dujiaolin', name: '毒蛟鳞', type: 'material', tier: 4, price: 22000, desc: '八级毒蛟的鲜红鳞片，剧毒，可炼鳞甲。', glyph: '鳞', stack: true },
   { id: 'mat_shuanggongdu', name: '霜蚣寒毒', type: 'material', tier: 4, price: 30000, desc: '六翼霜蚣的毒液，奇寒无比，能冻彻元神——却是酿制碧焰酒的主料。', glyph: '毒', stack: true },
   { id: 'mat_leipenggu', name: '雷鹏骨翅', type: 'material', tier: 5, price: 120000, desc: '风希自深海古修士遗址中得来的上古雷鹏残骨，骨翅中仍含惊人雷电之力。以辟邪神雷炼化，可成风雷翅。', glyph: '翅', stack: true },
