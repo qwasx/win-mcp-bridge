@@ -151,7 +151,7 @@ function ShopPanel({ game, shop }: { game: Game; shop: Shop }) {
         {mode === 'buy' && !shop.stock.length && <div className="hint">货架已空。</div>}
         {mode === 'sell' && sellable.map((b, i) => {
           const d = itemDef(b.id);
-          const p = Math.max(1, Math.round(d.price * shop.sellRate * (d.type === 'herb' ? 1 + Math.min(2, (b.age ?? 0) / 100) : 1)));
+          const p = game.towns.sellPrice(shop, b.id, b.age ?? 0);
           return (
             <div key={b.id + i + (b.age ?? '')} className="shop-row">
               <ItemGlyph id={d.id} className="glyph" style={{ color: TIER_COLOR[d.tier] }} />
@@ -179,7 +179,7 @@ function TownPanel({ game, loc, fac }: { game: Game; loc: LocDef; fac?: string }
   if (isSect) fs.push({ seal: '宗', name: game.ws.sect?.id === loc.id ? '宗门事务' : '山门', desc: game.ws.sect?.id === loc.id ? `${SECT_RANKS[game.ws.sect.rank]} · 贡献 ${game.ws.sect.contrib}　任务、藏经阁、俸禄、晋升` : '拜入宗门，领取俸禄与任务', act: () => game.openDialog(T.sectNode(loc)), cls: 'gold' });
   if (!occupied) {
     fs.push({ seal: '市', name: '坊市', desc: '灵草、材料、符箓杂货', act: () => game.openShop(T.shop(loc, 'market')) });
-    fs.push({ seal: '丹', name: '丹药铺', desc: '聚气丹、疗伤丹……偶有筑基丹', act: () => game.openShop(T.shop(loc, 'pill')) });
+    fs.push({ seal: '丹', name: '丹药铺', desc: '聚气丹、疗伤丹……货随产地（天南筑基丹归七派把持）', act: () => game.openShop(T.shop(loc, 'pill')) });
     if (big || isSect) fs.push({ seal: '器', name: '法器阁', desc: '飞剑、法盾、成套法器', act: () => game.openShop(T.shop(loc, 'artifact')) });
     if (big || isSect) fs.push({ seal: '符', name: '符箓斋', desc: '符箓与法术玉简', act: () => game.openShop(T.shop(loc, 'talisman')) });
   }

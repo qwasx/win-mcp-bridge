@@ -27,6 +27,7 @@ export interface Shop {
   sellRate: number;                 // 卖出价格比例
   currency?: 'lingshi' | 'contrib'; // 灵石 / 宗门贡献
   noSell?: boolean;
+  zone?: string;                    // 第三十七步：所在价区（卖出价按此浮动）
 }
 
 export type Modal =

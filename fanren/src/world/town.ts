@@ -8,21 +8,36 @@ import * as C from './cultivation';
 import { mulberry32 } from '../core/rng';
 import type { DNode, DOpt, Shop, ShopStock } from './modal';
 import { SECT_RANKS, SECT_RANK_NEED, SECT_RANK_REALM, SectTask } from './worldstate';
+import { zoneOfLoc, shopLevel, pzOf, sellableAt, priceMul, yaodanCap, yaodanLv, ruleOf, sectCanOffer, canonOwned, ZONE_NAME, type Zone } from '../data/market';
+
+/** 玩家所在处的市集分区：取本图最近的有名地点 */
+export function zoneHere(g: Game): Zone {
+  const px = g.player.x / WORLD_SCALE, py = g.player.y / WORLD_SCALE;
+  let best: LocDef | null = null, bd = Infinity;
+  for (const l of LOCATIONS) { if (l.minor || (l.type !== 'city' && l.type !== 'town' && l.type !== 'sect' && l.type !== 'isle')) continue; const d = Math.hypot(l.x - px, l.y - py); if (d < bd) { bd = d; best = l; } }
+  return zoneOfLoc(best);
+}
 
 const DEMON = new Set(['guiling', 'hehuan', 'yuling', 'qianhuan', 'tiansha', 'yinluo', 'tianmo']);
 /** 各宗门藏经阁特色功法/法术（与原著对应） */
 const SECT_LIB: Record<string, string[]> = {
   huangfeng: ['scroll_qingyuan', 'scroll_art_qingyuanmang', 'scroll_art_yujian', 'scroll_art_huoshe', 'scroll_luoyan', 'scroll_tianyan', 'scroll_art_hutijiandun'],
-  yanyue: ['scroll_art_bingzhui', 'scroll_art_huichun', 'scroll_art_hanbing', 'scroll_mingqing', 'scroll_lianqi'],
-  lingshou: ['scroll_art_yushou', 'scroll_art_tihun', 'scroll_art_tengfu'],
+  yanyue: ['scroll_art_bingzhui', 'scroll_art_huichun', 'scroll_art_hanbing', 'scroll_art_xuanbing', 'scroll_lianqi'],
+  lingshou: ['scroll_art_yushou', 'scroll_art_tengfu'],
   luoyun: ['scroll_art_huichun', 'scroll_art_tengfu', 'scroll_art_qingteng', 'scroll_art_yimu', 'scroll_lianqi'],
-  gujian: ['scroll_art_yujian', 'scroll_art_jianying', 'scroll_art_jujianshu'],
+  gujian: ['scroll_art_yujian', 'scroll_art_jianying'],
+  jujian: ['scroll_art_yujian', 'scroll_art_jujianshu'],
+  qingxu: ['scroll_art_huichun', 'scroll_art_yufeng', 'scroll_art_qingteng'],
+  qianzhu: ['scroll_art_kuilei', 'scroll_art_kunzhen'],
+  yuling: ['scroll_art_yushou', 'scroll_art_yinhun'],
+  tiansha: ['scroll_art_xuedun', 'scroll_art_xuelian'],
+  jiyin: ['scroll_xuanyin', 'scroll_art_xueying', 'scroll_art_yinhun'],
   baiqiao: ['scroll_art_kuilei', 'scroll_art_kunzhen', 'scroll_art_diandao'],
-  guiling: ['scroll_xuanyin', 'scroll_art_xueying', 'scroll_art_yinhun', 'scroll_art_xueyingdun'],
+  guiling: ['scroll_art_xueying', 'scroll_art_yinhun', 'scroll_art_xuedun'],
   tianmo: ['scroll_tuotian', 'scroll_art_xuelian', 'scroll_art_xuedun'],
-  hehuan: ['scroll_art_jingshen', 'scroll_xuanyin'],
-  yinluo: ['scroll_art_yinhun', 'scroll_xuanyin'],
-  taiyi: ['scroll_dayan', 'scroll_art_zhangxin', 'scroll_art_yinlei'],
+  hehuan: ['scroll_art_xueying', 'scroll_art_yinhun'],
+  yinluo: ['scroll_art_yinhun', 'scroll_art_xuelian'],
+  taiyi: ['scroll_art_zhangxin', 'scroll_art_yinlei', 'scroll_art_leiwang'],
   tianlan: ['scroll_art_jingang', 'scroll_art_xiangjia'],
   qixuan: ['scroll_art_jingang', 'scroll_art_yufeng'],
 };
@@ -43,28 +58,43 @@ export class Towns {
   }
 
   // ------------------------------------------------------------ 商店
-  tierOf(l: LocDef) { return l.type === 'city' ? (l.major ? 3 : 2) : l.type === 'sect' ? 3 : l.type === 'isle' ? 3 : 1; }
+  tierOf(l: LocDef) { return shopLevel(l); }
+  /** 第三十七步：货按原著产地与稀有度上架，价格按价区浮动（妖丹：乱星海便宜，天南贵得离谱） */
   shop(l: LocDef, kind: 'market' | 'pill' | 'artifact' | 'talisman'): Shop {
     const g = this.game;
     const month = Math.floor(g.day / 30);
     const rnd = mulberry32(((l.x * 1000 + l.y) | 0) * 31 + month * 7 + kind.length);
-    const tier = this.tierOf(l) + (l.oy < 260 || l.ox > 650 ? 1 : 0);
+    const z = zoneOfLoc(l), lvl = shopLevel(l), pz = pzOf(z);
+    const yCap = yaodanCap(pz, lvl, rnd);
     const filt: (it: ItemDef) => boolean = kind === 'pill' ? (it) => it.type === 'pill' : kind === 'artifact' ? (it) => it.type === 'artifact' : kind === 'talisman' ? (it) => it.type === 'talisman' || it.type === 'scroll' : (it) => it.type === 'herb' || it.type === 'material' || (it.type === 'pill' && it.tier <= 1) || it.type === 'talisman';
-    const pool = ITEM_LIST.filter((it) => filt(it) && it.price > 0 && it.tier <= tier && it.id !== 'mat_lingshi' && it.price < 60000 * tier);
+    const pool = ITEM_LIST.filter((it) => filt(it) && sellableAt(it, z, lvl, yCap, l.id));
+    // 同档里越稀罕越少见
+    const wt = pool.map((it) => { const gr = yaodanLv(it.id) ? (yaodanLv(it.id) >= yCap ? lvl : 0) : ruleOf(it).g; return gr >= lvl ? 0.4 : gr === lvl - 1 ? 0.8 : 1; });
+    const tot = wt.reduce((a, b) => a + b, 0);
+    const pickW = () => { let r = rnd() * tot; for (let i = 0; i < pool.length; i++) { r -= wt[i]; if (r <= 0) return pool[i]; } return pool[pool.length - 1]; };
     const stock: ShopStock[] = [];
+    const k = 1 - this.game.hearts.bonus('luck');
+    const add = (it: ItemDef) => {
+      if (stock.some((s) => s.id === it.id)) return;
+      stock.push({ id: it.id, price: Math.max(1, Math.round(it.price * priceMul(it, z) * (0.9 + rnd() * 0.4) * k * (g.ws.rep < -40 ? 1.3 : 1))), n: it.type === 'artifact' || it.type === 'scroll' ? 1 : 1 + Math.floor(rnd() * (it.tier <= 1 ? 8 : 3)), age: it.type === 'herb' ? 5 + Math.floor(rnd() * 40) : undefined });
+    };
     const n = kind === 'market' ? 10 : 7;
-    for (let i = 0; i < n * 3 && stock.length < n && pool.length; i++) {
-      const it = pool[Math.floor(rnd() * pool.length)];
-      if (stock.some((s) => s.id === it.id)) continue;
-      if (it.type === 'artifact' && it.tier >= 4 && rnd() < 0.7) continue;
-      if (it.id === 'pill_zhuji' && rnd() < 0.6) continue;
-      const k = 1 - this.game.hearts.bonus('luck');
-      stock.push({ id: it.id, price: Math.max(1, Math.round(it.price * (0.9 + rnd() * 0.4) * k * (g.ws.rep < -40 ? 1.3 : 1))), n: it.type === 'artifact' || it.type === 'scroll' ? 1 : 1 + Math.floor(rnd() * (it.tier <= 1 ? 8 : 3)), age: it.type === 'herb' ? 5 + Math.floor(rnd() * 40) : undefined });
-    }
+    for (let i = 0; i < n * 4 && stock.length < n && pool.length; i++) add(pickW());
+    // 乱星海坊市：妖丹是硬通货，月月有货
+    if (kind === 'market' && pz === 'LX') for (let lv = Math.max(1, yCap - 2); lv <= yCap; lv++) { const it = itemDef(`mat_yaodan${lv}`); if (it && rnd() < 0.75) add(it); }
+    // 海外筑基丹不像天南那样被七派把持：大岛丹铺偶有一两颗
+    if (kind === 'pill' && pz === 'LX' && lvl >= 3 && rnd() < 0.3) { const it = itemDef('pill_zhuji'); add(it); const s0 = stock.find((s) => s.id === it.id); if (s0) s0.n = 1; }
     // 第十八步：坊市常备破禁符、回府符
     if (kind === 'market') for (const id of ['tal_pojin', 'tal_huifu']) if (!stock.some((s) => s.id === id)) { const it = itemDef(id); stock.push({ id, price: Math.round(it.price * (0.9 + rnd() * 0.3)), n: 3 + Math.floor(rnd() * 5) }); }
     const title = { market: '坊市', pill: '丹药铺', artifact: '法器阁', talisman: '符箓斋' }[kind];
-    return { title: `${l.name} · ${title}`, desc: kind === 'market' ? '灵草、材料、符箓杂货，每月换一批货' : '', stock, sellRate: 0.5 };
+    const note = pz === 'LX' ? '海外坊市：妖丹、海兽材料便宜，灵草稀贵' : pz === 'DJ' ? '大晋坊市：品类齐全，价钱也贵' : '天南坊市：灵草不缺，妖丹奇贵';
+    return { title: `${l.name} · ${title}`, desc: (kind === 'market' ? '灵草、材料、符箓杂货，每月换一批货。' : '') + note, stock, sellRate: 0.5, zone: z };
+  }
+  /** 卖给这家店能得多少灵石（按价区） */
+  sellPrice(shop: Shop, id: string, age = 0) {
+    const it = itemDef(id);
+    const z = (shop.zone as Zone | undefined) ?? zoneHere(this.game);
+    return Math.max(1, Math.round(it.price * priceMul(it, z) * shop.sellRate * (it.type === 'herb' ? 1 + Math.min(2, age / 100) : 1)));
   }
   buy(shop: Shop, s: ShopStock) {
     const g = this.game, h = g.hero;
@@ -86,7 +116,7 @@ export class Towns {
     const st = h.bag.find((b) => b.id === id && (age === undefined || b.age === age)); if (!st) return false;
     if (h.hotbar.includes(id) && C.bagCount(h, id) <= 1) h.hotbar = h.hotbar.map((x) => (x === id ? null : x));
     C.removeItem(h, id, 1, st.age ?? 0);
-    const p = Math.max(1, Math.round(it.price * shop.sellRate * (it.type === 'herb' ? 1 + Math.min(2, (st.age ?? 0) / 100) : 1)));
+    const p = this.sellPrice(shop, id, st.age ?? 0);
     C.addItem(h, 'mat_lingshi', p);
     return true;
   }
@@ -135,19 +165,25 @@ export class Towns {
     const g = this.game;
     const q = Math.floor(g.day / 90);
     const rnd = mulberry32(((l.x * 977 + l.y * 13) | 0) + q * 101);
-    // 原著有主的重宝（风雷翅、虚天鼎、三焰扇、元磁神山、五子同心魔、紫冰镯、三神白骨幡、乾蓝冰焰、大衍诀、元磁神光）只能靠机缘，不上拍卖
-    const CANON_ONLY = new Set(['art_fenglei', 'art_xutian', 'art_sanyan', 'art_yuanci', 'art_wuzi', 'art_zibing', 'art_sanshen', 'art_qianlan', 'scroll_dayan', 'scroll_yuanci', 'pill_butian', 'art_qingzhu']);
-    const pool = ITEM_LIST.filter((it) => it.price >= 600 && it.price < 400000 && !CANON_ONLY.has(it.id) && (it.type === 'artifact' || it.type === 'pill' || it.type === 'scroll' || it.type === 'material'));
+    // 第三十七步：拍品按原著产地——天南拍不到乱星海的高阶妖丹，乱星海拍不到天南七派把持的筑基丹；原著有主之宝一概不上台
+    const z = zoneOfLoc(l), pz = pzOf(z), yCap = yaodanCap(pz, 4, rnd);
+    const pool = ITEM_LIST.filter((it) => it.price >= 400 && !yaodanLv(it.id) && it.type !== 'misc' && sellableAt(it, z, 4) && ruleOf(it).g >= 3);
+    const wt = pool.map((it) => (ruleOf(it).g >= 4 ? 2 : 1));
+    const tot = wt.reduce((a, b) => a + b, 0);
     const lots: { id: string; base: number; price: number; done?: 'won' | 'lost' }[] = [];
-    while (lots.length < 5 && pool.length) {
-      const it = pool[Math.floor(rnd() * pool.length)];
-      if (lots.some((x) => x.id === it.id)) continue;
-      const base = Math.round(it.price * (0.6 + rnd() * 0.3));
-      lots.push({ id: it.id, base, price: base });
+    const push = (id: string, base: number) => { if (!lots.some((x) => x.id === id)) lots.push({ id, base, price: base }); };
+    // 压轴的妖丹：乱星海常见，天南难得一见
+    if (rnd() < (pz === 'LX' ? 0.75 : pz === 'DJ' ? 0.35 : 0.3)) { const it = itemDef(`mat_yaodan${yCap}`); push(it.id, Math.round(it.price * priceMul(it, z) * (0.7 + rnd() * 0.3))); }
+    for (let t = 0; t < 40 && lots.length < 5 && pool.length; t++) {
+      let r = rnd() * tot, it = pool[0];
+      for (let i = 0; i < pool.length; i++) { r -= wt[i]; if (r <= 0) { it = pool[i]; break; } }
+      push(it.id, Math.round(it.price * priceMul(it, z) * (0.6 + rnd() * 0.3)));
     }
-    if (rnd() < 0.5 && !lots.some((x) => x.id === 'pill_zhuji')) lots[0] = { id: 'pill_zhuji', base: 900, price: 900 };
+    if (pz !== 'LX' && rnd() < 0.5 && !lots.some((x) => x.id === 'pill_zhuji')) lots[lots.length - 1] = { id: 'pill_zhuji', base: pz === 'TN' ? 1200 : 1500, price: pz === 'TN' ? 1200 : 1500 };
     return lots;
   }
+  /** 本地拍卖会的风格（界面上提一句） */
+  auctionNote(l: LocDef) { const z = zoneOfLoc(l); return `${ZONE_NAME[z]}拍卖会`; }
 
   // ------------------------------------------------------------ 宗门
   sectOf() { const s = this.game.ws.sect; return s ? LOC_BY_ID.get(s.id) ?? null : null; }
@@ -242,11 +278,12 @@ export class Towns {
   promote() { const g = this.game, s = g.ws.sect; if (!s || !this.promoteReq().ok) return; s.rank++; g.toast(`晋升为${LOC_BY_ID.get(s.id)?.name}${SECT_RANKS[s.rank]}！`, 'good'); g.news(`韩立晋升${LOC_BY_ID.get(s.id)?.name}${SECT_RANKS[s.rank]}。`, 'personal'); }
   library(l: LocDef): Shop {
     const g = this.game, s = g.ws.sect!;
-    const ids = new Set<string>(SECT_LIB[l.id] ?? []);
+    const ids = new Set<string>((SECT_LIB[l.id] ?? []).filter((id) => !canonOwned(id)));
     const h = g.hero;
-    const pool = ITEM_LIST.filter((it) => it.type === 'scroll' && it.tier <= 1 + s.rank && it.price > 0);
+    // 第三十七步：别派秘传不会出现在本宗藏经阁
+    const pool = ITEM_LIST.filter((it) => it.type === 'scroll' && it.tier <= 1 + s.rank && it.price > 0 && sectCanOffer(it, l.id));
     const rnd = mulberry32(l.x * 7 + Math.floor(g.day / 180));
-    for (let i = 0; i < 6; i++) ids.add(pool[Math.floor(rnd() * pool.length)].id);
+    for (let i = 0; i < 6 && pool.length; i++) ids.add(pool[Math.floor(rnd() * pool.length)].id);
     const stock: ShopStock[] = [...ids].filter((id) => itemDef(id).name !== id && !h.arts.some((a) => 'scroll_art_' + a.id === id)).map((id) => ({ id, price: Math.max(20, Math.round(itemDef(id).price / 6)), n: 1 }));
     stock.push({ id: 'pill_juqi', price: 15, n: 9 }, { id: 'pill_huiqi', price: 8, n: 9 }, { id: 'pill_liaoshang', price: 10, n: 9 });
     if (s.rank >= 1) stock.push({ id: 'pill_zhuji', price: 900, n: 1 });
