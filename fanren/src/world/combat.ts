@@ -2,6 +2,8 @@
 import type { Game } from './game';
 import { ARTS, ArtSkill, PROF_CD, PROF_CH, PROF_DMG, PROF_NAME, PROF_RAD, profLevel, StatusKind, StatusSpec, STATUS_NAME, Fx, School, ART_LIST } from '../data/arts';
 import { beastSpriteTop } from '../gfx/beastTex';
+import { foeRealm } from './demog';
+import { canonOwned } from '../data/market';
 import { ENEMY_LIST, ENEMIES, EnemyDef, dangerRealm, bandRealm, lvOf, lvRealm, lvName, lvWeight, LAIRS } from '../data/enemies';
 import { REALMS, realmName, expNeed } from '../data/realms';
 import { LOCATIONS, WORLD_SCALE, regionAt, LocDef, legacyHere, ACTIVE_MAP, LOC_BY_ID } from '../data/world';
@@ -106,6 +108,8 @@ export class Enemy {
   fieldT = 0; retreatT = 0; lowDone = false; blinkCd = 3 + Math.random() * 5; supCd = 4; role?: 'tank' | 'ranged' | 'support'; slotA?: number;
   /** 追杀者（由追杀系统驱动远距离移动）/ 追杀者的同伙 */
   pursuer?: boolean; wing?: boolean;
+  /** 第三十七步：瞬移闪避（剩余次数 / 冷却 / 回气 / 判定间隔）；见高人而退 / 被惹急了 / 已遁走 */
+  evadeN = -1; evadeCd = 0; evadeRe = 0; evRoll = 0; cowered = false; provoked = false; gone = false; fled = false;
   /** 第三十五步：精英词缀 / 门派（决定修士的功法套路） */
   affix?: AffixState; school?: string; lastSk?: string;
   constructor(def: EnemyDef, x: number, y: number, realm: number, stage: number, sea = false) {
@@ -753,6 +757,12 @@ export class Combat {
   }
   hitEnemy(e: Enemy, raw: number, src: { realm: number; status?: StatusSpec; stCh: number; school?: School; evil?: number; skill?: string }, fx: number, fy: number) {
     if (e.dead || e.hideT > 0) return;
+    // 第三十七步：被你的法术打着了——见势不妙的要逃也来不及了；同阶以上的修士会抢先一步瞬移避开
+    if (src.skill) {
+      if (e.cowered && !e.provoked) { e.retreatT = 0; e.aggro = true; this.texts.push({ x: e.x, y: e.y - 130, s: '欺人太甚！', color: '#ffb090', t: 0, vy: -26 }); }
+      e.provoked = true;
+      if (this.mind.evade(e, fx, fy, raw)) return;
+    }
     let d = raw * (e.guardT > 0 ? 0.35 : 1);
     // 第三十六步：飞剑不再无往不利——同阶修士以法器格开、甲壳妖兽剑气难入、飞禽闪避
     const sw = swordSrc(src.skill);
@@ -899,7 +909,7 @@ export class Combat {
 
   randomScroll(maxTier: number): string | null {
     const h = this.game.hero;
-    const pool = ART_LIST.filter((s) => s.tier <= maxTier && !h.arts.some((a) => a.id === s.id) && s.realm <= h.realm + 1 && !s.needs);
+    const pool = ART_LIST.filter((s) => s.tier <= maxTier && !h.arts.some((a) => a.id === s.id) && s.realm <= h.realm + 1 && !s.needs && !canonOwned('scroll_art_' + s.id));   // 第三十七步：原著独门秘术不会随手捡到
     if (!pool.length) return null;
     // 低阶更常见
     const w = pool.map((s) => Math.pow(0.45, s.tier));
@@ -1067,12 +1077,18 @@ export class Combat {
       // 第十九步：原著名地里多半是本地特有的妖物
       if (!sea && Math.random() < 0.8) { const nat = g.landmarks?.pick(x, y, band); if (nat) def = nat; }
       const n = def.pack ? rint(def.pack[0], def.pack[1]) : 1;
+      let hLead: number | undefined;
       for (let i = 0; i < n; i++) {
         const ex = x + rand(-90, 90), ey = y + rand(-60, 60);
         if (!def.flying && !sea && T.walkFactor(ex, ey) <= 0) continue;
-        const rs = this.beastRS(def, rk);
-        const st = rs.realm === 1 ? clamp(rs.stage + rint(-1, 1), 0, REALMS[1].hp.length - 1) : def.lv ? rs.stage : clamp(rs.stage + rint(-1, 1), 0, REALMS[rs.realm].hp.length - 1);
-        const ne = new Enemy(def, ex, ey, rs.realm, st, sea);
+        // 第三十七步：野外修士的境界按当地人口金字塔（与主角境界无关）：炼气居多，结丹罕见，劫修里没有元婴
+        let rs = this.beastRS(def, rk), d2 = def, st: number;
+        if (def.kind === 'human') {
+          rs = foeRealm(g, ex, ey, i === 0 && n > 1 ? 'leader' : def.evil ? 'evil' : 'rogue', Math.random, 1, hLead ?? 3); if (i === 0) hLead = rs.realm;
+          d2 = rs.realm >= 3 ? ENEMIES.jindan_mo ?? def : rs.realm >= 2 && def.id === 'bandit' ? ENEMIES.zhujixiu ?? def : rs.realm < 2 && def.id === 'zhujixiu' ? ENEMIES.bandit ?? def : def;
+          st = rs.stage;
+        } else st = rs.realm === 1 ? clamp(rs.stage + rint(-1, 1), 0, REALMS[1].hp.length - 1) : def.lv ? rs.stage : clamp(rs.stage + rint(-1, 1), 0, REALMS[rs.realm].hp.length - 1);
+        const ne = new Enemy(d2, ex, ey, rs.realm, st, sea);
         // 第三十五步：离新手村越远越凶（血 +7%/档、攻 +5%/档），并有机会成为精英
         ne.maxHp = ne.hp = Math.round(ne.maxHp * (1 + dz.k * 0.07)); ne.atk *= 1 + dz.k * 0.05;
         rollAffix(ne, dz.k);
@@ -1305,7 +1321,7 @@ export class Combat {
     this.sparks = this.sparks.filter((s) => { s.t += dt; s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 60 * dt; return s.t < s.max; });
     if (this.sparks.length > 500) this.sparks.splice(0, this.sparks.length - 500);
     // 清理
-    this.enemies = this.enemies.filter((e) => (e.dead ? (e.deathT += dt) < 0.8 : Math.hypot(e.x - p.x, e.y - p.y) < 5000));
+    this.enemies = this.enemies.filter((e) => (e.dead ? (e.deathT += dt) < 0.8 : !e.gone && Math.hypot(e.x - p.x, e.y - p.y) < 5000));
   }
 
   private tickStatuses(st: Statuses, dt: number, dot: (d: number) => void) {
