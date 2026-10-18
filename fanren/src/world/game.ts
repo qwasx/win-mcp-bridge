@@ -606,7 +606,7 @@ export class Game {
     }
   }
   /** 调试：立刻被追杀 */
-  debugPursuit(gap = 1) { this.pursuit.cd = 0; this.pursuit.reset(); this.pursuit.cd = 0; return this.pursuit.start({ reason: '调试', gap }); }
+  debugPursuit(gap = 1) { this.pursuit.cd = 0; this.pursuit.reset(); this.pursuit.cd = 0; return this.pursuit.start({ reason: '调试', gap, force: true }); }
   /** 调试：直接给物品（走 addItem，触发获宝提示） */
   debugGive(id: string, n = 1) { C.addItem(this.hero, id, n); }
   /** 调试/自动化：在玩家周围刷怪 */

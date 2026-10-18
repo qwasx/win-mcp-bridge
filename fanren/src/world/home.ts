@@ -4,6 +4,7 @@
 // - 禁制：没有禁制时离家久了会遭贼；布阵后可防贼、聚灵
 // - 打坐/闭关有灵脉加成；回府符（Y）可遁回
 import type { Game } from './game';
+import { foeRealm } from './demog';
 import { ACTIVE_MAP } from '../data/world';
 import * as C from './cultivation';
 import { BOTTLE_YEARS } from './cultivation';
@@ -72,7 +73,7 @@ export class HomeSys {
       g.toast(`${h.name}遭了贼！药园里那畦${age}年的${nm}被连根拔走……（布下禁制可防）`, 'warn');
       g.news(`有人趁韩立外出，潜入${h.name}盗走了灵药。`, 'personal');
     } else if (h.array >= 2 && days > 60 && Math.random() < 0.18) {
-      const e = new Enemy(ENEMIES.bandit, h.x + 160, h.y + 40, Math.max(1, g.hero.realm - 1), 3);
+      const rs = foeRealm(g, h.x, h.y, 'rogue', Math.random, 1, 2); const e = new Enemy(ENEMIES[rs.realm >= 2 ? 'zhujixiu' : 'bandit'], h.x + 160, h.y + 40, rs.realm, rs.stage);
       e.name = '被禁制困住的小贼'; e.hx = e.x; e.hy = e.y; e.st.root = { t: 30 } as any;
       g.combat.enemies.push(e);
       g.toast(`${ARRAY_NAME[h.array]}困住了一个想偷药的小贼！`, 'good');

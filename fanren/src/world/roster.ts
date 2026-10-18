@@ -81,9 +81,13 @@ export function member(def: SectDef, i: number, gen = 0): Member {
   const sex: 'm' | 'f' = r() < fem ? 'f' : 'm';
   let realm = 1, stage = 0;
   switch (rank) {
-    case '太上长老': realm = T; stage = stg(realm, r, 0.5, 1); break;
-    case '掌门': realm = T >= 4 ? Math.max(3, T - 1) : T; stage = stg(realm, r, 0.55, 1); if (T >= 4 && r() < 0.25) { realm = T; stage = stg(realm, r, 0, 0.4); } break;
-    case '长老': realm = Math.max(3, T - 1); stage = stg(realm, r, 0, 1); if (T >= 5 && r() < 0.3) realm = 4; break;
+    case '太上长老':
+      // 第三十七步：人界的化神屈指可数——只天魔宗太上一人，且止步化神初期；元婴后期也是凤毛麟角
+      if (T >= 5) { realm = i === 1 ? 5 : 4; stage = i === 1 ? 0 : 2; }
+      else { realm = T; stage = T >= 4 ? (r() < 0.15 ? 2 : r() < 0.55 ? 1 : 0) : stg(realm, r, 0.5, 1); }
+      break;
+    case '掌门': realm = T >= 4 ? Math.max(3, T - 1) : T; stage = stg(realm, r, 0.55, 1); if (T === 4 && r() < 0.25) { realm = T; stage = 0; } break;
+    case '长老': realm = Math.max(3, T - 1); stage = stg(realm, r, 0, 1); if (T >= 5 && r() < 0.12) { realm = 4; stage = 0; } break;
     case '执事': realm = T >= 5 ? 3 : 2; stage = stg(realm, r, T >= 5 ? 0 : 0.5, T >= 5 ? 0.5 : 1); if (T === 4 && r() < 0.25) { realm = 3; stage = 0; } break;
     case '内门': realm = r() < 0.75 ? 2 : 1; stage = realm === 1 ? stg(1, r, 0.75, 1) : stg(2, r, 0, 0.8); if (T >= 5 && realm === 1) realm = 2; break;
     case '外门': realm = 1; stage = stg(1, r, 0.3, 1); if (T >= 4 && r() < 0.2) { realm = 2; stage = 0; } break;

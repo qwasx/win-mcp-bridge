@@ -17,6 +17,8 @@ import { BEAUTY_BY_ID, BEAUTIES, beautyLook } from '../data/beauties';
 import type { Tie, Bond } from './relations';
 import { TIER_COLOR, relWord as relWordOf } from './relations';
 import { Roster } from './roster';
+import { zoneOfLoc, sellableAt, priceMul, yaodanCap, pzOf } from '../data/market';
+import { capRealm, canAdvance, rogueRealmAt } from './demog';
 
 type G = CanvasRenderingContext2D;
 export type Pers = 'righteous' | 'greedy' | 'cautious' | 'arrogant' | 'kind' | 'ruthless' | 'aloof';
@@ -304,11 +306,10 @@ export class NpcWorld {
     const deep = loc.map === 'dajin';      // 大晋：灵气浓郁，结丹满街走
     let realm = 0, stage = 0;
     if (faction !== 'mortal') {
-      const r = rnd();
-      realm = r < 0.62 ? 1 : r < 0.9 ? 2 : r < 0.985 ? 3 : 4;
-      if (north && realm < 4 && rnd() < 0.35) realm++;
-      if (deep && realm < 4 && rnd() < 0.3) realm++;
-      stage = Math.floor(rnd() * REALMS[realm].stages.length);
+      // 第三十七步：按各图的人口金字塔（炼气满地、筑基不少、结丹寥寥；散修元婴另有名额，不在此生成）
+      void north; void deep;
+      realm = rogueRealmAt(loc.map, rnd);
+      stage = Math.floor(Math.pow(rnd(), 1.2) * REALMS[realm].stages.length);
     }
     const P: Pers[] = faction === 'demon' ? ['ruthless', 'greedy', 'arrogant', 'cautious'] : faction === 'merchant' ? ['greedy', 'kind', 'cautious'] : faction === 'mortal' ? ['kind', 'cautious', 'righteous'] : ['righteous', 'greedy', 'cautious', 'arrogant', 'kind', 'ruthless', 'aloof'];
     const pers = P[Math.floor(rnd() * P.length)];
@@ -331,6 +332,16 @@ export class NpcWorld {
     this.active.clear();
     if (!a || !a.length) { this.newWorld(); return; }
     this.list = a.map((n) => ({ ...n, x: n.x * wk, y: n.y * wk, tx: n.tx * wk, ty: n.ty * wk }));
+    // 第三十七步：旧存档里的“满街元婴、化神后期”按人口金字塔回落
+    { const yy: Record<string, number> = {};
+      for (const n of this.list) {
+        if (n.realm >= 5 && !n.canon) { n.realm = 4; n.stage = 2; }
+        capRealm(n);
+        if (n.realm === 4 && !n.canon && !n.ros && n.faction !== 'sect' && n.faction !== 'demon') {
+          const m = n.map ?? 'tiannan'; yy[m] = (yy[m] ?? 0) + 1;
+          if (yy[m] > ({ tiannan: 1, luanxing: 2, dajin: 3 } as Record<string, number>)[m]) { n.realm = 3; n.stage = Math.min(2, n.stage); }
+        }
+      } }
     // 新版本加入的原著人物 / 红颜补齐
     const tmp = new NpcWorld(this.game); tmp.newWorld();
     for (const n of tmp.list) if (n.canon && !this.list.some((m) => m.id === n.id)) { n.ties = undefined; this.list.push(n); }
@@ -429,9 +440,9 @@ export class NpcWorld {
         const R = REALMS[d.realm];
         const need = (R.expDays[Math.min(d.stage, R.expDays.length - 1)] ?? 500) * (d.realm <= 1 ? 1.6 : 0.9);
         if (rnd() < 1 - Math.pow(1 - 1 / need, days)) {
-          if (d.stage < R.stages.length - 1) d.stage++;
-          else if (d.realm < 5 && rnd() < [0, 0.4, 0.22, 0.12, 0.05][d.realm]) {
-            d.realm++; d.stage = 0; d.life = REALMS[d.realm].life * (0.9 + rnd() * 0.2);
+          if (d.stage < R.stages.length - 1 && d.realm < 5) d.stage++;
+          else if (d.realm < 5 && rnd() < [0, 0.4, 0.22, 0.12, 0.05][d.realm] && canAdvance(this.list, d)) {
+            d.realm++; d.stage = 0; capRealm(d); d.life = REALMS[d.realm].life * (0.9 + rnd() * 0.2);
             if (d.met || d.canon) g.news(`传闻${d.name}已突破至${REALMS[d.realm].name}期！`, d.canon ? 'canon' : 'rumor');
           }
         }
@@ -1017,7 +1028,7 @@ export class NpcWorld {
     const opts: DOpt[] = [];
     const so = g.orig?.opts(a, title, () => this.mainNode(a)); if (so) opts.push(...so);
     opts.push({ label: '打听消息', act: () => ({ speaker: d.name, title, look: a.look, text: this.rumor(d), options: [{ label: '还有别的事', act: () => this.mainNode(a) }, { label: '告辞', act: () => null }] }) });
-    if (d.faction === 'merchant' || (d.faction !== 'mortal' && d.wealth > 60 && d.pers !== 'aloof')) opts.push({ label: '交易', act: () => { g.openShop({ title: `${d.name}的货物`, desc: d.pers === 'greedy' ? '（价格偏高）' : d.pers === 'kind' ? '（价格公道）' : '', stock: this.stock(d), sellRate: d.pers === 'greedy' ? 0.35 : 0.5 }); return null; } });
+    if (d.faction === 'merchant' || (d.faction !== 'mortal' && d.wealth > 60 && d.pers !== 'aloof')) opts.push({ label: '交易', act: () => { g.openShop({ title: `${d.name}的货物`, desc: d.pers === 'greedy' ? '（价格偏高）' : d.pers === 'kind' ? '（价格公道）' : '', stock: this.stock(d), sellRate: d.pers === 'greedy' ? 0.35 : 0.5, zone: zoneOfLoc(LOC_BY_ID.get(d.home)) }); return null; } });
     if (d.realm > 0 && gap >= -4 && d.favor >= 15) opts.push({ label: '请教修炼', hint: d.taught ? '已请教过' : '', disabled: !!d.taught, act: () => this.teach(a, title) });
     opts.push({ label: '赠礼', act: () => this.giftNode(a, title) });
     if (d.realm > 0 && d.faction !== 'mortal') opts.push({ label: '切磋', hint: d.spar && g.day - d.spar < 30 ? '近日已切磋过' : '', disabled: !!d.spar && g.day - d.spar < 30, act: () => {
@@ -1055,11 +1066,13 @@ export class NpcWorld {
   private stock(d: NpcData): ShopStock[] {
     let s = d.seed + Math.floor(this.game.day / 30);
     const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
-    const pool = ITEM_LIST.filter((it) => it.price > 0 && it.tier <= Math.max(1, d.realm + (d.faction === 'merchant' ? 1 : 0)) && it.type !== 'misc' && it.id !== 'mat_lingshi');
+    // 第三十七步：散修 / 行商的货也按产地——摆摊的只有村镇坊市那一档，行商能多一档
+    const z = zoneOfLoc(LOC_BY_ID.get(d.home)), lvl = d.faction === 'merchant' ? 2 : 1, yCap = yaodanCap(pzOf(z), lvl, rnd);
+    const pool = ITEM_LIST.filter((it) => it.tier <= Math.max(1, d.realm + (d.faction === 'merchant' ? 1 : 0)) && it.type !== 'misc' && sellableAt(it, z, lvl, yCap));
     const out: ShopStock[] = [];
     const n = 4 + Math.floor(rnd() * 5);
     const mul = d.pers === 'greedy' ? 1.4 : d.pers === 'kind' ? 0.9 : 1.1;
-    for (let i = 0; i < n && pool.length; i++) { const it = pool[Math.floor(rnd() * pool.length)]; if (out.some((o) => o.id === it.id)) continue; out.push({ id: it.id, price: Math.max(1, Math.round(it.price * mul * (1 - clamp(d.favor, 0, 60) / 300))), n: it.type === 'artifact' || it.type === 'scroll' ? 1 : 1 + Math.floor(rnd() * 5), age: it.type === 'herb' ? 10 + Math.floor(rnd() * 60) : undefined }); }
+    for (let i = 0; i < n && pool.length; i++) { const it = pool[Math.floor(rnd() * pool.length)]; if (out.some((o) => o.id === it.id)) continue; out.push({ id: it.id, price: Math.max(1, Math.round(it.price * priceMul(it, z) * mul * (1 - clamp(d.favor, 0, 60) / 300))), n: it.type === 'artifact' || it.type === 'scroll' ? 1 : 1 + Math.floor(rnd() * 5), age: it.type === 'herb' ? 10 + Math.floor(rnd() * 60) : undefined }); }
     return out;
   }
   rumor(d: NpcData): string {

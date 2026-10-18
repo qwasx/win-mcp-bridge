@@ -4,6 +4,8 @@
 //   古碑、山神庙、寒潭灵池、古战场遗骨；残图指向的藏宝处
 // - 档位（0–4）取自所在处的危险度：越险的地方，机缘越大，守护也越凶
 import type { Game } from './game';
+import { threatRealm } from './demog';
+import { canonOwned } from '../data/market';
 import { hash2 } from '../core/rng';
 import { ACTIVE_MAP, WORLD_W, WORLD_H } from '../data/world';
 import { ENEMIES } from '../data/enemies';
@@ -669,9 +671,11 @@ export class SiteSys {
         c.done = true;
         const got = loot(g, c.tier, 2.2, { scroll: 0.35, art: 0.35, map: 0.1 });
         if (Math.random() < 0.12) { const egg = pick(['egg_yunchi', 'egg_huli', 'egg_wolf']); C.addItem(h, egg, 1); got.push(itemDef(egg).name); g.pets?.onEgg(egg); }
-        if (Math.random() < 0.35) {
-          const def = h.realm >= 2 ? ENEMIES.zhujixiu : ENEMIES.bandit;
-          for (let i = 0; i < rint(1, 2); i++) { const an = Math.random() * TAU; const e = new Enemy(def, c.x + Math.cos(an) * 480, c.y + Math.sin(an) * 340, Math.max(1, h.realm), rint(0, 6)); e.name = '尾随的寻宝客'; e.aggro = true; g.combat.enemies.push(e); }
+        // 第三十七步：尾随者只有自认吃得下你才会现身
+        const tr = Math.random() < 0.35 ? threatRealm(g, c.x, c.y, Math.max(1, h.realm), 0.2) : null;
+        if (tr) {
+          const def = tr.realm >= 3 ? ENEMIES.jindan_mo ?? ENEMIES.zhujixiu : tr.realm >= 2 ? ENEMIES.zhujixiu : ENEMIES.bandit;
+          for (let i = 0; i < rint(1, 2); i++) { const an = Math.random() * TAU; const e = new Enemy(def, c.x + Math.cos(an) * 480, c.y + Math.sin(an) * 340, i === 0 ? tr.realm : Math.max(1, tr.realm - 1), i === 0 ? tr.stage : rint(0, 6)); e.name = '尾随的寻宝客'; e.aggro = true; g.combat.enemies.push(e); }
           return this.close(`铁锹碰到了木箱——\n\n获得：${got.join('、')}\n\n身后传来一声冷笑：「辛苦道友了。这残图，我们也找了三年。」`, '螳螂捕蝉', 'danger');
         }
         g.news('韩立按残图寻得一处前人藏宝。', 'personal');
@@ -804,7 +808,7 @@ export function loot(g: Game, tier: number, mult = 1, opt: { scroll?: number; ar
 }
 const CANON_ONLY_ART = new Set(['art_xutianding', 'art_fenglei', 'art_qingzhu', 'art_xuese']);
 export function pickArt(maxTier: number, gubao: boolean): string | null {
-  const pool = ITEM_LIST.filter((it) => it.type === 'artifact' && it.price > 0 && !CANON_ONLY_ART.has(it.id) && (gubao ? it.tier === 5 : it.tier >= 1 && it.tier <= Math.min(4, maxTier)) && it.price < 400000);
+  const pool = ITEM_LIST.filter((it) => it.type === 'artifact' && it.price > 0 && !CANON_ONLY_ART.has(it.id) && !canonOwned(it.id) && (gubao ? it.tier === 5 : it.tier >= 1 && it.tier <= Math.min(4, maxTier)) && it.price < 400000);
   return pool.length ? pick(pool).id : null;
 }
 export function dirName(dx: number, dy: number) {

@@ -12,7 +12,7 @@ const h = g.hero; h.realm = realm; h.stage = 0; h.hp = 1; h.mp = 1; h.equip = fl
 g.player.x = 120000; g.player.y = 93000; g.player.flying = true;
 g.input.keys.add('d'); g.input.keys.add('shift');
 for (let i = 0; i < 10; i++) { g.modal = null; g.update(1 / 30); }
-g.pursuit.cd = 0; g.pursuit.start({ reason: 'dbg', gap: 1 });
+g.pursuit.cd = 0; g.pursuit.start({ reason: 'dbg', gap: 1, force: true });
 const log0 = g.combat.texts.length;
 for (let i = 0; i < 30 * 40; i++) {
   g.modal = null; g.modalStack = []; g.input.keys.add('d'); g.input.keys.add('shift'); g.update(1 / 30); h.hp = Math.max(h.hp, 0.5); g.combat.invulnT = 5;

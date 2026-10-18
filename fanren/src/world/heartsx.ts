@@ -123,10 +123,10 @@ export class HeartLife {
       if (g.day > sos.until) { delete f.sos; this.fav(b.id, -10); this.send(b.id, 'chat', b.id === 'dongxuaner' ? '你没来……我差点死掉了！我再也不理你了！' : b.id === 'nangongwan' ? '……我已脱身。不必挂念。' : '……我自己逃出来了。你……是不是没收到传音符？'); return; }
       if (Math.hypot(sos.x - p.x, sos.y - p.y) < 1500) {
         sos.spawned = true; this.sosFoes = [];
-        const realm = clamp(Math.max(g.hero.realm, b.realm - 1), 1, 5);
+        const realm = clamp(b.realm, 1, 4);   // 第三十七步：围她的人是冲她的境界来的
         for (let i = 0; i < 3 + (realm >= 3 ? 1 : 0); i++) {
           const an = (i / 3.5) * TAU; const def = realm >= 3 ? ENEMIES.jindan_mo ?? ENEMIES.moxiu : realm >= 2 ? ENEMIES.zhujixiu : ENEMIES.moxiu;
-          const e = new Enemy(def, sos.x + Math.cos(an) * 220, sos.y + Math.sin(an) * 150, realm, rint(0, 4)); e.name = i === 0 ? '围攻的魔修头领' : '围攻的魔修'; e.aggro = true; if (i === 0) { e.boss = true; e.maxHp = e.hp = Math.round(e.hp * 1.6); }
+          const er = i === 0 ? realm : Math.max(1, realm - (Math.random() < 0.65 ? 1 : 0)); const e = new Enemy(def, sos.x + Math.cos(an) * 220, sos.y + Math.sin(an) * 150, er, er < realm ? rint(0, 12) : rint(0, 2)); e.name = i === 0 ? '围攻的魔修头领' : '围攻的魔修'; e.aggro = true; e.tag = e.tag ?? 'sos'; if (i === 0) { e.boss = true; e.maxHp = e.hp = Math.round(e.hp * 1.6); }
           g.combat.enemies.push(e); this.sosFoes.push(e);
         }
         g.toast(`${b.name}就在前面——被围住了！`, 'warn');

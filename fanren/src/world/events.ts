@@ -2,6 +2,7 @@
 // - 原著大事件按游戏年份发生（升仙大会、血色禁地、燕家堡之变、魔道入侵越国、虚天殿、坠魔谷……），你可参与并改变结局
 // - 神识之内的随机奇遇：天材地宝出世、受伤修士、古修遗府、妖兽护宝、高人点化、散修摆摊、魔修祭坛、灵草丛
 import type { Game } from './game';
+import { foeRealm } from './demog';
 import { LOC_BY_ID, LOCATIONS, WORLD_SCALE, regionAt, locHere, locLabel } from '../data/world';
 import { ENEMIES, ENEMY_LIST, dangerRealm } from '../data/enemies';
 import { Enemy } from './combat';
@@ -29,8 +30,9 @@ interface CanonEvent {
   reward: (g: Game) => string;
   onWin?: (g: Game) => void; onMiss?: (g: Game) => void; onStart?: (g: Game) => void;
   special?: 'shengxian' | 'invasion';
+  /** 第三十七步：此事件里杂兵的境界区间（按原著：血色禁地只许炼气弟子进；虚天殿是结丹修士的场子） */
+  foe?: [number, number];
 }
-const lvR = (g: Game, add = 0) => { const h = g.hero; return { realm: Math.max(1, Math.min(5, h.realm + (h.stage >= REALMS[h.realm].stages.length - 1 ? 1 : 0) + add)), stage: 0 }; };
 
 export const CANON_EVENTS: CanonEvent[] = [
   {
@@ -41,19 +43,19 @@ export const CANON_EVENTS: CanonEvent[] = [
     waves: () => [], reward: () => '',
   },
   {
-    id: 'xuese', gate: [1, 7], name: '血色禁地试炼', year: 4, month: 6, dur: 40, repeat: 5, loc: 'xuese', radius: 10, minRealm: 1,
+    id: 'xuese', gate: [1, 7], name: '血色禁地试炼', year: 4, month: 6, dur: 40, repeat: 5, loc: 'xuese', radius: 10, minRealm: 1, foe: [1, 1],
     announce: '越国七派将再度联手开启血色禁地。禁地中生满筑基丹主药，亦遍布妖兽与杀机。',
     intro: '禁地禁制缓缓开启，血雾弥漫。七派弟子一拥而入——这里没有同门，只有灵药和敌人。\n\n你察觉到不止一道不怀好意的神识，正黏在你身上。',
     win: '你带着满袋灵药走出血雾。身后，有人没能出来。', lose: '', missed: '血色禁地关闭了。据说这一次，七派弟子十不存三。',
-    waves: (g) => { const r = lvR(g); return [
+    waves: () => [
       { list: [['spider', 2], ['heilin', 3]] },
-      { list: [['bandit', 2], ['zhujixiu', r.realm >= 2 ? 1 : 0]] },
-      { list: [['facespider', 1], ['python', 1]], boss: { def: 'mojiao', name: '禁地墨蛟', realm: Math.max(1, r.realm), stage: 2, hp: 3 } },
-    ]; },
+      { list: [['bandit', 3]] },
+      { list: [['facespider', 1], ['python', 1]], boss: { def: 'mojiao', name: '禁地墨蛟', realm: 1, stage: 12, hp: 3 } },
+    ],
     reward: (g) => { const h = g.hero; C.addItem(h, 'herb_zihou', 1, 120 + rint(0, 200)); C.addItem(h, 'herb_tianling', 1, 120 + rint(0, 200)); C.addItem(h, 'herb_huangjing', 3, 110 + rint(0, 100)); if (Math.random() < 0.35) C.addItem(h, 'pill_zhuji', 1); return '百年紫猴花、天灵果、黄精（筑基丹主材）'; },
   },
   {
-    id: 'yanjia', gate: [2, 0], name: '燕家堡之变', year: 9, month: 5, dur: 60, loc: 'yanling', radius: 9, minRealm: 2,
+    id: 'yanjia', gate: [2, 0], name: '燕家堡之变', year: 9, month: 5, dur: 60, loc: 'yanling', radius: 9, minRealm: 2, foe: [1, 2],
     announce: '燕家堡将为燕家女儿择婿，七派与魔道皆有人前往。江湖传言，这场喜宴怕是要见血。',
     intro: '喜宴的红绸还未撤下，堡外便升起了冲天魔气。鬼灵门少主王蝉狞笑着站在血光之中：「燕家，今日除名！」\n\n七派弟子仓皇应战，到处是惨叫声。',
     win: '王蝉的魔影溃散，燕家堡保住了。燕如嫣远远向你行了一礼。', lose: '', missed: '燕家堡被鬼灵门血洗，燕家几乎满门覆灭。',
@@ -66,41 +68,41 @@ export const CANON_EVENTS: CanonEvent[] = [
     onMiss: (g) => { const n = g.npcs.byId.get('yanruyan'); if (n && Math.random() < 0.5) g.npcs.die(n, '死于燕家堡之变'); },
   },
   {
-    id: 'modao', gate: [2, 1], name: '魔道六宗入侵越国', year: 16, month: 3, dur: 600, loc: 'huangfeng', radius: 10, minRealm: 2, special: 'invasion',
+    id: 'modao', gate: [2, 1], name: '魔道六宗入侵越国', year: 16, month: 3, dur: 600, loc: 'huangfeng', radius: 10, minRealm: 2, special: 'invasion', foe: [1, 2],
     announce: '魔道六宗在越国边境集结，七派人心惶惶。一场大战，迫在眉睫。',
     intro: '黄枫谷护山大阵在魔光下剧烈震颤。鬼灵门、合欢宗的长老亲自督战，誓要踏平黄枫谷。\n\n「天南七派，今日便是你们的死期！」',
     win: '魔道长老伏诛，残余魔修溃逃出越国。七派守住了越国——这一次，历史改变了。', lose: '', missed: '七派节节败退，越国沦陷于魔道之手。七派残部退往九国盟。',
-    waves: (g) => { const r = lvR(g); return [
+    waves: () => [
       { list: [['moxiu', 5]] },
-      { list: [['moxiu', 3], ['guijiang', r.realm >= 3 ? 1 : 0], ['bloodbat', 3]] },
-      { list: [['moxiu', 3]], boss: { def: 'jindan_mo', name: '鬼灵门长老', realm: Math.max(3, r.realm), stage: 0, hp: 3 } },
-    ]; },
+      { list: [['moxiu', 3], ['guijiang', 1], ['bloodbat', 3]] },
+      { list: [['moxiu', 3]], boss: { def: 'jindan_mo', name: '鬼灵门长老', realm: 3, stage: Math.random() < 0.5 ? 0 : 1, hp: 3 } },
+    ],
     reward: (g) => { g.ws.rep = clamp(g.ws.rep + 30, -100, 100); g.ws.flags.yueHeld = true; C.addItem(g.hero, 'mat_lingshi', 3000); C.addItem(g.hero, 'art_lvhuang', 1); return '灵石 3000、绿煌剑、正道声望 +30'; },
     onStart: (g) => { g.ws.flags.invasion = true; },
     onWin: (g) => { g.ws.flags.invasion = false; },
     onMiss: (g) => { g.ws.flags.invasion = false; g.ws.flags.yueFallen = true; },
   },
   {
-    id: 'xutian', gate: [3, 0], name: '虚天殿开启', year: 60, month: 8, dur: 90, loc: 'xutian', radius: 10, minRealm: 3,
+    id: 'xutian', gate: [3, 0], name: '虚天殿开启', year: 60, month: 8, dur: 90, loc: 'xutian', radius: 10, minRealm: 3, foe: [3, 3],
     announce: '乱星海传出消息：虚天殿将在明年现世，殿中藏有通天灵宝虚天鼎与乾蓝冰焰。乱星海各方老怪蠢蠢欲动。',
     intro: '海天之间，一座古殿自雾中浮现。殿门前，温天仁负手而立，身后是六道极圣的门人。\n\n「虚天鼎，我温天仁要了。不服的，上来送死。」',
     win: '温天仁败退，你踏入虚天殿深处，冰焰的寒光映亮了你的脸。', lose: '', missed: '虚天殿关闭了。据说乾蓝冰焰落入了某位元婴老怪之手。',
-    waves: (g) => { const r = lvR(g); return [
+    waves: () => [
       { list: [['guijiang', 2], ['yinhun', 3]] },
       { list: [['jindan_mo', 2]] },
-      { list: [['jindan_mo', 1]], boss: { def: 'jindan_mo', name: '温天仁', realm: Math.max(3, r.realm), stage: 2, npc: 'wentianren', hp: 3.5 } },
-    ]; },
+      { list: [['jindan_mo', 1]], boss: { def: 'jindan_mo', name: '温天仁', realm: 3, stage: 2, npc: 'wentianren', hp: 3.5 } },
+    ],
     reward: (g) => { const roll = Math.random(); const id = roll < 0.12 ? 'art_xutian' : roll < 0.55 ? 'art_qianlan' : 'art_bamen'; C.addItem(g.hero, id, 1); C.addItem(g.hero, 'mat_lingshi', 8000); return `${itemDef(id).name}、灵石 8000`; },
   },
   {
-    id: 'zhuimo', gate: [3, 1], name: '坠魔谷异变', year: 120, month: 4, dur: 120, loc: 'zhuimo', radius: 10, minRealm: 3,
+    id: 'zhuimo', gate: [3, 1], name: '坠魔谷异变', year: 120, month: 4, dur: 120, loc: 'zhuimo', radius: 10, minRealm: 3, foe: [3, 4],
     announce: '坠魔谷禁制日渐松动，上古魔气外泄。传说谷底封印着一具古魔分身。',
     intro: '谷底魔气如潮，一道漆黑的身影缓缓睁开了眼睛。那是上古遗留的魔物，单是威压，便让人神魂欲裂。',
     win: '古魔分身溃散，坠魔谷的封印重新稳固。你在谷底找到了上古修士的遗宝。', lose: '', missed: '坠魔谷魔气外泄，方圆百里化为死地。',
-    waves: (g) => { const r = lvR(g); return [
+    waves: () => [
       { list: [['guijiang', 3], ['facespider', 2]] },
-      { list: [['guijiang', 2]], boss: { def: 'guijiang', name: '古魔分身', realm: Math.max(4, r.realm), stage: 0, hp: 4 } },
-    ]; },
+      { list: [['guijiang', 2]], boss: { def: 'guijiang', name: '古魔分身', realm: 4, stage: 2, hp: 4 } },
+    ],
     reward: (g) => { C.addItem(g.hero, 'art_yuanci', 1); C.addItem(g.hero, 'pill_peiying', 1); return '元磁神山、培婴丹'; },
   },
 ];
@@ -239,9 +241,12 @@ export class Events {
     const dz = Math.max(1, a.ev.minRealm * 1.5);
     for (const [id, n] of w.list) for (let i = 0; i < n; i++) {
       const def = ENEMIES[id]; if (!def) continue;
-      const rk = dangerRealm(dz + 1, Math.random);
+      const [lo, hi] = a.ev.foe ?? [1, 3];
+      const rk = def.kind === 'human' ? foeRealm(g, p.x, p.y, def.evil ? 'evil' : 'rogue', Math.random, lo, hi) : dangerRealm(dz + 1, Math.random);
+      void dz;
       const an = Math.random() * TAU, d = rand(380, 620);
-      const e = new Enemy(def, p.x + Math.cos(an) * d, p.y + Math.sin(an) * d * 0.7, Math.max(rk.realm, Math.min(g.hero.realm, a.ev.minRealm)), rk.stage);
+      const rr = Math.max(lo, Math.min(hi, rk.realm));
+      const e = new Enemy(def, p.x + Math.cos(an) * d, p.y + Math.sin(an) * d * 0.7, rr, rr === rk.realm ? rk.stage : rr >= 2 ? rint(0, 1) : rint(4, 10));
       e.aggro = true; g.combat.enemies.push(e); a.foes.push(e);
     }
     if (w.boss) {
@@ -290,7 +295,7 @@ export class Events {
     const R = g.senseRadius; const n = rint(1, 3);
     for (let i = 0; i < n; i++) {
       const an = Math.random() * TAU, d = R * rand(1.0, 1.3);
-      const e = new Enemy(ENEMIES.moxiu, p.x + Math.cos(an) * d, p.y + Math.sin(an) * d * 0.8, Math.max(1, Math.min(3, g.hero.realm)), rint(0, 2));
+      const rs = foeRealm(g, p.x, p.y, i === 0 && Math.random() < 0.15 ? 'leader' : 'evil', Math.random, 1, 3); const e = new Enemy(ENEMIES[rs.realm >= 3 ? 'jindan_mo' : 'moxiu'] ?? ENEMIES.moxiu, p.x + Math.cos(an) * d, p.y + Math.sin(an) * d * 0.8, rs.realm, rs.stage);
       e.name = '魔道先锋'; g.combat.enemies.push(e);
     }
   }
@@ -348,7 +353,7 @@ export class Events {
       if (x.kind !== 'beast' && x.kind !== 'altar' && d < best) { best = d; this.focus = x; }
       if (x.kind === 'treasure' && x.data.rivals && !x.foes && d < 520) {
         x.foes = [];
-        for (let i = 0; i < x.data.rivals; i++) { const an = Math.random() * TAU; const rk = { realm: Math.max(1, g.hero.realm), stage: rint(0, 4) }; const e = new Enemy(ENEMIES[rk.realm >= 2 ? 'zhujixiu' : 'bandit'], x.x + Math.cos(an) * 420, x.y + Math.sin(an) * 300, rk.realm, rk.stage); e.name = '闻讯而来的散修'; e.aggro = true; g.combat.enemies.push(e); x.foes.push(e); }
+        for (let i = 0; i < x.data.rivals; i++) { const an = Math.random() * TAU; const rk = foeRealm(g, x.x, x.y, 'rogue'); const e = new Enemy(ENEMIES[rk.realm >= 2 ? 'zhujixiu' : 'bandit'], x.x + Math.cos(an) * 420, x.y + Math.sin(an) * 300, rk.realm, rk.stage); e.name = '闻讯而来的散修'; e.aggro = true; g.combat.enemies.push(e); x.foes.push(e); }
         g.toast('灵光引来了旁人——几道遁光正朝这里疾驰！', 'warn');
       }
     }
@@ -381,19 +386,19 @@ export class Events {
         const cands = ENEMY_LIST.filter((d0) => d0.kind !== 'human' && d0.minDanger <= dz + 1.5 && dz + 1 <= d0.maxDanger + 1 && d0.zone !== 'sea');
         const def = cands[Math.floor(Math.random() * cands.length)] ?? ENEMIES.wolf;
         const rk = dangerRealm(dz + 1, Math.random);
-        const b = new Enemy(def, x + 60, y + 20, Math.max(rk.realm, h.realm), rk.stage);
+        const b = new Enemy(def, x + 60, y + 20, rk.realm, rk.stage);
         b.name = def.name + '·护宝'; b.boss = true; b.maxHp = b.hp = Math.round(b.hp * 2.2); b.hx = x; b.hy = y;
         g.combat.enemies.push(b); e.foes = [b]; e.data.name = def.name;
       }
       if (kind === 'altar') {
         e.foes = [];
-        for (let i = 0; i < 3; i++) { const an2 = (i / 3) * TAU; const m = new Enemy(ENEMIES.moxiu, x + Math.cos(an2) * 120, y + Math.sin(an2) * 80, Math.max(1, h.realm), rint(0, 4)); m.name = '血祭魔修'; m.hx = m.x; m.hy = m.y; g.combat.enemies.push(m); e.foes.push(m); }
+        for (let i = 0; i < 3; i++) { const an2 = (i / 3) * TAU; const ms = foeRealm(g, x, y, i === 0 ? 'leader' : 'evil', Math.random, 1, 3); const m = new Enemy(ENEMIES.moxiu, x + Math.cos(an2) * 120, y + Math.sin(an2) * 80, ms.realm, ms.stage); m.name = '血祭魔修'; m.hx = m.x; m.hy = m.y; g.combat.enemies.push(m); e.foes.push(m); }
       }
       if (kind === 'wounded' || kind === 'sage' || kind === 'stall') {
         let s = Math.floor(Math.random() * 1e9); const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
         e.look = randomLook(rnd, kind === 'sage' ? 'elder' : kind === 'stall' ? 'merchant' : 'cultivator');
         e.st = new CharState(x, y); e.st.setAction(kind === 'wounded' ? 'sit' : kind === 'sage' ? 'sit' : 'idle'); e.st.faceToward(p.x - x, p.y - y);
-        e.data.realm = Math.max(1, h.realm + rint(-1, 1)); e.data.stage = rint(0, 5);
+        { const rs = foeRealm(g, x, y, kind === 'sage' ? 'boss' : 'rogue'); e.data.realm = rs.realm; e.data.stage = rs.stage; }
       }
       this.enc.push(e);
       return;
@@ -436,7 +441,7 @@ export class Events {
         { label: '搜刮他的储物袋', tone: 'bad', act: () => {
           x.done = true; g.ws.rep = clamp(g.ws.rep - 6, -100, 100);
           if (Math.random() < 0.25) {
-            for (let i = 0; i < 2; i++) { const an = Math.random() * TAU; const e = new Enemy(ENEMIES.bandit, x.x + Math.cos(an) * 300, x.y + Math.sin(an) * 200, Math.max(1, h.realm), rint(2, 6)); e.name = '埋伏的劫修'; e.aggro = true; g.combat.enemies.push(e); }
+            for (let i = 0; i < 2; i++) { const an = Math.random() * TAU; const rs = foeRealm(g, x.x, x.y, 'rogue'); const e = new Enemy(ENEMIES[rs.realm >= 2 ? 'zhujixiu' : 'bandit'], x.x + Math.cos(an) * 300, x.y + Math.sin(an) * 200, rs.realm, rs.stage); e.name = '埋伏的劫修'; e.aggro = true; g.combat.enemies.push(e); }
             return close('你的手刚碰到储物袋，那“伤者”猛地睁眼狞笑——是个陷阱！两道人影从暗处扑了出来！', '中计');
           }
           const amt = 60 * Math.pow(3, x.data.realm - 1); C.addItem(h, 'mat_lingshi', amt);
@@ -462,7 +467,7 @@ export class Events {
         }
         h.hp = Math.max(0.05, h.hp - 0.3);
         const def = ENEMY_LIST.filter((d0) => d0.kind === 'ghost')[0] ?? ENEMIES.yinhun;
-        const e = new Enemy(def, x.x, x.y - 60, Math.max(1, h.realm), rint(2, 8)); e.name = '洞府守护残魂'; e.aggro = true; e.boss = true; e.maxHp = e.hp = Math.round(e.hp * 1.8); g.combat.enemies.push(e);
+        const gr = dangerRealm(g.combat.dangerCalc(x.x, x.y).k + 1, Math.random); const e = new Enemy(def, x.x, x.y - 60, Math.max(1, Math.min(4, gr.realm)), gr.stage); e.name = '洞府守护残魂'; e.aggro = true; e.boss = true; e.maxHp = e.hp = Math.round(e.hp * 1.8); g.combat.enemies.push(e);
         return close('禁制反噬！一道杀阵光芒击中了你，石室深处传来阴冷的低笑……', '禁制反噬');
       };
       const opts = [{ label: `强行破禁（耗三成半法力，把握约 ${Math.round(chance * 100)}%）`, act: open }];

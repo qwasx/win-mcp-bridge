@@ -17,7 +17,7 @@ function scenario(label: string, o: { realm: number; stage?: number; gap: number
   g.player.x = 120000; g.player.y = 93000; g.player.flying = o.fly; g.player.sitting = false; g.concealed = !!o.conceal; g.senseBurstT = 0;
   g.input.keys.clear(); g.input.keys.add(o.dir ?? 'd'); if (o.boost) g.input.keys.add('shift');
   for (let i = 0; i < 10; i++) { g.modal = null; g.update(1 / 30); }   // 先跑起来，追杀者从身后出现
-  g.pursuit.cd = 0; g.pursuit.start({ reason: 'test', gap: o.gap });
+  g.pursuit.cd = 0; g.pursuit.start({ reason: 'test', gap: o.gap, force: true });
   const P = g.pursuit.cur; const d0 = Math.hypot(P.e.x - g.player.x, P.e.y - g.player.y);
   let minD = 1e9, end = '', t = 0, usedSkill = false, wave = 0, turns = 0;
   const dt = 1 / 30, N = (o.secs ?? 90) * 30;
@@ -61,7 +61,7 @@ check('筑基 血影遁 vs 结丹：一遁脱身', scenario('zj-xueying', { real
   g.combat.reset(); g.pursuit.reset(); g.modal = null; g.input.keys.clear();
   const h = g.hero; h.realm = 2; h.stage = 0; h.hp = 1; h.mp = 1; g.player.x = 120000; g.player.y = 93000; g.player.flying = false;
   for (let i = 0; i < 5; i++) { g.modal = null; g.update(1 / 30); }
-  g.pursuit.cd = 0; g.pursuit.start({ reason: 'test', gap: 1 });
+  g.pursuit.cd = 0; g.pursuit.start({ reason: 'test', gap: 1, force: true });
   const e = g.pursuit.cur.e, d0 = Math.hypot(e.x - g.player.x, e.y - g.player.y);
   if (!h.arts.some((a: any) => a.id === 'xueyingdun')) h.arts.push({ id: 'xueyingdun', xp: 0 });
   g.combat.cds?.clear?.(); g.combat.cast('xueyingdun');
@@ -73,7 +73,7 @@ check('筑基 血影遁 vs 结丹：一遁脱身', scenario('zj-xueying', { real
   g.combat.reset(); g.pursuit.reset(); g.modal = null; g.input.keys.clear();
   const h = g.hero; h.realm = 3; h.stage = 0; h.hp = 1; h.mp = 1; h.dead = false; g.player.x = 120000; g.player.y = 93000; g.player.flying = true;
   for (let i = 0; i < 5; i++) { g.modal = null; g.update(1 / 30); }
-  g.pursuit.cd = 0; g.pursuit.start({ reason: 'test', gap: 1 });
+  g.pursuit.cd = 0; g.pursuit.start({ reason: 'test', gap: 1, force: true });
   const P = g.pursuit.cur; P.e.x = g.player.x - 700; P.e.y = g.player.y; P.jinkongCd = 0;
   g.modal = null; g.update(1 / 30);
   const landed = !g.player.flying && g.noFlyT > 0;
@@ -88,7 +88,7 @@ check('筑基 血影遁 vs 结丹：一遁脱身', scenario('zj-xueying', { real
   const { LOCATIONS, WORLD_SCALE } = await import('../src/data/world');
   const town = LOCATIONS.find((l: any) => l.id === 'tainan')!;
   g.player.x = town.x * WORLD_SCALE; g.player.y = town.y * WORLD_SCALE; g.player.flying = false; g.input.keys.clear();
-  g.pursuit.cd = 0; g.pursuit.start({ reason: 'test', gap: 1 });
+  g.pursuit.cd = 0; g.pursuit.start({ reason: 'test', gap: 1, force: true });
   let t = 0; for (let i = 0; i < 30 * 25 && g.pursuit.cur; i++) { g.modal = null; g.update(1 / 30); t += 1 / 30; g.hero.hp = 1; }
   check('逃入坊市：对方不敢擅闯，最终离去', !g.pursuit.cur, `t=${t.toFixed(1)} safe=${g.combat.safeAt(g.player.x, g.player.y)}`);
 }
@@ -96,7 +96,7 @@ check('筑基 血影遁 vs 结丹：一遁脱身', scenario('zj-xueying', { real
 {
   g.combat.reset(); g.pursuit.reset(); g.modal = null;
   const h = g.hero; h.realm = 2; h.stage = 0; h.mp = 1; g.player.x = 120000; g.player.y = 93000; g.player.flying = false; g.input.keys.clear();
-  g.pursuit.cd = 0; g.pursuit.start({ reason: 'test', gap: 1 });
+  g.pursuit.cd = 0; g.pursuit.start({ reason: 'test', gap: 1, force: true });
   const tt = g.toast.bind(g); g.toast = (s: string, k?: any) => { console.log('   toast:', s); return tt(s, k); };
   for (let i = 0; i < 30 * 12; i++) { g.modal = null; g.combat.invulnT = 5; g.update(1 / 30); g.hero.hp = 1; }
   const e = g.pursuit.cur?.e;

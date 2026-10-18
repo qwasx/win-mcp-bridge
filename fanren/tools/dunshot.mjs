@@ -23,7 +23,7 @@ const scen = [
 let i = 0;
 for (const [name, code] of scen) {
   const r = await p.evaluate((code) => { const g = window.__game; g.modal = null; g.emitModal();
-    if (!g.pursuit.cur) { g.pursuit.cd = 0; g.pursuit.start({ reason: 'shot', gap: 1 }); }
+    if (!g.pursuit.cur) { g.pursuit.cd = 0; g.pursuit.start({ reason: 'shot', gap: 1, force: true }); }
     const px = g.player.x, py = g.player.y; const P = g.pursuit.cur; if (!g.combat.enemies.includes(P.e)) g.combat.enemies.push(P.e);
     P.e.skT = 99; P.blinkCd = 99; P.earthCd = 99; P.longT = 99; P.e.speed = 0;
     if (!P.e.ward) { P.e.ward = { hp: 500, max: 500, col: P.e.wardCol ?? '240,220,140', t: 0 }; }

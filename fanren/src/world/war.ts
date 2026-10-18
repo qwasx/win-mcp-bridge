@@ -11,7 +11,8 @@ import { ENEMIES } from '../data/enemies';
 import { LOC_BY_ID, WORLD_SCALE, ACTIVE_MAP, MapId } from '../data/world';
 import { REALMS, realmName } from '../data/realms';
 import * as C from './cultivation';
-import { itemDef } from '../data/items';
+import { itemDef, ITEM_LIST } from '../data/items';
+import { zoneOfLoc, sellableAt, priceMul, ruleOf, yaodanCap, pzOf } from '../data/market';
 import { randomLook } from '../gfx/character';
 import { mulberry32 } from '../core/rng';
 import { SECT_DEF, member, sectTitle } from './roster';
@@ -54,7 +55,8 @@ export interface Jade { id: number; day: number; kind: JadeKind; from: string; f
 /** 战功兑换 */
 const MERIT_SHOP: [string, number, number][] = [
   ['pill_liaoshang', 3, 8], ['pill_huiqi', 3, 8], ['tal_tianleizi', 2, 30], ['pill_juling', 1, 70], ['pill_zhuji', 1, 140],
-  ['tal_liuding', 1, 150], ['pill_ningyuan', 1, 220], ['art_leihuogong', 1, 260], ['art_jingangzhao', 1, 280], ['art_pingtianchi', 1, 340],
+  // 第三十七步：原著有主之宝（雷火弓、金刚罩、六丁神符）不再出现在战功库里，换成军中库藏的符宝 / 法宝
+  ['tal_tishen', 1, 90], ['tal_fubao', 1, 160], ['pill_ningyuan', 1, 220], ['art_miemo', 1, 240], ['art_fuguang', 1, 280], ['art_pingtianchi', 1, 340],
 ];
 
 interface Battle { war: string; wave: number; foes: Enemy[]; t: number; x: number; y: number; done?: boolean }
@@ -237,15 +239,19 @@ export class WarSys {
 
   // ------------------------------------------------------------ 前线接战
   private foeSide(w: WarDef, s: WarState) { return w.sides[1 - (s.side ?? 0)]; }
-  private mkFoe(w: WarDef, s: WarState, x: number, y: number, realm: number, boss = false) {
+  private mkFoe(w: WarDef, s: WarState, x: number, y: number, realm: number | null, boss = false, cap = 5) {
     const side = this.foeSide(w, s);
     const sid = pick(side.sects.filter((x) => SECT_DEF.has(x)));
     const def = SECT_DEF.get(sid)!;
     // 敌兵也出自名册：杀了就少一个
     let i = -1;
-    for (let t = 0; t < 30; t++) { const k = 1 + Math.floor(Math.random() * (def.n - 1)); const m = member(def, k, this.game.roster.gen(sid, k)); if (!this.game.roster.isDead(sid, k) && Math.abs(m.realm - realm) <= (boss ? 1 : 0) && !this.game.roster.canonAt(sid, k)) { i = k; break; } }
+    // 第三十七步：realm 为 null = 名册里随便谁（炼气弟子居多，自然分布）；首领 = 本宗在世最强的、但不出动太上
+    if (boss) { let br = -1; for (let k = 1; k < Math.min(def.n, 48); k++) { if (this.game.roster.isDead(sid, k) || this.game.roster.canonAt(sid, k)) continue; const m = member(def, k, this.game.roster.gen(sid, k)); if (m.rank === '太上长老' || m.realm > cap) continue; if (m.realm > br) { br = m.realm; i = k; } } }
+    else if (realm === null) { for (let t = 0; t < 30; t++) { const k = 1 + Math.floor(Math.random() * (def.n - 1)); if (this.game.roster.isDead(sid, k) || this.game.roster.canonAt(sid, k)) continue; const m = member(def, k, this.game.roster.gen(sid, k)); if (m.rank === '太上长老' || m.realm > cap) continue; i = k; break; } }
+    else for (let t = 0; t < 30; t++) { const k = 1 + Math.floor(Math.random() * (def.n - 1)); const m = member(def, k, this.game.roster.gen(sid, k)); if (!this.game.roster.isDead(sid, k) && Math.abs(m.realm - realm) <= (boss ? 1 : 0) && !this.game.roster.canonAt(sid, k)) { i = k; break; } }
     const m = i >= 0 ? member(def, i, this.game.roster.gen(sid, i)) : null;
-    const r = Math.max(1, Math.min(5, m?.realm ?? realm)), stg = Math.min(m?.stage ?? 0, REALMS[r].hp.length - 1);
+    if (!m && realm === null && !boss) return null;
+    const r = Math.max(1, Math.min(5, m?.realm ?? realm ?? 1)), stg = Math.min(m?.stage ?? 0, REALMS[r].hp.length - 1);
     const e = new Enemy(ENEMIES[r >= 3 ? 'jindan_mo' : r >= 2 ? 'zhujixiu' : 'moxiu'], x, y, r, stg);
     e.look = randomLook(mulberry32(m?.seed ?? Math.floor(Math.random() * 1e9)), m?.sex === 'f' ? 'female' : r >= 3 ? 'elder' : 'cultivator');
     (e.look as any).robe = def.robe ?? (e.look as any).robe;
@@ -270,11 +276,14 @@ export class WarSys {
     const hr = Math.max(1, g.hero.realm), n = [4, 5, 4][B.wave];
     const a0 = Math.atan2(B.y - p.y, B.x - p.x);
     B.foes = [];
+    // 第三十七步：敌阵是对方名册里的真人——大多是炼气、筑基弟子；另有一两个与你同阶的冲你而来（若对方有这样的人）
     for (let k = 0; k < n; k++) {
       const a = a0 + (k - (n - 1) / 2) * 0.32, R = 620 + Math.random() * 200;
-      B.foes.push(this.mkFoe(w, s, p.x + Math.cos(a) * R, p.y + Math.sin(a) * R * 0.8, k === 0 && B.wave === 1 ? Math.min(5, hr) : Math.max(1, hr - (Math.random() < 0.55 ? 1 : 0))));
+      const peer = k < (B.wave === 0 ? 1 : 2) && Math.random() < 0.8;
+      const e = this.mkFoe(w, s, p.x + Math.cos(a) * R, p.y + Math.sin(a) * R * 0.8, peer ? Math.min(4, hr) : null, false, 4) ?? this.mkFoe(w, s, p.x + Math.cos(a) * R, p.y + Math.sin(a) * R * 0.8, null, false, 4);
+      if (e) B.foes.push(e);
     }
-    if (B.wave === 2) B.foes.push(this.mkFoe(w, s, p.x + Math.cos(a0) * 760, p.y + Math.sin(a0) * 600, Math.min(5, hr + (Math.random() < 0.3 ? 1 : 0)), true));
+    if (B.wave === 2) { const e = this.mkFoe(w, s, p.x + Math.cos(a0) * 760, p.y + Math.sin(a0) * 600, null, true, Math.min(4, hr + 1)); if (e) { B.foes.push(e); if (e.realm < hr) g.toast(`对面领兵的不过是${realmName(e.realm, e.stage)}的${e.name}——对方的老怪们没来。`, 'info'); } }
   }
   private battleTick(dt: number) {
     const B = this.battle; if (!B) return;
@@ -350,10 +359,11 @@ export class WarSys {
       const merch = N.filter((d) => d.alive && (d.faction === 'merchant' || (d.met && d.favor >= 0)) && d.realm >= 1);
       const d = merch.length ? pick(merch) : null; if (!d) return;
       const tier = Math.max(1, Math.min(5, h.realm + (Math.random() < 0.3 ? 1 : 0)));
-      const goods = ['pill_juling', 'pill_ningyuan', 'tal_liuding', 'tal_tianleizi', 'pill_yanghun', 'art_huangluosan', 'art_xuehongling', 'art_qingmingzhen', 'art_luohunsha', 'art_sifangxue', 'mat_gengjing', 'mat_jinleizhu', 'mat_yanghunmu']
-        .filter((id) => { const it = itemDef(id); return it && it.tier <= tier + 1 && it.tier >= tier - 2; });
+      // 第三十七步：私下转手的也得是当地真有的东西；原著有主之宝不会有人拿来卖
+      const z = zoneOfLoc(LOC_BY_ID.get(d.home));
+      const goods = ITEM_LIST.filter((it) => (it.type === 'artifact' || it.type === 'pill' || it.type === 'talisman' || it.type === 'material' || it.type === 'herb') && it.price >= 150 && it.tier <= tier + 1 && it.tier >= tier - 2 && ruleOf(it).g >= 2 && sellableAt(it, z, 4, yaodanCap(pzOf(z), 3)));
       if (!goods.length) return;
-      const id = pick(goods), it = itemDef(id), price = Math.round(Math.max(200, it.price ?? 500) * rand(0.6, 0.85));
+      const it = pick(goods), id = it.id, price = Math.round(Math.max(200, it.price * priceMul(it, z)) * rand(0.6, 0.85));
       this.send({ kind: '交易', from: d.name, fromId: d.id, text: `听闻道友在寻${it.name}。在下手上恰有一件，急需灵石周转，${price} 灵石便让与道友——比坊市便宜不少。三日内回信即可。`, item: id, price, n: 1, until: g.day + 3 });
     } else if (friends.length) {
       const d = pick(friends);
@@ -393,12 +403,13 @@ export class WarSys {
       if (!d || !d.alive) { j.done = true; continue; }
       if (j.kind === '求救' && !(j as any).spawned) {
         (j as any).spawned = true; this.sosFoes = [];
-        const r = Math.max(1, Math.min(5, Math.max(g.hero.realm, d.realm)));
+        // 第三十七步：敢围攻你朋友的，是冲着他的境界来的，而不是冲着你
+        const r = Math.max(1, Math.min(4, d.realm + (Math.random() < 0.3 ? 1 : 0)));
         d.map = ACTIVE_MAP; d.helpUntil = g.time + 120; g.npcs.summon(d.id);
         for (let k = 0; k < 3 + (r >= 2 ? 1 : 0); k++) {
           const a = (k / 4) * Math.PI * 2;
-          const e = new Enemy(ENEMIES[r >= 3 ? 'jindan_mo' : r >= 2 ? 'zhujixiu' : 'bandit'], j.x + Math.cos(a) * 300, j.y! + Math.sin(a) * 220, Math.max(1, r - (k ? 1 : 0)), Math.floor(Math.random() * 3));
-          e.name = k === 0 ? '劫修头目' : '劫修'; e.aggro = true; e.school = 'jiexiu'; if (k === 0) { e.boss = true; e.maxHp = e.hp = Math.round(e.hp * 1.5); }
+          const e = new Enemy(ENEMIES[r >= 3 ? 'jindan_mo' : r >= 2 ? 'zhujixiu' : 'bandit'], j.x + Math.cos(a) * 300, j.y! + Math.sin(a) * 220, Math.max(1, r - (k ? (Math.random() < 0.6 ? 1 : 0) : 0)), Math.floor(Math.random() * 3));
+          e.name = k === 0 ? '劫修头目' : '劫修'; e.aggro = true; e.tag = e.tag ?? 'sos'; e.school = 'jiexiu'; if (k === 0) { e.boss = true; e.maxHp = e.hp = Math.round(e.hp * 1.5); }
           g.combat.enemies.push(e); this.sosFoes.push(e);
         }
         g.toast(`${d.name}就在前面，被劫修围住了！`, 'warn');

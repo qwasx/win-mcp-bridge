@@ -29,7 +29,7 @@ const scen0 = [
   ['town', `g.teleport(251520, 139200);`],
   ['rain', `g.teleport(251520, 147800); g.weather.kind='rain'; g.weather.k=1;`],
   ['combat', `g.weather.kind='clear'; g.weather.k=0; g.teleport(251520, 147800); g.debugSpawn(['wolf','redwolf','boar','wolf'], g.hero.realm, 1, 420); for (const e of g.combat.enemies) { if (Math.hypot(e.x-g.player.x, e.y-g.player.y) < 1500) e.aggro = true; }`],
-  ['pursuit', `g.combat.enemies.forEach(e => e.dead = true); g.pursuit.cd = 0; g.pursuit.start({ reason: 'snd', gap: 1 });`],
+  ['pursuit', `g.combat.enemies.forEach(e => e.dead = true); g.pursuit.cd = 0; g.pursuit.start({ reason: 'snd', gap: 1, force: true });`],
 ];
 const scen = only ? scen0.filter(([n]) => only.split(',').includes(n)) : scen0;
 mkdirSync('tools/out/snd', { recursive: true });

@@ -3,6 +3,7 @@
 // 你要靠遁光、遁术、敛息、遁入宗门/坊市，才能把对方甩出神识之外。
 // 追杀者平时不在战斗名单里（太远），靠近后作为一名强敌加入战斗；被追上就是一场越阶死战。
 import type { Game } from './game';
+import { threatRealm } from './demog';
 import { Enemy } from './combat';
 import { ENEMY_LIST, EnemyDef } from '../data/enemies';
 import { REALMS, realmName, expNeed } from '../data/realms';
@@ -34,6 +35,8 @@ export interface PursuitInit {
   reason: string; gap?: number; faction?: string; name?: string; delay?: number;
   /** 第三十二步：真正的仇人亲自追来（取其姓名、境界、相貌） */
   npc?: NpcData; allies?: NpcData[]; why?: string;
+  /** 第三十七步：指定高出几阶（调试 / 剧情）——不看当地有没有人敢来 */
+  force?: boolean;
 }
 /** 仇人的喊话 */
 const WHY_TAUNT = (why: string, name: string) => [`韩立！${why}——这笔账今日了结！`, `${why}，你以为躲得掉？`, `${name}在此，拿命来！`, '你的遁光再快，快得过我的神识么？', '上次让你跑了，这回我可是有备而来。'];
@@ -126,8 +129,14 @@ export class PursuitSys {
     const g = this.g, h = g.hero, p = g.player;
     if (this.cur || h.realm < 1 || h.dead) return false;
     const gap = init.gap ?? 1, d = init.npc;
-    let realm = Math.min(5, h.realm + gap);
-    let stage = gap > 0 ? Math.floor(rand(0, REALMS[realm].stages.length)) : REALMS[realm].stages.length - 1;
+    // 第三十七步：来追你的人，是这一带“自认吃得下你”的人——你境界越高，敢动手的越少（天南几乎没人敢追杀元婴）
+    let realm = 1, stage = 0;
+    if (!d && init.force) { realm = Math.min(5, h.realm + gap); stage = gap > 0 ? Math.floor(rand(0, REALMS[realm].stages.length)) : REALMS[realm].stages.length - 1; }
+    else if (!d) {
+      const tr = threatRealm(g, p.x, p.y, Math.max(1, h.realm), gap > 0 ? 0.6 : 0.1, Math.random, h.realm >= 4);
+      if (!tr) return false;
+      realm = tr.realm; stage = realm === h.realm ? Math.max(tr.stage, Math.min(h.stage, REALMS[realm].stages.length - 1)) : tr.stage;
+    }
     let fac = FACTIONS.find((f) => f.id === init.faction) ?? pick(FACTIONS);
     let name = init.name ?? (SURN[Math.floor(Math.random() * SURN.length)] + pick(MN) + (Math.random() < 0.5 ? pick(MN) : ''));
     const prep = Math.min(3, d?.prep ?? 0);
@@ -143,7 +152,7 @@ export class PursuitSys {
       ...base, id: 'pursuer', name, title: fac.name, robe: fac.robe, evil: fac.evil, flying: true, aggro: 1e6,
       hp: 1.35 * (1 + prep * 0.1), atk: 1.1 * (1 + prep * 0.06), def: 1.1, speed: 230,
       ranged: { ...r, fx: fac.fx === 'ghost' ? 'blood' : fac.fx, color: fac.color, range: 640, cd: 1.5, count: realm >= 3 ? 3 : 1 },
-      drops: [{ id: 'mat_lingshi', ch: 1, n: [60 * realm * realm, 140 * realm * realm] }, { id: realm >= 3 ? 'pill_jiangchen' : 'pill_zhuji', ch: 0.25 }, { id: 'tal_tianleizi', ch: 0.35 }, { id: realm >= 3 ? 'art_zhuxie' : 'art_yinhui', ch: 0.3 }],
+      drops: [{ id: 'mat_lingshi', ch: 1, n: [60 * realm * realm, 140 * realm * realm] }, { id: realm >= 3 ? 'pill_jiangchen' : 'pill_zhuji', ch: 0.25 }, { id: 'tal_tianleizi', ch: 0.35 }, { id: realm >= 3 ? 'art_yueyang' : 'art_yinhui', ch: 0.3 }],
     };
     // 从身后、神识边缘之外出现
     const mv = p.st && Math.hypot(p.st.vx, p.st.vy) > 10;
@@ -174,7 +183,7 @@ export class PursuitSys {
     }
     wings.forEach((w, i) => { w.x = x + WING_OFS[i][0] * 0.7; w.y = y + WING_OFS[i][1] * 0.7; });
     this.cur = { e, name, faction: fac, reason: init.reason, realm, stage, lockR, chase, t: 0, outT: 0, safeT: 0, tauntT: rand(4, 7), longT: rand(4, 6), lastX: p.x, lastY: p.y, searching: false, lost: false,
-      npc: d, why: init.why ?? d?.why, prep, v: chase, blinks: 1 + prep, blinkCd: rand(5, 8), earthCd: rand(10, 16), earth: null, wings,
+      npc: d, why: init.why ?? d?.why, prep, v: chase, blinks: 1 + prep + (realm >= 4 ? 2 : 0), blinkCd: rand(5, 8), earthCd: rand(10, 16), earth: null, wings,
       waves: Math.min(2, (gap >= 1 ? 1 : 0) + (prep >= 2 ? 1 : 0) + (realm >= 3 && Math.random() < 0.5 ? 1 : 0)), wave: 0, jinkongCd: realm >= 3 ? rand(12, 18) : 1e9 };
     const who = d ? `${name}${d.why ? '（' + d.why + '）' : ''}` : `${fac.name}${name}`;
     const extra = wings.length ? `，身后还跟着${wings.length === 1 ? '一名帮手' : '两名帮手'}` : '';

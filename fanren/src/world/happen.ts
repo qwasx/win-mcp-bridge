@@ -8,6 +8,7 @@
 // - 异宝出世：每隔一两百日，某处宝光冲天，各路修士闻讯而至
 // - 坊市悬赏榜
 import type { Game } from './game';
+import { foeRealm, threatRealm } from './demog';
 import { ACTIVE_MAP, WORLD_W, WORLD_H, LOCATIONS, WORLD_SCALE, locHere } from '../data/world';
 import { ENEMIES } from '../data/enemies';
 import { Enemy } from './combat';
@@ -111,25 +112,31 @@ export class Happen {
     const x: Hap = { id: this.nid++, kind, x: pos.x, y: pos.y, t: g.time, done: false, seen: false, foes: [], d: {} };
     const hr = h.realm, hs = h.stage;
     if (kind === 'robber') {
-      const hunter = ws.rep < -30 && Math.random() < 0.6;
+      // 第三十七步：劫修的境界看这一带的人口（不随你的境界水涨船高）；赏金猎人只有自认拿得下你的才会接活
+      const hrs = ws.rep < -30 && Math.random() < 0.6 ? threatRealm(g, pos.x, pos.y, Math.max(1, hr), 0.35) : null;
+      const hunter = !!hrs;
       x.d.hunter = hunter;
       const n = hunter ? rint(2, 3) : rint(1, 3);
+      const lead = hrs ?? foeRealm(g, pos.x, pos.y, 'leader');
+      void hs;
       for (let i = 0; i < n; i++) {
-        const up = hunter && i === 0 && Math.random() < 0.35 ? 1 : 0;
-        const e = this.human(pos.x + rand(-80, 80), pos.y + rand(-60, 60), hr + up, up ? 0 : clamp(hs + rint(-2, 2), 0, 12), hunter ? (i === 0 ? '赏金猎人·' + rname() : '赏金猎人') : i === 0 ? '劫修头目' : '拦路劫修');
+        const rs = i === 0 ? lead : hunter ? { realm: Math.max(1, lead.realm - (Math.random() < 0.6 ? 1 : 0)), stage: rint(0, 6) } : foeRealm(g, pos.x, pos.y, 'minion', Math.random, 1, lead.realm);
+        const e = this.human(pos.x + rand(-80, 80), pos.y + rand(-60, 60), rs.realm, rs.stage, hunter ? (i === 0 ? '赏金猎人·' + rname() : '赏金猎人') : i === 0 ? '劫修头目' : '拦路劫修');
         e.busy = true; if (i === 0) { e.boss = hunter; if (hunter) e.maxHp = e.hp = Math.round(e.hp * 1.5); }
         g.combat.enemies.push(e); x.foes.push(e);
       }
     } else if (kind === 'tribul') {
       x.npc = this.mkNpc(pos.x, pos.y, 'cultivator'); x.npc.st.setAction('sit');
-      x.d.name = rname(); x.d.realm = clamp(hr + (Math.random() < 0.5 ? 0 : 1), 1, 4); x.d.end = g.time + 75; x.d.nextBolt = g.time + 2; x.d.pend = [];
+      x.d.name = rname(); x.d.realm = clamp(foeRealm(g, pos.x, pos.y, 'leader', Math.random, 1, 3).realm, 1, 3); x.d.end = g.time + 75; x.d.nextBolt = g.time + 2; x.d.pend = [];
     } else if (kind === 'chase') {
       const P = g.player; const dx = P.x - pos.x, dy = P.y - pos.y, dd = Math.hypot(dx, dy) || 1;
       x.npc = this.mkNpc(pos.x, pos.y, Math.random() < 0.3 ? 'female' : 'cultivator');
       x.d.dir = { x: dx / dd + rand(-0.25, 0.25), y: dy / dd + rand(-0.25, 0.25) }; x.d.evil = Math.random() < 0.4; x.d.name = rname();
       x.d.sect = pick(['清虚门', '掩月宗', '化刀坞', '天阙堡', '巨剑门', '灵兽山']);
       const n = rint(2, 3);
-      for (let i = 0; i < n; i++) { const e = this.human(pos.x - x.d.dir.x * (300 + i * 60) + rand(-50, 50), pos.y - x.d.dir.y * (300 + i * 60) + rand(-50, 50), hr, clamp(hs + rint(-1, 2), 0, 12), x.d.evil ? `${x.d.sect}执法弟子` : '追杀者', !x.d.evil); e.busy = true; g.combat.enemies.push(e); x.foes.push(e); }
+      // 被追的人与追兵的境界看当地；追兵领头的至少不弱于逃者
+      const fr = foeRealm(g, pos.x, pos.y, 'rogue'); x.d.realm = fr.realm;
+      for (let i = 0; i < n; i++) { const rs = i === 0 ? foeRealm(g, pos.x, pos.y, 'leader', Math.random, fr.realm) : foeRealm(g, pos.x, pos.y, 'minion', Math.random, 1, fr.realm + 1); const e = this.human(pos.x - x.d.dir.x * (300 + i * 60) + rand(-50, 50), pos.y - x.d.dir.y * (300 + i * 60) + rand(-50, 50), rs.realm, rs.stage, x.d.evil ? `${x.d.sect}执法弟子` : '追杀者', !x.d.evil); e.busy = true; g.combat.enemies.push(e); x.foes.push(e); }
     } else if (kind === 'caravan') {
       const T = g.terrain;
       let dir = { x: 1, y: 0 };
@@ -237,6 +244,16 @@ export class Happen {
     const gap = (lead?.realm ?? 1) - h.realm;
     const famous = ws.rep >= 60, infamous = ws.rep <= -60;
     const bluff = clamp(0.35 - gap * 0.3 + (h.stage - (lead?.stage ?? 0)) * 0.03, 0.08, 0.85);
+    // 第三十七步：劫修也看得出深浅——高出两个大境界的前辈，他们根本不敢拦
+    if (gap <= -2 && !g.concealed) {
+      const tip = Math.max(10, Math.round(lsHave * 0.02 + 15 * Math.pow(2.2, lead?.realm ?? 1)));
+      const go = () => { for (const e of foes) g.combat.enemies = g.combat.enemies.filter((o) => o !== e); x.done = true; };
+      return { speaker: lead?.name ?? '劫修', title: realmName(lead?.realm ?? 1, lead?.stage ?? 0), mood: 'danger', text: `那几人刚从树后闪出，神识往你身上一扫，脸色刷地白了。\n\n「前、前辈饶命！晚辈有眼无珠，冲撞了前辈法驾……」为首的扑通跪倒，双手捧上一只储物袋。`, options: [
+        { label: `收下孝敬（${tip} 灵石），放他们滚`, tone: 'gold', act: () => { C.addItem(h, 'mat_lingshi', tip); go(); g.ws.rep = clamp(g.ws.rep - 1, -100, 100); return null; } },
+        { label: '「滚吧。以后莫在此处害人。」', act: () => { go(); g.ws.rep = clamp(g.ws.rep + 2, -100, 100); return null; } },
+        { label: '为民除害', tone: 'bad', act: () => { for (const e of foes) { e.busy = false; e.aggro = true; (e as any).provoked = true; } return null; } },
+      ] };
+    }
     const opts: DOpt[] = [];
     if (famous || infamous) opts.push({ label: `报上名号：「在下韩立。」`, tone: 'gold', act: () => {
       if (Math.random() < 0.9) {
@@ -304,11 +321,11 @@ export class Happen {
     }
   }
   private tribWave(x: Hap, n: number) {
-    const g = this.game, h = g.hero, c = x.npc!;
+    const g = this.game, h = g.hero, c = x.npc!, d = x.d; void h;
     for (let i = 0; i < n; i++) {
       const an = Math.random() * TAU;
       const evil = Math.random() < 0.5;
-      const e = evil ? this.human(c.x + Math.cos(an) * 420, c.y + Math.sin(an) * 300, h.realm, rint(0, 6), '趁火打劫的邪修') : new Enemy(ENEMIES.yinhun, c.x + Math.cos(an) * 380, c.y + Math.sin(an) * 280, h.realm, rint(2, 8));
+      const er = foeRealm(g, c.x, c.y, 'evil', Math.random, 1, Math.max(1, d.realm)); const e = evil ? this.human(c.x + Math.cos(an) * 420, c.y + Math.sin(an) * 300, er.realm, er.stage, '趁火打劫的邪修') : new Enemy(ENEMIES.yinhun, c.x + Math.cos(an) * 380, c.y + Math.sin(an) * 280, clamp(d.realm, 1, 4), rint(2, 8));
       if (!evil) e.name = '心魔所化';
       e.aggro = true; g.combat.enemies.push(e); x.foes.push(e);
     }
@@ -385,7 +402,7 @@ export class Happen {
       { label: '「道友莫慌，我来断后。」', tone: 'good', act: () => { d.engaged = 'help'; for (const e of foes) { e.busy = false; e.aggro = true; } return null; } },
       { label: '拦下他，交给追兵', tone: 'bad', act: () => {
         d.engaged = 'stop';
-        const e = this.human(n.x, n.y, g.hero.realm, rint(2, 7), d.name); e.look = n.look; e.cs = new CharState(n.x, n.y); e.aggro = true; e.tag = 'fugitive';
+        const e = this.human(n.x, n.y, d.realm ?? 1, rint(2, 7), d.name); e.look = n.look; e.cs = new CharState(n.x, n.y); e.aggro = true; e.tag = 'fugitive';
         g.combat.enemies.push(e); x.foes.push(e); x.npc = undefined;
         return null;
       } },
@@ -430,7 +447,7 @@ export class Happen {
         const an = Math.atan2(d.dir.y, d.dir.x) + rand(-0.9, 0.9), dd = rand(500, 700);
         let e: Enemy;
         if (beasts) { const rb = g.combat.rollBeast(cartX, cartY, 0, { noFlee: true }); if (!rb) continue; e = new Enemy(rb.def, cartX + Math.cos(an) * dd, cartY + Math.sin(an) * dd, rb.realm, rb.stage); }
-        else e = this.human(cartX + Math.cos(an) * dd, cartY + Math.sin(an) * dd, g.hero.realm, rint(0, 6), '劫道山匪');
+        else { const rs = foeRealm(g, cartX, cartY, i === 0 ? 'leader' : 'rogue'); e = this.human(cartX + Math.cos(an) * dd, cartY + Math.sin(an) * dd, rs.realm, rs.stage, '劫道山匪'); }
         e.busy = true; e.tag = 'ambush'; g.combat.enemies.push(e); x.foes.push(e);
       }
       g.toast(beasts ? '林中窜出一群妖兽，直扑商队！' : '「此路是我开！」——山匪从两侧杀出，直扑商队！', 'warn');
@@ -525,7 +542,7 @@ export class Happen {
       hd.spawned = true;
       const rb = g.combat.rollBeast(hd.x, hd.y, 1, { noFlee: true });
       if (rb) { const e = new Enemy(rb.def, hd.x + 60, hd.y + 30, rb.realm, rb.stage); e.name = rb.def.name + '·镇宝'; e.boss = true; e.maxHp = e.hp = Math.round(e.hp * 3); e.hx = hd.x; e.hy = hd.y; e.tag = 'herald:guard'; g.combat.enemies.push(e); }
-      for (let i = 0; i < rint(2, 4); i++) { const an = Math.random() * TAU; const up = Math.random() < 0.25 ? 1 : 0; const e = this.human(hd.x + Math.cos(an) * 520, hd.y + Math.sin(an) * 380, g.hero.realm + up, up ? 0 : rint(0, 8), i === 0 ? hd.rival : '争宝修士'); e.tag = 'herald:rival'; e.aggro = i === 0 || Math.random() < 0.5; if (i === 0) e.boss = true; g.combat.enemies.push(e); }
+      for (let i = 0; i < rint(2, 4); i++) { const an = Math.random() * TAU; const rs = foeRealm(g, hd.x, hd.y, i === 0 ? 'leader' : 'rogue'); const e = this.human(hd.x + Math.cos(an) * 520, hd.y + Math.sin(an) * 380, rs.realm, rs.stage, i === 0 ? hd.rival : '争宝修士'); e.tag = 'herald:rival'; e.aggro = i === 0 || Math.random() < 0.5; if (i === 0) e.boss = true; g.combat.enemies.push(e); }
       g.toast('宝光之下，早已有人到了——一头镇宝妖兽，几个虎视眈眈的修士。', 'warn');
     }
     const guardAlive = g.combat.enemies.some((e) => e.tag === 'herald:guard' && !e.dead);
@@ -572,7 +589,7 @@ export class Happen {
       let x = 0, y = 0, ok = false;
       for (let k = 0; k < 20 && !ok; k++) { const an = rnd() * TAU, d = 4000 + rnd() * 8000; x = l.x * WORLD_SCALE + Math.cos(an) * d; y = l.y * WORLD_SCALE + Math.sin(an) * d * 0.8; ok = x > 600 && y > 600 && x < WORLD_W - 600 && y < WORLD_H - 600 && T.isLand(x, y) && T.walkFactor(x, y) > 0.3 && !T.inLocZone(x, y, 400); }
       if (!ok) continue;
-      const realm = clamp(h.realm + (rnd() < 0.25 ? 1 : 0), 1, 5), stage = Math.floor(rnd() * 6);
+      const fr = foeRealm(g, x, y, rnd() < 0.3 ? 'boss' : 'leader', rnd); const realm = clamp(fr.realm, 1, 4), stage = Math.min(fr.stage, realm >= 2 ? 2 : 12);
       const beast = rnd() < 0.45;
       const name = beast ? pick(['食人', '凶', '血眼', '独角', '白毛', '断尾']) + '妖兽' : `${pick(['血手', '鬼影', '毒心', '黑煞', '夺命', '剥皮'])}${pick(SURN)}${pick(['三', '老怪', '魔', '狼', '书生', '婆婆'])}`;
       out.push({ id: `${townId}:${month}:${i}`, town: townId, map: ACTIVE_MAP, name, def: beast ? 'beast' : (realm >= 3 ? 'jindan_mo' : 'moxiu'), realm, stage, x, y, reward: Math.round(150 * Math.pow(3, realm - 1) * (1 + stage * 0.08)), until: g.day + 150 });
