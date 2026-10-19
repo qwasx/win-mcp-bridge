@@ -508,7 +508,7 @@ function ChroniclePanel({ game }: { game: Game }) {
 }
 
 // ---------------------------------------------------------------- 帮助
-export const VERSION = 'v0.37 · 货有其地';
+export const VERSION = 'v0.38 · 行云流水';
 function HelpPanel({ game }: { game: Game }) {
   const [tab, setTab] = useState(0);
   const T = ['操作', '修炼', '战斗', '人界', '神识', '机缘'];
