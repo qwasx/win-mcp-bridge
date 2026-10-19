@@ -102,6 +102,17 @@ const R: Record<string, Rule> = {
   art_yinzhong: { z: [LX], g: 4 }, art_languang: { z: [LX], g: 4 },  // 海外古宝
   art_qingtong: { z: [TN, DJ], g: 4 }, art_ziyou: { z: [DJ, TN], g: 4 }, art_xuepifeng: { z: [DJ, 'mo'], g: 4 },
   art_fuguang: { z: [TN, DJ], g: 4 }, art_jianfu: { z: [TN, DJ], g: 4 }, art_jinguangzhuan: { z: [TN], g: 4 },   // 符宝难得
+  // —— 第三十九步：大路法器的产地
+  art_heisha: { z: ['mo', DJ, 'luanxing'], g: 2 }, art_shehun: { z: ['mo', DJ, 'luanxing'], g: 1 }, art_xuehun: { z: ['mo', DJ], g: 3 },   // 魔道之物
+  art_zijinbo: { z: [DJ, TN], g: 3 },                                // 佛门俗家
+  art_ruanwei: { g: 1, m: { LX: 0.75 } }, art_xuangui: { g: 2, m: { LX: 0.75, TN: 1.2 } },   // 妖兽材料炼的甲，海外便宜
+  art_xuanbingjing: { z: [DJ, LX], g: 3 }, art_hanjiang: { z: [DJ, LX, 'yue'], g: 2 },
+  art_taomu: { g: 0 }, art_feihuang: { g: 0 }, art_chitong: { g: 0 },
+  art_gengjin: { g: 3, m: { DJ: 0.9 } }, art_zhenyue: { z: [TN, DJ], g: 3 }, art_tianluo: { z: [DJ, LX], g: 3 },
+  scroll_art_shihun: { z: ['mo', DJ, 'luanxing'], g: 3, homes: ['guiling', 'yinluo', 'tianmo'] },
+  scroll_art_yinfeng: { z: ['mo', DJ, 'luanxing'], g: 2 },
+  scroll_art_hualong: { g: 4, homes: ['tianlan', 'tianmo'] },
+  scroll_art_jianhe: { g: 4, homes: ['jujian', 'gujian'] },
   // —— 符箓 ——
   tal_fire: { g: 0 }, tal_ice: { g: 1 }, tal_jingang: { g: 1 }, tal_thunder: { g: 2 }, tal_escape: { g: 2 }, tal_tishen: { g: 3 }, tal_fubao: { g: 4, z: [TN, DJ] },
   tal_pojin: { g: 1 }, tal_huifu: { g: 1 },
