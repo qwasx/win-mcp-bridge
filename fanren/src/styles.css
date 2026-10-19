@@ -550,6 +550,20 @@ button.mini:disabled { opacity: 0.35; }
 .news span { font-size: 11px; color: var(--ink-soft); margin-right: 8px; }
 .news.canon { color: #8a2a20; } .news.personal { color: #1f5a4e; }
 @media (max-width: 640px) { .chron { grid-template-columns: 1fr; } }
+/* 第三十八步：机缘录 */
+.chron.chron3 { grid-template-columns: 1.15fr 1fr 1fr; }
+@media (max-width: 900px) { .chron.chron3 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 640px) { .chron.chron3 { grid-template-columns: 1fr; } }
+.chance { padding: 6px 10px; margin-bottom: 6px; border-left: 3px solid rgba(60, 50, 40, 0.3); background: rgba(255, 252, 244, 0.55); border-radius: 0 6px 6px 0; }
+.chance .cc-head { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.chance .cc-head b { font-size: 14px; }
+.chance .cc-desc { font-size: 12.5px; line-height: 1.55; color: var(--ink-soft); margin-top: 2px; }
+.chance.gold { border-left-color: #c9a227; } .chance.good { border-left-color: #2f6b5e; } .chance.bad { border-left-color: #a8352a; } .chance.love { border-left-color: #c06a86; }
+.chance.hot { background: rgba(201, 162, 39, 0.13); animation: ccPulse 2.4s ease-in-out infinite; }
+.chance.hot.good { background: rgba(47, 107, 94, 0.12); } .chance.hot.bad { background: rgba(168, 53, 42, 0.1); }
+@keyframes ccPulse { 0%, 100% { box-shadow: none; } 50% { box-shadow: 0 0 0 1px rgba(201, 162, 39, 0.45); } }
+.cc-go { flex: none; font: inherit; font-size: 12px; padding: 1px 10px; border-radius: 10px; border: 1px solid rgba(40, 90, 110, 0.55); background: rgba(159, 232, 255, 0.22); color: #1d4a5a; cursor: pointer; }
+.cc-go:hover { background: rgba(159, 232, 255, 0.45); }
 /* WebGL 合成层：在 UI 画布之下，不接收指针 */
 .game-gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
 .perf-btn { pointer-events: auto; font: 12px ui-monospace, monospace; background: #3a3428; color: #f0e8d0; border: 1px solid #8a7a58; border-radius: 4px; padding: 1px 8px; margin-top: 2px; cursor: pointer; }

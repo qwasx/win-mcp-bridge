@@ -473,9 +473,20 @@ function ChroniclePanel({ game }: { game: Game }) {
   const news = game.ws.news.slice().reverse().slice(0, 60);
   const s = game.ws.sect;
   const year = Math.floor(game.day / 360) + 1;
+  const ch = game.chances();
   return (
-    <Scroll title="大事记" sub={<span>第{year}年　·　{repName(game.ws.rep)}（{game.ws.rep}）　·　{s ? `${LOC_BY_ID.get(s.id)?.name} ${SECT_RANKS[s.rank]}` : '散修'}</span>} onClose={() => game.closeModal()} wide>
-      <div className="chron">
+    <Scroll title="大事记 · 机缘录" sub={<span>第{year}年　·　{repName(game.ws.rep)}（{game.ws.rep}）　·　{s ? `${LOC_BY_ID.get(s.id)?.name} ${SECT_RANKS[s.rank]}` : '散修'}</span>} onClose={() => game.closeModal()} wide>
+      <div className="chron chron3">
+        <div className="chron-col">
+          <div className="sec-title">眼下机缘<small>能做、值得做的事</small></div>
+          {ch.map((c, i) => (
+            <div key={i} className={'chance' + (c.hot ? ' hot' : '') + (c.tone ? ' ' + c.tone : '')}>
+              <div className="cc-head"><b>{c.t}</b>{c.x !== undefined && c.y !== undefined && <button className="cc-go" onClick={() => { audio.sfx('chime'); game.setGuide(c.x!, c.y!, c.t.trim()); game.closeModal(); }}>指路</button>}</div>
+              <div className="cc-desc">{c.d}</div>
+            </div>
+          ))}
+          <div className="hint">闭关 30 日以上，出关时必有访客：宗门传讯、故交赠礼或散修报信。</div>
+        </div>
         <div className="chron-col">
           <div className="sec-title">人界大势<small>原著大事件，结局可被改变</small></div>
           {ev.map((e, i) => (

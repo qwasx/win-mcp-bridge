@@ -37,8 +37,11 @@ import { Happen } from './happen';
 import { LandmarkSys } from './landmarks';
 import { HeartLife } from './heartsx';
 import { XinMo } from './xinmo';
-import { WorldState, newWorldState } from './worldstate';
-import type { Modal, DNode, Shop } from './modal';
+import { WorldState, newWorldState, SECT_RANKS } from './worldstate';
+import { dirName } from './sites';
+import { ITEM_LIST } from '../data/items';
+import { LOC_BY_ID, locHere } from '../data/world';
+import type { Modal, DNode, DOpt, Shop } from './modal';
 
 export const DAYS_PER_SEC = 0.5;    // 现实 1 分钟 = 游戏 1 个月（30 天）
 export const MEDITATE_SPEED = 4;    // 打坐时光阴流速
@@ -682,6 +685,8 @@ export class Game {
   update(dt: number) {
     this.time += dt;
     this.terrain.frame++;
+    if (this.visitQ && !this.modal && !this.paused && !this.hero.dead) { const n = this.visitQ; this.visitQ = null; audio.sfx('chime'); this.openDialog(n); }
+    if (!this.halted) this.promoCheck(dt);
     if (!this.halted && !this.hero.dead) { const _s = prof.t(); this.updateSense(dt); prof.add('U·神识', _s); }
     const p = this.player, st = p.st, h = this.hero;
     // 高空：飞行时缓缓升高，疾遁时更高——镜头随之拉远
@@ -873,9 +878,150 @@ export class Game {
   passDays(n: number) { const msgs: Msg[] = []; C.passDays(this.hero, n, false, 1, msgs); this.day += n; this.flushMsgs(msgs.filter((m) => m.kind)); }
   /** 第十八步：地图上的通用标记（世界坐标） */
   mapMarks(): { x: number; y: number; glyph: string; color: string; ring?: number; name: string }[] {
-    const out = [...this.sites.marks(), ...this.happen.marks(), ...this.heartx.marks(), ...this.landmarks.marks(), ...this.combat.lairMarks(), ...this.war.marks()];
+    const out: { x: number; y: number; glyph: string; color: string; ring?: number; name: string }[] = [...this.sites.marks(), ...this.happen.marks(), ...this.heartx.marks(), ...this.landmarks.marks(), ...this.combat.lairMarks(), ...this.war.marks()];
     const h = this.ws.home; if (h && h.map === ACTIVE_MAP) out.push({ x: h.x, y: h.y, glyph: '府', color: '#ffd890', name: h.name });
+    const gd = this.guide; if (gd && gd.map === ACTIVE_MAP) out.push({ x: gd.x, y: gd.y, glyph: '指', color: '#9fe8ff', ring: 320, name: '指路：' + gd.name });
     return out;
+  }
+
+  // ------------------------------------------------------------ 第三十八步：中期节奏
+  /** 「指路」标记：大事记里点一下，地图与小地图上出现青色「指」字，走近自动消失 */
+  guide: { x: number; y: number; name: string; map: string } | null = null;
+  setGuide(x: number, y: number, name: string) {
+    const p = this.player;
+    this.guide = { x, y, name, map: ACTIVE_MAP };
+    this.toast(`已指路：${name}——在${dirName(x - p.x, y - p.y)}方约 ${Math.round(Math.hypot(x - p.x, y - p.y) / 30)} 丈（地图上青色「指」字）`, 'info');
+  }
+  /** 大事记第三栏「眼下机缘」：此刻能做、值得做的事 */
+  chances(): { t: string; d: string; x?: number; y?: number; hot?: boolean; tone?: string }[] {
+    const out: { t: string; d: string; x?: number; y?: number; hot?: boolean; tone?: string }[] = [];
+    const f = this.ws.flags as any, p = this.player, day = this.day;
+    const far = (x: number, y: number) => `${dirName(x - p.x, y - p.y)}方约 ${Math.round(Math.hypot(x - p.x, y - p.y) / 30)} 丈`;
+    // 异宝
+    const hd = f.herald;
+    if (hd && !hd.done && hd.day + 45 > day) {
+      const left = Math.max(1, Math.ceil(hd.day + 45 - day));
+      if (hd.map === ACTIVE_MAP) out.push({ t: '异宝出世', d: `${far(hd.x, hd.y)}，宝光冲天。${left} 日内无人取走，便会落入${hd.rival}之手。`, x: hd.x, y: hd.y, hot: true, tone: 'gold' });
+      else out.push({ t: '异宝出世', d: `${MAP_NAME[hd.map as MapId] ?? '别处'}有异宝出世，余 ${left} 日。`, tone: 'gold' });
+    } else if (f.heraldNext && f.heraldNext > day) {
+      const m = Math.max(1, Math.round((f.heraldNext - day) / 30));
+      out.push({ t: '宝光隐现', d: m <= 2 ? '近来天边时有宝光一闪——异宝怕是就要出世了。' : `散修们说，约莫 ${m} 个月后会有异宝出世。` });
+    }
+    // 宗门
+    const s = this.ws.sect;
+    if (s) {
+      const L = LOC_BY_ID.get(s.id), pr = this.towns.promoteReq(), nx = SECT_RANKS[s.rank + 1];
+      const here = locHere(s.id);
+      const months = Math.floor((day - s.lastPay) / 30), pay = months > 0 ? months * [10, 25, 60, 150, 400][s.rank] : 0;
+      let d = `${SECT_RANKS[s.rank]} · 贡献 ${s.contrib}`;
+      if (pr.ok) d += `。可回山门晋升为「${nx}」！`;
+      else if (nx) d += `。晋升「${nx}」：${pr.why}`;
+      if (pay) d += `。可领俸禄 ${pay} 灵石`;
+      out.push({ t: (L?.name ?? '宗门') + (pr.ok ? ' · 可晋升' : ''), d, x: here ? here.x * WORLD_SCALE : undefined, y: here ? here.y * WORLD_SCALE : undefined, hot: pr.ok, tone: pr.ok ? 'good' : undefined });
+      for (const tk of s.tasks) {
+        if (tk.until < day) continue;
+        const have = Math.max(0, this.towns.taskProgress(tk)), done = have >= tk.need;
+        const pl = tk.kind === 'patrol' ? locHere(tk.target) : undefined;
+        out.push({ t: '　宗门任务', d: `${tk.text}　${have}/${tk.need}${done ? '　✓ 可回宗门交差' : ''}　（贡献 +${Math.round(tk.reward)}，余 ${Math.ceil(tk.until - day)} 日）`, x: pl ? pl.x * WORLD_SCALE : undefined, y: pl ? pl.y * WORLD_SCALE : undefined, tone: done ? 'good' : undefined });
+      }
+    }
+    // 悬赏
+    for (const b of this.ws.bounties ?? []) {
+      if (b.done || b.until <= day) continue;
+      const on = b.map === ACTIVE_MAP;
+      out.push({ t: '悬赏', d: `「${b.name}」${realmName(b.realm, b.stage)} · 赏 ${b.reward} 灵石 · 余 ${Math.ceil(b.until - day)} 日${on ? '，' + far(b.x, b.y) : ''}`, x: on ? b.x : undefined, y: on ? b.y : undefined, tone: 'bad' });
+    }
+    // 战事传讯
+    for (const j of this.war.inbox) {
+      if (j.done || (j.until !== undefined && j.until < day) || j.kind === '交易') continue;
+      out.push({ t: '玉符 · ' + j.kind, d: `${j.from}：${j.text.length > 42 ? j.text.slice(0, 42) + '…' : j.text}（传音玉符 O 中应召）`, x: j.x, y: j.y, hot: !j.read, tone: 'bad' });
+    }
+    // 下一件原著大事
+    const ne = this.events.nextStart();
+    if (ne) { const m = Math.max(0, Math.round((ne.day - day) / 30)); out.push({ t: '天下将变', d: m <= 0 ? `「${ne.name}」即将开始！` : `「${ne.name}」约 ${m} 个月后开始。` }); }
+    // 红颜
+    for (const r of this.hearts.list()) if (r.s?.met && !r.s.flags.parted && r.hint && !r.hint.startsWith('故事') && !r.hint.startsWith('道侣')) { out.push({ t: '红颜 · ' + r.b.name, d: r.hint, tone: 'love' }); if (out.filter((o) => o.tone === 'love').length >= 2) break; }
+    if (!out.length) out.push({ t: '风平浪静', d: '眼下没什么风声。多去酒楼坐坐、与人交谈；闭关出关后，也常有访客登门。' });
+    return out;
+  }
+
+  /** 第三十八步：出关访客——每次闭关 30 日以上，出关时必有一位访客（宗门传讯 / 故交赠礼 / 散修报信，轮流） */
+  private visitQ: DNode | null = null;
+  private seclusionVisitor(days: number): string | null {
+    if (days < 30 || this.hero.dead) return null;
+    const f = this.ws.flags as any, h = this.hero;
+    f.visitN = (f.visitN ?? 0) + 1;
+    const close: DOpt = { label: '送客', act: () => null };
+    const kinds: (() => [DNode, string] | null)[] = [
+      // 宗门传讯
+      () => {
+        const s = this.ws.sect; if (!s) return null;
+        const L = LOC_BY_ID.get(s.id);
+        if (!s.tasks.filter((t) => t.until > this.day).length) this.towns.refreshTasks();
+        const bonus = 10 + s.rank * 15; s.contrib += bonus;
+        const pr = this.towns.promoteReq(), nx = SECT_RANKS[s.rank + 1];
+        const tasks = s.tasks.filter((t) => t.until > this.day).map((t) => `「${t.text}」`).join('、');
+        const text = `${L?.name ?? '宗门'}的传讯纸鹤落在洞府前。\n\n「${SECT_RANKS[s.rank]}韩立闭关勤修，记贡献 ${bonus}。」${tasks ? `\n\n执事堂新近发布：${tasks}。` : ''}${pr.ok ? `\n\n另：你已够格晋升「${nx}」，速回山门。` : nx ? `\n\n晋升「${nx}」尚需：${pr.why}。` : ''}`;
+        return [{ speaker: '传讯纸鹤', title: L?.name, text, options: [close] }, '宗门传讯纸鹤'];
+      },
+      // 故交赠礼
+      () => {
+        const fr = this.npcs.list.filter((d) => d.met && d.alive && d.favor >= 15 && d.faction !== 'mortal' && !d.beauty);
+        if (!fr.length) return null;
+        const d = fr[Math.floor(Math.random() * fr.length)];
+        const pool = ITEM_LIST.filter((it) => it.type === 'pill' && it.tier >= Math.max(0, h.realm - 1) && it.tier <= h.realm && it.price > 0 && it.price <= 600 * (h.realm + 1) * (h.realm + 1));
+        const it = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+        const n = it ? Math.max(1, Math.min(3, Math.round(300 * (h.realm + 1) / it.price))) : 0;
+        if (it) C.addItem(h, it.id, n);
+        d.favor = Math.min(100, d.favor + 2);
+        const rumor = this.events.rumorFor(d) ?? this.npcs.rumor(d);
+        const text = `${d.name}听说你出关，特来道贺。${it ? `\n\n「一点心意，韩道友收下。」——得到 ${it.name} ×${n}。` : ''}\n\n闲谈间，${d.name}说起：${rumor}`;
+        return [{ speaker: d.name, title: realmName(d.realm, d.stage), text, options: [{ label: '多谢道友', tone: 'good', act: () => null }] }, d.name];
+      },
+      // 散修报信：异宝即将出世
+      () => {
+        const hd = f.herald; if (hd && !hd.done) return null;
+        if (f.heraldNext && f.heraldNext - this.day < 40) return null;
+        f.heraldNext = Math.min(f.heraldNext ?? Infinity, this.day + 2);
+        const text = '一名过路散修在洞府外歇脚，向你讨了碗清水。\n\n「道友闭关有些时日了吧？外头可不太平——前几夜，有人看见远处山中宝光冲霄，怕是有异宝要出世了。」\n\n（出关后留意天边异象：地图上会标出「宝」字。）';
+        return [{ speaker: '过路散修', title: '炼气期', text, options: [{ label: '多谢指点', act: () => null }] }, '一名过路散修'];
+      },
+      // 采药人：指点附近一处尚未见过的机缘
+      () => {
+        const p = this.player, st = this.sites.revealNear(p.x, p.y, 12000);
+        if (!st) return null;
+        const nm = this.sites.name(st), where = this.sites.hereDir(st);
+        const text = `一个背着药篓的老采药人路过洞府，见你出关，咧嘴一笑。\n\n「仙师，小老儿前些日子进山，在${where}见着一处古怪地方——${nm}。小老儿凡人一个，不敢靠近，仙师兴许用得上。」\n\n（地图上已标出此处。）`;
+        return [{ speaker: '老采药人', title: '凡人', text, options: [{ label: '指路', tone: 'gold', act: () => { this.setGuide(st.x, st.y, nm); return null; } }, { label: '谢过老丈', act: () => null }] }, '一位老采药人'];
+      },
+      // 落魄修士：兜售残图
+      () => {
+        if ((this.ws.caches ?? []).filter((c) => !c.done).length >= 3) return null;
+        const price = 40 * (h.realm + 1) * (h.realm + 1), have = C.bagCount(h, 'mat_lingshi');
+        const text = `一个衣衫褴褛的修士在洞府外踌躇良久，终于开口。\n\n「道友……在下手头拮据，有一角祖上传下的藏宝残图，愿以 ${price} 灵石相让。图是真的，只是在下修为低微，去了也是送死。」`;
+        return [{ speaker: '落魄修士', title: realmName(Math.max(1, h.realm - 1), 3), text, options: [
+          { label: `买下（${price} 灵石）`, tone: 'gold', disabled: have < price, hint: have < price ? '灵石不足' : undefined, act: () => { C.removeItem(h, 'mat_lingshi', price); const c = this.sites.makeCache(h.realm); return { speaker: '落魄修士', text: c ? '「多谢道友！」他接过灵石，头也不回地走了。\n\n你对照残图与地形，朱砂点很快对上了。' : '「多谢道友！」——可惜残图上的地形，你怎么也对不上。', options: [{ label: '收起残图', act: () => null }] }; } },
+          { label: '婉拒', act: () => null },
+        ] }, '一名落魄修士'];
+      },
+    ];
+    for (let i = 0; i < kinds.length; i++) {
+      const r = kinds[(f.visitN + i) % kinds.length]();
+      if (r) { this.visitQ = r[0]; return `出关时，${r[1]}已在洞府外等候。`; }
+    }
+    return null;
+  }
+  /** 第三十八步：够格晋升时提醒一次 */
+  private promoT = 0;
+  private promoCheck(dt: number) {
+    this.promoT -= dt; if (this.promoT > 0) return; this.promoT = 1.5;
+    const gd = this.guide, p = this.player;
+    if (gd && gd.map === ACTIVE_MAP && Math.hypot(gd.x - p.x, gd.y - p.y) < 360) { this.guide = null; this.toast(`已到达：${gd.name}`, 'good'); }
+    const s = this.ws.sect; if (!s) return;
+    const f = this.ws.flags as any;
+    if (this.towns.promoteReq().ok) {
+      if (f.promoNote !== s.rank) { f.promoNote = s.rank; this.toast(`宗门传讯：你已够格晋升「${SECT_RANKS[s.rank + 1]}」，回山门即可晋升（J 大事记查看）`, 'good'); audio.sfx('chime'); }
+    }
   }
 
   tryGather() {
@@ -946,6 +1092,7 @@ export class Game {
     const drops = important.filter((m) => m.text.includes('绿液')).length;
     for (const m of important) if (!m.text.includes('绿液')) collapsed.push(m);
     if (drops) collapsed.push({ text: `掌天瓶凝出绿液 ${drops} 滴。`, kind: 'good' });
+    const vis = this.seclusionVisitor(d); if (vis) collapsed.push({ text: vis, kind: 'good' });
     if (from !== to) audio.sfx('break');
     this.save(0);
     this.updateUI(true);
