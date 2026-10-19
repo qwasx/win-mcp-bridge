@@ -138,7 +138,7 @@ function drawScorch(F: FxSys, c: Combat, dt: number) {
 
 /** 第三十二步：敌方修士的遁光拖尾（剑遁青白、血遁暗红、雷遁电蛇、魔影遁紫雾） */
 function drawFoeDun(F: FxSys, c: Combat, dt: number) {
-  for (const e of c.enemies as any[]) {
+  for (const e of c.units as any[]) {
     if (e.def.kind !== 'human') continue;
     const T: [number, number][] = e._tr ??= [];
     if (e.trailReset) { T.length = 0; e.trailReset = false; }
@@ -253,7 +253,7 @@ export function drawCombatGL(F: FxSys, c: Combat, t: number, dt: number) {
   for (const f of c.fields) drawField(F, f, t, dt);
 
   // ---- 敌人蓄力预警、受击白闪
-  for (const e of c.enemies) {
+  for (const e of c.units) {
     if (e.dead) continue;
     const vis = enemyVis(c, e);
     if (vis <= 0.02) continue;

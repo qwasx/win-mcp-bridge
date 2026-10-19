@@ -114,6 +114,14 @@ export class Enemy {
   evadeN = -1; evadeCd = 0; evadeRe = 0; evRoll = 0; cowered = false; provoked = false; gone = false; fled = false;
   /** 第三十五步：精英词缀 / 门派（决定修士的功法套路） */
   affix?: AffixState; school?: string; lastSk?: string;
+  /** 第三十九步·混战：ally = 与你同阵（你的法术伤不到，也不打你）；team = 敌人内部的派系，不同派系彼此厮杀（未设者同属「野」） */
+  ally?: boolean; team?: string;
+  /** 当前对手是否是你这一方 / 对手是某个 NPC / 记仇（最近打它的人）/ 死于 NPC 之手 */
+  tgP = true; tgE?: Enemy; grudge?: Enemy; grudgeT = -99; npcKill?: boolean; killer?: Enemy;
+  /** 同阵修士：到点且不在交战就自行离去 */
+  leaveAt?: number;
+  /** 专冲你来的（前线与你同阶的敌将等）：混战中仍优先找你 */
+  hunt?: boolean;
   constructor(def: EnemyDef, x: number, y: number, realm: number, stage: number, sea = false) {
     this.def = def; this.x = this.hx = x; this.y = this.hy = y;
     this.realm = realm; this.stage = stage; this.level = realm * 13 + stage;
@@ -150,6 +158,8 @@ interface Proj {
   fx: Fx; color: string; dmg: number; realm: number; status?: StatusSpec; stCh: number;
   pierce: boolean; homing: boolean; hit: Set<number>; r: number; aoe: number; school?: School;
   evil?: number; size: number; trail: [number, number][]; tick?: number; lv: number; target?: Enemy | null; skill?: string; tk?: any;
+  /** 第三十九步：发射者（敌我混战）/ 同阵修士所发，不伤你 */
+  src?: Enemy; ally?: boolean;
 }
 interface Field { x: number; y: number; r: number; t: number; dur: number; fx: Fx; color: string; dmg: number; tick: number; status?: StatusSpec; stCh: number; school?: School; heal?: boolean; follow?: boolean; lv: number; realm: number; evil?: number }
 interface Vfx { kind: 'ring' | 'beam' | 'chain' | 'strike' | 'cone' | 'flash' | 'warn' | 'slash' | 'aura' | 'blinkfx' | 'bigsword' | 'pillar'; x: number; y: number; x2?: number; y2?: number; r: number; t: number; dur: number; color: string; fx?: Fx; ang?: number; spread?: number; pts?: [number, number][]; seed?: number; w?: number }
@@ -157,14 +167,25 @@ interface Txt { x: number; y: number; s: string; color: string; t: number; big?:
 interface Loot { x: number; y: number; id: string; n: number; t: number }
 interface Summon { hp?: number; cs?: CharState; lv?: number; age?: number; maxT?: number; atk?: number; ax?: number; ay?: number; slot?: number; big?: number; mv?: number; gone?: boolean; boomed?: boolean; kind: 'bugs' | 'puppet' | 'fox' | 'tihun' | 'demon' | 'jiao' | 'quhun'; x: number; y: number; t: number; dmg: number; cd: number; target: Enemy | null; phase: number; facing: number; n: number; evil?: number; status?: StatusSpec; dots?: { a: number; r: number; s: number }[] }
 interface Strike { x: number; y: number; t: number; dmg: number; r: number; status?: StatusSpec; stCh: number; school?: School; fx: Fx; color: string; realm: number; evil?: number; lv: number }
-interface Tank { k: 'p' | 'decoy' | 'summon' | 'swarm' | 'pet' | 'ally'; x: number; y: number; w: number; ref?: any }
+interface Tank { k: 'p' | 'decoy' | 'summon' | 'swarm' | 'pet' | 'ally' | 'foe'; x: number; y: number; w: number; ref?: any }
 interface Spark { x: number; y: number; vx: number; vy: number; t: number; max: number; size: number; color: string }
 
 const SUMMON_COLOR: Record<string, string> = { fox: '200,230,255', puppet: '220,190,140', tihun: '210,170,255', demon: '255,80,70', jiao: '120,240,180', quhun: '140,255,180', bugs: '255,215,90' };
 
+/** 第三十九步：NPC 互斗的伤害系数（让混战打上半分钟到一分钟，而不是几息之间就倒一片） */
+const NPC_DMG = 0.55;
+
 export class Combat {
   game: Game;
   enemies: Enemy[] = [];
+  /** 第三十九步：与你同阵的修士（走同一套 AI，但不在 enemies 里——你的一切法术、法宝、灵宠都不会碰到他们） */
+  allies: Enemy[] = [];
+  /** 敌人 + 同阵（绘制与混战索敌用） */
+  get units(): Enemy[] { return this.allies.length ? this.enemies.concat(this.allies) : this.enemies; }
+  private U: Enemy[] = [];
+  /** 此刻是否有混战（有同阵修士，或有编了派系的敌人） */
+  melee = false;
+  private tgCnt = new Map<any, number>();
   projs: Proj[] = [];
   fields: Field[] = [];
   vfx: Vfx[] = [];
@@ -241,12 +262,13 @@ export class Combat {
     const m = new Enemy(def, x, y, realm, stage, src.sea);
     m.aggro = true; m.minion = true; m.hx = src.hx; m.hy = src.hy;
     m.maxHp = m.hp = Math.round(m.maxHp * 0.6);
-    this.enemies.push(m);
+    m.team = src.team;
+    if (src.ally) { m.ally = true; this.allies.push(m); } else this.enemies.push(m);
     return m;
   }
 
   reset() {
-    this.enemies = []; this.projs = []; this.fields = []; this.vfx = []; this.texts = []; this.loot = []; this.summons = []; this.laterQ = []; this.strikes = []; this.sparks = []; this.foe?.reset(); this.scorch = []; this.swarm = null; this.petSwarm = null; this.wing = null; this.ghosts = [];
+    this.enemies = []; this.allies = []; this.U = []; this.projs = []; this.fields = []; this.vfx = []; this.texts = []; this.loot = []; this.summons = []; this.laterQ = []; this.strikes = []; this.sparks = []; this.foe?.reset(); this.scorch = []; this.swarm = null; this.petSwarm = null; this.wing = null; this.ghosts = [];
     this.cds.clear(); this.pst = {}; this.shield = null; this.orbit = null; this.heal = null; this.dash = null; this.decoy = null; this.acts?.reset();
     this.buffs = { atk: 0, def: 0, speed: 0, regen: 0, stealth: 0, decoy: 0, until: {} };
   }
@@ -1353,6 +1375,8 @@ export class Combat {
     if (this.sparks.length > 500) this.sparks.splice(0, this.sparks.length - 500);
     // 清理
     this.enemies = this.enemies.filter((e) => (e.dead ? (e.deathT += dt) < 0.8 : !e.gone && Math.hypot(e.x - p.x, e.y - p.y) < 5000));
+    for (const e of this.allies) if (e.leaveAt !== undefined && this.game.time > e.leaveAt && !e.aggro && !e.dead && !e.gone) { e.gone = true; this.vfx.push({ kind: 'blinkfx', x: e.x, y: e.y, r: 70, t: 0, dur: 0.45, color: '200,230,255' }); this.texts.push({ x: e.x, y: e.y - 120, s: '告辞！', color: '#a8eec0', t: 0, vy: -24 }); }
+    if (this.allies.length) this.allies = this.allies.filter((e) => (e.dead ? (e.deathT += dt) < 0.8 : !e.gone && Math.hypot(e.x - p.x, e.y - p.y) < 5000));
   }
 
   private tickStatuses(st: Statuses, dt: number, dot: (d: number) => void) {
@@ -1387,23 +1411,109 @@ export class Combat {
       if (A.downT <= 0 && a.hp > 0) L.push({ k: 'ally', x: a.st.x, y: a.st.y, w: 1.5, ref: a });
     }
     void h; this.tanks = L;
+    // 第三十九步：此刻各目标身上压着几个人（混战里用来分散火力）
+    this.U = this.units; this.tgCnt.clear();
+    this.melee = this.allies.length > 0 || this.U.some((e) => !e.dead && e.team !== undefined);
+    for (const e of this.U) if (!e.dead && e.aggro && e.tankRef !== undefined) this.tgCnt.set(e.tankRef, (this.tgCnt.get(e.tankRef) ?? 0) + 1);
   }
-  private pickTank(e: Enemy, dt: number): Tank {
-    const L = this.tanks, key = (t: Tank) => t.ref ?? t.k;
-    let cur = e.tankRef !== undefined ? L.find((t) => key(t) === e.tankRef) : undefined;
+  // ------------------------------------------------------------ 第三十九步：混战
+  teamOf(e: Enemy) { return e.ally ? '@p' : e.team ?? '@wild'; }
+  /** a 会不会把 b 当成对手（同派系不打；没编派系的野怪只有自己杀红了眼才会被卷进来） */
+  hostile(a: Enemy, b: Enemy) {
+    if (a === b || b.dead || b.gone || b.hideT > 0 || b.spar || a.spar || b.sleep || (b.busy && !b.aggro)) return false;
+    const ta = this.teamOf(a), tb = this.teamOf(b);
+    if (ta === tb) return false;
+    if (tb === '@wild' && !b.aggro) return false;
+    if (ta === '@wild' && !a.aggro) return false;
+    return true;
+  }
+  /** 一定范围内、与 e 敌对的单位（最近者） */
+  rivalNear(e: Enemy, x: number, y: number, r: number): Enemy | null {
+    let best: Enemy | null = null, bd = r;
+    for (const o of this.U) { if (!this.hostile(e, o)) continue; const d = Math.hypot(o.x - x, o.y - y); if (d < bd) { bd = d; best = o; } }
+    return best;
+  }
+  /** 同阵修士入场 */
+  addAlly(e: Enemy) { e.ally = true; e.aggro = false; e.hx = e.x; e.hy = e.y; e.maxHp = e.hp = Math.round(e.maxHp * 1.3); this.allies.push(e); return e; }
+  /** 收兵：同阵修士化光离去 */
+  dismissAllies(pred?: (e: Enemy) => boolean) { for (const e of this.allies) if (!e.dead && !e.gone && (!pred || pred(e))) { e.gone = true; this.vfx.push({ kind: 'blinkfx', x: e.x, y: e.y, r: 70, t: 0, dur: 0.45, color: '200,230,255' }); } }
+  onNpcKill?: (e: Enemy, by?: Enemy) => void;
+  /** NPC 之间的伤害（不经你手：不涨熟练、不顿帧、不记你的杀孽） */
+  npcHit(src: Enemy | undefined, t: Enemy, raw: number, realm: number, status: StatusSpec | undefined, fx: number, fy: number) {
+    if (t.dead || t.hideT > 0 || t.gone) return;
+    if (src?.affix) raw = affixOutDmg(src, raw);
+    let d = raw * (t.guardT > 0 ? 0.35 : 1);
+    d = Math.max(d * 0.15, d - t.dfn * 0.8 * (t.st.break ? 0.5 : 1));
+    d *= realmTakeK(clamp(realm - t.realm, -3, 3)) * NPC_DMG * (t.st.shock ? 1.2 : 1);
+    d = Math.max(1, Math.round(d * rand(0.9, 1.1)));
+    const g = this.game, p = g.player, near = Math.abs(t.x - p.x) < 1600 && Math.abs(t.y - p.y) < 1200;
+    if (src) { t.grudge = src; t.grudgeT = g.time; }
+    t.aggro = true; t.sleep = false; t.busy = false;
+    if (t.ward) { const left = absorbWard(this, t, d); if (left <= 0) { t.anim.hit = 0.4; return; } d = Math.max(1, Math.round(left)); }
+    t.hp -= d; t.anim.hit = 1; t.hitFlash = Math.max(t.hitFlash, 0.1);
+    const kdx = t.x - fx, kdy = t.y - fy, kd = Math.hypot(kdx, kdy) || 1, frac = d / t.maxHp;
+    const kb = (40 + Math.min(180, frac * 700)) * (t.def.hp >= 1.8 ? 0.35 : 1);
+    if (Number.isFinite(kd) && Number.isFinite(kb)) { t.kx += kdx / kd * kb; t.ky += kdy / kd * kb * 0.7; }
+    if (near) {
+      const power = Math.min(1.8, 0.5 + frac * 5);
+      this.fxq.push({ k: 'hit', x: t.x + rand(-8, 8), y: t.y - this.hitY(t), color: t.ally ? '255,170,140' : '255,226,190', power, crit: false, dir: Math.atan2(kdy, kdx) });
+      audio.dir.hit(t.x, t.y, undefined, power * 0.7);
+      this.texts.push({ x: t.x + rand(-14, 14), y: t.y - 80, s: String(d), color: t.ally ? '#ff9a7a' : '#d8c8b0', t: 0, vy: -55 });
+    }
+    if (status && Math.random() < status.ch) this.applyStatus(t.st, status, d, t, fx, fy);
+    if (t.hp <= 0) this.npcKill(t, src);
+  }
+  private npcKill(t: Enemy, src?: Enemy) {
+    const g = this.game, p = g.player;
+    t.dead = true; t.deathT = 0; t.npcKill = true; t.killer = src;
+    if (this.lock === t) this.lock = null;
+    const near = Math.hypot(t.x - p.x, t.y - p.y) < 1800;
+    audio.dir.kill(t);
+    this.burstShards(t.x, t.y - 30, t.def.evil ? '160,120,220' : '255,240,200');
+    this.fxq.push({ k: 'kill', x: t.x, y: t.y - 40, color: t.def.evil ? '200,80,200' : '255,226,170' });
+    if (near && (t.def.kind === 'human' || t.boss)) this.texts.push({ x: t.x, y: t.y - 130, s: `${t.name}${t.def.kind === 'human' ? '陨落' : '伏诛'}`, color: t.ally ? '#ff9a7a' : '#e8d0a0', t: 0, vy: -24, big: !!t.boss });
+    // 尸身上的东西还在——坐收渔利（掉落减半）
+    if (!t.ally) {
+      for (const dr of t.def.drops) if (Math.random() < dr.ch * 0.5) this.dropLoot(t.x, t.y, dr.id, dr.n ? rint(dr.n[0], dr.n[1]) * (t.blv ? 1 : t.realm) : 1);
+      if (t.blv && Math.random() < [0, 0.35, 0.5, 0.65, 0.8, 1, 1, 1, 1, 1, 1][t.blv] * 0.7) this.dropLoot(t.x, t.y, 'mat_yaodan' + t.blv, 1);
+    }
+    this.onNpcKill?.(t, src);
+  }
+  private pickTank(e: Enemy, dt: number, pOff = false): Tank | null {
+    const L = this.tanks, key = (t: Tank) => t.ref ?? t.k, tr = e.tankRef;
+    let cur: Tank | undefined;
+    if (tr instanceof Enemy) { if (this.hostile(e, tr)) cur = { k: 'foe', x: tr.x, y: tr.y, w: 1, ref: tr }; }
+    else if (tr !== undefined && !e.ally && !pOff) cur = L.find((t) => key(t) === tr);
     e.tankT -= dt;
     if (!cur || e.tankT <= 0) {
       e.tankT = 0.8 + Math.random() * 0.4;
-      let best = L[0], bs = -1;
-      for (const t of L) {
+      let best: Tank | null = null, bs = -1, rivals = 0;
+      // 第三十九步：混战——别的派系 / 敌对阵营的人，同样是对手
+      for (const o of this.U) {
+        if (!this.hostile(e, o)) continue;
+        const d = Math.hypot(o.x - e.x, o.y - e.y); if (d > 1500) continue;
+        rivals++;
+        let w = 1.1 * (o.boss ? 1.15 : 1);
+        if (o === e.grudge && this.game.time - e.grudgeT < 4 && !e.hunt) w *= 1.9;   // 谁打我，我打谁（专冲你来的不为所动）
+        if (e.hunt && !pOff) w *= 0.35;
+        if (o === tr) w *= 1.35;
+        const n = (this.tgCnt.get(o) ?? 0) - (o === tr ? 1 : 0); w /= 1 + 0.35 * Math.max(0, n);
+        const sc = w / (d + 200);
+        if (sc > bs) { bs = sc; best = { k: 'foe', x: o.x, y: o.y, w, ref: o }; }
+      }
+      if (!e.ally && !pOff) for (const t of L) {
         let w = t.w;
         if (t.k === 'p' && this.game.time - e.lastHitBy < 3) w *= 1.6;
         if (isBoss(e) && t.k !== 'decoy' && t.k !== 'p') w *= 0.6;
-        if (t === cur) w *= 1.35;
+        if (key(t) === tr) w *= 1.35;
+        if (t.k === 'p' && e.hunt) w *= 2.4;
+        // 混战里：已经有好几个人围着你打了，其余的人更愿意去找别的对手
+        if (rivals && t.k !== 'decoy') { const n = (this.tgCnt.get(key(t)) ?? 0) - (key(t) === tr ? 1 : 0); w /= 1 + 0.5 * Math.max(0, n); }
         const sc = w / (Math.hypot(t.x - e.x, t.y - e.y) + 200);
         if (sc > bs) { bs = sc; best = t; }
       }
-      if (best !== cur && best.k !== 'p' && best.k !== 'decoy' && e.aggro && Math.random() < 0.4) this.texts.push({ x: e.x, y: e.y - 120, s: '!', color: '#ffb070', t: 0, vy: -30 });
+      if (!best) { e.tankRef = undefined; return null; }
+      if (key(best) !== tr && best.k !== 'p' && best.k !== 'decoy' && e.aggro && Math.random() < 0.4) this.texts.push({ x: e.x, y: e.y - 120, s: '!', color: '#ffb070', t: 0, vy: -30 });
       cur = best; e.tankRef = key(best);
     }
     return cur;
@@ -1411,6 +1521,7 @@ export class Combat {
   /** 敌人的攻击落在仇恨目标上 */
   tankHit(t: Tank, raw: number, realm: number, status: StatusSpec | undefined, fx: number, fy: number, e?: Enemy) {
     const g = this.game, h = g.hero, ps = this.pStats;
+    if (t.k === 'foe') { this.npcHit(e, t.ref, raw, realm, status, fx, fy); return; }
     if (t.k === 'p') { this.hitPlayer(raw, realm, status, fx, fy, e); return; }
     if (t.k === 'decoy') { if (this.decoy) this.decoy.t -= 0.6; return; }
     const R = t.k === 'ally' ? t.ref.d.realm : h.realm;
@@ -1437,7 +1548,7 @@ export class Combat {
     this.buildTanks(dt);
     const concealK = g.concealed ? 0.45 : 1;
     const playerSafe = this.safeAt(p.x, p.y);
-    for (const e of this.enemies) {
+    for (const e of this.U) {
       if (e.dead) continue;
       if (e.hideT > 0) continue;   // 土遁潜行（由追杀系统驱动）
       if (dt > 0) {   // 第三十八步：实际移动速度（平滑），瞬移 / 遁走时清零
@@ -1448,10 +1559,14 @@ export class Combat {
       e.anim.hit = Math.max(0, e.anim.hit - dt * 4);
       e.hitFlash = Math.max(0, e.hitFlash - dt);
       this.tickStatuses(e.st, dt, (d) => { e.hp -= d; if (Math.random() < dt * 2) this.texts.push({ x: e.x + rand(-10, 10), y: e.y - 70, s: String(Math.max(1, Math.round(d * 0.5 / dt * 0.5))), color: e.st.poison ? '#9ad060' : '#ff9a50', t: 0, vy: -40 }); });
-      if (e.hp <= 0) { this.kill(e); continue; }
+      if (e.hp <= 0) { if (e.ally || (e.grudge && e.grudgeT > e.lastHitBy)) this.npcKill(e, e.grudge); else this.kill(e); continue; }   // 第三十九步：烧死 / 毒死的算最后下手的人
       const frozen = !!(e.st.freeze || e.st.stun || e.st.shock);
       const rooted = frozen || !!e.st.root;
-      const tg: Tank = e.aggro && !e.spar ? this.pickTank(e, dt) : this.decoy ? { k: 'decoy', x: this.decoy.x, y: this.decoy.y, w: 99 } : this.tanks[0];
+      // 第三十九步：同阵修士只找敌人；带派系的敌人在你隐匿 / 入城时照样彼此厮杀
+      let tg: Tank;
+      if (e.ally) { const t = this.pickTank(e, dt); e.aggro = !!t; tg = t ?? this.tanks[0]; }
+      else tg = e.aggro && !e.spar ? this.pickTank(e, dt, stealth || playerSafe) ?? this.tanks[0] : this.decoy ? { k: 'decoy', x: this.decoy.x, y: this.decoy.y, w: 99 } : this.tanks[0];
+      e.tgP = tg.k !== 'foe'; e.tgE = tg.k === 'foe' ? tg.ref : undefined;
       const tx = tg.x, ty = tg.y;
       const dx = tx - e.x, dy = ty - e.y, dist = Math.hypot(dx, dy);
       // 第十八步：沉睡的守护兽 —— 贴得太近（敛息时近得多）才会惊醒；相争的妖兽眼里只有对手
@@ -1460,6 +1575,8 @@ export class Combat {
         else { e.anim.move = 0; continue; }
       }
       if (e.busy && !e.aggro) continue;
+      if (e.ally) { /* 同阵修士：不走察觉 / 脱战那一套 */ }
+      else {
       // 察觉
       const aggroR = (e.def.aggro ?? 480) * concealK * (e.realm > h.realm ? 1.3 : 1);
       const bh = e.def.behave;
@@ -1480,7 +1597,8 @@ export class Combat {
           this.texts.push({ x: e.x, y: e.y - 120, s: '啾——！', color: '#ffe080', t: 0, vy: -24, big: true });
           if (n) this.game.toast(`云翅鸟尖啸示警，附近 ${n} 头妖兽被惊动了！`, 'warn');
         } if (e.def.kind === 'human') this.texts.push({ x: e.x, y: e.y - 110, s: ['留下储物袋！', '小子，找死！', '杀人夺宝！'][Math.floor(Math.random() * 3)], color: '#ffd0a0', t: 0, vy: -20 }); }
-      if (e.aggro && (stealth || playerSafe || dist > 2600 || Math.hypot(e.x - e.hx, e.y - e.hy) > 3200)) e.aggro = false;
+      if (e.aggro && (((stealth || playerSafe) && e.tgP) || dist > 2600 || Math.hypot(e.x - e.hx, e.y - e.hy) > 3200)) e.aggro = false;
+      }
       if (!e.flee && e.def.kind === 'beast' && e.hp < e.maxHp * 0.15 && Math.random() < 0.01) e.flee = true;
       let mvx = 0, mvy = 0, sp = e.speed * (e.st.slow ? 0.5 : 1);
       if (frozen) { e.windup = 0; if (e.cast) this.foe.interrupt(e); }
@@ -1529,10 +1647,11 @@ export class Combat {
           // 第三十二步：提前量——二级以上妖兽与修士会算你的走位
           let ax = tx, ay = ty;
           if (tg.k === 'p' && (e.blv >= 2 || e.def.kind === 'human' || e.realm >= 2)) { const lt = Math.min(1.2, dist / (r.speed ?? 500)) * (0.6 + Math.random() * 0.35); ax += p.st.vx * lt; ay += p.st.vy * lt; }
+          else if (e.tgE && (e.def.kind === 'human' || e.realm >= 2)) { const lt = Math.min(1.2, dist / (r.speed ?? 500)) * 0.7; ax += e.tgE.mvx * lt; ay += e.tgE.mvy * lt; }
           for (let i = 0; i < n; i++) {
             const ang = Math.atan2(ay - 40 - (e.y - 40), ax - e.x) + (n > 1 ? (i / (n - 1) - 0.5) * 0.5 : 0);
             const spd = r.speed ?? 500;
-            this.projs.push({ fac: 'e', x: e.x, y: e.y - (e.anim.flying ? 70 : 40), vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 0, max: r.range / spd + 0.2, fx: r.fx, color: r.color, dmg: e.atk * r.power, realm: e.realm, status: r.status, stCh: r.status?.ch ?? 0, pierce: false, homing: false, hit: new Set(), r: 26, aoe: r.radius ?? 0, size: 0.9, trail: [], lv: 0, tk: tg.k === 'p' || tg.k === 'decoy' ? undefined : (tg.ref ?? tg.k) });
+            this.projs.push({ fac: 'e', x: e.x, y: e.y - (e.anim.flying ? 70 : 40), vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 0, max: r.range / spd + 0.2, fx: r.fx, color: r.color, dmg: e.atk * r.power, realm: e.realm, status: r.status, stCh: r.status?.ch ?? 0, pierce: false, homing: false, hit: new Set(), r: 26, aoe: r.radius ?? 0, size: 0.9, trail: [], lv: 0, tk: tg.k === 'p' || tg.k === 'decoy' ? undefined : (tg.ref ?? tg.k), src: e, ally: e.ally });
           }
         } else {
           // 追击 / 保持距离
@@ -1551,13 +1670,19 @@ export class Combat {
         if (e.windup <= 0 && !e.cast) e.anim.atk = Math.max(0, e.anim.atk - dt * 3);
       } else {
         e.dun = Math.max(0, e.dun - dt * 2);
+        // 第三十九步：同阵修士没仗可打时跟在你身边
+        if (e.ally) { e.hx = p.x; e.hy = p.y; }
+        const fd = e.ally ? Math.hypot(p.x - e.x, p.y - e.y) : 0;
+        if (e.ally && fd > 360) { mvx = (p.x - e.x) / fd; mvy = (p.y - e.y) / fd; sp *= fd > 900 ? 2.6 : 1.3; if (e.def.kind === 'human' && fd > 900) e.dun = 1; }
+        else {
         // 游荡
         e.wanderT -= dt;
         if (e.wanderT <= 0) { e.wanderT = rand(2, 5); const a = Math.random() * TAU; e.wx = Math.random() < 0.4 ? 0 : Math.cos(a); e.wy = Math.random() < 0.4 ? 0 : Math.sin(a); if (Math.hypot(e.x - e.hx, e.y - e.hy) > 500) { e.wx = (e.hx - e.x) / 500; e.wy = (e.hy - e.y) / 500; } }
         mvx = e.wx * 0.35; mvy = e.wy * 0.35;
+        }
       }
       // 互相避让，免得挤成一团
-      for (const o of this.enemies) {
+      for (const o of this.U) {
         if (o === e || o.dead) continue;
         const ox = e.x - o.x, oy = e.y - o.y, od = Math.abs(ox) + Math.abs(oy);
         if (od < 70 && od > 0.01) { const d = Math.hypot(ox, oy) || 1; const k = (70 - d) / 70; if (k > 0) { mvx += ox / d * k * 1.2; mvy += oy / d * k * 1.2; } }
@@ -1568,6 +1693,7 @@ export class Combat {
       e.kx *= Math.pow(0.02, dt); e.ky *= Math.pow(0.02, dt);
       const ok = e.def.flying || (e.sea ? !T.isLand(nx, ny) : T.walkFactor(nx, ny) > 0);
       if (ok && !this.safeAt(nx, ny)) { e.x = nx; e.y = ny; }
+      if (e.x !== e.x || e.y !== e.y) { e.x = e.hx; e.y = e.hy; e.kx = e.ky = 0; }   // 防御：坐标坏了就拉回原处，免得整帧绘制报错
       const mv = Math.hypot(mvx, mvy);
       e.anim.move += ((mv > 0.05 ? Math.min(1, mv * 1.4) : 0) - e.anim.move) * Math.min(1, dt * 6);
       e.anim.phase += dt * sp / 18 * e.anim.move;
@@ -1615,10 +1741,19 @@ export class Combat {
         // 慢速持续弹道：周期性清除已命中记录
         if (pr.pierce && (pr.fx === 'tornado' || pr.fx === 'water' || pr.fx === 'dragon')) { pr.tick = (pr.tick ?? 0) + dt; if (pr.tick > 0.4) { pr.tick = 0; pr.hit.clear(); } }
       } else {
-        if (pr.tk !== undefined) {
+        if (pr.tk instanceof Enemy) {   // 第三十九步：打向别的 NPC 的法术
+          const o = pr.tk;
+          if (!o.dead && Math.hypot(o.x - pr.x, o.y - (o.anim.flying ? 70 : 30) - pr.y) < pr.r + 30) { this.npcHit(pr.src, o, pr.dmg, pr.realm, pr.status, pr.x, pr.y); this.vfx.push({ kind: 'flash', x: pr.x, y: pr.y, r: 30, t: 0, dur: 0.3, color: pr.color, fx: pr.fx, seed: Math.random() * 6 }); return false; }
+        } else if (pr.tk !== undefined) {
           const t = this.tanks.find((x) => (x.ref ?? x.k) === pr.tk);
           if (t && Math.hypot(t.x - pr.x, t.y - 40 - pr.y) < pr.r + 30) { this.tankHit(t, pr.dmg, pr.realm, pr.status, pr.x, pr.y); this.vfx.push({ kind: 'flash', x: pr.x, y: pr.y, r: 30, t: 0, dur: 0.3, color: pr.color, fx: pr.fx, seed: Math.random() * 6 }); return false; }
         }
+        // 混战：法术飞过别派的人也会打中他
+        if (this.melee && pr.src) for (const o of this.U) {
+          if (o === pr.src || o.dead || pr.hit.has(o.id) || !this.hostile(pr.src, o)) continue;
+          if (Math.hypot(o.x - pr.x, o.y - (o.anim.flying ? 70 : 30) - pr.y) < pr.r + 26) { this.npcHit(pr.src, o, pr.dmg, pr.realm, pr.status, pr.x, pr.y); this.vfx.push({ kind: 'flash', x: pr.x, y: pr.y, r: 30, t: 0, dur: 0.3, color: pr.color, fx: pr.fx, seed: Math.random() * 6 }); return false; }
+        }
+        if (pr.ally) return true;   // 同阵修士的法术不伤你
         if (Math.hypot(p.x - pr.x, p.y - 46 - pr.y) < pr.r + 24) {
           if (pr.aoe) this.vfx.push({ kind: 'ring', x: pr.x, y: pr.y + 40, r: pr.aoe, t: 0, dur: 0.4, color: pr.color, fx: pr.fx });
           this.hitPlayer(pr.dmg, pr.realm, pr.status, pr.x, pr.y);

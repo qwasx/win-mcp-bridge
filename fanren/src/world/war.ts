@@ -59,7 +59,7 @@ const MERIT_SHOP: [string, number, number][] = [
   ['tal_tishen', 1, 90], ['tal_fubao', 1, 160], ['pill_ningyuan', 1, 220], ['art_miemo', 1, 240], ['art_fuguang', 1, 280], ['art_pingtianchi', 1, 340],
 ];
 
-interface Battle { war: string; wave: number; foes: Enemy[]; t: number; x: number; y: number; done?: boolean }
+interface Battle { war: string; wave: number; foes: Enemy[]; t: number; x: number; y: number; done?: boolean; allies: Enemy[] }
 
 export class WarSys {
   game: Game;
@@ -239,8 +239,8 @@ export class WarSys {
 
   // ------------------------------------------------------------ 前线接战
   private foeSide(w: WarDef, s: WarState) { return w.sides[1 - (s.side ?? 0)]; }
-  private mkFoe(w: WarDef, s: WarState, x: number, y: number, realm: number | null, boss = false, cap = 5) {
-    const side = this.foeSide(w, s);
+  private mkFoe(w: WarDef, s: WarState, x: number, y: number, realm: number | null, boss = false, cap = 5, ours = false) {
+    const side = ours ? w.sides[s.side ?? 0] : this.foeSide(w, s);
     const sid = pick(side.sects.filter((x) => SECT_DEF.has(x)));
     const def = SECT_DEF.get(sid)!;
     // 敌兵也出自名册：杀了就少一个
@@ -260,28 +260,43 @@ export class WarSys {
     e.school = side.school || sid; e.aggro = true;
     (e as any).warRos = i >= 0 ? [sid, i] : undefined;
     if (boss) { e.boss = true; e.maxHp = e.hp = Math.round(e.hp * 2.6); e.atk *= 1.15; }
-    this.game.combat.enemies.push(e);
+    // 第三十九步：两军对垒——你这边的同门同盟也在阵中厮杀
+    if (ours) { e.tag = 'war:ally'; this.game.combat.addAlly(e); }
+    else { e.team = `war:${w.id}`; this.game.combat.enemies.push(e); }
     return e;
   }
   private startBattle(w: WarDef, s: WarState) {
     const g = this.game, fr = w.front();
     s.lastFight = g.day;
-    this.battle = { war: w.id, wave: 0, foes: [], t: 0, x: fr.x, y: fr.y };
+    this.battle = { war: w.id, wave: 0, foes: [], t: 0, x: fr.x, y: fr.y, allies: [] };
     this.spawnWave();
-    g.toast(`${w.name}·接敌！${this.foeSide(w, s).name}的修士从${fr.name}杀来——共三波`, 'warn');
+    g.toast(`${w.name}·接敌！${this.foeSide(w, s).name}的修士从${fr.name}杀来——共三波。${this.battle.allies.length}名${w.sides[s.side ?? 0].name}同袍与你并肩，两阵混战！`, 'warn');
     g.juice?.(0.1, 0.5);
   }
   private spawnWave() {
     const B = this.battle!, g = this.game, w = WAR_BY_ID.get(B.war)!, s = this.st(B.war), p = g.player;
-    const hr = Math.max(1, g.hero.realm), n = [4, 5, 4][B.wave];
+    const hr = Math.max(1, g.hero.realm), n = [6, 7, 6][B.wave];
     const a0 = Math.atan2(B.y - p.y, B.x - p.x);
     B.foes = [];
     // 第三十七步：敌阵是对方名册里的真人——大多是炼气、筑基弟子；另有一两个与你同阶的冲你而来（若对方有这样的人）
     for (let k = 0; k < n; k++) {
       const a = a0 + (k - (n - 1) / 2) * 0.32, R = 620 + Math.random() * 200;
-      const peer = k < (B.wave === 0 ? 1 : 2) && Math.random() < 0.8;
+      const peer = k < 2 && Math.random() < (B.wave === 0 && k === 1 ? 0.5 : 0.85);
       const e = this.mkFoe(w, s, p.x + Math.cos(a) * R, p.y + Math.sin(a) * R * 0.8, peer ? Math.min(4, hr) : null, false, 4) ?? this.mkFoe(w, s, p.x + Math.cos(a) * R, p.y + Math.sin(a) * R * 0.8, null, false, 4);
-      if (e) B.foes.push(e);
+      if (e) { B.foes.push(e); if (peer) e.hunt = true; }
+    }
+    // 每一波至少有一个专冲你来的（与你境界最接近者）——混战之中，你也躲不掉
+    if (B.foes.length && !B.foes.some((e) => e.hunt)) { const h0 = B.foes.reduce((b, e) => (Math.abs(e.realm - hr) < Math.abs(b.realm - hr) ? e : b)); h0.hunt = true; }
+    // 第三十九步：我方阵线——补足到四五人，站在你身侧与身后；他们会自己找对手厮杀，敌人也不会全冲着你来
+    B.allies = B.allies.filter((e) => !e.dead && !e.gone);
+    const want = [5, 5, 5][B.wave];
+    // 我方的阵容照着敌阵来：对面出一个结丹长老，我们这边也有一个（名册里有的话）——否则炼气弟子只是送死
+    const mirror = B.foes.map((e) => e.realm).sort((x, y) => y - x);
+    for (let k = B.allies.length, i = 0; k < want; k++, i++) {
+      const a = a0 + Math.PI + (i - (want - 1) / 2) * 0.55, R = 160 + Math.random() * 160;
+      const rr = mirror[i] ?? null;
+      const e = this.mkFoe(w, s, p.x + Math.cos(a) * R, p.y + Math.sin(a) * R * 0.8, rr, false, 4, true) ?? (rr !== null && rr > 1 ? this.mkFoe(w, s, p.x + Math.cos(a) * R, p.y + Math.sin(a) * R * 0.8, rr - 1, false, 4, true) : null) ?? this.mkFoe(w, s, p.x + Math.cos(a) * R, p.y + Math.sin(a) * R * 0.8, null, false, 4, true);
+      if (e) { B.allies.push(e); g.combat.vfx.push({ kind: 'blinkfx', x: e.x, y: e.y, r: 70, t: 0, dur: 0.5, color: '200,230,255' }); }
     }
     if (B.wave === 2) { const e = this.mkFoe(w, s, p.x + Math.cos(a0) * 760, p.y + Math.sin(a0) * 600, null, true, Math.min(4, hr + 1)); if (e) { B.foes.push(e); if (e.realm < hr) g.toast(`对面领兵的不过是${realmName(e.realm, e.stage)}的${e.name}——对方的老怪们没来。`, 'info'); } }
   }
@@ -292,11 +307,20 @@ export class WarSys {
     for (const e of B.foes) if (e.dead && !(e as any).warCounted) {
       (e as any).warCounted = true;
       const r = (e as any).warRos as [string, number] | undefined;
-      if (r) { const f = g.ws.flags as any; f.ros ??= {}; const st = (f.ros[r[0]] ??= {}); (st.d ??= []); if (!st.d.includes(r[1])) st.d.push(r[1]); g.rel.addSect(r[0], -1.5); }
-      if (!e.spar) { const m = e.boss ? 30 : 6 + e.realm * 3; this.merit += m; g.combat.texts.push({ x: e.x, y: e.y - 90, s: `战功 +${m}`, color: '#ffd27a', t: 0, vy: -36 }); }
+      if (r) { const f = g.ws.flags as any; f.ros ??= {}; const st = (f.ros[r[0]] ??= {}); (st.d ??= []); if (!st.d.includes(r[1])) st.d.push(r[1]); if (!e.npcKill) g.rel.addSect(r[0], -1.5); }
+      // 第三十九步：战功只记你亲手斩的；同袍斩敌，全阵沾一点光
+      if (!e.spar && !e.npcKill) { const m = e.boss ? 30 : 6 + e.realm * 3; this.merit += m; g.combat.texts.push({ x: e.x, y: e.y - 90, s: `战功 +${m}`, color: '#ffd27a', t: 0, vy: -36 }); }
+      else if (e.npcKill && e.killer?.ally) { this.merit += 1; g.combat.texts.push({ x: e.x, y: e.y - 90, s: '同袍斩敌', color: '#a8e0b8', t: 0, vy: -30 }); }
+    }
+    // 我方阵亡者同样记入名册
+    for (const e of B.allies) if (e.dead && !(e as any).warCounted) {
+      (e as any).warCounted = true;
+      const r = (e as any).warRos as [string, number] | undefined;
+      if (r) { const f = g.ws.flags as any; f.ros ??= {}; const st = (f.ros[r[0]] ??= {}); (st.d ??= []); if (!st.d.includes(r[1])) st.d.push(r[1]); }
     }
     if (g.hero.dead || Math.hypot(B.x - p.x, B.y - p.y) > 4200) {
       for (const e of B.foes) if (!e.dead) { e.dead = true; e.deathT = 0.9; }
+      g.combat.dismissAllies((e) => e.tag === 'war:ally');
       s.score -= 5; this.battle = null;
       g.toast(g.hero.dead ? `${w.name}：你重伤败退，此阵失利。` : `你脱离了战场——${w.name}此阵失利。`, 'warn');
       return;
@@ -307,6 +331,7 @@ export class WarSys {
     if (B.wave < 3) { this.spawnWave(); g.toast(B.wave === 2 ? `第三波——${this.foeSide(w, s).name}的领军亲自出手了！` : '第二波敌军压上！', 'warn'); return; }
     // 胜
     this.battle = null;
+    g.combat.dismissAllies((e) => e.tag === 'war:ally');
     s.wins = (s.wins ?? 0) + 1; s.score = Math.max(-100, Math.min(100, s.score + (s.side === 0 ? 9 : -9)));
     const m = 40 + 20 * g.hero.realm; this.merit += m;
     const ling = Math.round(120 * Math.pow(2.6, g.hero.realm)); C.addItem(g.hero, 'mat_lingshi', ling);
@@ -336,7 +361,7 @@ export class WarSys {
     // 军营散去
     for (const d of g.npcs.list) if ((d as any).war === w.id) { (d as any).war = undefined; d.stay = false; if (d.home0) { d.home = d.home0; d.home0 = undefined; } if (d.bond === 'companion' && d.bondUntil !== undefined) d.bondUntil = g.day; }
     s.phase = 'idle'; s.side = undefined; s.camp = false; s.next = g.day + w.every * YEAR * rand(0.8, 1.2);
-    if (this.battle?.war === w.id) this.battle = null;
+    if (this.battle?.war === w.id) { this.battle = null; g.combat.dismissAllies((e) => e.tag === 'war:ally'); }
   }
 
   // ------------------------------------------------------------ 玉符

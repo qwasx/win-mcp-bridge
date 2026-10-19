@@ -222,6 +222,11 @@ export class Game {
     const c = this.combat as any;
     const prevKill = c.onKill, prevSpar = c.onSparEnd;
     c.onKill = (e: any) => { prevKill?.(e); this.npcs.onEnemyKilled(e); this.towns.onKill(e.def.id); this.events.onKill(e); this.sites.onKill(e); this.pets.onKill(e); this.happen.onKill(e); };
+    // 第三十九步：混战里死于旁人之手——不算你的杀孽，也不给你修为 / 悬赏 / 任务进度
+    c.onNpcKill = (e: any, by: any) => {
+      if (e.npcId) { const d = this.npcs.byId.get(e.npcId); if (d && d.alive) this.npcs.die(d, `死于乱战（${by?.name ?? '旁人'}之手）`); }
+      this.events.onKill(e); this.happen.onNpcKill(e);
+    };
     c.onYield = (e: any) => this.npcs.onYield(e);
     c.onSparEnd = (e: any, won: boolean) => { prevSpar?.(e, won); if (!this.events.onSpar(e, won) && !this.happen.onSpar(e, won)) this.npcs.onSpar(e, won); };
   }

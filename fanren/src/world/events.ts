@@ -6,6 +6,7 @@ import { foeRealm } from './demog';
 import { LOC_BY_ID, LOCATIONS, WORLD_SCALE, regionAt, locHere, locLabel } from '../data/world';
 import { ENEMIES, ENEMY_LIST, dangerRealm } from '../data/enemies';
 import { Enemy } from './combat';
+import { cultivator, newTeam, sectName, spawnAllies, YUE_SECTS } from './melee';
 import { REALMS, realmName } from '../data/realms';
 import * as C from './cultivation';
 import { ITEM_LIST, itemDef } from '../data/items';
@@ -18,6 +19,7 @@ const TAU = Math.PI * 2;
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const rint = (a: number, b: number) => Math.floor(rand(a, b + 1));
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+const pick = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
 
 interface Wave { list: [string, number][]; boss?: { def: string; name: string; realm: number; stage: number; npc?: string; hp?: number } }
 interface CanonEvent {
@@ -227,7 +229,7 @@ export class Events {
     this.active = { ev, wave: 0, foes: [], engaged: true };
     this.spawnWave();
   }
-  private disengage() { this.active = null; }
+  private disengage() { this.active = null; this.game.combat.dismissAllies((e) => e.tag === 'ev:ally'); }
   private spawnWave() {
     const g = this.game, a = this.active!; const p = g.player;
     let waves: Wave[];
@@ -258,7 +260,39 @@ export class Events {
       if (b.npc) { const nd = g.npcs.byId.get(b.npc); if (nd && nd.alive) { e.look = g.npcs.look(nd); e.cs = new CharState(e.x, e.y); e.npcId = nd.id; e.school = nd.sect; } }
       g.combat.enemies.push(e); a.foes.push(e);
     }
-    g.toast(`${a.ev.name}：第${a.wave + 1}/${waves.length}波${w.boss ? `——${w.boss.name}现身！` : ''}`, 'warn');
+    const mx = this.meleeWave(a.ev, a);
+    g.toast(`${a.ev.name}：第${a.wave + 1}/${waves.length}波${w.boss ? `——${w.boss.name}现身！` : ''}${mx}`, 'warn');
+  }
+  /** 第三十九步·混战：大事件里从来不是所有人都冲你一个——分派系、补同阵、放进别路人马 */
+  private meleeWave(ev: CanonEvent, a: { foes: Enemy[] }): string {
+    const g = this.game, p = g.player, c = g.combat, [lo, hi] = ev.foe ?? [1, 3];
+    const rk = (role: 'rogue' | 'leader' = 'rogue'): [number, number] => { const r = foeRealm(g, p.x, p.y, role, Math.random, lo, hi); const rr = clamp(r.realm, lo, hi); return [rr, rr === r.realm ? r.stage : rr >= 2 ? rint(0, 1) : rint(4, 10)]; };
+    const at = (R0: number, R1: number) => { for (let k = 0; k < 10; k++) { const an = Math.random() * TAU, d = rand(R0, R1), x = p.x + Math.cos(an) * d, y = p.y + Math.sin(an) * d * 0.75; if (g.terrain.walkFactor(x, y) > 0) return { x, y }; } return { x: p.x + rand(-300, 300), y: p.y + rand(-200, 200) }; };
+    const rival = (sid: string, nm: string, team: string, role: 'rogue' | 'leader' = 'rogue') => { const q = at(480, 760), [r, st] = rk(role); const e = cultivator(q.x, q.y, r, st, sid, nm); e.team = team; e.aggro = true; c.enemies.push(e); a.foes.push(e); return e; };
+    if (ev.id === 'xuese') {
+      // 血色禁地：七派弟子互相截杀，妖兽是另一伙——只有你自己
+      const beast = newTeam('xuese:beast');
+      for (const e of a.foes) { if (e.def.kind !== 'human') { e.team = beast; continue; } const sid = pick(YUE_SECTS.filter((x) => x !== 'huangfeng')); e.team = newTeam('xuese'); e.school = sid; e.name = `${sectName(sid)}弟子`; }
+      for (let i = 0, n = rint(2, 3); i < n; i++) { const sid = pick(YUE_SECTS.filter((x) => x !== 'huangfeng')); rival(sid, `${sectName(sid)}弟子`, newTeam('xuese')); }
+      return '（各派弟子与妖兽杀作一团）';
+    }
+    if (ev.id === 'yanjia' || ev.id === 'modao') {
+      // 魔道来袭：七派同道与你并肩
+      for (const e of a.foes) e.team = 'modao';
+      const have = c.allies.filter((e) => !e.dead && !e.gone && e.tag === 'ev:ally').length, want = ev.id === 'modao' ? 5 : 4;
+      const add = spawnAllies(g, p.x, p.y, Math.max(0, want - have), () => rk(), YUE_SECTS, 'ev:ally');
+      for (const e of add) e.leaveAt = g.time + 900;
+      return add.length ? `（${add.length}名七派同道赶来助阵）` : '';
+    }
+    if (ev.id === 'xutian' || ev.id === 'zhuimo') {
+      // 虚天殿 / 坠魔谷：老怪们各怀鬼胎，阴物见活人就扑
+      const ghost = newTeam(ev.id + ':ghost'), wen = newTeam('wen');
+      for (const e of a.foes) { if (e.def.kind !== 'human') e.team = ghost; else if (ev.id === 'xutian' && (e.boss || a.foes.some((f) => f.boss))) e.team = wen; else e.team = newTeam(ev.id); }
+      const pool = ev.id === 'xutian' ? ['xinggong', 'sanxiu', 'jiyin', 'jiexiu', 'nixing'] : ['taiyi', 'tianmo', 'huayi', 'sanxiu', 'luoyun', 'gujian'];
+      for (let i = 0, n = rint(2, 3); i < n; i++) { const sid = pick(pool); rival(sid, `${sectName(sid)}${pick(['老怪', '长老', '散修'])}`, newTeam(ev.id), i === 0 ? 'leader' : 'rogue'); }
+      return '（各路老怪也在殿前厮杀）';
+    }
+    return '';
   }
   private waveTick() {
     const g = this.game, a = this.active!;
@@ -278,7 +312,7 @@ export class Events {
     const g = this.game;
     const key = this.keyOf(ev, this.cycleOf(ev)); const st = g.ws.events[key] ?? (g.ws.events[key] = { state: 'active' });
     st.state = 'done'; st.result = win ? 'win' : 'lose';
-    this.active = null;
+    this.active = null; g.combat.dismissAllies((e) => e.tag === 'ev:ally');
     if (win && ev.special !== 'shengxian') g.pursuit.maybe(`${ev.name}中满载而归，早有人在暗处盯着`, 0.3, 1);
     if (ev.special === 'shengxian') { if (!rewardText) { C.addItem(g.hero, 'item_shengxian', 1); g.openDialog({ speaker: ev.name, text: `三战三胜！台下一片哗然。\n\n${ev.win}\n\n（获得升仙令）`, options: [{ label: '好', act: () => null }] }); } g.news('韩立在太南小会夺得升仙令。', 'personal'); return; }
     const rw = ev.reward(g);
@@ -296,8 +330,10 @@ export class Events {
     for (let i = 0; i < n; i++) {
       const an = Math.random() * TAU, d = R * rand(1.0, 1.3);
       const rs = foeRealm(g, p.x, p.y, i === 0 && Math.random() < 0.15 ? 'leader' : 'evil', Math.random, 1, 3); const e = new Enemy(ENEMIES[rs.realm >= 3 ? 'jindan_mo' : 'moxiu'] ?? ENEMIES.moxiu, p.x + Math.cos(an) * d, p.y + Math.sin(an) * d * 0.8, rs.realm, rs.stage);
-      e.name = '魔道先锋'; g.combat.enemies.push(e);
+      e.name = '魔道先锋'; e.team = 'modao'; g.combat.enemies.push(e);
     }
+    // 第三十九步：七派的巡山弟子也在与先锋交手
+    if (Math.random() < 0.45) { const add = spawnAllies(g, p.x, p.y, rint(1, 2), () => { const r = foeRealm(g, p.x, p.y, 'rogue', Math.random, 1, 2); return [r.realm, r.stage]; }, YUE_SECTS, 'inv:ally'); for (const e of add) { e.leaveAt = g.time + 150; e.name = `${sectName(e.school!)}巡山弟子`; } }
   }
   onKill(e: Enemy) {
     const g = this.game;
@@ -353,7 +389,7 @@ export class Events {
       if (x.kind !== 'beast' && x.kind !== 'altar' && d < best) { best = d; this.focus = x; }
       if (x.kind === 'treasure' && x.data.rivals && !x.foes && d < 520) {
         x.foes = [];
-        for (let i = 0; i < x.data.rivals; i++) { const an = Math.random() * TAU; const rk = foeRealm(g, x.x, x.y, 'rogue'); const e = new Enemy(ENEMIES[rk.realm >= 2 ? 'zhujixiu' : 'bandit'], x.x + Math.cos(an) * 420, x.y + Math.sin(an) * 300, rk.realm, rk.stage); e.name = '闻讯而来的散修'; e.aggro = true; g.combat.enemies.push(e); x.foes.push(e); }
+        for (let i = 0; i < x.data.rivals; i++) { const an = Math.random() * TAU; const rk = foeRealm(g, x.x, x.y, 'rogue'); const e = new Enemy(ENEMIES[rk.realm >= 2 ? 'zhujixiu' : 'bandit'], x.x + Math.cos(an) * 420, x.y + Math.sin(an) * 300, rk.realm, rk.stage); e.name = '闻讯而来的散修'; e.aggro = true; e.team = newTeam('treasure'); g.combat.enemies.push(e); x.foes.push(e); }
         g.toast('灵光引来了旁人——几道遁光正朝这里疾驰！', 'warn');
       }
     }

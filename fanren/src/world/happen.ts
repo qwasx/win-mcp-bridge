@@ -20,6 +20,7 @@ import type { Bounty } from './worldstate';
 import { CharState, drawCharacter, randomLook, Look } from '../gfx/character';
 import { loot, pickArt, dirName } from './sites';
 import { audio } from './audio';
+import { cultivator, newTeam, sectName, YUE_SECTS } from './melee';
 
 type G = CanvasRenderingContext2D;
 const TAU = Math.PI * 2;
@@ -541,14 +542,49 @@ export class Happen {
     if (!hd.spawned && d < 1700) {
       hd.spawned = true;
       const rb = g.combat.rollBeast(hd.x, hd.y, 1, { noFlee: true });
-      if (rb) { const e = new Enemy(rb.def, hd.x + 60, hd.y + 30, rb.realm, rb.stage); e.name = rb.def.name + '·镇宝'; e.boss = true; e.maxHp = e.hp = Math.round(e.hp * 3); e.hx = hd.x; e.hy = hd.y; e.tag = 'herald:guard'; g.combat.enemies.push(e); }
-      for (let i = 0; i < rint(2, 4); i++) { const an = Math.random() * TAU; const rs = foeRealm(g, hd.x, hd.y, i === 0 ? 'leader' : 'rogue'); const e = this.human(hd.x + Math.cos(an) * 520, hd.y + Math.sin(an) * 380, rs.realm, rs.stage, i === 0 ? hd.rival : '争宝修士'); e.tag = 'herald:rival'; e.aggro = i === 0 || Math.random() < 0.5; if (i === 0) e.boss = true; g.combat.enemies.push(e); }
-      g.toast('宝光之下，早已有人到了——一头镇宝妖兽，几个虎视眈眈的修士。', 'warn');
+      if (rb) { const e = new Enemy(rb.def, hd.x + 60, hd.y + 30, rb.realm, rb.stage); e.name = rb.def.name + '·镇宝'; e.boss = true; e.maxHp = e.hp = Math.round(e.hp * 3); e.hx = hd.x; e.hy = hd.y; e.tag = 'herald:guard'; e.team = newTeam('herald:beast'); e.aggro = true; g.combat.enemies.push(e); }
+      // 第三十九步·混战：两三路人马各为其主——领头的带着同伙，另有一两个独来独往的散修；彼此见面就打，也打镇宝妖兽，也打你
+      const nGroups = rint(2, 3);
+      for (let gi = 0; gi < nGroups; gi++) {
+        const team = newTeam('herald'), lead = gi === 0, base = Math.random() * TAU, n = lead ? rint(2, 3) : rint(1, 2);
+        const sch = ACTIVE_MAP === 'luanxing' ? pick(['xinggong', 'jiyin', 'sanxiu', 'jiexiu', 'sanxiu']) : ACTIVE_MAP === 'dajin' ? pick(['taiyi', 'tianmo', 'huayi', 'sanxiu', 'jiexiu']) : pick(['sanxiu', 'jiexiu', 'guiling', 'hehuan', ...YUE_SECTS]);
+        for (let i = 0; i < n; i++) {
+          const an = base + rand(-0.4, 0.4), R = rand(480, 640);
+          const rs = foeRealm(g, hd.x, hd.y, lead && i === 0 ? 'leader' : 'rogue');
+          const nm = lead && i === 0 ? hd.rival : i === 0 ? `${sectName(sch)}${pick(['修士', '散人', '道人'])}` : `${sectName(sch)}同伙`;
+          const e = cultivator(hd.x + Math.cos(an) * R, hd.y + Math.sin(an) * R * 0.75, rs.realm, rs.stage, sch, nm);
+          e.tag = 'herald:rival'; e.team = team; e.aggro = true; e.hx = hd.x; e.hy = hd.y;
+          if (lead && i === 0) e.boss = true;
+          g.combat.enemies.push(e);
+        }
+      }
+      g.toast(`宝光之下早已杀成一团——镇宝妖兽、${nGroups}路争宝的修士，彼此见人就打。（名牌两侧的色签标明各路人马）`, 'warn');
     }
     const guardAlive = g.combat.enemies.some((e) => e.tag === 'herald:guard' && !e.dead);
     this.heraldFocus = hd.spawned === true && !guardAlive && d < 200;
+    // 第三十九步：镇宝兽一倒，争宝的人会抢先去收宝——收满八息便带宝遁走；打断他（击杀 / 打退）就还有机会
+    if (hd.spawned && !guardAlive && !this.heraldFocus) {
+      let taker: Enemy | null = null, bd = 260;
+      for (const e of g.combat.enemies) if (!e.dead && e.tag === 'herald:rival' && !e.cast) { const dd = Math.hypot(e.x - hd.x, e.y - hd.y); if (dd < bd) { bd = dd; taker = e; } }
+      for (const e of g.combat.enemies) if (!e.dead && e.tag === 'herald:rival') { e.hx = hd.x; e.hy = hd.y; }
+      const H = hd as any;
+      if (taker) {
+        if (H.taker !== taker.id) { H.taker = taker.id; H.seize = 0; g.toast(`${taker.name}扑到宝光前，开始收取异宝！——快去打断他！`, 'warn'); }
+        H.seize = (H.seize ?? 0) + 0.5;
+        g.combat.texts.push({ x: taker.x, y: taker.y - 150, s: `收宝 ${Math.min(8, Math.floor(H.seize))}/8`, color: '#ffe080', t: 0, vy: -10 });
+        if (H.seize >= 8) {
+          hd.done = true; this.heraldFocus = false; H.taker = undefined;
+          g.combat.vfx.push({ kind: 'blinkfx', x: taker.x, y: taker.y, r: 90, t: 0, dur: 0.6, color: '255,230,140' } as any);
+          taker.gone = true;
+          g.news(`异宝被${taker.name}抢先夺走，此人当场遁去。`, 'rumor');
+          g.toast(`${taker.name}收起异宝，化作一道遁光远去——异宝被人抢走了。`, 'warn');
+        }
+      } else if (H.taker !== undefined) { H.taker = undefined; H.seize = 0; }
+    }
   }
-  private heraldKill(e: Enemy) { if (e.tag === 'herald:guard') this.game.toast('镇宝妖兽伏诛！宝光就在眼前——上前取宝（T）。', 'good'); }
+  private heraldKill(e: Enemy) { if (e.tag === 'herald:guard') this.game.toast(e.npcKill ? `镇宝妖兽被${e.killer?.name ?? '旁人'}斩杀！争宝的人正扑向宝光——抢在他们前面（T）！` : '镇宝妖兽伏诛！宝光就在眼前——上前取宝（T）。', e.npcKill ? 'warn' : 'good'); }
+  /** 第三十九步：死于旁人之手（混战） */
+  onNpcKill(e: Enemy) { if (e.tag?.startsWith('herald')) this.heraldKill(e); }
   heraldInteract(): boolean {
     const g = this.game, f = g.ws.flags as any, hd = f.herald, h = g.hero;
     if (!this.heraldFocus || !hd) return false;

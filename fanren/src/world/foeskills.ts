@@ -333,7 +333,7 @@ export class FoeAI {
     const dmg = e.atk * sk.pow * (1 + e.rage * 0.15);
     const base = { t: 0, tele: sk.tele, dur: 0, el: sk.el, dmg, realm: e.realm, status: sk.status, src: e, fired: false, tick: 0, pool: sk.pool, big: !!sk.ult, spread: 0, len: 0, w: 0, ang: 0, r: 0 };
     switch (sk.k) {
-      case 'circle': { const lead = 0.35 + (e.def.kind === 'human' || e.blv >= 4 ? 0.35 : 0); const p = g.player; const vx = p.st?.vx ?? 0, vy = p.st?.vy ?? 0; this.add({ ...base, k: 'circle', x: tx + vx * lead * 0.5, y: ty + vy * lead * 0.5, r: sk.r! }); break; }
+      case 'circle': { const lead = 0.35 + (e.def.kind === 'human' || e.blv >= 4 ? 0.35 : 0); const p = g.player; const vx = e.tgE ? e.tgE.mvx : e.tgP ? p.st?.vx ?? 0 : 0, vy = e.tgE ? e.tgE.mvy : e.tgP ? p.st?.vy ?? 0 : 0; this.add({ ...base, k: 'circle', x: tx + vx * lead * 0.5, y: ty + vy * lead * 0.5, r: sk.r! }); break; }
       case 'rain': {
         const n = sk.n! + e.rage * 2;
         for (let i = 0; i < n; i++) {
@@ -393,8 +393,10 @@ export class FoeAI {
         if (okMove) { e.x = nx; e.y = ny; }
         if (Math.random() < 0.8) c.sparks.push({ x: px, y: e.y - 20, vx: -Math.cos(cs.ang) * 120, vy: -40, t: 0, max: 0.4, size: 5, color: EL_COL[sk.el] });
         const p = g.player;
-        if (!cs.hit) for (const t of c.tanks) if (t.k !== 'p' && t.k !== 'decoy' && Math.hypot(t.x - e.x, t.y - e.y) < 70 + (sk.w ?? 80) * 0.3) { cs.hit = true; c.tankHit(t, e.atk * sk.pow * (1 + e.rage * 0.15), e.realm, sk.status, e.x, e.y); break; }
-        if (!cs.hit && Math.hypot(p.x - e.x, p.y - e.y) < 70 + (sk.w ?? 80) * 0.3) {
+        // 第三十九步：冲撞也会撞上别派的人
+        if (!cs.hit) { const o = c.rivalNear(e, e.x, e.y, 70 + (sk.w ?? 80) * 0.3); if (o) { cs.hit = true; c.npcHit(e, o, e.atk * sk.pow * (1 + e.rage * 0.15), e.realm, sk.status, e.x, e.y); c.fxq.push({ k: 'hit', x: o.x, y: o.y - 50, color: EL_COL[sk.el], power: 1.6, dir: cs.ang }); } }
+        if (!cs.hit && !e.ally) for (const t of c.tanks) if (t.k !== 'p' && t.k !== 'decoy' && Math.hypot(t.x - e.x, t.y - e.y) < 70 + (sk.w ?? 80) * 0.3) { cs.hit = true; c.tankHit(t, e.atk * sk.pow * (1 + e.rage * 0.15), e.realm, sk.status, e.x, e.y); break; }
+        if (!cs.hit && !e.ally && Math.hypot(p.x - e.x, p.y - e.y) < 70 + (sk.w ?? 80) * 0.3) {
           cs.hit = true;
           c.hitPlayer(e.atk * sk.pow * (1 + e.rage * 0.15), e.realm, sk.status, e.x, e.y, e);
           const dx = p.x - e.x, dy = p.y - e.y, d = Math.hypot(dx, dy) || 1; p.x += dx / d * 70 + Math.cos(cs.ang) * 40; p.y += dy / d * 40;
@@ -406,7 +408,7 @@ export class FoeAI {
       }
       case 'blink': {
         if (cs.t < sk.tele) return;
-        const p = g.player, a = Math.random() * TAU;
+        const p = e.tgE && !e.tgE.dead ? e.tgE : e.ally ? { x: cs.x1, y: cs.y1 } : g.player, a = Math.random() * TAU;   // 第三十九步：闪到自己的对手身边
         c.vfx.push({ kind: 'blinkfx', x: e.x, y: e.y, r: 70, t: 0, dur: 0.45, color: EL_COL[sk.el] } as any);
         const nx = p.x + Math.cos(a) * 110, ny = p.y + Math.sin(a) * 70;
         if (e.def.flying || (e.sea ? !T.isLand(nx, ny) : T.walkFactor(nx, ny) > 0)) { e.x = nx; e.y = ny; }
@@ -469,7 +471,7 @@ export class FoeAI {
     const c = this.c, fx = EL_PROJ[sk.el], col = EL_COL[sk.el];
     const sy = e.y - (e.anim.flying ? 70 : 40);
     const dmg = e.atk * sk.pow * (1 + e.rage * 0.15);
-    const push = (ang: number, spd: number) => c.projs.push({ fac: 'e', x: e.x, y: sy, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 0, max: sk.range / spd + 0.3, fx, color: col, dmg, realm: e.realm, status: sk.status ?? EL_ST[sk.el], stCh: (sk.status ?? EL_ST[sk.el])?.ch ?? 0, pierce: false, homing: false, hit: new Set(), r: 24, aoe: 0, size: sk.ult ? 1.3 : 1, trail: [], lv: 0 } as any);
+    const push = (ang: number, spd: number) => c.projs.push({ fac: 'e', x: e.x, y: sy, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 0, max: sk.range / spd + 0.3, fx, color: col, dmg, realm: e.realm, status: sk.status ?? EL_ST[sk.el], stCh: (sk.status ?? EL_ST[sk.el])?.ch ?? 0, pierce: false, homing: false, hit: new Set(), r: 24, aoe: 0, size: sk.ult ? 1.3 : 1, trail: [], lv: 0, src: e, ally: e.ally } as any);
     if (sk.k === 'ring') {
       const n = sk.n! + e.rage * 4, off = cs.wave * (Math.PI / n);
       for (let i = 0; i < n; i++) push(off + (i / n) * TAU, 340);
@@ -491,7 +493,8 @@ export class FoeAI {
       if (!h.fired && h.src?.dead) return false;
       if (h.k === 'cone' && !h.fired && h.src && !h.src.dead) { h.x = h.src.x; h.y = h.src.y; }
       // 第三十八步：站在要落下的招式里 → 头顶「避！」+ 钟声（每 0.7 秒最多一次）
-      if (!h.fired && !h.warned && h.dmg > 0 && h.t > h.tele * 0.4 && this.warnT <= 0 && this.inside(h, p.x, p.y)) {
+      const ally = !!h.src?.ally;   // 第三十九步：同阵修士的招式不伤你、不给你报警
+      if (!ally && !h.fired && !h.warned && h.dmg > 0 && h.t > h.tele * 0.4 && this.warnT <= 0 && this.inside(h, p.x, p.y)) {
         h.warned = true; this.warnT = 0.7;
         c.texts.push({ x: p.x, y: p.y - 150, s: h.big ? '大招！快避！' : '避！', color: h.big ? '#ff4a3a' : '#ff8a5a', t: 0, vy: -30, big: true });
         audio.sfx('bell');
@@ -499,21 +502,22 @@ export class FoeAI {
       if (!h.fired && h.t >= h.tele) {
         h.fired = true;
         if (h.dmg > 0) {
-          if (this.inside(h, p.x, p.y)) { c.hitPlayer(h.dmg, h.realm, h.status, h.x, h.y, h.src); h.hitDone = true; }
-          for (const t of c.tanks) if (t.k !== 'p' && t.k !== 'decoy' && this.inside(h, t.x, t.y)) c.tankHit(t, h.dmg, h.realm, h.status, h.x, h.y);
+          if (!ally && this.inside(h, p.x, p.y)) { c.hitPlayer(h.dmg, h.realm, h.status, h.x, h.y, h.src); h.hitDone = true; }
+          if (!ally) for (const t of c.tanks) if (t.k !== 'p' && t.k !== 'decoy' && this.inside(h, t.x, t.y)) c.tankHit(t, h.dmg, h.realm, h.status, h.x, h.y);
+          this.splash(h, 1);
           this.boom(h);
         }
       }
       // 光柱：持续时间内反复判定
       if (h.fired && h.k === 'line' && h.dur > 0 && h.dmg > 0 && h.t < h.tele + h.dur) {
         h.tick -= dt;
-        if (h.tick <= 0) { h.tick = 0.25; if (!h.hitDone && this.inside(h, p.x, p.y)) { c.hitPlayer(h.dmg * 0.5, h.realm, h.status, h.x, h.y, h.src); h.hitDone = true; } }
+        if (h.tick <= 0) { h.tick = 0.25; if (!ally && !h.hitDone && this.inside(h, p.x, p.y)) { c.hitPlayer(h.dmg * 0.5, h.realm, h.status, h.x, h.y, h.src); h.hitDone = true; } this.splash(h, 0.25); }
       }
       // 余毒 / 余火：留在地上的区域
       if (h.fired && h.pool && h.dmg > 0 && h.k === 'circle') {
         h.pooling = true;
         h.tick -= dt;
-        if (h.tick <= 0) { h.tick = 0.5; if (this.inside(h, p.x, p.y)) c.hitPlayer(h.dmg * 0.18, h.realm, h.status, h.x, h.y, h.src); for (const t of c.tanks) if (t.k !== 'p' && t.k !== 'decoy' && this.inside(h, t.x, t.y)) c.tankHit(t, h.dmg * 0.18, h.realm, h.status, h.x, h.y); }
+        if (h.tick <= 0) { h.tick = 0.5; if (!ally && this.inside(h, p.x, p.y)) c.hitPlayer(h.dmg * 0.18, h.realm, h.status, h.x, h.y, h.src); if (!ally) for (const t of c.tanks) if (t.k !== 'p' && t.k !== 'decoy' && this.inside(h, t.x, t.y)) c.tankHit(t, h.dmg * 0.18, h.realm, h.status, h.x, h.y); this.splash(h, 0.18); }
         return h.t < h.tele + h.pool;
       }
       return h.t < h.tele + Math.max(0.35, h.k === 'line' ? h.dur + 0.2 : 0.35);
@@ -522,6 +526,11 @@ export class FoeAI {
     this.ultFlash = Math.max(0, this.ultFlash - dt);
   }
 
+  /** 第三十九步：招式落下时，圈里与发招者敌对的 NPC 一并挨打（混战里的误伤 / 群殴） */
+  private splash(h: Hz, k: number) {
+    const c = this.c, src = h.src; if (!src) return;
+    for (const o of c.units) if (c.hostile(src, o) && this.inside(h, o.x, o.y)) c.npcHit(src, o, h.dmg * k, h.realm, h.status, h.x, h.y);
+  }
   inside(h: Hz, x: number, y: number) {
     if (h.k === 'circle') { const dx = (x - h.x) / h.r, dy = (y - h.y) / (h.r * 0.55); return dx * dx + dy * dy < 1; }
     if (h.k === 'cone') {

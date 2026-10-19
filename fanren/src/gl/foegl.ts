@@ -143,7 +143,7 @@ export function drawFoeGL(F: FxSys, c: Combat, t: number, dt: number) {
   }
   const sh = (c as any).fxShock; if (sh) { F.shock(sh.x, sh.y, sh.r, 18, 0.6); (c as any).fxShock = null; }
   // 护体与狂暴
-  for (const e of c.enemies) {
+  for (const e of c.units) {
     if (e.dead) continue;
     const hy = e.y - (e.anim.flying ? 90 : e.def.kind === 'human' ? 60 : 45) - e.lift;
     if (e.guardT > 0) {

@@ -170,7 +170,7 @@ export class FoeMind {
       if (human) {
         if (e.realm >= 2 && !e.ward) giveWard(c, e, 0.28, e.def.evil ? '230,80,90' : '240,220,140');
         let n = 0;
-        for (const o of c.enemies) if (o !== e && !o.dead && !o.aggro && o.def.kind === 'human' && !o.spar && Math.hypot(o.x - e.x, o.y - e.y) < 1800) { o.aggro = true; n++; }
+        for (const o of e.ally ? c.allies : c.enemies) if (o !== e && !o.dead && !o.aggro && o.def.kind === 'human' && !o.spar && o.team === e.team && Math.hypot(o.x - e.x, o.y - e.y) < 1800) { o.aggro = true; n++; }
         c.texts.push({ x: e.x, y: e.y - 140, s: n ? '同门何在，助我！' : pick(['可恶……', '好厉害的小辈！', '今日算我栽了！']), color: '#ffd0a0', t: 0, vy: -20 });
         if (Math.random() < 0.5 && !e.pursuer) {
           e.retreatT = rand(2, 3.2);
@@ -222,7 +222,7 @@ export class FoeMind {
       e.supCd -= dt;
       if (e.role === 'support' && e.supCd <= 0) {
         let worst: Enemy | null = null, wk = 0.65;
-        for (const o of c.enemies) if (o !== e && !o.dead && o.aggro && o.def.kind === 'human' && o.hp / o.maxHp < wk && Math.hypot(o.x - e.x, o.y - e.y) < 700) { wk = o.hp / o.maxHp; worst = o; }
+        for (const o of e.ally ? c.allies : c.enemies) if (o !== e && !o.dead && o.aggro && o.def.kind === 'human' && o.team === e.team && o.hp / o.maxHp < wk && Math.hypot(o.x - e.x, o.y - e.y) < 700) { wk = o.hp / o.maxHp; worst = o; }
         if (worst) {
           e.supCd = rand(8, 11);
           if (!worst.ward && e.realm >= 2 && Math.random() < 0.5) giveWard(c, worst, 0.18, '150,230,170', false);

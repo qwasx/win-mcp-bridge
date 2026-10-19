@@ -53,13 +53,15 @@ ok(s.phase === 'battle', '正式开战');
 const fp = w.front(); g.teleport(fp.x, fp.y + 300);
 (W as any).acc = 0; W.update(0.1);
 const B = (W as any).battle;
-ok(!!B && B.foes.length === 4, `接敌：${B?.foes.map((e: any) => e.name + '·' + e.realm).join('、')}`);
+ok(!!B && B.foes.length === 6, `接敌：${B?.foes.map((e: any) => e.name + '·' + e.realm).join('、')}`);
+ok(!!B && B.allies.length >= 3 && B.allies.every((e: any) => e.ally && !g.combat.enemies.includes(e)), `我方同袍 ${B?.allies.length} 人随你接战（第三十九步·混战）`);
 const m0 = W.merit;
 for (let wave = 0; wave < 3; wave++) {
   for (const e of [...(W as any).battle.foes]) g.combat.finish(e);
   W.update(0.1); W.update(3);
 }
 ok(!(W as any).battle && (s.wins ?? 0) === 1, `三波全歼，胜一阵（战功 ${m0} → ${W.merit}）`);
+ok(g.combat.allies.every((e: any) => e.gone || e.dead), '胜后同袍收兵');
 const dead = Object.entries((g.ws.flags as any).ros ?? {}).reduce((n, [, v]: any) => n + (v.d?.length ?? 0), 0);
 ok(dead >= 10, `敌兵记入名册阵亡 ${dead} 人`);
 // 5) 战功兑换

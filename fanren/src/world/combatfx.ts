@@ -30,6 +30,11 @@ const SUMMON_LOOK: Record<string, BeastLook> = {
   jiao: { body: 'jiao', color: [60, 150, 120], belly: [190, 230, 200], accent: [220, 240, 200], size: 1.1, glow: '120,240,180' },
 };
 
+/** 第三十九步：派系色签（同一派系同一颜色） */
+const TEAM_COLS = ['#e0a040', '#60b0e8', '#d070d0', '#e86060', '#70d0b0', '#c8c060', '#a088ff'];
+const teamColCache = new Map<string, string>();
+let teamColN = 0;
+function teamCol(t: string) { let c = teamColCache.get(t); if (!c) { c = TEAM_COLS[teamColN++ % TEAM_COLS.length]; if (teamColCache.size > 200) teamColCache.clear(); teamColCache.set(t, c); } return c; }
 export function enemyVis(c: Combat, e: { x: number; y: number; def?: { hide?: boolean }; aggro?: boolean; hideT?: number }) {
   if ((e.hideT ?? 0) > 0) return 0;   // 土遁潜行于地下
   const s = c.game.life.sense;
@@ -41,7 +46,7 @@ export function enemyVis(c: Combat, e: { x: number; y: number; def?: { hide?: bo
 /** 收集需 Y 排序的战斗实体 */
 export function collectCombat(c: Combat, out: Drawable[], view: { left: number; top: number; right: number; bottom: number }, t: number, dt: number) {
   pumpBeastTex();
-  for (const e of c.enemies) {
+  for (const e of c.units) {
     if (e.x < view.left - 200 || e.x > view.right + 200 || e.y < view.top - 100 || e.y > view.bottom + 260) continue;
     const a = enemyVis(c, e);
     if (a <= 0.01) continue;
@@ -538,7 +543,7 @@ export function drawCombatFx(g: G, c: Combat, t: number) {
   for (const v of c.vfx) drawVfx(g, v, t);
   for (const pr of c.projs) drawProj(g, pr, t);
   // 护体灵光（Canvas 后备）
-  for (const e of c.enemies) if (e.ward && !e.dead) {
+  for (const e of c.units) if (e.ward && !e.dead) {
     const v = enemyVis(c, e); if (v <= 0.02) continue;
     const w = e.ward, k = w.hp / w.max, r = wardR(e), y = e.y - wardY(e) - e.flyH - e.lift;
     const gr = g.createRadialGradient(e.x, y, r * 0.5, e.x, y, r * 1.15);
@@ -610,7 +615,7 @@ export function drawCombatUI(g: G, c: Combat, t: number, z: number) {
   }
   g.save();
   g.textAlign = 'center'; g.textBaseline = 'middle';
-  for (const e of c.enemies) {
+  for (const e of c.units) {
     if (e.dead) continue;
     const a = enemyVis(c, e);
     if (a <= 0.05) continue;
@@ -623,12 +628,15 @@ export function drawCombatUI(g: G, c: Combat, t: number, z: number) {
     const w = 70 * k, hh = 6 * k;
     // 强弱颜色
     const gap = e.level - (h.realm * 13 + h.stage);
-    const col = gap <= -5 ? '#8ab07a' : gap < 3 ? '#e8d8a8' : gap < 13 ? '#e08a4a' : '#d03838';
+    const col = e.ally ? '#a8eec0' : gap <= -5 ? '#8ab07a' : gap < 3 ? '#e8d8a8' : gap < 13 ? '#e08a4a' : '#d03838';
     g.font = `${12 * k}px "Noto Serif SC","Songti SC",serif`;
-    g.fillStyle = 'rgba(20,16,12,0.65)';
-    const label = `${e.name}·${e.rankText}`;
+    g.fillStyle = e.ally ? 'rgba(10,34,22,0.72)' : 'rgba(20,16,12,0.65)';
+    const label = `${e.ally ? '友·' : ''}${e.name}·${e.rankText}`;
     const tw = g.measureText(label).width + 10 * k;
     g.fillRect(e.x - tw / 2, top - 18 * k, tw, 15 * k);
+    // 第三十九步：混战里一眼分清阵营——同阵绿框，各派系各有一枚色签
+    if (e.ally) { g.strokeStyle = 'rgba(120,230,160,0.8)'; g.lineWidth = 1; g.strokeRect(e.x - tw / 2 + 0.5, top - 18 * k + 0.5, tw - 1, 15 * k - 1); }
+    else if (e.team) { g.fillStyle = teamCol(e.team); g.fillRect(e.x - tw / 2, top - 18 * k, 3 * k, 15 * k); g.fillRect(e.x + tw / 2 - 3 * k, top - 18 * k, 3 * k, 15 * k); }
     g.fillStyle = col; g.fillText(label, e.x, top - 10.5 * k);
     if (e.affix) {   // 第三十五步：精英词缀标签
       g.font = `bold ${11 * k}px "Noto Serif SC","Songti SC",serif`;
@@ -639,7 +647,7 @@ export function drawCombatUI(g: G, c: Combat, t: number, z: number) {
     if (e.blv) { const bx = e.x - tw / 2 - 7 * k, by = top - 10.5 * k, r = (3 + Math.min(4, e.blv) * 0.5) * k; g.fillStyle = `rgb(${YAODAN_COL[e.blv]})`; g.beginPath(); g.moveTo(bx, by - r); g.lineTo(bx + r * 0.75, by); g.lineTo(bx, by + r); g.lineTo(bx - r * 0.75, by); g.closePath(); g.fill(); }   // 妖丹色菱：一眼看出等阶
     if (e.aggro || e.hp < e.maxHp) {
       g.fillStyle = 'rgba(20,16,12,0.7)'; g.fillRect(e.x - w / 2 - 1, top - 1, w + 2, hh + 2);
-      g.fillStyle = '#a82a22'; g.fillRect(e.x - w / 2, top, w * clamp(e.hp / e.maxHp, 0, 1), hh);
+      g.fillStyle = e.ally ? '#3aa860' : '#a82a22'; g.fillRect(e.x - w / 2, top, w * clamp(e.hp / e.maxHp, 0, 1), hh);
       // 异状图标
       let ix = e.x - w / 2;
       for (const s in e.st) { g.fillStyle = ({ burn: '#ff7a3a', freeze: '#9ad8ff', shock: '#b8c4ff', poison: '#7ac04a', root: '#6ab05a', break: '#e0b040', slow: '#90b0d0', stun: '#f0e080' } as Record<string, string>)[s] ?? '#fff'; g.fillRect(ix, top + hh + 2 * k, 6 * k, 3 * k); ix += 8 * k; }
