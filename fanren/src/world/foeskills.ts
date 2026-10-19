@@ -36,7 +36,7 @@ const EL_ST: Partial<Record<El, StatusSpec>> = {
 export interface Hz {
   k: 'circle' | 'cone' | 'line'; x: number; y: number; r: number; ang: number; spread: number; len: number; w: number;
   t: number; tele: number; dur: number; el: El; dmg: number; realm: number; status?: StatusSpec; src?: Enemy;
-  fired: boolean; tick: number; pool?: number; big?: boolean; vis?: boolean; pooling?: boolean; hitDone?: boolean;
+  fired: boolean; tick: number; pool?: number; big?: boolean; vis?: boolean; pooling?: boolean; hitDone?: boolean; warned?: boolean;
 }
 
 // ------------------------------------------------------------------ 配招
@@ -247,6 +247,9 @@ export class FoeAI {
   ultFlash = 0; ultCol = '255,255,255';
   /** 当前蓄力中的大招进度（0 = 无），供全屏压暗 */
   ultCharge() { let u = 0; for (const h of this.hz) if (h.big && !h.fired) u = Math.max(u, h.t / h.tele); return u; }
+  /** 第三十八步：正在蓄力的大招名与施放者（首领血条上显示「蓄力·招式名」） */
+  ultName = ''; ultSrc: Enemy | null = null;
+  private warnT = 0;
   constructor(c: Combat) { this.c = c; }
   reset() { this.hz = []; }
 
@@ -260,6 +263,8 @@ export class FoeAI {
     c.texts.push({ x: e.x, y: e.y - 150, s: want === 2 ? `${e.name}·狂暴！` : `${e.name}·暴怒！`, color: '#ff5a3a', t: 0, vy: -20, big: true });
     g.toast(want === 2 ? `${e.name}血气翻涌，彻底狂暴了——招式更快、更狠！` : `${e.name}被激怒了，周身${EL_NAME[elOf(e)] || '妖'}气暴涨！`, 'warn');
     g.juice(0.08, 0.6);
+    // 第三十八步：换阶段要有分量——镜头推近、时间一缓、短暂护体（蜕变的一息）
+    g.cinema(e.x, e.y - 60, 1.14, 1.3); g.slowmo(0.35); e.guardT = Math.max(e.guardT, 1.0);
     c.vfx.push({ kind: 'ring', x: e.x, y: e.y, r: 320, t: 0, dur: 0.7, color: EL_COL[elOf(e)], fx: 'roar' } as any);
     c.fxq.push({ k: 'kill', x: e.x, y: e.y - 60, color: EL_COL[elOf(e)] });
     // 震退
@@ -324,7 +329,7 @@ export class FoeAI {
     e.cast = cast; e.facing = tx > e.x ? 1 : -1;
     e.anim.atk = 0.3;
     c.texts.push({ x: e.x, y: e.y - (e.def.kind === 'human' ? 135 : 120), s: sk.name, color: sk.ult ? '#ffcf5a' : '#ffb08a', t: 0, vy: -18, big: !!sk.ult });
-    if (sk.ult) { g.juice(0.02, 0.25); g.toast(`${e.name}施展「${sk.name}」！`, 'warn'); }
+    if (sk.ult) { g.juice(0.02, 0.25); g.toast(`${e.name}施展「${sk.name}」！`, 'warn'); this.ultName = sk.name; this.ultSrc = e; }
     const dmg = e.atk * sk.pow * (1 + e.rage * 0.15);
     const base = { t: 0, tele: sk.tele, dur: 0, el: sk.el, dmg, realm: e.realm, status: sk.status, src: e, fired: false, tick: 0, pool: sk.pool, big: !!sk.ult, spread: 0, len: 0, w: 0, ang: 0, r: 0 };
     switch (sk.k) {
@@ -478,11 +483,19 @@ export class FoeAI {
   update(dt: number) {
     const c = this.c, g = c.game, p = g.player;
     this.pend = [];
+    this.warnT -= dt;
+    if (this.ultSrc && (this.ultSrc.dead || !this.hz.some((h) => h.big && !h.fired))) { if (!this.ultSrc.cast || this.ultSrc.dead) { this.ultSrc = null; this.ultName = ''; } }
     this.hz = this.hz.filter((h) => {
       h.t += dt;
       // 发招者死了：未结算的预警作废
       if (!h.fired && h.src?.dead) return false;
       if (h.k === 'cone' && !h.fired && h.src && !h.src.dead) { h.x = h.src.x; h.y = h.src.y; }
+      // 第三十八步：站在要落下的招式里 → 头顶「避！」+ 钟声（每 0.7 秒最多一次）
+      if (!h.fired && !h.warned && h.dmg > 0 && h.t > h.tele * 0.4 && this.warnT <= 0 && this.inside(h, p.x, p.y)) {
+        h.warned = true; this.warnT = 0.7;
+        c.texts.push({ x: p.x, y: p.y - 150, s: h.big ? '大招！快避！' : '避！', color: h.big ? '#ff4a3a' : '#ff8a5a', t: 0, vy: -30, big: true });
+        audio.sfx('bell');
+      }
       if (!h.fired && h.t >= h.tele) {
         h.fired = true;
         if (h.dmg > 0) {

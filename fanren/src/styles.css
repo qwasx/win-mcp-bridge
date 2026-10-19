@@ -636,6 +636,16 @@ img.sk-glyph.sk-ico { width: 38px; height: 38px; filter: drop-shadow(0 0 3px var
 .bh-fill { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(180deg, #e2563a, #8a1810 60%, #5a0c08); box-shadow: 0 0 8px rgba(255, 80, 40, 0.6); transition: width 0.1s linear; }
 .bh-orn { position: absolute; top: 50%; width: 10px; height: 10px; background: #d8b070; transform: translateY(-50%) rotate(45deg); box-shadow: 0 0 6px rgba(255, 200, 120, 0.8); }
 .bh-orn.l { left: -7px; } .bh-orn.r { right: -7px; }
+/* 第三十八步：阶段刻度 / 阶段名 / 大招蓄力 */
+.bh-notch { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: rgba(255, 230, 180, 0.85); box-shadow: 0 0 4px rgba(255, 200, 120, 0.9); }
+.bh-phase { font-size: 13px; letter-spacing: 0.3em; font-weight: bold; text-shadow: 0 0 8px rgba(255, 80, 40, 0.9), 0 1px 2px #000; }
+.bh-phase.p1 { color: #ffb070; } .bh-phase.p2 { color: #ff5040; animation: bhPulse 0.8s ease-in-out infinite alternate; }
+.bh-bar.p1 .bh-fill { background: linear-gradient(180deg, #f07a3a, #a83010 60%, #6a1808); }
+.bh-bar.p2 .bh-fill { background: linear-gradient(180deg, #ff4a2a, #b81008 55%, #600404); box-shadow: 0 0 14px rgba(255, 50, 20, 0.9); }
+.bh-ult { margin: 6px auto 0; width: 60%; text-align: center; font-size: 13px; letter-spacing: 0.2em; color: #ffe0a0; text-shadow: 0 0 8px rgba(255, 150, 60, 0.9), 0 1px 2px #000; opacity: 0; transition: opacity 0.15s; }
+.bh-ult-bar { height: 5px; margin-top: 3px; background: rgba(10, 6, 4, 0.7); border: 1px solid rgba(255, 200, 120, 0.5); }
+.bh-ult-fill { height: 100%; width: 0; background: linear-gradient(90deg, #ffd27a, #ff6a2a); box-shadow: 0 0 8px rgba(255, 160, 60, 0.9); }
+@keyframes bhPulse { from { opacity: 0.65; } to { opacity: 1; } }
 @keyframes bhIn { from { opacity: 0; transform: translate(-50%, -10px); } to { opacity: 1; transform: translate(-50%, 0); } }
 .alch-tabs { display: flex; gap: 8px; margin: 4px 0 12px; }
 .alch-tabs button { padding: 5px 18px; background: rgba(60, 46, 30, 0.08); border: 1px solid rgba(90, 70, 40, 0.35); border-radius: 3px; font-family: inherit; font-size: 14px; letter-spacing: 0.3em; color: #5a4630; cursor: pointer; }
