@@ -601,7 +601,9 @@ export interface GroundSegs { seg: Float32Array; nRiv: number; nRoad: number; to
 export type SegProvider = (cx: number, cy: number, hw: number, hh: number) => GroundSegs;
 export interface GroundView { camX: number; camY: number; zoom: number; cssW: number; cssH: number; season: number; scale: number }
 
-interface GBuf { fb: WebGLFramebuffer; a: WebGLTexture; b: WebGLTexture; W: number; H: number; cx: number; cy: number; tpw: number; season: number }
+/** 第三十八步：环绕（toroidal）缓存——纹素 (X,Y) 为绝对网格索引，世界坐标 = (X+0.5)/tpw，存放在纹理 (X mod W, Y mod H)。
+ *  有效区 = [X0,X0+W)×[Y0,Y0+H)。镜头移动时只补画新露出的窄带，不再整张重画。 */
+interface GBuf { fb: WebGLFramebuffer; a: WebGLTexture; b: WebGLTexture; W: number; H: number; X0: number; Y0: number; cx: number; cy: number; tpw: number; season: number }
 
 /**
  * GPU 地表（缓存版）：
@@ -615,8 +617,9 @@ export class Ground {
   noise: WebGLTexture; private segTex: WebGLTexture;
   private T: GroundTerrain | null = null;
   front: GBuf | null = null; private back: GBuf | null = null;
-  private job: { cx: number; cy: number; tpw: number; season: number; W: number; H: number; strip: number; n: number; segs: GroundSegs } | null = null;
-  private lastCam: { x: number; y: number } | null = null; private vel = { x: 0, y: 0 };
+  private job: { X0: number; Y0: number; cx: number; cy: number; tpw: number; season: number; W: number; H: number; strip: number; n: number; segs: GroundSegs } | null = null;
+  /** 本帧画了多少纹素（性能面板 / 探针用） */
+  texelsThisFrame = 0; scrolls = 0;
   /** 统计：本帧重画的条数 */
   stripsThisFrame = 0; rebuilds = 0;
   /** 画质：缓存分辨率（每 CSS 像素纹素数）的上限倍率 */
@@ -700,8 +703,8 @@ export class Ground {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);   // 环绕缓存：线性过滤跨接缝取到的正是相邻纹素
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
       return t;
     };
     const a = tex(gl.LINEAR), b = tex(gl.NEAREST);
@@ -711,13 +714,7 @@ export class Ground {
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, b, 0);
     gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    return { fb, a, b, W, H, cx: 0, cy: 0, tpw: 1, season: -1 };
-  }
-
-  /** 视野（世界坐标半宽/半高）是否完全落在缓存里（留 pad 世界像素） */
-  private covers(g: { cx: number; cy: number; W: number; H: number; tpw: number }, x: number, y: number, hw: number, hh: number, pad: number) {
-    const gw = g.W / g.tpw / 2, gh = g.H / g.tpw / 2;
-    return x - hw - pad >= g.cx - gw && x + hw + pad <= g.cx + gw && y - hh - pad >= g.cy - gh && y + hh + pad <= g.cy + gh;
+    return { fb, a, b, W, H, X0: 0, Y0: 0, cx: 0, cy: 0, tpw: 1, season: -1 };
   }
 
   /** 每帧调用：必要时启动/推进缓存重画。返回 false 表示暂无可用地表 */
@@ -744,16 +741,19 @@ export class Ground {
     this.invalidate();
   }
 
+  /** 后期采样原点：uv = (w - gc)*tpw/size + 0.5 ⇔ (w*tpw - K)/size，K 为 W/H 的整数倍（REPEAT 负责取模） */
+  sampleOrigin(g: GBuf): [number, number] {
+    const Kx = Math.floor(g.X0 / g.W) * g.W, Ky = Math.floor(g.Y0 / g.H) * g.H;
+    return [(Kx + 0.5 * g.W) / g.tpw, (Ky + 0.5 * g.H) / g.tpw];
+  }
+
   update(v: GroundView, provider: SegProvider, vao: WebGLVertexArrayObject, maxTex: number): boolean {
     if (!this.T || !this.ta) return false;
     if (!this.matOn && groundImages() && !(globalThis as any).__FANREN_NOMAT) this.uploadMat();
-    this.stripsThisFrame = 0;
-    // 镜头速度（预判前进方向，把缓存中心往前放）
-    if (this.lastCam) { const k = 0.15; this.vel.x += ((v.camX - this.lastCam.x) - this.vel.x) * k; this.vel.y += ((v.camY - this.lastCam.y) - this.vel.y) * k; }
-    this.lastCam = { x: v.camX, y: v.camY };
+    this.stripsThisFrame = 0; this.texelsThisFrame = 0;
     const hw = v.cssW / 2 / v.zoom, hh = v.cssH / 2 / v.zoom;
     // 缓存尺寸：视野四周各留 1/4 长边的余量，分辨率 = 每 CSS 像素 scale 个纹素
-    const mCss = 0.25 * Math.max(v.cssW, v.cssH), m = mCss / v.zoom;
+    const mCss = 0.25 * Math.max(v.cssW, v.cssH);
     let sc = v.scale * this.quality;
     let W = Math.ceil((v.cssW + 2 * mCss) * sc), H = Math.ceil((v.cssH + 2 * mCss) * sc);
     const lim = Math.min(maxTex, 4096);
@@ -762,38 +762,79 @@ export class Ground {
     const tpw = v.zoom * sc;
     const F = this.front;
     const zoomOk = (g: { tpw: number }) => Math.abs(g.tpw / tpw - 1) < 0.07;
-    const frontUsable = !!F && this.covers(F, v.camX, v.camY, hw, hh, 0) && Math.abs(F.tpw / tpw - 1) < 0.35;
-    const frontGood = !!F && frontUsable && zoomOk(F) && F.season === v.season && F.W === W && F.H === H &&
-      this.covers(F, v.camX, v.camY, hw, hh, m * 0.4);
-    // 需要新缓存
+    // 视野装得下（缓存跟着镜头滚动，位置永远居中）且缩放差不太多 → 前台可用
+    const fits = (g: GBuf) => g.W / g.tpw >= 2 * hw + 4 && g.H / g.tpw >= 2 * hh + 4;
+    const frontUsable = !!F && fits(F) && Math.abs(F.tpw / tpw - 1) < 0.35;
+    const frontGood = frontUsable && zoomOk(F!) && F!.season === v.season && F!.W === W && F!.H === H;
+    if (frontUsable) this.scroll(F!, v.camX, v.camY, provider, vao);
+    // 需要新缓存（缩放 / 季节 / 窗口尺寸变了）：后台分条重画，画完交换
     if (!frontGood) {
       const J = this.job;
-      const jobOk = !!J && J.season === v.season && J.W === W && J.H === H && zoomOk(J) && this.covers(J, v.camX, v.camY, hw, hh, m * 0.2);
+      const jobOk = !!J && J.season === v.season && J.W === W && J.H === H && zoomOk(J);
       if (!jobOk) {
-        // 新中心：当前镜头 + 速度预判（不超过余量的一半）
-        const lead = 40, mx = m * 0.6, my = m * 0.6;
-        const cx = v.camX + Math.max(-mx, Math.min(mx, this.vel.x * lead));
-        const cy = v.camY + Math.max(-my, Math.min(my, this.vel.y * lead));
-        const n = W * H > 3e6 ? 8 : 6;   // 第十七步：条更窄，每帧负担更轻
-        this.job = { cx, cy, tpw, season: v.season, W, H, strip: 0, n, segs: provider(cx, cy, W / tpw / 2, H / tpw / 2) };
+        const X0 = Math.round(v.camX * tpw - W / 2), Y0 = Math.round(v.camY * tpw - H / 2);
+        const cx = (X0 + W / 2) / tpw, cy = (Y0 + H / 2) / tpw;
+        const n = W * H > 3e6 ? 8 : 6;
+        this.job = { X0, Y0, cx, cy, tpw, season: v.season, W, H, strip: 0, n, segs: provider(cx, cy, W / tpw / 2, H / tpw / 2) };
       }
       const job = this.job!;
       if (!this.back || this.back.W !== W || this.back.H !== H) { this.free(this.back); this.back = this.alloc(W, H); }
-      // 前台不可用（开场、瞬移、大幅缩放）→ 本帧一次画完；否则每帧画一条
-      const all = !frontUsable;
-      const upto = all ? job.n : Math.min(job.n, job.strip + 1);
-      this.drawStrips(job, this.back, job.strip, upto, vao);
+      // 前台不可用（开场、大幅缩放）→ 本帧一次画完；否则每帧画一条
+      const upto = !frontUsable ? job.n : Math.min(job.n, job.strip + 1);
+      for (let i = job.strip; i < upto; i++) {
+        const r0 = job.Y0 + Math.floor(H * i / job.n), r1 = job.Y0 + Math.floor(H * (i + 1) / job.n);
+        this.drawAbs(this.back, job.tpw, job.season, job.segs, job.cx, job.cy, job.X0, r0, job.X0 + W, r1, vao);
+        this.stripsThisFrame++;
+      }
       job.strip = upto;
       if (job.strip >= job.n) {
-        const b = this.back; b.cx = job.cx; b.cy = job.cy; b.tpw = job.tpw; b.season = job.season;
+        const b = this.back; b.X0 = job.X0; b.Y0 = job.Y0; b.cx = job.cx; b.cy = job.cy; b.tpw = job.tpw; b.season = job.season;
         this.back = this.front; this.front = b; this.job = null; this.rebuilds++;
+        this.scroll(b, v.camX, v.camY, provider, vao);   // 重画期间镜头走开的那一点立刻补上
       }
     }
     return !!this.front;
   }
 
+  /** 让缓存跟上镜头：只补画新露出的窄带（死区 6 纹素，镜头抖动不触发） */
+  private scroll(g: GBuf, camX: number, camY: number, provider: SegProvider, vao: WebGLVertexArrayObject) {
+    const nX = Math.round(camX * g.tpw - g.W / 2), nY = Math.round(camY * g.tpw - g.H / 2);
+    let dx = nX - g.X0, dy = nY - g.Y0;
+    const DZ = 6;
+    if (Math.abs(dx) < DZ) dx = 0;
+    if (Math.abs(dy) < DZ) dy = 0;
+    if (!dx && !dy) return;
+    const band = (X0: number, Y0: number, X1: number, Y1: number) => {
+      const cx = (X0 + X1) / 2 / g.tpw, cy = (Y0 + Y1) / 2 / g.tpw;
+      const segs = provider(cx, cy, (X1 - X0) / g.tpw / 2, (Y1 - Y0) / g.tpw / 2);
+      this.drawAbs(g, g.tpw, g.season, segs, cx, cy, X0, Y0, X1, Y1, vao);
+      this.stripsThisFrame++;
+    };
+    if (Math.abs(dx) >= g.W || Math.abs(dy) >= g.H) {
+      // 瞬移 / 传送：整张重画（与旧逻辑相同的代价）
+      g.X0 = nX; g.Y0 = nY; g.cx = (nX + g.W / 2) / g.tpw; g.cy = (nY + g.H / 2) / g.tpw;
+      const segs = provider(g.cx, g.cy, g.W / g.tpw / 2, g.H / g.tpw / 2);
+      this.drawAbs(g, g.tpw, g.season, segs, g.cx, g.cy, nX, nY, nX + g.W, nY + g.H, vao);
+      this.stripsThisFrame++; this.scrolls++;
+      return;
+    }
+    if (dx) {
+      if (dx > 0) band(g.X0 + g.W, g.Y0, nX + g.W, g.Y0 + g.H); else band(nX, g.Y0, g.X0, g.Y0 + g.H);
+      g.X0 = nX;
+    }
+    if (dy) {
+      if (dy > 0) band(g.X0, g.Y0 + g.H, g.X0 + g.W, nY + g.H); else band(g.X0, nY, g.X0 + g.W, g.Y0);
+      g.Y0 = nY;
+    }
+    g.cx = (g.X0 + g.W / 2) / g.tpw; g.cy = (g.Y0 + g.H / 2) / g.tpw;
+    this.scrolls++;
+  }
+
   private tileSeg = new Float32Array(MAX_SEG * 4 * 4);
-  private drawStrips(job: NonNullable<Ground['job']>, g: GBuf, from: number, to: number, vao: WebGLVertexArrayObject) {
+  /** 画绝对纹素区 [AX0,AX1)×[AY0,AY1)（宽高都不超过缓存）：按纹理接缝拆成 ≤4 块，再按列分块裁剪线段。
+   *  片元 → 世界：rel = (px - O)/tpw，O = C*tpw - K（K 为该块的 W/H 整数倍偏移），于是 w = (X+0.5)/tpw，与位置无关、处处一致 */
+  private drawAbs(g: GBuf, tpw: number, season: number, S: GroundSegs, cx: number, cy: number,
+    AX0: number, AY0: number, AX1: number, AY1: number, vao: WebGLVertexArrayObject) {
     const gl = this.gl, pr = this.prog, T = this.T!;
     gl.bindFramebuffer(gl.FRAMEBUFFER, g.fb);
     gl.viewport(0, 0, g.W, g.H);
@@ -801,23 +842,23 @@ export class Ground {
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.ta); gl.uniform1i(pr.u('uTA'), 0);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.tb); gl.uniform1i(pr.u('uTB'), 1);
     gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, this.noise); gl.uniform1i(pr.u('uN'), 2);
-    const S = job.segs;
+    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.mat); gl.uniform1i(pr.u('uMat'), 4);
+    // 线段纹理最后绑定：下面的 texSubImage2D 作用于“当前激活单元”——以前激活的是 4 号（画材数组），
+    // 每次上传都 INVALID_OPERATION，河流 / 道路线段从未进到着色器（河道、土路整片缺失）。第三十八步修正。
     gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, this.segTex);
     gl.uniform1i(pr.u('uSeg'), 3);
-    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.mat); gl.uniform1i(pr.u('uMat'), 4);
     gl.uniform1f(pr.u('uMatOn'), this.matOk ? 1 : 0); gl.uniform3fv(pr.u('uMatAvg[0]'), this.matAvg);
     if (S.nTown) { gl.uniform4fv(pr.u('uTown[0]'), S.town, 0, S.nTown * 4); gl.uniform4iv(pr.u('uTownS[0]'), S.townS, 0, S.nTown * 4); }
     gl.uniform1i(pr.u('uNTown'), S.nTown);
     if (S.nZone && S.zone) gl.uniform4fv(pr.u('uZone[0]'), S.zone, 0, S.nZone * 4);
     gl.uniform1i(pr.u('uNZone'), S.nZone ?? 0);
     gl.uniform2f(pr.u('uMacro'), T.W, T.H); gl.uniform1f(pr.u('uScale'), T.scale);
-    gl.uniform2f(pr.u('uCam'), job.cx, job.cy); gl.uniform1f(pr.u('uTPW'), job.tpw);
-    gl.uniform2f(pr.u('uRes'), g.W, g.H); gl.uniform1i(pr.u('uSeason'), job.season);
+    gl.uniform2f(pr.u('uCam'), cx, cy); gl.uniform1f(pr.u('uTPW'), tpw);
+    gl.uniform1i(pr.u('uSeason'), season);
     gl.bindVertexArray(vao);
     gl.enable(gl.SCISSOR_TEST);
-    // 第十七步：分块裁剪线段——每块只上传可能影响到它的河段 / 路段（与 Renderer 裁剪同样的余量），
-    // 每个像素的线段循环从“整个缓存的全部线段”降到“本块附近的几段”，画面完全不变
-    const ROW = MAX_SEG * 4, src = S.seg, dst = this.tileSeg, COLS = 3;
+    // 分块裁剪线段——每块只上传可能影响到它的河段 / 路段（余量与 Renderer 一致），画面完全不变
+    const ROW = MAX_SEG * 4, src = S.seg, dst = this.tileSeg;
     const fill = (row: number, n: number, pad: number, x0: number, x1: number, y0: number, y1: number) => {
       let m = 0;
       for (let k = 0; k < n; k++) {
@@ -830,18 +871,27 @@ export class Ground {
       }
       return m;
     };
-    for (let i = from; i < to; i++) {
-      const y0 = Math.floor(g.H * i / job.n), y1 = Math.floor(g.H * (i + 1) / job.n);
-      for (let c = 0; c < COLS; c++) {
-        const x0 = Math.floor(g.W * c / COLS), x1 = Math.floor(g.W * (c + 1) / COLS);
-        const wx0 = (x0 - g.W / 2) / job.tpw, wx1 = (x1 - g.W / 2) / job.tpw, wy0 = (y0 - g.H / 2) / job.tpw, wy1 = (y1 - g.H / 2) / job.tpw;
-        const nR = fill(0, S.nRiv, 820, wx0, wx1, wy0, wy1), nD = fill(2, S.nRoad, 210, wx0, wx1, wy0, wy1);
-        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, MAX_SEG, 4, gl.RGBA, gl.FLOAT, dst);
-        gl.uniform1i(pr.u('uNRiv'), nR); gl.uniform1i(pr.u('uNRoad'), nD);
-        gl.scissor(x0, y0, x1 - x0, y1 - y0);
-        gl.drawArrays(gl.TRIANGLES, 0, 3);
+    const split = (a0: number, a1: number, N: number) => {
+      const out: [number, number, number][] = [];
+      let a = a0;
+      while (a < a1) { const K = Math.floor(a / N) * N, e = Math.min(a1, K + N); out.push([a, e, K]); a = e; }
+      return out;
+    };
+    const TILE = Math.max(256, Math.ceil(g.W / 3));
+    for (const [ya, yb, Ky] of split(AY0, AY1, g.H)) {
+      for (const [xa0, xb0, Kx] of split(AX0, AX1, g.W)) {
+        gl.uniform2f(pr.u('uRes'), 2 * (cx * tpw - Kx), 2 * (cy * tpw - Ky));
+        for (let xa = xa0; xa < xb0; xa += TILE) {
+          const xb = Math.min(xb0, xa + TILE);
+          const wx0 = xa / tpw - cx, wx1 = xb / tpw - cx, wy0 = ya / tpw - cy, wy1 = yb / tpw - cy;
+          const nR = fill(0, S.nRiv, 820, wx0, wx1, wy0, wy1), nD = fill(2, S.nRoad, 210, wx0, wx1, wy0, wy1);
+          gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, MAX_SEG, 4, gl.RGBA, gl.FLOAT, dst);
+          gl.uniform1i(pr.u('uNRiv'), nR); gl.uniform1i(pr.u('uNRoad'), nD);
+          gl.scissor(xa - Kx, ya - Ky, xb - xa, yb - ya);
+          gl.drawArrays(gl.TRIANGLES, 0, 3);
+          this.texelsThisFrame += (xb - xa) * (yb - ya);
+        }
       }
-      this.stripsThisFrame++;
     }
     gl.disable(gl.SCISSOR_TEST);
   }

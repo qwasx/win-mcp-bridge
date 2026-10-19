@@ -48,7 +48,7 @@ vec2 gUv(vec2 qq){ return (uGWo+qq*uGWs-uGC)*uGTpw/uGSize+0.5; }
 vec3 groundAt(vec2 qq){
   vec2 w=uGWo+qq*uGWs; vec2 g=(w-uGC)*uGTpw/uGSize+0.5;
   vec4 A=texture(uGA,g); vec3 c=A.rgb;
-  if(A.a>0.004){ vec4 B=texelFetch(uGB, ivec2(clamp(g*uGSize, vec2(0.0), uGSize-1.0)), 0); c=mix(c, waterAnim(c,B,w,uGWs,uWT), A.a); }
+  if(A.a>0.004){ vec4 B=texelFetch(uGB, ivec2(mod(floor(g*uGSize), uGSize)), 0); c=mix(c, waterAnim(c,B,w,uGWs,uWT), A.a); }
   return c;
 }
 float h21(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
@@ -443,7 +443,7 @@ export class GLStage {
       const k = this.W / v.cssW;
       gl.uniform2f(pp.u('uGWo'), v.camX - v.cssW / 2 / v.zoom, v.camY - v.cssH / 2 / v.zoom);
       gl.uniform1f(pp.u('uGWs'), 1 / (k * v.zoom));
-      gl.uniform2f(pp.u('uGC'), g.cx, g.cy); gl.uniform1f(pp.u('uGTpw'), g.tpw); gl.uniform2f(pp.u('uGSize'), g.W, g.H);
+      const gc = G.sampleOrigin(g); gl.uniform2f(pp.u('uGC'), gc[0], gc[1]); gl.uniform1f(pp.u('uGTpw'), g.tpw); gl.uniform2f(pp.u('uGSize'), g.W, g.H);
       gl.uniform1f(pp.u('uWT'), P.t % 3600);
     } else {
       this.bindTex(6, this.noiseTex); gl.uniform1i(pp.u('uGA'), 6);

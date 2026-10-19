@@ -1,4 +1,5 @@
 // 游戏核心：状态、循环、输入、相机；第一步大地图 + 第二步修炼与角色
+import { prof } from '../core/prof';
 import { ARTS as ARTS_ALL } from '../data/arts';
 import { Terrain } from './terrain';
 import { Renderer } from './render';
@@ -573,7 +574,8 @@ export class Game {
   /** 大招运镜：拉远并看向某处 */
   cine = { t: 0, dur: 0, z: 1, x: 0, y: 0, k: 0 };
   cinema(x: number, y: number, zMul: number, dur: number) { this.cine = { t: 0, dur, z: zMul, x, y, k: this.cine.k }; }
-  showPerf = false;
+  get showPerf() { return prof.on; }
+  set showPerf(v: boolean) { if (v && !prof.on) prof.reset(); prof.on = v; }
   perf = { frames: 0, acc: 0, upd: 0, ren: 0, fps: 0, updMs: 0, renMs: 0, worst: 0, worstMs: 0 };
   /** 顿帧（秒）与震屏（0..1 创伤值，叠加） */
   juice(stop: number, shake: number) {
@@ -659,6 +661,7 @@ export class Game {
       const u1 = performance.now();
       this.renderer.render(dt);
       const u2 = performance.now();
+      prof.endFrame(rdt * 1000);
       const pf = this.perf; pf.frames++; pf.acc += rdt; pf.upd += u1 - u0; pf.ren += u2 - u1; pf.worst = Math.max(pf.worst, rdt * 1000);
       if (pf.acc >= 0.5) { pf.fps = pf.frames / pf.acc; pf.updMs = pf.upd / pf.frames; pf.renMs = pf.ren / pf.frames; pf.worstMs = pf.worst; pf.frames = 0; pf.acc = 0; pf.upd = 0; pf.ren = 0; pf.worst = 0; }
       if (this.renderer.stage) this.renderer.stage.gpuTiming = this.showPerf;
@@ -679,7 +682,7 @@ export class Game {
   update(dt: number) {
     this.time += dt;
     this.terrain.frame++;
-    if (!this.halted && !this.hero.dead) this.updateSense(dt);
+    if (!this.halted && !this.hero.dead) { const _s = prof.t(); this.updateSense(dt); prof.add('U·神识', _s); }
     const p = this.player, st = p.st, h = this.hero;
     // 高空：飞行时缓缓升高，疾遁时更高——镜头随之拉远
     const altT = this.player.flying ? (this.player.boosting ? 1 : this.player.moving ? 0.5 : 0.3) : 0;
@@ -780,18 +783,12 @@ export class Game {
         const ov = this.combat.actionOverride();
         if (ov) st.setAction(ov);
       }
-      this.combat.update(dt);
-      this.pursuit.update(dt);
-      this.pursuitTriggers(dt);
-      this.npcs.update(dt);
-      this.rel.update(dt);
-      this.roster.update(dt);
-      this.war.update(dt);
-      this.travel.update(dt);
-      this.events.update(dt);
-      this.story.update(dt);
-      this.landmarks.update(dt);
-      this.sites.update(dt); this.home.update(dt); this.happen.update(dt); this.pets.update(dt); this.heartx.update(dt);
+      let _t = prof.t(); this.combat.update(dt); prof.add('U·战斗', _t);
+      _t = prof.t(); this.pursuit.update(dt); this.pursuitTriggers(dt); prof.add('U·追杀', _t);
+      _t = prof.t(); this.npcs.update(dt); prof.add('U·NPC', _t);
+      _t = prof.t(); this.rel.update(dt); this.roster.update(dt); this.war.update(dt); prof.add('U·人脉名册大战', _t);
+      _t = prof.t(); this.travel.update(dt); this.events.update(dt); this.story.update(dt); prof.add('U·事件剧情', _t);
+      _t = prof.t(); this.landmarks.update(dt); this.sites.update(dt); this.home.update(dt); this.happen.update(dt); this.pets.update(dt); this.heartx.update(dt); prof.add('U·名地遗府奇遇', _t);
       // 采集
       if (this.gathering) {
         this.gathering.t += dt;
@@ -803,7 +800,7 @@ export class Game {
       this.timeScale = p.sitting ? MEDITATE_SPEED : 1;
       const days = dt * DAYS_PER_SEC * this.timeScale;
       this.day += days;
-      this.relAcc += days; if (this.relAcc >= 0.5) { this.rel.daily(this.relAcc); this.roster.daily(this.relAcc); this.war.daily(this.relAcc); this.orig.daily(this.relAcc); this.relAcc = 0; }
+      this.relAcc += days; if (this.relAcc >= 0.5) { const _d = prof.t(); this.rel.daily(this.relAcc); this.roster.daily(this.relAcc); this.war.daily(this.relAcc); this.orig.daily(this.relAcc); this.relAcc = 0; prof.add('U·日结算', _d); }
       const msgs: Msg[] = [];
       const hadTalent = !!h.pendingTalent;
       const expB = this.hearts.bonus('exp'), e0 = h.exp;
@@ -820,29 +817,32 @@ export class Game {
       }
       if (C.bottleneck(h) === 'none') this.bnWarned = false;
       if (h.dead) { this.stand(); this.updateUI(true); try { localStorage.removeItem(SLOT_KEYS[0]); } catch { /* */ } }
-      this.revealAround(false);
+      { const _r = prof.t(); this.revealAround(false); prof.add('U·探索迷雾', _r); }
     }
     this.clock += dt * (active ? (p.sitting ? 2.5 : 1) : 0.2);
-    st.update(dt);
+    let _u = prof.t(); st.update(dt); prof.add('U·主角骨骼', _u);
     // 天气 / 生灵
+    _u = prof.t();
     const s = this.terrain.sample(p.x, p.y);
     this.weather.update(dt, { cold: s.cold, arid: s.arid, sea: !this.terrain.isLand(p.x, p.y) || s.land < 0.6, season: this.season });
+    prof.add('U·天气', _u); _u = prof.t();
     if (this.renderer) {
       const v = this.renderer.viewRect();
       this.life.update(dt, this, v, this.night, this.season, this.weather.kind);
     }
+    prof.add('U·生灵', _u);
     // 相机跟随
     this.cam.x += (p.x + this.debugCamDX + this.camLeanX - this.cam.x) * Math.min(1, dt * 6);
     this.cam.y += (p.y - st.lift * 0.5 + this.camLeanY - this.cam.y) * Math.min(1, dt * 6);
 
-    this.space.update(dt, p.x, p.y);
+    _u = prof.t(); this.space.update(dt, p.x, p.y); prof.add('U·屋舍碰撞', _u);
     this.regionTimer -= dt;
-    if (this.regionTimer <= 0) { this.regionTimer = 0.35; this.checkRegion(); this.exploreCheck(this.nearbyLocation()); this.townAutoZoom(); if (!this.halted) this.hintTick(); }
+    if (this.regionTimer <= 0) { _u = prof.t(); this.regionTimer = 0.35; this.checkRegion(); this.exploreCheck(this.nearbyLocation()); this.townAutoZoom(); if (!this.halted) this.hintTick(); prof.add('U·区域检测', _u); }
     this.uiTimer -= dt;
-    if (this.uiTimer <= 0) { this.uiTimer = 0.12; this.updateUI(); }
+    if (this.uiTimer <= 0) { _u = prof.t(); this.uiTimer = 0.12; this.updateUI(); prof.add('U·界面刷新', _u); }
     this.saveTimer += dt;
-    if (this.saveTimer > 20) { this.saveTimer = 0; this.save(0); }
-    audio.tick(this, dt);
+    if (this.saveTimer > 20) { _u = prof.t(); this.saveTimer = 0; this.save(0); prof.add('U·自动存档', _u); }
+    _u = prof.t(); audio.tick(this, dt); prof.add('U·声音', _u);
   }
   private bnWarned = false;
 

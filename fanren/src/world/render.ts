@@ -1,5 +1,6 @@
 // 大地图渲染：水墨底图 → 水波 → 倒影 → 地点地面 → (山/树/建筑/生灵/人物 Y 排序) → 护山大阵 → 天空生灵
 //            → 昼夜 → 灯火 → 云雾/迷雾 → 名牌 → 神识 → 天气 → 季节纸纹
+import { prof } from '../core/prof';
 import { grassSprite, grassRes } from '../gfx/grass';
 import type { Game } from './game';
 import { FOG_CELL, FOG_W, FOG_H } from './game';
@@ -10,7 +11,7 @@ import { hash2, clamp } from '../core/rng';
 import { sprites, resBucket, Spr } from '../gfx/sprites';
 import { makeTree, Season } from '../gfx/tree';
 import { makeMountain } from '../gfx/mountain';
-import { getLayout, renderPiece, renderGround, LOC_SCALE, LocLayout, Piece } from '../gfx/building';
+import { getLayout, renderPiece, renderGround, renderGroundGen, LOC_SCALE, LocLayout, Piece } from '../gfx/building';
 import { loadBld2, tickBld2, drawBld, drawWallRun, pavePattern, drawDecal, warmBld } from '../gfx/bldTex2';
 import { drawCharacter } from '../gfx/character';
 import { artLook } from '../data/artlooks';
@@ -214,7 +215,7 @@ export class Renderer {
     { dpr: 1.5, ground: 1.25, tier: 2, fx: 1 },
     { dpr: 1.25, ground: 1.0, tier: 2, fx: 1 },
     { dpr: 1.0, ground: 0.85, tier: 1, fx: 1 },
-    { dpr: 1.0, ground: 0.7, tier: 0, fx: 0.5 },
+    { dpr: 1.0, ground: 0.7, tier: 0, fx: 1 },   // 第三十八步：特效永不降档（只降分辨率 / 地表 / 环境层）
   ];
   private applyLevel(i: number) {
     const L = Renderer.LEVELS[Math.max(0, Math.min(3, i))];
@@ -343,6 +344,7 @@ export class Renderer {
   // ---------------------------------------------------------------- 主渲染
   render(dt: number) {
     const t0 = performance.now();
+    let _p = prof.t();
     const { ctx, game } = this;
     this.adapt(dt);
     if (!sprites.unlimited) sprites.frameMs = game.time < 2 ? 28 : 7; // 开场预热：多生成一些位图
@@ -378,6 +380,7 @@ export class Renderer {
     const T = game.terrain;
     T.season = season;
 
+    prof.add('R·准备', _p); _p = prof.t();
     // ---------- 1. 底图分块（GPU 地表开启时跳过）----------
     const cx0 = Math.floor(left / CHUNK), cx1 = Math.floor(right / CHUNK);
     const cy0 = Math.floor(top / CHUNK), cy1 = Math.floor(bottom / CHUNK);
@@ -405,8 +408,11 @@ export class Renderer {
     if (z >= 0.35 && !GROUND) this.drawWater(left, top, right, bottom, t);
     // ---------- 2b. 草丛 ----------
     // 第十九步：原著名地的地面贴花（熔岩湖、血潭、白玉广场……）
+    prof.add('R·底图水面', _p); _p = prof.t();
     game.landmarks.drawGround(ctx, { left, top, right, bottom }, z, dpr, t);
+    prof.add('R·名地地面', _p); _p = prof.t();
     if (z >= 0.42) this.drawGrass(left, top, right, bottom, t, season, z);
+    prof.add('R·草', _p); _p = prof.t();
 
     // ---------- 3. 收集装饰 ----------
     const list: Drawable[] = [];
@@ -423,7 +429,7 @@ export class Renderer {
           const dd = d as MtnDeco & { _refl?: number };
           if (!vis) { if (d.x + d.w > left - 1200 && d.x - d.w < right + 1200 && d.y - d.h < bottom + 1200 && d.y > top - 1200) prefetch.push(d); continue; }
           nM++;
-          list.push({ y: d.y, draw: () => this.drawMountain(d, t) });
+          list.push({ y: d.y, k: 'D·山', draw: () => this.drawMountain(d, t) });
           if (dd._refl === undefined) dd._refl = (!T.isLand(d.x, d.y + 60) || !T.isLand(d.x - d.w * 0.25, d.y + 50) || !T.isLand(d.x + d.w * 0.25, d.y + 50)) ? 1 : 0;
           if (dd._refl) reflect.push(d);
         } else if (d.kind === 'tree') {
@@ -431,24 +437,26 @@ export class Renderer {
           if (d.lod > lodMax) continue;
           nTrees++;
           const td = d as TreeDeco & { _refl?: number };
-          list.push({ y: d.y, draw: () => this.drawTree(d, t, lodMax < 2 ? (lodMax === 0 ? 1.25 : 1.1) : 1) });
+          list.push({ y: d.y, k: 'D·树', draw: () => this.drawTree(d, t, lodMax < 2 ? (lodMax === 0 ? 1.25 : 1.1) : 1) });
           if (z > 0.45) {
             if (td._refl === undefined) td._refl = !T.isLand(d.x, d.y + 30) ? 1 : 0;
             if (td._refl) reflect.push(d);
           }
         } else if (d.kind === 'fall') {
-          if (!(d.x + d.w < left || d.x - d.w > right || d.y - d.h - 100 > bottom || d.y + d.w * 0.4 < top)) { nM++; list.push({ y: d.y, draw: () => this.drawFall(d, t) }); }
+          if (!(d.x + d.w < left || d.x - d.w > right || d.y - d.h - 100 > bottom || d.y + d.w * 0.4 < top)) { nM++; list.push({ y: d.y, k: 'D·瀑布', draw: () => this.drawFall(d, t) }); }
         } else {
           if (!vis || z < 0.3) continue;
           nD++;
-          list.push({ y: d.y, draw: () => { ctx.globalAlpha = d.alpha; if (d.flip) { ctx.save(); ctx.translate(d.x, 0); ctx.scale(-1, 1); ctx.drawImage(d.img, -d.w / 2, d.y - d.h, d.w, d.h); ctx.restore(); } else ctx.drawImage(d.img, d.x - d.w / 2, d.y - d.h, d.w, d.h); ctx.globalAlpha = 1; } });
+          list.push({ y: d.y, k: 'D·地面小景', draw: () => { ctx.globalAlpha = d.alpha; if (d.flip) { ctx.save(); ctx.translate(d.x, 0); ctx.scale(-1, 1); ctx.drawImage(d.img, -d.w / 2, d.y - d.h, d.w, d.h); ctx.restore(); } else ctx.drawImage(d.img, d.x - d.w / 2, d.y - d.h, d.w, d.h); ctx.globalAlpha = 1; } });
         }
       }
     }
     this.stats.trees = nTrees; this.stats.mtns = nM; this.stats.decos = nD;
+    prof.add('R·收集山树', _p); _p = prof.t();
 
     // 倒影（贴在水面上）
     if (reflect.length && z >= 0.35) this.drawReflections(reflect, t);
+    prof.add('R·倒影', _p); _p = prof.t();
 
     // ---------- 4. 地点 ----------
     const visibleLocs: LocDef[] = [];
@@ -459,8 +467,10 @@ export class Renderer {
       const hw = L.gw * LOC_SCALE * 0.6, hh = L.gh * LOC_SCALE * 0.6;
       if (x + hw < left - 200 || x - hw > right + 200 || y + hh < top - 200 || y - hh - 600 > bottom) continue;
       visibleLocs.push(l);
+      const _g = prof.t();
       if (L.v2) this.drawLocGround2(L, x, y, t, left, top, right, bottom);
       else this.drawLocGround(L, x, y, z);
+      prof.add(L.v2 ? 'R·城镇铺装' : 'R·旧式地点地面', _g);
       const res = resBucket(z * dpr * LOC_SCALE, 1.4);
       L.pieces.forEach((pc, i) => {
         const px = x + pc.x * LOC_SCALE, py = y + pc.y * LOC_SCALE;
@@ -468,18 +478,18 @@ export class Renderer {
         if (pc.kind === 'B') {
           const w = pc.p.w, h = pc.p.h;
           if (px + w / 2 < left - 100 || px - w / 2 > right + 100 || py < top - 120 || py - h - 60 > bottom) return;
-          list.push({ y: py, draw: () => this.drawBldPiece(pc, px, py, t) });
+          list.push({ y: py, k: 'D·建筑', draw: () => this.drawBldPiece(pc, px, py, t) });
           return;
         }
         if (pc.kind === 'W') {
           const len = pc.p.len;
           if (px + len / 2 < left - 100 || px - len / 2 > right + 100 || py < top - 80 || py - pc.p.hh - 40 > bottom) return;
-          list.push({ y: py, draw: () => { const a = this.xray(pc, px - len / 2, px + len / 2, py, pc.p.hh); drawWallRun(ctx, pc.p.k, px - len / 2, px + len / 2, py, pc.p.hh, t, a); } });
+          list.push({ y: py, k: 'D·城墙', draw: () => { const a = this.xray(pc, px - len / 2, px + len / 2, py, pc.p.hh); drawWallRun(ctx, pc.p.k, px - len / 2, px + len / 2, py, pc.p.hh, t, a); } });
           return;
         }
         if (pc.kind === 'WV') {
           if (px + 80 < left || px - 80 > right || py + 40 < top || py - pc.p.len - pc.p.h - 60 > bottom) return;
-          list.push({ y: py, draw: () => this.drawWallV(pc, px, py) });
+          list.push({ y: py, k: 'D·城墙', draw: () => this.drawWallV(pc, px, py) });
           return;
         }
         const zs = pc.p.z ?? 1;
@@ -488,7 +498,7 @@ export class Renderer {
         if (px < left - 600 || px > right + 600 || py < top - 50 || py - 900 > bottom) return;
         if (z < 0.3 && pc.kind === 'tree' && i % 2) return;
         const key = pc.kind === 'tree' ? `P:${l.id}:${i}:${season}` : `P:${l.id}:${i}`;
-        list.push({ y: py, draw: () => {
+        list.push({ y: py, k: pc.kind === 'tree' ? 'D·城中树' : 'D·城中小件', draw: () => {
           const s = pc.kind === 'tree'
             ? sprites.getAsync(key, pres, (r) => ({ kind: 'T', sp: pc.p.sp, season, seed: pc.seed, res: r }), (r) => renderPiece(pc, L.pal, r, season) as Spr)
             : sprites.get(key, pres, (r) => renderPiece(pc, L.pal, r, season) as Spr);
@@ -503,10 +513,11 @@ export class Renderer {
         } });
       });
       // 旗帜、炊烟
-      for (const f of L.flags) { const fx = x + f.x * LOC_SCALE, fy = y + f.y * LOC_SCALE; list.push({ y: fy + 1, draw: () => this.drawFlag(fx, fy, f.color, t) }); }
+      for (const f of L.flags) { const fx = x + f.x * LOC_SCALE, fy = y + f.y * LOC_SCALE; list.push({ y: fy + 1, k: 'D·旗帜', draw: () => this.drawFlag(fx, fy, f.color, t) }); }
       if (L.barrier) barriers.push({ L, x, y });
     }
 
+    prof.add('R·地点(含城镇地面)', _p); _p = prof.t();
     // ---------- 5. 采集点（仅神识内可见）----------
     const p = game.player;
     this.modsT -= dt;
@@ -521,25 +532,33 @@ export class Renderer {
       if (d > R) continue;
       const a = clamp((R - d) / 120, 0, 1);
       const hl = game.gatherTarget === n;
-      list.push({ y: n.y, draw: () => drawNode(ctx, n, t, a, hl) });
+      list.push({ y: n.y, k: 'D·采集点', draw: () => drawNode(ctx, n, t, a, hl) });
     }
+    prof.add('R·神识采集点', _p); _p = prof.t();
 
     // ---------- 6. 生灵（地面）+ 玩家 ----------
     const view = { left, top, right, bottom };
     ctx.save();
     game.life.drawShadows(ctx, t);
     ctx.restore();
-    game.life.collectGround(list, view, t, dt);
-    collectCombat(game.combat, list, view, t, dt);
-    game.npcs.collect(list, view, t, dt);
-    game.events.collect(list, view, t, dt);
-    game.story.collect(list, view, t, dt);
-    game.landmarks.collect(list, view, t);
-    game.sites.collect(list, view, t, dt); game.home.collect(list, view, t); game.happen.collect(list, view, t, dt); game.pets.collect(list); game.heartx.collect(list);
-    list.push({ y: p.flying ? p.y + 200000 : p.y, draw: () => this.drawPlayer(dt) });   // 御器飞行：在山树之上
+    prof.add('R·生灵影子', _p); _p = prof.t();
+    let _n = list.length;
+    const tag = (k: string) => { for (let i = _n; i < list.length; i++) if (!list[i].k) list[i].k = k; _n = list.length; };
+    tag('D·其他');
+    game.life.collectGround(list, view, t, dt); tag('D·生灵(人兽)');
+    collectCombat(game.combat, list, view, t, dt); tag('D·战斗单位');
+    game.npcs.collect(list, view, t, dt); tag('D·NPC');
+    game.events.collect(list, view, t, dt); game.story.collect(list, view, t, dt); tag('D·事件剧情');
+    game.landmarks.collect(list, view, t); tag('D·名地');
+    game.sites.collect(list, view, t, dt); game.home.collect(list, view, t); game.happen.collect(list, view, t, dt); game.pets.collect(list); game.heartx.collect(list); tag('D·遗府奇遇');
+    list.push({ y: p.flying ? p.y + 200000 : p.y, k: 'D·主角', draw: () => this.drawPlayer(dt) });   // 御器飞行：在山树之上
+    prof.add('R·收集单位', _p); _p = prof.t();
 
     list.sort((a, b) => a.y - b.y);
-    for (const d of list) d.draw(ctx);
+    prof.add('R·排序', _p);
+    if (prof.on) { for (const d of list) { const q = performance.now(); d.draw(ctx); prof.add(d.k ?? 'D·其他', q); } }
+    else for (const d of list) d.draw(ctx);
+    _p = prof.t();
     this.world();
 
     // 第十九步：名地的雾、光罩、余烬、名字
@@ -560,8 +579,10 @@ export class Renderer {
       for (const d of prefetch.slice(0, 3)) { if (!sprites.canBuild()) break; this.mtnSprite(d, z); }
     }
 
+    prof.add('R·名地雾/人影/炊烟/大阵', _p); _p = prof.t();
     // ---------- 8. 天空：飞鸟、仙鹤、御剑修士；粒子；目的地 ----------
     game.life.drawSky(ctx, t);
+    prof.add('R·天空飞禽', _p); _p = prof.t();
     this.updateParticles(dt);
     if (game.destination) {
       const { x, y } = game.destination;
@@ -576,6 +597,7 @@ export class Renderer {
     // ---------- 8.5 四季飘物：春花瓣、夏柳絮、秋落叶（仅神识圈内）----------
     this.drawSeasonFx(dt, season, p.x, p.y, R);
 
+    prof.add('R·粒子四季飘物', _p); _p = prof.t();
     // ---------- 9. 昼夜 + 天气暗化（multiply）----------
     const night = game.night, light = game.light;
     const dusk = clamp(1 - Math.abs(light - 0.52) / 0.2, 0, 1) * (1 - night) * 0.7;
@@ -639,11 +661,13 @@ export class Renderer {
         B.quad(0, p.x, p.y - 50, 320, 240, 0, 1, 0.8, 0.55, night * 0.22, 1);
         game.life.collectGlow(night, (x, y, r, a) => { B.quad(0, x, y, r * 2.6, r * 2.6, 0, 0.85, 1, 0.55, a, 1); B.quad(26, x, y, r * 0.5, r * 0.5, 0, 1, 1, 0.8, a, 1); });
       }
+      prof.add('R·GL神识灯火', _p); _p = prof.t();
       drawCombatGL(F, game.combat, t, dt);
       game.story.drawGL(F, t);
       F.drawRings(dt);
       F.drawParticles();
       F.flushBake(this.stage!.atlas);
+      prof.add('R·GL特效批次', _p); _p = prof.t();
     } else {
       game.combat.fxq.length = 0;
     }
@@ -680,7 +704,9 @@ export class Renderer {
     }
 
     // ---------- 10. 氛围层 ----------
+    _p = prof.t();
     this.drawAtmosphere(left, top, right, bottom, dt);
+    prof.add('R·氛围层', _p); _p = prof.t();
     if (!GL) ctx.drawImage(this.atmo, this.atmoRect.x, this.atmoRect.y, this.atmoRect.w, this.atmoRect.h);
 
     // —— 以下为 UI 层（GL 模式下画在透明画布上，不受调色、记忆水墨影响）
@@ -695,6 +721,7 @@ export class Renderer {
     // 血条与伤害数字
     drawCombatUI(this.ctx, game.combat, t, z);
 
+    prof.add('R·特效关键图血条', _p); _p = prof.t();
     // ---------- 11. 名牌 ----------
     for (const l of visibleLocs) {
       const x = l.x * WORLD_SCALE, y = l.y * WORLD_SCALE;
@@ -720,7 +747,9 @@ export class Renderer {
     // 雨雪画在世界层（GL 模式下整屏雾/闪电的填色交给着色器）
     sceneCtx.setTransform(sceneDpr, 0, 0, sceneDpr, 0, 0);
     game.weather.noFills = GL;
+    prof.add('R·名牌', _p); _p = prof.t();
     game.weather.draw(sceneCtx, W, H, dt, clamp(cdx, -800, 800), clamp(cdy, -800, 800));
+    prof.add('R·雨雪', _p); _p = prof.t();
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     if (z < 0.6) {
       const a = clamp((0.6 - z) / 0.3, 0, 1) * 0.55;
@@ -736,7 +765,9 @@ export class Renderer {
     }
     if (GL) {
       this.ctx = sceneCtx; this.Z = sceneZ; this.ox = sceneOx; this.oy = sceneOy; this.dpr = sceneDpr;
+      _p = prof.t();
       this.postGL(camX, camY, z, W, H, night, dusk, gloom, dayK, [mulR, mulG, mulB], R);
+      prof.add('R·GL合成(地表+上传)', _p);
       this.stats.ms = performance.now() - t0;
       return;
     }
@@ -1167,11 +1198,31 @@ export class Renderer {
     ctx.fillStyle = fg; ctx.fillRect(x - tw / 2, y1, tw, Math.min(h, len) * 0.0 + 0);
     ctx.restore();
   }
+  /** 第三十八步：旧式地点地面换分辨率不再同步重画（以前每次缩放跨档都卡 ~125ms）：
+   *  先用最接近的已有版本，新分辨率分帧烘（每帧 ≤3ms），画完再换；小幅缩放有回差，不触发重烘 */
+  private gBake: { base: string; res: number; it: Generator<void, Spr> } | null = null;
   private drawLocGround(L: LocLayout, x: number, y: number, z: number) {
     const resWant = resBucket(z * this.dpr * LOC_SCALE, 1);
     const res = Math.min(resWant, Math.sqrt(5e6 / (L.gw * L.gh)));
-    const r = Math.round(res * 100) / 100;
-    const s = sprites.get('G:' + L.id, r, (rr) => renderGround(L, rr) as Spr, true);
+    const r = Math.round(res * 100) / 100, base = 'G:' + L.id;
+    let s = sprites.peek(base, r);
+    if (!s) {
+      const fb = sprites.best(base, r);
+      if (!fb) s = sprites.get(base, r, (rr) => renderGround(L, rr) as Spr, true);   // 第一次出现：只能同步
+      else {
+        s = fb.s;
+        const k = fb.res / r;
+        if (k < 0.72 || k > 2.1) {
+          const B = this.gBake;
+          if (!B || B.base !== base || Math.abs(B.res / r - 1) > 0.3) this.gBake = { base, res: r, it: renderGroundGen(L, r) as Generator<void, Spr> };
+        }
+      }
+    }
+    const B = this.gBake;
+    if (B && B.base === base) {
+      const t0 = performance.now();
+      for (;;) { const st = B.it.next(); if (st.done) { sprites.adopt(base, B.res, st.value); this.gBake = null; break; } if (performance.now() - t0 > 3) break; }
+    }
     if (!s) return;
     this.ctx.drawImage(s.canvas, x - s.ax * LOC_SCALE, y - s.ay * LOC_SCALE, s.w * LOC_SCALE, s.h * LOC_SCALE);
   }
@@ -1294,12 +1345,15 @@ export class Renderer {
   }
 
   // ---------------------------------------------------------------- 名牌
-  private labelCache = new Map<string, HTMLCanvasElement>();
+  private labelCache = new Map<string, HTMLCanvasElement>(); private fontT0 = 0;
   private fontReady(text: string) {
     try {
       if (!document.fonts) return true;
       const f = '20px "Ma Shan Zheng"';
       if (document.fonts.check(f, text)) return true;
+      // 第三十八步：字体加载失败 / 太慢时 3 秒后照样缓存，免得每帧重建名牌
+      if (!this.fontT0) this.fontT0 = performance.now();
+      if (performance.now() - this.fontT0 > 3000) return true;
       document.fonts.load(f, text).catch(() => {});
       return false;
     } catch { return true; }

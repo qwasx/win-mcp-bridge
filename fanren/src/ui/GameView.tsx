@@ -1,6 +1,7 @@
 import { ModalLayer } from './ModalLayer';
 import { spriteJobs } from '../gfx/spriteJobs';
 import { sprites } from '../gfx/sprites';
+import { prof } from '../core/prof';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Game, UIState } from '../world/game';
 import { audio } from '../world/audio';
@@ -242,6 +243,15 @@ function PerfHud({ game }: { game: Game }) {
     {r?.stage?.ground?.front ? `地表缓存 ${r.stage.ground.front.W}×${r.stage.ground.front.H} · 重画 ${r.stage.ground.rebuilds} 次` : '地表 —'} · 自动降档 {r?.qualityLevel ?? 0}/3<br />
     {(() => { const j = spriteJobs(); const st = sprites.stats; return `精灵 ${st.n} 张 ${st.mpx}MP · 后台生成 ${j.ok ? `开（${j.done} 张，均 ${j.avgMs.toFixed(0)}ms，排队 ${j.queued}）` : '关（主线程）'}`; })()}<br />
     树 {r?.stats.trees} · 草 {r?.stats.grass} · 敌 {game.combat.enemies.length} · NPC {game.npcs?.list.length ?? 0}
+    {r?.stage?.ground ? ` · 地表本帧 ${((r.stage.ground as any).texelsThisFrame / 1000).toFixed(1)}k 纹素` : ''}<br />
+    <span className="perf-top">{prof.report(8).map((x) => `${x.k} ${x.ms.toFixed(1)}`).join(' · ')}</span><br />
+    {prof.spikes.length ? <>最近卡顿：{prof.spikes.slice(-2).map((x) => `${x.ms}ms←${x.top.map((y) => y.k).join('/')}`).join('；')}<br /></> : null}
+    <button className="perf-btn" onClick={() => {
+      const head = `fanren ${navigator.userAgent}\n${r?.stage ? `WebGL ${r.stage.W}×${r.stage.H} 绘制${r.stage.drawCalls}` : 'Canvas2D'} 世界层×${r?.dpr.toFixed(2)} 降档${r?.qualityLevel ?? 0} fps ${p.fps.toFixed(0)} 最慢 ${p.worstMs.toFixed(0)}ms 逻辑 ${p.updMs.toFixed(1)} 绘制 ${p.renMs.toFixed(1)}${r?.stage?.gpuMs ? ` GPU ${r.stage.gpuMs.toFixed(1)}` : ''}\n位置 ${Math.round(game.player.x)},${Math.round(game.player.y)} ${game.player.flying ? '飞行' : '步行'} 敌${game.combat.enemies.length} NPC${game.npcs?.list.length ?? 0}`;
+      const txt = prof.text(head);
+      try { navigator.clipboard.writeText(txt); } catch { /* 无剪贴板权限 */ }
+      console.log(txt);
+    }}>复制性能报告</button> <button className="perf-btn" onClick={() => prof.reset()}>重新计时</button>
   </div>;
 }
 

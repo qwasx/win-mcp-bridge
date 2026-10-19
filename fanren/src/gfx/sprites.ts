@@ -102,6 +102,17 @@ export class SpriteCache {
   }
 
   has(base: string) { return !!this.byBase.get(base)?.size; }
+  /** 第三十八步：只查不建——精确分辨率 */
+  peek(base: string, res: number): Spr | null { const e = this.map.get(base + '@' + res); if (e) { e.used = this.frame; return e.s; } return null; }
+  /** 同一对象最接近 res 的已有版本（含其分辨率） */
+  best(base: string, res: number): { s: Spr; res: number } | null {
+    const set = this.byBase.get(base); if (!set) return null;
+    let b: Entry | null = null;
+    for (const k of set) { const o = this.map.get(k); if (o && (!b || Math.abs(o.res - res) < Math.abs(b.res - res))) b = o; }
+    if (!b) return null; b.used = this.frame; return { s: b.s, res: b.res };
+  }
+  /** 外部（分帧）建好的放进缓存 */
+  adopt(base: string, res: number, s: Spr) { this.put(base + '@' + res, base, res, s); }
 
   private evict() {
     const arr = [...this.map.entries()].sort((a, b) => a[1].used - b[1].used);

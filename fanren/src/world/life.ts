@@ -10,7 +10,7 @@ type G = CanvasRenderingContext2D;
 const TAU = Math.PI * 2;
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
-export interface Drawable { y: number; draw: (g: G) => void }
+export interface Drawable { y: number; draw: (g: G) => void; /** 第三十八步：分项计时的类别 */ k?: string }
 
 abstract class Ent {
   x = 0; y = 0; dead = false; kind = '';

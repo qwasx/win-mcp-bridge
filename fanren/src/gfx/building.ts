@@ -688,7 +688,14 @@ export function renderPiece(pc: Piece, pal: Pal, res: number, season: Season = 1
 }
 
 /** 地面层：广场铺地、街道、台地、石阶、码头、阵纹、药田…… */
+/** 同步版（首次出现时用） */
 export function renderGround(L: LocLayout, res: number): Sprite {
+  const it = renderGroundGen(L, res); let r = it.next();
+  while (!r.done) r = it.next();
+  return r.value;
+}
+/** 第三十八步：可分帧的地点地面——每画完一项 yield 一次，渲染器按时间预算推进，画完再换上（结果与同步版逐像素相同） */
+export function* renderGroundGen(L: LocLayout, res: number): Generator<void, Sprite> {
   const W = L.gw, H = L.gh;
   const c = makeCanvas(Math.max(1, Math.ceil(W * res)), Math.max(1, Math.ceil(H * res)));
   const g = c.getContext('2d')!;
@@ -802,6 +809,7 @@ export function renderGround(L: LocLayout, res: number): Sprite {
         break;
       }
     }
+    yield;
   }
   return { canvas: c as HTMLCanvasElement, w: W, h: H, ax: W / 2, ay: H / 2 };
 }
