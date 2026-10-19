@@ -33,6 +33,17 @@ const S: Record<string, SprDef> = {
   'e:steppewolf': { k: 'wolf', f: 1, h: 80, m: 'walk', fx: [['sep', 0.55], ['bri', 1.06]] },
   'e:heilin': { k: 'dujiao', f: -1, h: 78, m: 'slither', fx: [['sat', 0.35], ['bri', 0.8]] },
   'e:bloodbat': { k: 'bloodbat', f: -1, h: 74, m: 'fly' },
+  // —— 第三十九步：新妖兽（新绘画材）
+  'e:shilingshu': { k: 'shilingshu', f: 1, h: 52, m: 'walk' },
+  'e:huoying': { k: 'huoying', f: 1, h: 58, m: 'fly', glow: '255,130,50' },
+  'e:shanxiao': { k: 'shanxiao', f: 1, h: 140, m: 'stand' },
+  'e:tiebeixi': { k: 'tiebeixi', f: 1, h: 116, m: 'walk' },
+  'e:chuanshan': { k: 'chuanshan', f: 1, h: 66, m: 'walk' },
+  'e:leijiaoling': { k: 'leijiaoling', f: 1, h: 132, m: 'walk' },
+  'e:dianyao': { k: 'dianyao', f: 1, h: 110, m: 'swim' },
+  'e:bixiao': { k: 'bixiao', f: 1, h: 104, m: 'fly' },
+  'e:xiaque': { k: 'xiaque', f: 1, h: 120, m: 'walk' },
+  'e:molin': { k: 'molin', f: 1, h: 150, m: 'walk' },
   // —— 筑基 · 二至四级
   'e:snowwolf': { k: 'snow_wolf', f: 1, h: 100, m: 'walk' },
   'e:icebear': { k: 'snow_ape', f: -1, h: 128, m: 'stand' },

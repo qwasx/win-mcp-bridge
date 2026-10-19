@@ -97,6 +97,13 @@ const I: ItemDef[] = [
   // 第十九步：原著名地妖物材料
   { id: 'mat_huochan', name: '火蟾晶', type: 'material', tier: 3, price: 2400, desc: '坠魔谷火蟾兽背上的熔岩疣凝成的晶石，内封地火，是炼制火属法宝的上佳辅材。', glyph: '晶', stack: true },
   { id: 'mat_mangpi', name: '蟒兽皮', type: 'material', tier: 3, price: 1800, desc: '坠魔谷蟒兽的墨绿厚皮，柔韧异常，可制护身法衣。', glyph: '皮', stack: true },
+  // —— 第三十九步：新妖兽材料
+  { id: 'mat_yingfen', name: '火萤磷粉', type: 'material', tier: 1, price: 40, desc: '赤磷火萤腹下刮下的红色磷粉，见风即燃，制火符的上好辅料。', glyph: '粉', stack: true },
+  { id: 'mat_xijiao', name: '铁背犀角', type: 'material', tier: 2, price: 320, desc: '铁背犀的乌金独角，坚逾精铁，炼制攻伐法器时掺上一点，锋锐倍增。', glyph: '角', stack: true },
+  { id: 'mat_xuanjialin', name: '玄甲鳞', type: 'material', tier: 2, price: 360, desc: '玄甲穿山甲的黑金鳞片，刀剑难伤，可炼护身甲胄。', glyph: '鳞', stack: true },
+  { id: 'mat_leijiao', name: '雷角', type: 'material', tier: 3, price: 1400, desc: '雷角羚的晶角，内里封着一缕不散的雷意，雷属性法器的主材之一。', glyph: '角', stack: true },
+  { id: 'mat_xialing', name: '霞雀翎', type: 'material', tier: 4, price: 5200, desc: '五彩霞雀尾上的长翎，五色流转如霞，炼制幻术与遁术法宝的珍材。', glyph: '翎', stack: true },
+  { id: 'mat_molinjiao', name: '墨麟角', type: 'material', tier: 4, price: 9000, desc: '墨麟兽额上的独角，乌黑如墨、隐有银焰，结丹修士争抢的炼器奇材。', glyph: '角', stack: true },
   { id: 'mat_heilin', name: '黑鳞蟒鳞', type: 'material', tier: 1, price: 90, desc: '血色禁地黑鳞蟒的鳞片。据说墨蛟便是黑鳞蟒蜕变而成。', glyph: '鳞', stack: true },
   { id: 'mat_shisha', name: '尸煞晶', type: 'material', tier: 3, price: 3200, desc: '昆吾山炼尸体内凝结的尸煞，阴寒刺骨，魔道炼尸、鬼道祭器皆用得上。', glyph: '煞', stack: true },
   { id: 'mat_yinchi', name: '银翅', type: 'material', tier: 4, price: 26000, desc: '银翅夜叉的一片银翅，坚逾精金，薄如蝉翼——炼制飞遁法宝的绝顶灵材。', glyph: '翅', stack: true },

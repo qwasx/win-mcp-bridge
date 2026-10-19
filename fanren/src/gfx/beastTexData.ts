@@ -70,6 +70,16 @@ import b67 from '../assets/beasts/yinhun.webp?inline';
 import b68 from '../assets/beasts/yinjiao.webp?inline';
 import b69 from '../assets/beasts/yu_soul.webp?inline';
 import b70 from '../assets/beasts/zombie.webp?inline';
+import b71 from '../assets/beasts/bixiao.webp?inline';
+import b72 from '../assets/beasts/chuanshan.webp?inline';
+import b73 from '../assets/beasts/dianyao.webp?inline';
+import b74 from '../assets/beasts/huoying.webp?inline';
+import b75 from '../assets/beasts/leijiaoling.webp?inline';
+import b76 from '../assets/beasts/molin.webp?inline';
+import b77 from '../assets/beasts/shanxiao.webp?inline';
+import b78 from '../assets/beasts/shilingshu.webp?inline';
+import b79 from '../assets/beasts/tiebeixi.webp?inline';
+import b80 from '../assets/beasts/xiaque.webp?inline';
 
 export const BEAST_SRC: Record<string, string> = {
   amb_deer: b0,
@@ -143,4 +153,14 @@ export const BEAST_SRC: Record<string, string> = {
   yinjiao: b68,
   yu_soul: b69,
   zombie: b70,
+  bixiao: b71,
+  chuanshan: b72,
+  dianyao: b73,
+  huoying: b74,
+  leijiaoling: b75,
+  molin: b76,
+  shanxiao: b77,
+  shilingshu: b78,
+  tiebeixi: b79,
+  xiaque: b80,
 };
