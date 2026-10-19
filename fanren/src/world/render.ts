@@ -127,7 +127,7 @@ export class Renderer {
       // 后期输出与世界层同分辨率（高分屏上不再按 2× 跑整套后期）
       const sd = Math.min(ud, Math.max(1, this.dpr));
       this.stage.resize(this.W * sd, this.H * sd);
-      this.stage.bloomOn = this.tier >= 1;
+      this.stage.bloomOn = true;   // 第三十八步：泛光属于特效，任何降档都不关
     }
     if (this.atmo) { this.atmo.width = Math.ceil(this.W * Renderer.AS) + 2; this.atmo.height = Math.ceil(this.H * Renderer.AS) + 2; }
     this.overlayKey = '';

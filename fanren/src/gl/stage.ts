@@ -4,6 +4,7 @@
 //   3. 一次全屏后期：冲击波扭曲、昼夜调色、神识圈外“记忆水墨”、云影/迷雾、天气、纸纹、暗角、受伤血晕。
 // 旧版需要 8~10 次全屏 Canvas2D 合成，现在合为一次着色器，移动端也能流畅。
 import { Batch, FLOATS } from './batch';
+import { prof } from '../core/prof';
 import { buildAtlas } from './atlas';
 import { bakeFx } from './fxbake';
 import { Ground, GLSL_COMMON, GLSL_WATER, type GroundView, type SegProvider, type GroundTerrain } from './ground';
@@ -184,24 +185,43 @@ export class GLStage {
   ground: Ground | null = null; private maxTex = 4096; private groundData: GroundTerrain | null = null;
   drawCalls = 0;
   private vboSize = 0;
-  /** GPU 计时（仅 F3 面板打开时）：EXT_disjoint_timer_query_webgl2，结果延迟几帧可读 */
+  /** GPU 计时（仅 F3 面板打开时）：EXT_disjoint_timer_query_webgl2，分段（地表 / 世界层上传 / 特效泛光 / 后期），结果延迟几帧可读 */
   gpuTiming = false; gpuMs = 0;
-  private tq: { ext: { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number } | null; pend: WebGLQuery[]; tried: boolean } = { ext: null, pend: [], tried: false };
+  gpuSec: Record<string, number> = {};
+  /** 地表纹素数（每帧平均，供 F3 报告） */
+  groundTexels = 0;
+  private tq: { ext: { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number } | null; pend: { q: WebGLQuery; k: string }[][]; cur: { q: WebGLQuery; k: string }[] | null; tried: boolean } = { ext: null, pend: [], cur: null, tried: false };
   private gpuBegin() {
     if (!this.gpuTiming) return false;
     const gl = this.gl, T = this.tq;
     if (!T.tried) { T.tried = true; T.ext = gl.getExtension('EXT_disjoint_timer_query_webgl2') as typeof T.ext; }
     if (!T.ext) return false;
-    // 读取已完成的查询
-    while (T.pend.length && gl.getQueryParameter(T.pend[0], gl.QUERY_RESULT_AVAILABLE)) {
-      const q = T.pend.shift()!;
-      const ns = gl.getQueryParameter(q, gl.QUERY_RESULT) as number;
-      if (!gl.getParameter(T.ext.GPU_DISJOINT_EXT)) this.gpuMs += (ns / 1e6 - this.gpuMs) * 0.2;
-      gl.deleteQuery(q);
+    // 读取已完成的整帧查询组
+    while (T.pend.length && T.pend[0].every((x) => gl.getQueryParameter(x.q, gl.QUERY_RESULT_AVAILABLE))) {
+      const set = T.pend.shift()!;
+      const ok = !gl.getParameter(T.ext.GPU_DISJOINT_EXT);
+      let tot = 0;
+      for (const x of set) {
+        const ms = (gl.getQueryParameter(x.q, gl.QUERY_RESULT) as number) / 1e6; gl.deleteQuery(x.q);
+        if (!ok) continue;
+        tot += ms; this.gpuSec[x.k] = (this.gpuSec[x.k] ?? ms) + (ms - (this.gpuSec[x.k] ?? ms)) * 0.2;
+      }
+      if (ok) this.gpuMs += (tot - this.gpuMs) * 0.2;
     }
     if (T.pend.length > 4) return false;
-    const q = gl.createQuery()!; gl.beginQuery(T.ext.TIME_ELAPSED_EXT, q); T.pend.push(q);
+    T.cur = [];
     return true;
+  }
+  private gpuMark(k: string) {
+    const T = this.tq; if (!T.cur || !T.ext) return;
+    const gl = this.gl;
+    if (T.cur.length) gl.endQuery(T.ext.TIME_ELAPSED_EXT);
+    const q = gl.createQuery()!; gl.beginQuery(T.ext.TIME_ELAPSED_EXT, q); T.cur.push({ q, k });
+  }
+  private gpuEnd() {
+    const T = this.tq; if (!T.cur || !T.ext) return;
+    if (T.cur.length) { this.gl.endQuery(T.ext.TIME_ELAPSED_EXT); T.pend.push(T.cur); }
+    T.cur = null;
   }
 
   static create(): GLStage | null {
@@ -384,12 +404,18 @@ export class GLStage {
     this.drawCalls = 0;
     const timing = this.gpuBegin();
     gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
+    if (timing) this.gpuMark('地表');
+    let _q = prof.t();
     const groundOn = !!P.ground && this.groundReady && this.ground!.update(P.ground!.view, P.ground!.provider, this.emptyVao, this.maxTex);
-    if (groundOn) this.drawCalls += this.ground!.stripsThisFrame;
+    if (groundOn) { this.drawCalls += this.ground!.tilesThisFrame; this.groundTexels += (this.ground!.texelsThisFrame - this.groundTexels) * 0.05; }
+    prof.add('R·GL┊地表更新(含于合成)', _q); _q = prof.t();
+    if (timing) this.gpuMark('世界层上传');
     this.upload(this.sceneTex, scene, groundOn, true);
     if (P.atmo) this.upload(this.atmoTex, P.atmo.canvas, true, false);
+    prof.add('R·GL┊世界层上传(含于合成)', _q); _q = prof.t();
 
     // 1) 特效批次 -> fx 帧缓冲
+    if (timing) this.gpuMark('特效泛光');
     const B = this.batch;
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.fx.fb);
     gl.viewport(0, 0, this.fx.w, this.fx.h);
@@ -426,6 +452,7 @@ export class GLStage {
       blur(this.e1!, this.e2!, 1, 0); blur(this.e2!, this.e1!, 0, 1);
     }
     // 3) 后期合成到屏幕
+    if (timing) this.gpuMark('后期');
     const pp = this.post;
     this.pass(null, pp);
     this.bindTex(0, this.sceneTex); gl.uniform1i(pp.u('uScene'), 0);
@@ -470,6 +497,7 @@ export class GLStage {
     gl.uniform1f(pp.u('uSat'), P.sat);
     this.full();
     gl.bindVertexArray(null);
-    if (timing) gl.endQuery(this.tq.ext!.TIME_ELAPSED_EXT);
+    if (timing) this.gpuEnd();
+    prof.add('R·GL┊特效+后期提交(含于合成)', _q);
   }
 }

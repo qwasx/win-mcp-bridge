@@ -27,13 +27,15 @@ const VS = `#version 300 es
 out vec2 vUv; void main(){ vec2 p=vec2((gl_VertexID<<1)&2, gl_VertexID&2); vUv=p; gl_Position=vec4(p*2.0-1.0,0.0,1.0); }`;
 
 export const MAX_SEG = 256, MAX_TOWN = 6, MAX_ZONE = 8;
+/** 第三十八步：地表按 ~192 纹素的方块分块，每块只带影响它的河段 / 路段；一次上传最多 SEG_BATCH 块的线段表 */
+const SEG_BATCH = 96, GTILE = 192;
 
 const FS = `#version 300 es
 precision highp float; precision highp int;
 uniform sampler2D uTA, uTB, uN; uniform highp sampler2D uSeg;
 uniform vec2 uMacro; uniform float uScale;
 uniform vec2 uCam; uniform float uTPW; uniform vec2 uRes; uniform int uSeason; // uCam=缓存中心（世界），uTPW=每世界像素的纹素数
-uniform int uNRiv, uNRoad; // 线段数据纹理：行0/1 河段（端点 / 宽,累计长），行2/3 路段（端点 / 宽,官道）
+uniform int uNRiv, uNRoad, uSegRow; // 第三十八步：uSegRow = 本图块线段表的起始行（一次上传多块）; 线段数据纹理：行0/1 河段（端点 / 宽,累计长），行2/3 路段（端点 / 宽,官道）
 uniform vec4 uTown[${MAX_TOWN}]; uniform ivec4 uTownS[${MAX_TOWN}]; uniform int uNTown;
 // 第二十步：画材图块（水墨淡彩四方连续），未加载时 uMatOn=0，退回纯程序地表
 uniform highp sampler2DArray uMat; uniform float uMatOn; uniform vec3 uMatAvg[${GROUND_LAYERS}];
@@ -382,8 +384,8 @@ void main(){
   float bestR=1e9; float bestH=0.0; vec4 bestRW=vec4(0.0); vec2 bestA=vec2(0.0), bestB=vec2(0.0);
   for(int k=0;k<${MAX_SEG};k++){
     if(k>=uNRoad) break;
-    vec4 s=texelFetch(uSeg,ivec2(k,2),0); float hh; float dd=segDist(rel,s.xy,s.zw,hh);
-    if(dd<bestR){ bestR=dd; bestH=hh; bestRW=texelFetch(uSeg,ivec2(k,3),0); bestA=s.xy; bestB=s.zw; }
+    vec4 s=texelFetch(uSeg,ivec2(k,uSegRow+2),0); float hh; float dd=segDist(rel,s.xy,s.zw,hh);
+    if(dd<bestR){ bestR=dd; bestH=hh; bestRW=texelFetch(uSeg,ivec2(k,uSegRow+3),0); bestA=s.xy; bestB=s.zw; }
   }
   if(bestR<200.0){
     float rw=bestRW.x*0.5;
@@ -417,20 +419,22 @@ void main(){
   // 取最近的两段：水体按并集；水纹按两段各算一遍再按距离差交融（汇流口、转弯处不再有接缝）
   float d1=1e9, d2=1e9; int k1=-1, k2=-1; float h1=0.0, h2=0.0;
   // 第十七步：河道蜿蜒——对河的距离场做两级域扭曲（大湾 ~1.5 千像素、小弯 ~300 像素），屏幕内就能看到河曲
-  vec2 rq=rel+(vec2(fbm2(w/1250.0+vec2(71.0,13.0)),fbm2(w/1250.0+vec2(19.0,57.0)))-0.5)*760.0
+  // 第三十八步：本图块没有河段时不做域扭曲（结果完全相同，省 4 次 fbm）
+  vec2 rq=rel;
+  if(uNRiv>0) rq=rel+(vec2(fbm2(w/1250.0+vec2(71.0,13.0)),fbm2(w/1250.0+vec2(19.0,57.0)))-0.5)*760.0
              +(vec2(fbm2(w/300.0+vec2(5.0,3.0)),fbm2(w/300.0+vec2(9.0,1.0)))-0.5)*110.0;
   for(int k=0;k<${MAX_SEG};k++){
     if(k>=uNRiv) break;
-    vec4 s=texelFetch(uSeg,ivec2(k,0),0); float hh; float dd=segDist(rq,s.xy,s.zw,hh)-texelFetch(uSeg,ivec2(k,1),0).x*0.5;
+    vec4 s=texelFetch(uSeg,ivec2(k,uSegRow+0),0); float hh; float dd=segDist(rq,s.xy,s.zw,hh)-texelFetch(uSeg,ivec2(k,uSegRow+1),0).x*0.5;
     if(dd<d1){ d2=d1; k2=k1; h2=h1; d1=dd; k1=k; h1=hh; } else if(dd<d2){ d2=dd; k2=k; h2=hh; }
   }
   if(k1>=0 && d1<300.0){
-    vec4 S1=texelFetch(uSeg,ivec2(k1,0),0), W1=texelFetch(uSeg,ivec2(k1,1),0);
+    vec4 S1=texelFetch(uSeg,ivec2(k1,uSegRow+0),0), W1=texelFetch(uSeg,ivec2(k1,uSegRow+1),0);
     vec4 S2=S1, W2=W1;
     float bl=0.0;
     // d1/d2 已是“到水边”的有符号距离（负 = 在水里）；平滑并集
     float e=d1;
-    if(k2>=0){ S2=texelFetch(uSeg,ivec2(k2,0),0); W2=texelFetch(uSeg,ivec2(k2,1),0);
+    if(k2>=0){ S2=texelFetch(uSeg,ivec2(k2,uSegRow+0),0); W2=texelFetch(uSeg,ivec2(k2,uSegRow+1),0);
       bl=0.5*(1.0-smoothstep(0.0,40.0,d2-d1));
       float hk=clamp(0.5+0.5*(d2-d1)/16.0,0.0,1.0); e=mix(d2,d1,hk)-16.0*hk*(1.0-hk); }
     float wv=mix(W1.x,W2.x,bl);
@@ -621,7 +625,7 @@ export class Ground {
   /** 本帧画了多少纹素（性能面板 / 探针用） */
   texelsThisFrame = 0; scrolls = 0;
   /** 统计：本帧重画的条数 */
-  stripsThisFrame = 0; rebuilds = 0;
+  stripsThisFrame = 0; rebuilds = 0; jobsStarted = 0; private lastTpw = 0; private stableN = 0;
   /** 画质：缓存分辨率（每 CSS 像素纹素数）的上限倍率 */
   quality = 1;
 
@@ -641,7 +645,7 @@ export class Ground {
     this.noise = this.makeNoise();
     this.segTex = gl.createTexture()!;
     gl.bindTexture(gl.TEXTURE_2D, this.segTex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, MAX_SEG, 4, 0, gl.RGBA, gl.FLOAT, null);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, MAX_SEG, 4 * SEG_BATCH, 0, gl.RGBA, gl.FLOAT, null);
     for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
   }
 
@@ -750,7 +754,7 @@ export class Ground {
   update(v: GroundView, provider: SegProvider, vao: WebGLVertexArrayObject, maxTex: number): boolean {
     if (!this.T || !this.ta) return false;
     if (!this.matOn && groundImages() && !(globalThis as any).__FANREN_NOMAT) this.uploadMat();
-    this.stripsThisFrame = 0; this.texelsThisFrame = 0;
+    this.stripsThisFrame = 0; this.texelsThisFrame = 0; this.tilesThisFrame = 0;
     const hw = v.cssW / 2 / v.zoom, hh = v.cssH / 2 / v.zoom;
     // 缓存尺寸：视野四周各留 1/4 长边的余量，分辨率 = 每 CSS 像素 scale 个纹素
     const mCss = 0.25 * Math.max(v.cssW, v.cssH);
@@ -760,6 +764,11 @@ export class Ground {
     const k = Math.min(1, lim / W, lim / H, Math.sqrt(5.2e6 / (W * H)));
     if (k < 1) { sc *= k; W = Math.ceil(W * k); H = Math.ceil(H * k); }
     const tpw = v.zoom * sc;
+    // 第三十八步：缩放还在变（起飞 / 降落 / 疾遁拉高镜头、战斗取景推拉）时不开新的重画——
+    // 以前缩放每漂 7% 就重开一次后台重画、还没画完又被作废，飞行和打斗时 GPU 每帧都在画一整条地表。
+    // 现在等缩放稳定约 0.2 秒再重画；期间继续用现有缓存（±35% 内采样无缝）。
+    this.stableN = Math.abs(tpw / (this.lastTpw || tpw) - 1) < 0.002 ? this.stableN + 1 : 0;
+    this.lastTpw = tpw;
     const F = this.front;
     const zoomOk = (g: { tpw: number }) => Math.abs(g.tpw / tpw - 1) < 0.07;
     // 视野装得下（缓存跟着镜头滚动，位置永远居中）且缩放差不太多 → 前台可用
@@ -768,14 +777,19 @@ export class Ground {
     const frontGood = frontUsable && zoomOk(F!) && F!.season === v.season && F!.W === W && F!.H === H;
     if (frontUsable) this.scroll(F!, v.camX, v.camY, provider, vao);
     // 需要新缓存（缩放 / 季节 / 窗口尺寸变了）：后台分条重画，画完交换
+    // 停稳；或前台已偏离 20% 以上（再缩下去就装不下视野、得同步整张重画）——提前开工，避免尖峰
+    const still = this.stableN >= 12;
+    const settled = still || !frontUsable || Math.abs(F!.tpw / tpw - 1) > 0.2;
     if (!frontGood) {
       const J = this.job;
-      const jobOk = !!J && J.season === v.season && J.W === W && J.H === H && zoomOk(J);
+      // 镜头还在动时，已开工的后台重画容忍 15% 偏差继续画完（不反复作废）
+      const jobOk = !!J && J.season === v.season && J.W === W && J.H === H && Math.abs(J.tpw / tpw - 1) < (still ? 0.07 : 0.15);
+      if (!jobOk && !settled) return !!this.front;   // 等镜头停稳
       if (!jobOk) {
         const X0 = Math.round(v.camX * tpw - W / 2), Y0 = Math.round(v.camY * tpw - H / 2);
         const cx = (X0 + W / 2) / tpw, cy = (Y0 + H / 2) / tpw;
         const n = W * H > 3e6 ? 8 : 6;
-        this.job = { X0, Y0, cx, cy, tpw, season: v.season, W, H, strip: 0, n, segs: provider(cx, cy, W / tpw / 2, H / tpw / 2) };
+        this.job = { X0, Y0, cx, cy, tpw, season: v.season, W, H, strip: 0, n, segs: provider(cx, cy, W / tpw / 2, H / tpw / 2) }; this.jobsStarted++;
       }
       const job = this.job!;
       if (!this.back || this.back.W !== W || this.back.H !== H) { this.free(this.back); this.back = this.alloc(W, H); }
@@ -830,7 +844,8 @@ export class Ground {
     this.scrolls++;
   }
 
-  private tileSeg = new Float32Array(MAX_SEG * 4 * 4);
+  private tileSeg = new Float32Array(MAX_SEG * 4 * 4 * SEG_BATCH);
+  segUploads = 0; tilesThisFrame = 0;
   /** 画绝对纹素区 [AX0,AX1)×[AY0,AY1)（宽高都不超过缓存）：按纹理接缝拆成 ≤4 块，再按列分块裁剪线段。
    *  片元 → 世界：rel = (px - O)/tpw，O = C*tpw - K（K 为该块的 W/H 整数倍偏移），于是 w = (X+0.5)/tpw，与位置无关、处处一致 */
   private drawAbs(g: GBuf, tpw: number, season: number, S: GroundSegs, cx: number, cy: number,
@@ -857,14 +872,17 @@ export class Ground {
     gl.uniform1i(pr.u('uSeason'), season);
     gl.bindVertexArray(vao);
     gl.enable(gl.SCISSOR_TEST);
-    // 分块裁剪线段——每块只上传可能影响到它的河段 / 路段（余量与 Renderer 一致），画面完全不变
+    // 分块裁剪线段——每块只带可能影响到它的河段 / 路段（余量与 Renderer 一致），画面完全不变。
+    // 第三十八步：改为二维方块（以前只按列分，整条竖带要逐像素遍历上千像素高范围内的全部线段），
+    // 并把一批图块的线段表一次性上传（以前每块一次 texSubImage2D，上传与绘制交替会让驱动串行等待）。
     const ROW = MAX_SEG * 4, src = S.seg, dst = this.tileSeg;
-    const fill = (row: number, n: number, pad: number, x0: number, x1: number, y0: number, y1: number) => {
+    const fill = (base: number, row: number, n: number, pad: number, x0: number, x1: number, y0: number, y1: number) => {
       let m = 0;
+      const ob = base * ROW;
       for (let k = 0; k < n; k++) {
         const o = row * ROW + k * 4, ax = src[o], ay = src[o + 1], bx = src[o + 2], by = src[o + 3], r = src[o + ROW] * 0.5 + pad;
         if (Math.max(ax, bx) < x0 - r || Math.min(ax, bx) > x1 + r || Math.max(ay, by) < y0 - r || Math.min(ay, by) > y1 + r) continue;
-        const d = row * ROW + m * 4;
+        const d = ob + row * ROW + m * 4;
         dst[d] = ax; dst[d + 1] = ay; dst[d + 2] = bx; dst[d + 3] = by;
         dst[d + ROW] = src[o + ROW]; dst[d + ROW + 1] = src[o + ROW + 1]; dst[d + ROW + 2] = src[o + ROW + 2]; dst[d + ROW + 3] = src[o + ROW + 3];
         m++;
@@ -877,22 +895,48 @@ export class Ground {
       while (a < a1) { const K = Math.floor(a / N) * N, e = Math.min(a1, K + N); out.push([a, e, K]); a = e; }
       return out;
     };
-    const TILE = Math.max(256, Math.ceil(g.W / 3));
-    for (const [ya, yb, Ky] of split(AY0, AY1, g.H)) {
+    type Tile = { xa: number; xb: number; ya: number; yb: number; Kx: number; Ky: number; nR: number; nD: number };
+    const tiles: Tile[] = [];
+    let mMax = 0;
+    const flush = () => {
+      if (!tiles.length) return;
+      if (mMax > 0) {
+        gl.pixelStorei(gl.UNPACK_ROW_LENGTH, MAX_SEG);
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, mMax, 4 * tiles.length, gl.RGBA, gl.FLOAT, dst);
+        gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
+        this.segUploads++;
+      }
+      let lastK = '';
+      for (let t = 0; t < tiles.length; t++) {
+        const T = tiles[t];
+        const kk = T.Kx + ',' + T.Ky;
+        if (kk !== lastK) { gl.uniform2f(pr.u('uRes'), 2 * (cx * tpw - T.Kx), 2 * (cy * tpw - T.Ky)); lastK = kk; }
+        gl.uniform1i(pr.u('uSegRow'), 4 * t);
+        gl.uniform1i(pr.u('uNRiv'), T.nR); gl.uniform1i(pr.u('uNRoad'), T.nD);
+        gl.scissor(T.xa - T.Kx, T.ya - T.Ky, T.xb - T.xa, T.yb - T.ya);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        this.texelsThisFrame += (T.xb - T.xa) * (T.yb - T.ya);
+        this.tilesThisFrame++;
+      }
+      tiles.length = 0; mMax = 0;
+    };
+    for (const [ya0, yb0, Ky] of split(AY0, AY1, g.H)) {
       for (const [xa0, xb0, Kx] of split(AX0, AX1, g.W)) {
-        gl.uniform2f(pr.u('uRes'), 2 * (cx * tpw - Kx), 2 * (cy * tpw - Ky));
-        for (let xa = xa0; xa < xb0; xa += TILE) {
-          const xb = Math.min(xb0, xa + TILE);
-          const wx0 = xa / tpw - cx, wx1 = xb / tpw - cx, wy0 = ya / tpw - cy, wy1 = yb / tpw - cy;
-          const nR = fill(0, S.nRiv, 820, wx0, wx1, wy0, wy1), nD = fill(2, S.nRoad, 210, wx0, wx1, wy0, wy1);
-          gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, MAX_SEG, 4, gl.RGBA, gl.FLOAT, dst);
-          gl.uniform1i(pr.u('uNRiv'), nR); gl.uniform1i(pr.u('uNRoad'), nD);
-          gl.scissor(xa - Kx, ya - Ky, xb - xa, yb - ya);
-          gl.drawArrays(gl.TRIANGLES, 0, 3);
-          this.texelsThisFrame += (xb - xa) * (yb - ya);
+        for (let ya = ya0; ya < yb0; ya += GTILE) {
+          const yb = Math.min(yb0, ya + GTILE);
+          for (let xa = xa0; xa < xb0; xa += GTILE) {
+            const xb = Math.min(xb0, xa + GTILE);
+            const wx0 = xa / tpw - cx, wx1 = xb / tpw - cx, wy0 = ya / tpw - cy, wy1 = yb / tpw - cy;
+            const base = 4 * tiles.length;
+            const nR = fill(base, 0, S.nRiv, 820, wx0, wx1, wy0, wy1), nD = fill(base, 2, S.nRoad, 210, wx0, wx1, wy0, wy1);
+            mMax = Math.max(mMax, nR, nD);
+            tiles.push({ xa, xb, ya, yb, Kx, Ky, nR, nD });
+            if (tiles.length >= SEG_BATCH) flush();
+          }
         }
       }
     }
+    flush();
     gl.disable(gl.SCISSOR_TEST);
   }
 }

@@ -48,7 +48,6 @@ function Minimap({ game, onOpen }: { game: Game; onOpen: () => void }) {
   useEffect(() => {
     const cv = ref.current!; const g = cv.getContext('2d')!;
     const fogCv = document.createElement('canvas');
-    let fogTimer = 0;
     let span = MM_SPANS[ziRef.current];
     const tiles = new Map<string, MMTile>(); let frame = 0;
     const sorted = [...LOCATIONS].sort((a, b) => locRank(a) - locRank(b));
@@ -72,70 +71,86 @@ function Minimap({ game, onOpen }: { game: Game; onOpen: () => void }) {
       }
       t.used = frame; return t;
     };
+    // 第三十八步：静态层缓存——底图、高清图块、迷雾、地名印章（含中文描边字）只在缩放 / 迷雾变化、
+    // 或玩家移出 20% 范围时重画；每次刷新只贴图 + 画会动的标记。以前每秒 8 次整套重画（字最贵）。
+    const stCv = document.createElement('canvas'); let stKey = '', stX = 0, stY = 0, stT = 0;
+    const paintStatic = (SPAN: number, mx: number, my: number, dpr: number, k: number) => {
+      const cv = stCv, g = stCv.getContext('2d')!, c = stCv.width / 2;
+        g.setTransform(1, 0, 0, 1, 0, 0);
+        g.fillStyle = '#d9cdb0'; g.fillRect(0, 0, cv.width, cv.height);
+        g.imageSmoothingEnabled = true;
+        g.drawImage(game.overview, mx - SPAN / 2, my - SPAN / 2, SPAN, SPAN, 0, 0, cv.width, cv.height);
+        // 放大后：局部高清底图覆盖在缩略图上
+        const ppu = k / dpr;   // 每单位 CSS 像素
+        if (ppu > 2.4 && game.terrain?.overviewVectors) {
+          const scale = ppu > 4.2 ? 6 : 4, T = scale === 6 ? 24 : 32;
+          const tx0 = Math.floor((mx - SPAN / 2) / T), tx1 = Math.floor((mx + SPAN / 2) / T);
+          const ty0 = Math.floor((my - SPAN / 2) / T), ty1 = Math.floor((my + SPAN / 2) / T);
+          for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+            if (tx < 0 || ty < 0 || tx * T >= game.terrain.W || ty * T >= game.terrain.H) continue;
+            const t = tileFor(tx, ty, scale, T);
+            g.drawImage(t.cv, (tx * T - mx) * k + c - 0.5, (ty * T - my) * k + c - 0.5, T * k + 1, T * k + 1);
+          }
+        }
+        g.drawImage(fogCv, (mx - SPAN / 2) / 10, (my - SPAN / 2) / 10, SPAN / 10, SPAN / 10, 0, 0, cv.width, cv.height);
+        // 地名：按重要程度依次放，互不重叠
+        g.textAlign = 'center'; g.textBaseline = 'middle';
+        const boxes: number[] = [];
+        const free = (x0: number, y0: number, x1: number, y1: number) => { for (let i = 0; i < boxes.length; i += 4) if (x0 < boxes[i + 2] && x1 > boxes[i] && y0 < boxes[i + 3] && y1 > boxes[i + 1]) return false; return true; };
+        const zoomed = ppu > 2.4, close = ppu > 4.2;
+        const R0 = (ppu < 1.6 ? 3.6 : ppu < 2.4 ? 4.3 : ppu < 4.2 ? 5 : 5.6) * dpr;
+        const fs = 10.5 * dpr;
+        for (const l of sorted) {
+          const dx = (l.x - mx) * k + c, dy = (l.y - my) * k + c;
+          if (dx < -10 || dy < -10 || dx > cv.width + 10 || dy > cv.height + 10) continue;
+          if (!game.isExplored(l.x * WORLD_SCALE, l.y * WORLD_SCALE)) continue;
+          const small = l.minor && !close;
+          const r = small ? (zoomed ? 2.4 : 1.7) * dpr : R0 * (l.type === 'city' || l.type === 'sect' ? 1.12 : 1);
+          if (!free(dx - r - 1, dy - r - 1, dx + r + 1, dy + r + 1)) continue;
+          boxes.push(dx - r - 1, dy - r - 1, dx + r + 1, dy + r + 1);
+          g.fillStyle = SEAL_COLOR[l.type];
+          if (small) { g.globalAlpha = 0.8; g.beginPath(); g.arc(dx, dy, r, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; continue; }
+          g.fillRect(dx - r, dy - r, r * 2, r * 2);
+          g.fillStyle = '#f7eedb'; g.font = `${r * 1.5}px 'Ma Shan Zheng', serif`; g.fillText(SEAL[l.type], dx, dy + 0.5);
+          // 地名（放大后；城 / 宗在中档也显示）
+          const showName = close || (zoomed && !l.minor) || (ppu >= 1.6 && (l.type === 'city' || l.type === 'sect'));
+          if (showName) {
+            g.font = `${fs}px 'Ma Shan Zheng', serif`;
+            const tw = g.measureText(l.name).width;
+            // 先试右侧，再试左侧、下方
+            const cand: [number, number][] = [[dx + r + 3 + tw / 2, dy], [dx - r - 3 - tw / 2, dy], [dx, dy + r + fs * 0.75]];
+            for (const [lx, ly] of cand) {
+              const bx0 = lx - tw / 2 - 1, bx1 = lx + tw / 2 + 1, by0 = ly - fs * 0.55, by1 = ly + fs * 0.55;
+              if (bx0 < 2 || bx1 > cv.width - 2 || by0 < 2 || by1 > cv.height - 2 || !free(bx0, by0, bx1, by1)) continue;
+              boxes.push(bx0, by0, bx1, by1);
+              g.lineWidth = 3 * dpr; g.strokeStyle = 'rgba(240,232,212,0.92)'; g.lineJoin = 'round'; g.strokeText(l.name, lx, ly + 0.5);
+              g.fillStyle = l.type === 'city' || l.type === 'sect' ? '#4a2a1c' : '#3a3328'; g.fillText(l.name, lx, ly + 0.5);
+              break;
+            }
+          }
+        }
+    };
     const draw = () => {
       frame++;
       const size = cv.clientWidth || 156; const dpr = Math.min(2, window.devicePixelRatio || 1);
       if (cv.width !== Math.round(size * dpr)) { cv.width = cv.height = Math.round(size * dpr); }
-      if (fogTimer-- <= 0) { makeFogCanvas(game, fogCv); fogTimer = 6; }
+      // 第三十八步：迷雾图随静态层一起重建
       // 档位切换时平滑过渡
       const target = MM_SPANS[ziRef.current];
       span += (target - span) * 0.35; if (Math.abs(span - target) < 0.3) span = target;
       const SPAN = span;
       const p = game.player; const mx = p.x / WORLD_SCALE, my = p.y / WORLD_SCALE;
       const k = cv.width / SPAN, c = cv.width / 2;
+      const SW = Math.round(cv.width * 1.5);
+      if (stCv.width !== SW) { stCv.width = stCv.height = SW; stKey = ''; }
+      const now = performance.now(), key = `${SPAN.toFixed(2)}|${game.ui?.explored ?? 0}|${dpr}|${game.revealAll ? 1 : 0}`;
+      if (key !== stKey || Math.abs(mx - stX) * k > cv.width * 0.2 || Math.abs(my - stY) * k > cv.width * 0.2 || now - stT > 4000) {
+        makeFogCanvas(game, fogCv); paintStatic(SPAN * 1.5, mx, my, dpr, k); stKey = key; stX = mx; stY = my; stT = now;
+      }
       g.setTransform(1, 0, 0, 1, 0, 0);
-      g.fillStyle = '#d9cdb0'; g.fillRect(0, 0, cv.width, cv.height);
-      g.imageSmoothingEnabled = true;
-      g.drawImage(game.overview, mx - SPAN / 2, my - SPAN / 2, SPAN, SPAN, 0, 0, cv.width, cv.height);
-      // 放大后：局部高清底图覆盖在缩略图上
-      const ppu = k / dpr;   // 每单位 CSS 像素
-      if (ppu > 2.4 && game.terrain?.overviewVectors) {
-        const scale = ppu > 4.2 ? 6 : 4, T = scale === 6 ? 24 : 32;
-        const tx0 = Math.floor((mx - SPAN / 2) / T), tx1 = Math.floor((mx + SPAN / 2) / T);
-        const ty0 = Math.floor((my - SPAN / 2) / T), ty1 = Math.floor((my + SPAN / 2) / T);
-        for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
-          if (tx < 0 || ty < 0 || tx * T >= game.terrain.W || ty * T >= game.terrain.H) continue;
-          const t = tileFor(tx, ty, scale, T);
-          g.drawImage(t.cv, (tx * T - mx) * k + c - 0.5, (ty * T - my) * k + c - 0.5, T * k + 1, T * k + 1);
-        }
-      }
-      g.drawImage(fogCv, (mx - SPAN / 2) / 10, (my - SPAN / 2) / 10, SPAN / 10, SPAN / 10, 0, 0, cv.width, cv.height);
-      // 地名：按重要程度依次放，互不重叠
-      g.textAlign = 'center'; g.textBaseline = 'middle';
-      const boxes: number[] = [];
-      const free = (x0: number, y0: number, x1: number, y1: number) => { for (let i = 0; i < boxes.length; i += 4) if (x0 < boxes[i + 2] && x1 > boxes[i] && y0 < boxes[i + 3] && y1 > boxes[i + 1]) return false; return true; };
-      const zoomed = ppu > 2.4, close = ppu > 4.2;
-      const R0 = (ppu < 1.6 ? 3.6 : ppu < 2.4 ? 4.3 : ppu < 4.2 ? 5 : 5.6) * dpr;
-      const fs = 10.5 * dpr;
-      for (const l of sorted) {
-        const dx = (l.x - mx) * k + c, dy = (l.y - my) * k + c;
-        if (dx < -10 || dy < -10 || dx > cv.width + 10 || dy > cv.height + 10) continue;
-        if (!game.isExplored(l.x * WORLD_SCALE, l.y * WORLD_SCALE)) continue;
-        const small = l.minor && !close;
-        const r = small ? (zoomed ? 2.4 : 1.7) * dpr : R0 * (l.type === 'city' || l.type === 'sect' ? 1.12 : 1);
-        if (!free(dx - r - 1, dy - r - 1, dx + r + 1, dy + r + 1)) continue;
-        boxes.push(dx - r - 1, dy - r - 1, dx + r + 1, dy + r + 1);
-        g.fillStyle = SEAL_COLOR[l.type];
-        if (small) { g.globalAlpha = 0.8; g.beginPath(); g.arc(dx, dy, r, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; continue; }
-        g.fillRect(dx - r, dy - r, r * 2, r * 2);
-        g.fillStyle = '#f7eedb'; g.font = `${r * 1.5}px 'Ma Shan Zheng', serif`; g.fillText(SEAL[l.type], dx, dy + 0.5);
-        // 地名（放大后；城 / 宗在中档也显示）
-        const showName = close || (zoomed && !l.minor) || (ppu >= 1.6 && (l.type === 'city' || l.type === 'sect'));
-        if (showName) {
-          g.font = `${fs}px 'Ma Shan Zheng', serif`;
-          const tw = g.measureText(l.name).width;
-          // 先试右侧，再试左侧、下方
-          const cand: [number, number][] = [[dx + r + 3 + tw / 2, dy], [dx - r - 3 - tw / 2, dy], [dx, dy + r + fs * 0.75]];
-          for (const [lx, ly] of cand) {
-            const bx0 = lx - tw / 2 - 1, bx1 = lx + tw / 2 + 1, by0 = ly - fs * 0.55, by1 = ly + fs * 0.55;
-            if (bx0 < 2 || bx1 > cv.width - 2 || by0 < 2 || by1 > cv.height - 2 || !free(bx0, by0, bx1, by1)) continue;
-            boxes.push(bx0, by0, bx1, by1);
-            g.lineWidth = 3 * dpr; g.strokeStyle = 'rgba(240,232,212,0.92)'; g.lineJoin = 'round'; g.strokeText(l.name, lx, ly + 0.5);
-            g.fillStyle = l.type === 'city' || l.type === 'sect' ? '#4a2a1c' : '#3a3328'; g.fillText(l.name, lx, ly + 0.5);
-            break;
-          }
-        }
-      }
+      g.clearRect(0, 0, cv.width, cv.height);
+      g.drawImage(stCv, c + (stX - mx) * k - SW / 2, c + (stY - my) * k - SW / 2);
+      const zoomed = k / dpr > 2.4;
       // 神识圈 + 玩家
       for (const m of game.events.activeMarkers()) {
         const dx = (m.x - mx) * k + c, dy = (m.y - my) * k + c;
@@ -240,6 +255,7 @@ function PerfHud({ game }: { game: Game }) {
     逻辑 {p.updMs.toFixed(1)}ms · 绘制 {p.renMs.toFixed(1)}ms<br />
     {r?.stage ? `WebGL · ${r.stage.W}×${r.stage.H} · ${r.stage.drawCalls} 次绘制 · 粒子 ${r.fx?.count ?? 0}` : 'Canvas2D'} · 世界层 ×{r?.dpr.toFixed(2)} · 画质 {['低', '中', '高'][r?.tier ?? 2]}<br />
     {p.fps.toFixed(0)} fps · 最慢一帧 {p.worstMs.toFixed(0)}ms · 卡顿(&gt;50ms) {r?.spikes ?? 0} 次{r?.stage?.gpuMs ? ` · GPU ${r.stage.gpuMs.toFixed(1)}ms` : ''}<br />
+    {r?.stage?.gpuSec && Object.keys(r.stage.gpuSec).length ? <>GPU分段 {Object.entries(r.stage.gpuSec).map(([k2, v]) => `${k2} ${(v as number).toFixed(1)}`).join(' / ')}<br /></> : null}
     {r?.stage?.ground?.front ? `地表缓存 ${r.stage.ground.front.W}×${r.stage.ground.front.H} · 重画 ${r.stage.ground.rebuilds} 次` : '地表 —'} · 自动降档 {r?.qualityLevel ?? 0}/3<br />
     {(() => { const j = spriteJobs(); const st = sprites.stats; return `精灵 ${st.n} 张 ${st.mpx}MP · 后台生成 ${j.ok ? `开（${j.done} 张，均 ${j.avgMs.toFixed(0)}ms，排队 ${j.queued}）` : '关（主线程）'}`; })()}<br />
     树 {r?.stats.trees} · 草 {r?.stats.grass} · 敌 {game.combat.enemies.length} · NPC {game.npcs?.list.length ?? 0}
@@ -247,7 +263,7 @@ function PerfHud({ game }: { game: Game }) {
     <span className="perf-top">{prof.report(8).map((x) => `${x.k} ${x.ms.toFixed(1)}`).join(' · ')}</span><br />
     {prof.spikes.length ? <>最近卡顿：{prof.spikes.slice(-2).map((x) => `${x.ms}ms←${x.top.map((y) => y.k).join('/')}`).join('；')}<br /></> : null}
     <button className="perf-btn" onClick={() => {
-      const head = `fanren ${navigator.userAgent}\n${r?.stage ? `WebGL ${r.stage.W}×${r.stage.H} 绘制${r.stage.drawCalls}` : 'Canvas2D'} 世界层×${r?.dpr.toFixed(2)} 降档${r?.qualityLevel ?? 0} fps ${p.fps.toFixed(0)} 最慢 ${p.worstMs.toFixed(0)}ms 逻辑 ${p.updMs.toFixed(1)} 绘制 ${p.renMs.toFixed(1)}${r?.stage?.gpuMs ? ` GPU ${r.stage.gpuMs.toFixed(1)}` : ''}\n位置 ${Math.round(game.player.x)},${Math.round(game.player.y)} ${game.player.flying ? '飞行' : '步行'} 敌${game.combat.enemies.length} NPC${game.npcs?.list.length ?? 0}`;
+      const head = `fanren ${navigator.userAgent}\n${r?.stage ? `WebGL ${r.stage.W}×${r.stage.H} 绘制${r.stage.drawCalls}` : 'Canvas2D'} 世界层×${r?.dpr.toFixed(2)} 降档${r?.qualityLevel ?? 0} fps ${p.fps.toFixed(0)} 最慢 ${p.worstMs.toFixed(0)}ms 逻辑 ${p.updMs.toFixed(1)} 绘制 ${p.renMs.toFixed(1)}${r?.stage?.gpuMs ? ` GPU ${r.stage.gpuMs.toFixed(1)}` : ''}\n位置 ${Math.round(game.player.x)},${Math.round(game.player.y)} ${game.player.flying ? '飞行' : '步行'} 敌${game.combat.enemies.length} NPC${game.npcs?.list.length ?? 0}${r?.stage?.gpuSec && Object.keys(r.stage.gpuSec).length ? `\nGPU分段 ${Object.entries(r.stage.gpuSec).map(([k, v]) => `${k} ${(v as number).toFixed(1)}`).join(' / ')}` : ''}${r?.stage?.ground?.front ? `\n地表缓存 ${r.stage.ground.front.W}×${r.stage.ground.front.H} 重画${r.stage.ground.rebuilds} 开工${r.stage.ground.jobsStarted} 纹素/帧 ${Math.round(r.stage.groundTexels / 1000)}k 缩放${game.cam.zoom.toFixed(2)}` : ''}`;
       const txt = prof.text(head);
       try { navigator.clipboard.writeText(txt); } catch { /* 无剪贴板权限 */ }
       console.log(txt);
