@@ -1318,7 +1318,8 @@ export class Renderer {
     if (!p.flying && eq.boots && p.moving && Math.random() < (p.running ? 0.9 : 0.45)) {
       this.particles.push({ x: p.x + (Math.random() - 0.5) * 26, y: p.y + 2, vx: -Math.sin(st.yaw) * 30 + (Math.random() - 0.5) * 20, vy: -6 - Math.random() * 10, life: 0, max: 0.5 + Math.random() * 0.4, size: 5 + Math.random() * 5, color: '245,248,255' });
     }
-    drawCharacter(ctx, p.look, st, PLAYER_SCALE, dt, { mount });
+    const hideMount = !!this.stage && !!this.fx && (!!game.combat.wing || (p.flying && p.boosting && game.boostKind === 'thunder'));
+    drawCharacter(ctx, p.look, st, PLAYER_SCALE, dt, { mount, hideMount });
   }
   private drawPlayerGhost() {
     const { ctx, game } = this;

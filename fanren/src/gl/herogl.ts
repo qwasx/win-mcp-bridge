@@ -10,55 +10,102 @@ const BLUE: RGB = [0.55, 0.66, 1], VIOLET: RGB = [0.72, 0.52, 1], WHITE: RGB = [
 /** 一侧风雷翅（第三十五步·原著）：雷鹏骨翅经辟邪神雷炼化，蓝电尽被逼出，双翼染作淡金——
  *  古铜墨底压住亮地 → 淡金翎羽 → 金白翼缘（整条外缘一道亮金描边）→ 金色雷丝沿翼缘来回爬行，振翅时满翼噼啪。
  *  gk：0 = 初展时的残余蓝电，1 = 纯金（展翅 0.5 秒内由蓝转金） */
-function wing(F: FxSys, x: number, y: number, side: number, open: number, flap: number, t: number, a: number, ws = 1, gk = 1) {
+/** 第三十八步：翼的朝向——设计平面（侧向 × 向上）放进身体坐标系再按人物同一套投影画到屏幕：
+ *  yaw 与 character.ts 相同（0 = 面朝镜头 / 向下飞，π = 背对镜头 / 向上飞）；sw = 后掠角（雷遁疾飞时更大）。
+ *  面朝镜头时翼在身后（Z<0），与身体重叠的部分按躯干轮廓淡去——翼从肩后伸出，不再盖在身上朝上张着 */
+export interface WingPose { ax: number; ay: number; yaw: number; sw: number }
+const PITCH_C = Math.cos(0.36), PITCH_S = Math.sin(0.36);
+function wingMap(P: WingPose) {
+  // 侧面看时多后掠一些：翼向身后拖出，不至于缩成一条竖线
+  const sw = Math.min(1.1, P.sw + 0.5 * Math.abs(Math.sin(P.yaw)));
+  const cy = Math.cos(P.yaw), sy = Math.sin(P.yaw), cs = Math.cos(sw), ss = Math.sin(sw);
+  /** 设计坐标（相对肩背，y 向下为正）→ [屏幕 x, 屏幕 y, 深度 Z（>0 在身前）] */
+  return (px: number, py: number): [number, number, number] => {
+    const lx = px * cs, lz = -Math.abs(px) * ss - 10, ly = -py;
+    const X = lx * cy + lz * sy, Z = -lx * sy + lz * cy;
+    return [P.ax + X, P.ay - ly * PITCH_C + Z * PITCH_S, Z];
+  };
+}
+/** 身后部分被躯干挡住：到“头—脚”胶囊的距离 → 透明度系数 */
+function wingOcc(P: WingPose, x: number, y: number, Z: number) {
+  if (Z >= 0) return 1;
+  const y0 = P.ay - 54, y1 = P.ay + 84, yy = Math.max(y0, Math.min(y1, y)), d = Math.hypot(x - P.ax, y - yy);
+  const r = y < P.ay - 30 ? 13 : 19;
+  return Math.max(0, Math.min(1, (d - r * 0.55) / (r * 0.9)));
+}
+
+/** 一侧风雷翅（第三十五步·原著）：雷鹏骨翅经辟邪神雷炼化，蓝电尽被逼出，双翼染作淡金——
+ *  古铜墨底压住亮地 → 淡金翎羽 → 金白翼缘（整条外缘一道亮金描边）→ 金色雷丝沿翼缘来回爬行，振翅时满翼噼啪。
+ *  gk：0 = 初展时的残余蓝电，1 = 纯金（展翅 0.5 秒内由蓝转金）。第三十八步：几何经 wingMap 投影（朝向 / 后掠 / 遮挡）。 */
+function wing(F: FxSys, P: WingPose, side: number, open: number, flap: number, t: number, a: number, ws = 1, gk = 1) {
   const sc = (0.55 + 0.45 * open) * ws, lift = -flap * 0.5;           // 振翅：整翼绕肩上下摆
-  const rot = (dx: number, dy: number): [number, number] => { const c = Math.cos(lift * side), s = Math.sin(lift * side); return [x + (dx * c - dy * s) * sc, y + (dx * s + dy * c) * sc]; };
-  const S = rot(0, 0), E = rot(side * 80, -46), W = rot(side * 175, -92);
-  const N = 12, tips: [number, number][] = [];
+  const M = wingMap(P);
+  const cl = Math.cos(lift * side), sl = Math.sin(lift * side);
+  const rotD = (dx: number, dy: number): [number, number] => [(dx * cl - dy * sl) * sc, (dx * sl + dy * cl) * sc];
+  const toS = (d: [number, number]) => M(d[0], d[1]);
+  const Sd = rotD(0, 0), Ed = rotD(side * 80, -46), Wd = rotD(side * 175, -92);
+  const S3 = toS(Sd), E3 = toS(Ed), W3 = toS(Wd);
+  const S: [number, number] = [S3[0], S3[1]], E: [number, number] = [E3[0], E3[1]], W: [number, number] = [W3[0], W3[1]];
+  // 翼根：在身后时从肩缘伸出（躯干挡住正中）
+  const R3 = S3[2] < 0 ? toS(rotD(side * 20, -8)) : S3, Sr: [number, number] = [R3[0], R3[1]];
+  const oc = (x: number, y: number, Z: number) => wingOcc(P, x, y, Z);
+  const N = 12, tips: [number, number][] = [], tipZ: number[] = [];
   const INK: RGB = [0.24, 0.15, 0.04];
   const GOLD = mixc(BLUE, [1, 0.8, 0.36], gk), PALE = mixc(VIOLET, [1, 0.9, 0.62], gk), RIM = mixc(mixc(BLUE, WHITE, 0.4), [1, 0.95, 0.72], gk);
   for (let pass = 0; pass < 2; pass++) for (let i = 0; i < N; i++) {
     const k = i / (N - 1);                                     // 0 = 腕（初级飞羽）… 1 = 肩（次级飞羽）
-    const R = k < 0.5 ? [W[0] + (E[0] - W[0]) * k * 2, W[1] + (E[1] - W[1]) * k * 2] : [E[0] + (S[0] - E[0]) * (k - 0.5) * 2, E[1] + (S[1] - E[1]) * (k - 0.5) * 2];
+    const Rd: [number, number] = k < 0.5 ? [Wd[0] + (Ed[0] - Wd[0]) * k * 2, Wd[1] + (Ed[1] - Wd[1]) * k * 2] : [Ed[0] + (Sd[0] - Ed[0]) * (k - 0.5) * 2, Ed[1] + (Sd[1] - Ed[1]) * (k - 0.5) * 2];
     const ang = (side > 0 ? 0 : Math.PI) + side * (-0.55 + k * 1.75 + lift * 0.6 + Math.sin(t * 6 + i) * 0.03);
     const len = (170 - k * 95) * sc * (0.75 + 0.25 * open);
-    const tx = R[0] + Math.cos(ang) * len, ty = R[1] + Math.sin(ang) * len * 0.9;
-    const mx = (R[0] + tx) / 2, my = (R[1] + ty) / 2, ra = Math.atan2(ty - R[1], tx - R[0]);
-    if (pass === 0) { F.sprite(C.Leaf, mx, my, len * 1.12, (32 - k * 8) * ws, ra, INK, 0.42 * a, 0); continue; }
-    tips.push([tx, ty]);
+    const R3i = toS(Rd), T3 = toS([Rd[0] + Math.cos(ang) * len, Rd[1] + Math.sin(ang) * len * 0.9]);
+    const tx = T3[0], ty = T3[1], R0 = R3i[0], R1 = R3i[1];
+    const mx = (R0 + tx) / 2, my = (R1 + ty) / 2, ra = Math.atan2(ty - R1, tx - R0), L2 = Math.max(4, Math.hypot(tx - R0, ty - R1));
+    const o = oc(mx, my, (R3i[2] + T3[2]) / 2);
+    if (o <= 0.01) { if (pass === 1) { tips.push([tx, ty]); tipZ.push(T3[2]); } continue; }
+    if (pass === 0) { F.sprite(C.Leaf, mx, my, L2 * 1.12, (32 - k * 8) * ws, ra, INK, 0.42 * a * o, 0); continue; }
+    tips.push([tx, ty]); tipZ.push(T3[2]);
     const c = mixc(PALE, GOLD, 0.35 + k * 0.5);
-    F.sprite(C.Leaf, mx, my, len * 1.02, (22 - k * 6) * ws, ra, c, 0.32 * a);
-    F.sprite(C.Blade, R[0] + (tx - R[0]) * 0.55, R[1] + (ty - R[1]) * 0.55, len * 0.9, 5 * ws, ra, mixc(c, WHITE, 0.35), 0.5 * a);
+    F.sprite(C.Leaf, mx, my, L2 * 1.02, (22 - k * 6) * ws, ra, c, 0.32 * a * o);
+    F.sprite(C.Blade, R0 + (tx - R0) * 0.55, R1 + (ty - R1) * 0.55, L2 * 0.9, 5 * ws, ra, mixc(c, WHITE, 0.35), 0.5 * a * o);
     // 翎尖金芒
-    F.glow(tx, ty, (k < 0.45 ? 11 : 7) * ws, RIM, (k < 0.45 ? 0.7 : 0.45) * a, C.Star);
+    F.glow(tx, ty, (k < 0.45 ? 11 : 7) * ws, RIM, (k < 0.45 ? 0.7 : 0.45) * a * oc(tx, ty, T3[2]), C.Star);
   }
-  // 翼骨：古铜底 + 金色亮芯
+  // 翼骨：古铜底 + 金色亮芯（在身后时从肩缘起）
   const bc = mixc(GOLD, WHITE, 0.3);
-  F.beam(S[0], S[1], E[0], E[1], 12 * ws, INK, 0.62 * a, C.Beam, 0); F.beam(E[0], E[1], W[0], W[1], 10 * ws, INK, 0.62 * a, C.Beam, 0);
-  F.beam(S[0], S[1], E[0], E[1], 5 * ws, bc, 0.85 * a); F.beam(E[0], E[1], W[0], W[1], 4 * ws, bc, 0.85 * a);
-  F.glow(W[0], W[1], 18 * ws, RIM, 0.8 * a, C.Star);
+  const oSE = oc((Sr[0] + E[0]) / 2, (Sr[1] + E[1]) / 2, (R3[2] + E3[2]) / 2), oEW = oc((E[0] + W[0]) / 2, (E[1] + W[1]) / 2, (E3[2] + W3[2]) / 2);
+  F.beam(Sr[0], Sr[1], E[0], E[1], 12 * ws, INK, 0.62 * a * oSE, C.Beam, 0); F.beam(E[0], E[1], W[0], W[1], 10 * ws, INK, 0.62 * a * oEW, C.Beam, 0);
+  F.beam(Sr[0], Sr[1], E[0], E[1], 5 * ws, bc, 0.85 * a * oSE); F.beam(E[0], E[1], W[0], W[1], 4 * ws, bc, 0.85 * a * oEW);
+  F.glow(W[0], W[1], 18 * ws, RIM, 0.8 * a * oc(W[0], W[1], W3[2]), C.Star);
   // 金边：腕 → 各翎尖 → 肩，一圈连续的金色外缘（外晕 + 白金芯）
-  const rim: [number, number][] = [W, ...tips, S];
+  const rim: [number, number][] = [W, ...tips, Sr], rimZ = [W3[2], ...tipZ, R3[2]];
   for (let i = 0; i < rim.length - 1; i++) {
-    const p0 = rim[i], p1 = rim[i + 1];
-    F.beam(p0[0], p0[1], p1[0], p1[1], 9 * ws, GOLD, 0.32 * a);
-    F.beam(p0[0], p0[1], p1[0], p1[1], 2.6 * ws, RIM, 0.85 * a);
+    const p0 = rim[i], p1 = rim[i + 1], o = oc((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2, (rimZ[i] + rimZ[i + 1]) / 2);
+    if (o <= 0.01) continue;
+    F.beam(p0[0], p0[1], p1[0], p1[1], 9 * ws, GOLD, 0.32 * a * o);
+    F.beam(p0[0], p0[1], p1[0], p1[1], 2.6 * ws, RIM, 0.85 * a * o);
   }
   // 爬行雷光：两点金白电光沿翼缘来回游走，身后拖一串电丝
   const L = rim.length - 1;
   for (let j = 0; j < 2; j++) {
     const u = (t * (0.9 + j * 0.37) + j * 0.5) % 2, q = u < 1 ? u : 2 - u, f = q * L, i0 = Math.min(L - 1, Math.floor(f)), fr = f - i0;
     const px = rim[i0][0] + (rim[i0 + 1][0] - rim[i0][0]) * fr, py = rim[i0][1] + (rim[i0 + 1][1] - rim[i0][1]) * fr;
-    F.glow(px, py, 22 * ws, RIM, 0.75 * a); F.glow(px, py, 8 * ws, WHITE, 0.9 * a, C.Star);
+    const o = oc(px, py, rimZ[i0]); if (o <= 0.01) continue;
+    F.glow(px, py, 22 * ws, RIM, 0.75 * a * o); F.glow(px, py, 8 * ws, WHITE, 0.9 * a * o, C.Star);
     const back = rim[Math.max(0, Math.min(L, i0 + (u < 1 ? -1 : 2)))];
-    F.bolt(px, py, back[0], back[1], Math.floor(t * 30) + j * 977, 8, 1.1, RIM, 0.85 * a, 4, false);
+    F.bolt(px, py, back[0], back[1], Math.floor(t * 30) + j * 977, 8, 1.1, RIM, 0.85 * a * o, 4, false);
   }
   // 翼缘雷丝 / 翼骨雷 / 下坠细电（残余的蓝电随 gk 消退）
-  for (let i = 0; i < tips.length - 1; i++) if (Math.random() < 0.35) F.bolt(tips[i][0], tips[i][1], tips[i + 1][0], tips[i + 1][1], Math.random() * 1e6, 10, 1.1, RIM, 0.85 * a, 4, false);
-  if (Math.random() < 0.25) F.bolt(S[0], S[1], W[0], W[1], Math.random() * 1e6, 14, 1.2, mixc(GOLD, WHITE, 0.3), 0.8 * a, 7, false);
-  if (Math.random() < 0.15) { const tp = tips[Math.floor(Math.random() * 6)]; F.bolt(tp[0], tp[1], tp[0] + rnd(-40, 40), tp[1] + rnd(80, 180), Math.random() * 1e6, 18, 1.3, GOLD, 0.7 * a, 6, true); }
-  if (gk < 1 && Math.random() < 0.6 * (1 - gk)) { const tp = tips[Math.floor(Math.random() * tips.length)]; F.bolt(S[0], S[1], tp[0], tp[1], Math.random() * 1e6, 16, 1.4, BLUE, 0.9 * (1 - gk) * a, 7, true); }
-  F.glow(x + side * 110 * ws, y - 10, 150 * ws, GOLD, 0.08 * a);
+  for (let i = 0; i < tips.length - 1; i++) if (Math.random() < 0.35) { const o = oc(tips[i][0], tips[i][1], tipZ[i]); if (o > 0.3) F.bolt(tips[i][0], tips[i][1], tips[i + 1][0], tips[i + 1][1], Math.random() * 1e6, 10, 1.1, RIM, 0.85 * a * o, 4, false); }
+  if (Math.random() < 0.25) F.bolt(Sr[0], Sr[1], W[0], W[1], Math.random() * 1e6, 14, 1.2, mixc(GOLD, WHITE, 0.3), 0.8 * a * Math.max(oSE, 0.3), 7, false);
+  if (Math.random() < 0.15) { const ti = Math.floor(Math.random() * 6), tp = tips[ti]; if (oc(tp[0], tp[1], tipZ[ti]) > 0.3) F.bolt(tp[0], tp[1], tp[0] + rnd(-40, 40), tp[1] + rnd(80, 180), Math.random() * 1e6, 18, 1.3, GOLD, 0.7 * a, 6, true); }
+  if (gk < 1 && Math.random() < 0.6 * (1 - gk)) { const tp = tips[Math.floor(Math.random() * tips.length)]; F.bolt(Sr[0], Sr[1], tp[0], tp[1], Math.random() * 1e6, 16, 1.4, BLUE, 0.9 * (1 - gk) * a, 7, true); }
+  const G3 = M(side * 110 * ws, -10);
+  F.glow(G3[0], G3[1], 150 * ws, GOLD, 0.08 * a);
+}
+/** 主角当前朝向 / 翼根（含飞行离地高度） */
+function heroWingPose(p: any, dy: number, boosting: boolean): WingPose {
+  const st = p.st, lift = st?.lift ?? 0;
+  return { ax: p.x, ay: p.y - lift - dy, yaw: st?.yaw ?? Math.PI, sw: boosting ? 0.72 : 0.28 };
 }
 
 let stepIdx = 0;
@@ -80,18 +127,19 @@ export function drawHeroGL(F: FxSys, c: Combat, t: number, dt: number) {
   runDust(F, p);
   // —— 第三十五步：佩风雷翅催动雷遁时，背后展开金色雷翼（较战斗展翅略小）
   if (!c.wing && p.flying && p.boosting && c.game.boostKind === 'thunder') {
-    const lift = p.st?.lift ?? 0, sx = p.x, sy = p.y - lift - 92, flap = Math.sin(t * 9) * 0.45;
-    wing(F, sx, sy, 1, 1, flap, t, 0.85, 1.0, 1); wing(F, sx, sy, -1, 1, flap, t, 0.85, 1.0, 1);
+    const P = heroWingPose(p, 92, true), flap = Math.sin(t * 9) * 0.45;
+    wing(F, P, 1, 1, flap, t, 0.85, 1.0, 1); wing(F, P, -1, 1, flap, t, 0.85, 1.0, 1);
   }
   // —— 风雷翅
   if (c.wing) {
     const w = c.wing, open = Math.min(1, (w.max - w.t) / 0.35) * Math.min(1, w.t / 0.4);
     const flap = w.flap > 0 ? Math.sin((0.6 - w.flap) / 0.6 * Math.PI * 3) : Math.sin(t * 7) * 0.35;
-    const sx = p.x, sy = p.y - 98, ws = 1.45 + w.lv * 0.08;   // 第三十步：雷翼放大
+    const P = heroWingPose(p, 98, !!(p.flying && p.boosting));   // 第三十八步：翼根随身体（含飞行高度）、随朝向
+    const sx = P.ax, sy = P.ay, ws = 1.45 + w.lv * 0.08;   // 第三十步：雷翼放大
     const gk = Math.min(1, (w.max - w.t) / 0.5);                // 第三十五步：初展蓝电 → 半息内尽化淡金
     const GOLD: RGB = mixc(BLUE, [1, 0.8, 0.36], gk), GW: RGB = mixc(BLUE, [1, 0.95, 0.72], gk);
-    wing(F, sx, sy, 1, open, flap, t, open, ws, gk);
-    wing(F, sx, sy, -1, open, flap, t, open, ws, gk);
+    wing(F, P, 1, open, flap, t, open, ws, gk);
+    wing(F, P, -1, open, flap, t, open, ws, gk);
     // 金雷护身、脚下风旋（两层反向）
     F.glow(sx, sy + 20, 70, GOLD, 0.18 * open);
     F.ground(C.RingSoft, p.x, p.y, 120, t * 3, GOLD, 0.32 * open, 1, 0.5);

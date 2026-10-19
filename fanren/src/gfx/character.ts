@@ -415,7 +415,7 @@ type P2 = { x: number; y: number; z: number };
 // 头部贴图的尺寸/锚点（相对代码头）
 const HEAD_NECK_UP = 3.2, HEAD_TOP_Y = 9.6, HEAD_TEX_K = 1.08, HEAD_NECK_SINK = 0.06;
 
-export interface DrawOpts { alpha?: number; ghost?: boolean; glow?: number; preview?: boolean; /** 遁具法器 id（飞行时脚下/背后） */ mount?: string }
+export interface DrawOpts { alpha?: number; ghost?: boolean; glow?: number; preview?: boolean; /** 遁具法器 id（飞行时脚下/背后） */ mount?: string; /** 第三十八步：GL 大雷翼展开时不画背上的小翅 */ hideMount?: boolean }
 
 export function drawCharacter(ctx: CanvasRenderingContext2D, look: Look, st: CharState, scale: number, dt: number, opts: DrawOpts = {}) {
   // 1. 姿态
@@ -514,6 +514,7 @@ export function drawCharacter(ctx: CanvasRenderingContext2D, look: Look, st: Cha
   if (flying) {
     const L = opts.mount ? artLook(opts.mount) : null;
     if (L && L.shape === 'boat') parts.push({ z: -999, f: () => drawBoatUnderFeet(g, bx, by, yaw, S, st.t, opts.mount!) });
+    else if (L && L.shape === 'wings' && opts.hideMount) { /* GL 雷翼代替 */ }
     else if (L && (L.shape === 'wings' || L.shape === 'cloak')) {
       const back = Math.cos(yaw) > 0;   // 面朝镜头 → 翅/披风在身后
       parts.push({ z: back ? -998 : 999, f: () => drawBackMount(g, che.x, che.y, yaw, S, st.t, opts.mount!) });
