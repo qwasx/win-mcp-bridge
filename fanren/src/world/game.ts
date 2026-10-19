@@ -251,7 +251,7 @@ export class Game {
     if (this.events.enc.some((e) => e.seen)) this.hint('enc', '提示：奇遇只在神识之内显现。走近后按 T 查看。');
     if (Object.values(this.ws.hearts).some((s) => s.met)) this.hint('hearts', '提示：按 H 打开红颜录，查看好感与故事线索。');
     if (this.ws.news.length) this.hint('chron', '提示：按 J 打开大事记——原著大事件会按年份发生，你可以改变结局。');
-    if (this.combat.enemies.some((e) => !e.dead && e.aggro && Math.hypot(e.x - p.x, e.y - p.y) < this.senseRadius)) this.hint('fight', '提示：数字键 1–9 施法，鼠标指向即瞄准；不动鼠标时自动锁定最近敌人。');
+    if (this.combat.enemies.some((e) => !e.dead && e.aggro && Math.hypot(e.x - p.x, e.y - p.y) < this.senseRadius)) this.hint('fight', '提示：数字键 1–9 施法，自动锁定最近的敌人（淡金环）；点击敌人或按 Tab 可换目标。');
     if (this.gatherTarget) this.hint('gather', '提示：按 E 采集神识中的灵物。');
     if (C.bottleneck(h) !== 'none') this.hint('bottle', '提示：修为已满，按 C 打开角色面板冲关。');
     if (h.realm === 1 && h.stage >= 5 && !this.ws.sect) this.hint('sect', '提示：炼气五层后可拜入黄枫谷等大宗门；持升仙令可直接入黄枫谷。');
@@ -1219,6 +1219,7 @@ export class Game {
       if (k === 'l') this.onPanel?.('alchemy');
       if (k === 'p') this.onPanel?.('seclude');
       if (k === 'q') this.senseBurst();
+      if (k === 'tab') { e.preventDefault(); this.combat.cycleLock(); }
       if (k >= '1' && k <= '9' && k.length === 1) this.combat.castSlot(+k - 1);
       if (k === 'k') this.onPanel?.('skills');
       if (k === 'r') this.toggleConceal();
@@ -1270,7 +1271,7 @@ export class Game {
         const w = this.screenToWorld(e.clientX, e.clientY);
         // 点击敌人：锁定
         const foe = this.combat.enemies.find((q) => !q.dead && Math.hypot(q.x - w.x, q.y - 30 - w.y) < 70 && Math.hypot(q.x - this.player.x, q.y - this.player.y) < this.senseRadius);
-        if (foe) { this.combat.lock = foe; this.input.mouse.t = -99; return; }
+        if (foe) { this.combat.lock = foe; this.combat.manual = true; this.input.mouse.t = -99; return; }
         // 点击灵物：走过去并采集
         const n = this.nodes.nearest(w.x, w.y, 60, this.day);
         if (n && Math.hypot(n.x - this.player.x, n.y - this.player.y) < this.senseRadius) {

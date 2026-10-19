@@ -74,6 +74,8 @@ export class Enemy {
   id = Math.random();
   def: EnemyDef; x: number; y: number; hx: number; hy: number;
   vx = 0; vy = 0; kx = 0; ky = 0;
+  /** 第三十八步：平滑后的实际移动速度（弹道提前量用）；瞬移时清零 */
+  mvx = 0; mvy = 0; lpx = NaN; lpy = NaN;
   realm: number; stage: number; level: number;
   hp: number; maxHp: number; atk: number; dfn: number; speed: number;
   facing = 1; aggro = false; flee = false; dead = false; deathT = 0;
@@ -275,32 +277,60 @@ export class Combat {
     if (s.cast === 'bolt' || s.cast === 'fan') o.speed = Math.max(s.speed ?? 700, R / (s.dur ?? 1.25));
     return o;
   }
-  aim(range: number): { x: number; y: number; dx: number; dy: number; target: Enemy | null } {
-    const g = this.game, p = g.player;
-    const exact = range >= this.reach - 1;   // 远程：锁定范围即投放距离
-    const m = g.input.mouse;
-    const R = g.senseRadius;
-    let target: Enemy | null = null;
-    if (m.active && g.time - m.t < 2.5) {
-      // 鼠标瞄准：附近的敌人做吸附
-      let bd = 120;
-      for (const e of this.enemies) { if (e.dead) continue; const d = Math.hypot(e.x - m.x, e.y - m.y); if (d < bd) { bd = d; target = e; } }
-      const tx = target ? target.x : m.x, ty = target ? target.y - 30 : m.y;
+  /** 手动锁定（点击敌人 / Tab 轮换）：目标存活、可见、在神识范围内时一直有效 */
+  manual = false;
+  private lockT = 0;
+  private targetable(e: Enemy) { return !e.dead && !(e.hideT > 0) && !(e.spar && !e.aggro); }
+  /** 第三十八步：所有出手（功法 / 法器 / 符箓 / 飞剑 / 召唤）都锁最近的敌人，绝不跟鼠标或朝向箭头。
+   *  手动锁定优先；否则投放距离内最近的「已交手」敌人 → 投放距离内最近的敌人 → 神识内最近的已交手敌人 */
+  pickTarget(): Enemy | null {
+    const g = this.game, p = g.player, reach = this.reach, R = g.senseRadius;
+    const L = this.lock;
+    if (this.manual && L && this.targetable(L) && Math.hypot(L.x - p.x, L.y - p.y) <= R) return L;
+    this.manual = false;
+    let bA: Enemy | null = null, dA = reach, bN: Enemy | null = null, dN = reach, bF: Enemy | null = null, dF = R;
+    for (const e of this.enemies) {
+      if (!this.targetable(e)) continue;
+      const d = Math.hypot(e.x - p.x, e.y - p.y);
+      if (e.aggro && d < dA) { dA = d; bA = e; }
+      if (d < dN) { dN = d; bN = e; }
+      if (e.aggro && d < dF) { dF = d; bF = e; }
+    }
+    const t = bA ?? bN ?? bF;
+    this.lock = t;
+    return t;
+  }
+  /** Tab：在神识范围内的敌人之间按远近轮换手动锁定 */
+  cycleLock() {
+    const p = this.game.player, R = this.game.senseRadius;
+    const list = this.enemies.filter((e) => this.targetable(e) && Math.hypot(e.x - p.x, e.y - p.y) <= R).sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y));
+    if (!list.length) { this.lock = null; this.manual = false; return; }
+    const i = this.lock ? list.indexOf(this.lock) : -1;
+    this.lock = list[(i + 1) % list.length]; this.manual = true;
+  }
+  /** 锁定标记随时指向“下一招会打谁”：每 0.2 秒刷新（只挑已交手的敌人，免得把路过的走兽也圈上） */
+  refreshLock(dt: number) {
+    this.lockT -= dt; if (this.lockT > 0) return; this.lockT = 0.2;
+    const p = this.game.player;
+    if (this.manual) { const L = this.lock; if (!L || !this.targetable(L) || Math.hypot(L.x - p.x, L.y - p.y) > this.game.senseRadius) { this.manual = false; this.lock = null; } else return; }
+    let b: Enemy | null = null, bd = this.reach;
+    for (const e of this.enemies) { if (!this.targetable(e) || !e.aggro) continue; const d = Math.hypot(e.x - p.x, e.y - p.y); if (d < bd) { bd = d; b = e; } }
+    if (b || (this.lock && (!this.targetable(this.lock) || Math.hypot(this.lock.x - p.x, this.lock.y - p.y) > this.reach))) this.lock = b;
+  }
+  /** 瞄准：锁定目标（见 pickTarget）；speed>0 时按弹速给移动目标留提前量。没有目标才用朝向 */
+  aim(range: number, speed = 0): { x: number; y: number; dx: number; dy: number; target: Enemy | null } {
+    const p = this.game.player;
+    const target = this.pickTarget();
+    if (target) {
+      let tx = target.x, ty = target.y - (target.anim.flying ? 70 : 24);
+      if (speed > 0) {
+        const tt = Math.min(1.2, Math.hypot(tx - p.x, ty - p.y) / speed);
+        tx += target.mvx * tt; ty += target.mvy * tt;
+      }
       const d = Math.hypot(tx - p.x, ty - p.y) || 1;
       return { x: tx, y: ty, dx: (tx - p.x) / d, dy: (ty - p.y) / d, target };
     }
-    // 自动锁定最近敌人
-    if (this.lock && (this.lock.dead || this.lock.hideT > 0 || Math.hypot(this.lock.x - p.x, this.lock.y - p.y) > Math.min(R, range * (exact ? 1.08 : 1.6)))) this.lock = null;
-    if (!this.lock) {
-      let bd = Math.min(R, range * (exact ? 1 : 1.4));
-      for (const e of this.enemies) { if (e.dead || e.hideT > 0) continue; const d = Math.hypot(e.x - p.x, e.y - p.y); if (d < bd) { bd = d; this.lock = e; } }
-    }
-    target = this.lock;
-    if (target) {
-      const ty = target.y - (target.anim.flying ? 70 : 24);
-      const d = Math.hypot(target.x - p.x, ty - p.y) || 1;
-      return { x: target.x, y: ty, dx: (target.x - p.x) / d, dy: (ty - p.y) / d, target };
-    }
+    void range;
     const yaw = p.st.yaw;
     const dx = Math.sin(yaw), dy = Math.cos(yaw);
     return { x: p.x + dx * range * 0.7, y: p.y + dy * range * 0.7, dx, dy, target: null };
@@ -343,7 +373,7 @@ export class Combat {
     if (g.concealed && s.power > 0) g.toggleConceal();
     this.buffs.until.stealth && (this.buffs.until.stealth = Math.min(this.buffs.until.stealth, g.time + (lv >= 3 && id === 'nifeng' ? 99 : 0)));
     const sr = this.reachSkill(s);
-    const a = this.aim(sr.range || 400);
+    const a = this.aim(sr.range || 400, sr.cast === 'bolt' || sr.cast === 'fan' ? (sr.speed ?? 700) : 0);
     g.player.st.faceToward(a.dx, a.dy, false);
     this.exec(sr, lv, a, this.pStats.atk, this.pStats.realm);
     this.gainXp(id, 1);
@@ -739,7 +769,7 @@ export class Combat {
   // ------------------------------------------------------------ 伤害
   private nearest(x: number, y: number, r: number, skip: Set<number>) {
     let best: Enemy | null = null, bd = r;
-    for (const e of this.enemies) { if (e.dead || skip.has(e.id)) continue; const d = Math.hypot(e.x - x, e.y - y); if (d < bd) { bd = d; best = e; } }
+    for (const e of this.enemies) { if (!this.targetable(e) || skip.has(e.id)) continue; const d = Math.hypot(e.x - x, e.y - y); if (d < bd) { bd = d; best = e; } }
     return best;
   }
   private aoe(x: number, y: number, r: number, dmg: number, base: { realm: number; status?: StatusSpec; stCh: number; school?: School; evil?: number; skill?: string }) {
@@ -1274,6 +1304,7 @@ export class Combat {
     }
     this.updateEnemies(dt, stealth);
     this.foe.update(dt);
+    this.refreshLock(dt);
     this.updateProjs(dt);
     this.updateFields(dt);
     this.updateSummons(dt); this.runLater(dt);
@@ -1409,6 +1440,10 @@ export class Combat {
     for (const e of this.enemies) {
       if (e.dead) continue;
       if (e.hideT > 0) continue;   // 土遁潜行（由追杀系统驱动）
+      if (dt > 0) {   // 第三十八步：实际移动速度（平滑），瞬移 / 遁走时清零
+        if (e.lpx === e.lpx) { const vx = (e.x - e.lpx) / dt, vy = (e.y - e.lpy) / dt; if (Math.abs(vx) + Math.abs(vy) > 3000) { e.mvx = e.mvy = 0; } else { const k = Math.min(1, dt * 6); e.mvx += (vx - e.mvx) * k; e.mvy += (vy - e.mvy) * k; } }
+        e.lpx = e.x; e.lpy = e.y;
+      }
       e.anim.t += dt;
       e.anim.hit = Math.max(0, e.anim.hit - dt * 4);
       e.hitFlash = Math.max(0, e.hitFlash - dt);
@@ -1554,7 +1589,7 @@ export class Combat {
       if (pr.life > pr.max) { if (pr.aoe && pr.fac === 'p') this.explode(pr); return false; }
       // 追踪
       if (pr.homing && pr.fac === 'p') {
-        if (!pr.target || pr.target.dead) pr.target = this.nearest(pr.x, pr.y, 520, pr.hit);
+        if (!pr.target || pr.target.dead || pr.target.hideT > 0) pr.target = this.nearest(pr.x, pr.y, 520, pr.hit);
         if (pr.target) {
           const sp = Math.hypot(pr.vx, pr.vy);
           const want = Math.atan2(pr.target.y - 30 - pr.y, pr.target.x - pr.x), cur = Math.atan2(pr.vy, pr.vx);

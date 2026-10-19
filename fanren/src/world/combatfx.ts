@@ -95,7 +95,7 @@ function drawEnemy(g: G, c: Combat, e: Enemy, alpha: number, t: number, dt: numb
   if (e.dead) { g.translate(e.x, e.y); g.scale(1 + e.deathT * 0.3, 1 - e.deathT * 0.6); g.translate(-e.x, -e.y); }
   // 锁定标记
   if (c.lock === e && !e.dead) {
-    g.strokeStyle = 'rgba(200,50,40,0.85)'; g.lineWidth = 2.5;
+    g.strokeStyle = c.manual ? 'rgba(255,232,160,0.95)' : 'rgba(240,214,140,0.8)'; g.lineWidth = c.manual ? 3 : 2.5;   // 第三十八步：淡金锁定环（手动锁定更亮）
     const r = 34 + Math.sin(t * 6) * 3;
     g.beginPath(); g.ellipse(e.x, e.y + 2, r * 1.3, r * 0.45, 0, 0, TAU); g.stroke();
     for (let i = 0; i < 4; i++) { const a = t * 1.5 + i * Math.PI / 2; g.beginPath(); g.ellipse(e.x, e.y + 2, r * 1.6, r * 0.6, 0, a, a + 0.4); g.stroke(); }
