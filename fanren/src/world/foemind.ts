@@ -57,6 +57,8 @@ export function absorbWard(c: Combat, e: Enemy, d: number): number {
 
 /** 瞬移（血遁 / 雷遁 / 魔影遁 / 土遁） */
 export function blinkTo(c: Combat, e: Enemy, x: number, y: number, kind: DunKind, label?: string) {
+  // 第四十一步：被镇压时遁术施展不开
+  if (e.sup >= 2) { if (Math.random() < 0.5) c.texts.push({ x: e.x, y: e.y - 130, s: '遁术被压制！', color: '#d8c8a0', t: 0, vy: -22 }); return; }
   if (kind === 'blood') c.fxq.push({ k: 'xueying', x: e.x, y: e.y, x2: x, y2: y });
   else c.fxq.push({ k: 'dunflash', x: e.x, y: e.y, x2: x, y2: y, kind, color: DUN_COL[kind] });
   e.x = x; e.y = y; e.kx = 0; e.ky = 0;
@@ -79,7 +81,7 @@ export class FoeMind {
   evade(e: Enemy, fx: number, fy: number, raw: number): boolean {
     const c = this.c, g = c.game;
     if (e.def.kind !== 'human' || e.spar || e.realm < 2 || e.dead || e.cast) return false;
-    const st = e.st; if (st.stun || st.freeze || st.root) return false;
+    const st = e.st; if (st.stun || st.freeze || st.root || e.sup >= 2) return false;
     const r = Math.min(5, e.realm);
     if (e.evadeN < 0) e.evadeN = EV_N[r];
     if (e.evadeCd > 0 || e.evadeN <= 0 || e.evRoll > 0) return false;

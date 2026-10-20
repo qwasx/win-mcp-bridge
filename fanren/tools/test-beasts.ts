@@ -73,7 +73,7 @@ if (at && fx) {
 // 4. 行为
 const place = (id: string, dx: number, dy = 0, rs = { realm: 1, stage: 5 }) => { const e = new Enemy(EN.ENEMIES[id], base.x + dx, base.y + dy, rs.realm, rs.stage); g.combat.enemies.push(e); return e; };
 fresh();
-{ const e = place('shuangtong', 300); const d0 = 300; tick(45); const d1 = Math.hypot(e.x - g.player.x, e.y - g.player.y); check('双瞳鼠见人即逃', e.flee && d1 > d0 + 150, `d=${d1.toFixed(0)}`); }
+{ h.realm = 1; h.stage = 9; /* 第四十一步：同境界才测逃跑本身（筑基会以威压拖慢一级鼠） */ const e = place('shuangtong', 300); const d0 = 300; tick(45); h.realm = 2; h.stage = 1; const d1 = Math.hypot(e.x - g.player.x, e.y - g.player.y); check('双瞳鼠见人即逃', e.flee && d1 > d0 + 150, `d=${d1.toFixed(0)}`); }
 fresh();
 { const e = place('zhijiao', 250); tick(20); const a0 = e.aggro; (g.combat as any).damageEnemy ? null : null; e.hp -= 1; e.aggro = true; check('炙角鹿不主动伤人（被打才还手）', !a0 && e.aggro); }
 fresh();

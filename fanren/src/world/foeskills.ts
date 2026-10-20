@@ -313,6 +313,7 @@ export class FoeAI {
       if (s.k === 'heal') w *= hpK < 0.5 ? 3 : 0.2;
       if (s.k === 'summon') w *= mine < 2 ? 1.6 : 0.3;
       if (s.k === 'blink') w *= dist > 480 || (hpK < 0.4 && dist < 220) ? 2.2 : 0.6;
+      if (e.sup >= 2 && (s.k === 'blink' || s.k === 'charge' || s.k === 'leap')) w = 0;   // 第四十一步：被镇压，冲不动也跃不起
       if (s.id === e.lastSk) w *= 0.35;
       w *= 0.6 + Math.random() * 0.8;
       if (w > bs) { bs = w; best = s; }
@@ -378,6 +379,7 @@ export class FoeAI {
       case 'leap': {
         const crouch = 0.35;
         if (u < crouch) return;
+        if (e.sup >= 2) { e.lift = 0; this.end(e); return; }
         const k = Math.min(1, (u - crouch) / (1 - crouch));
         e.x = cs.x0 + (cs.x1 - cs.x0) * k; e.y = cs.y0 + (cs.y1 - cs.y0) * k;
         e.lift = Math.sin(k * Math.PI) * (140 + (sk.r ?? 100) * 0.4);
@@ -390,7 +392,7 @@ export class FoeAI {
         const spd = 1500, L = sk.len!, k = Math.min(1, cs.dash * spd / L);
         const px = e.x, py = e.y, nx = cs.x0 + (cs.x1 - cs.x0) * k, ny = cs.y0 + (cs.y1 - cs.y0) * k;
         const okMove = e.def.flying || (e.sea ? !T.isLand(nx, ny) : T.walkFactor(nx, ny) > 0);
-        if (okMove) { e.x = nx; e.y = ny; }
+        if (okMove && e.sup < 2) { e.x = nx; e.y = ny; }
         if (Math.random() < 0.8) c.sparks.push({ x: px, y: e.y - 20, vx: -Math.cos(cs.ang) * 120, vy: -40, t: 0, max: 0.4, size: 5, color: EL_COL[sk.el] });
         const p = g.player;
         // 第三十九步：冲撞也会撞上别派的人
@@ -408,6 +410,7 @@ export class FoeAI {
       }
       case 'blink': {
         if (cs.t < sk.tele) return;
+        if (e.sup >= 2) { this.end(e); return; }
         const p = e.tgE && !e.tgE.dead ? e.tgE : e.ally ? { x: cs.x1, y: cs.y1 } : g.player, a = Math.random() * TAU;   // 第三十九步：闪到自己的对手身边
         c.vfx.push({ kind: 'blinkfx', x: e.x, y: e.y, r: 70, t: 0, dur: 0.45, color: EL_COL[sk.el] } as any);
         const nx = p.x + Math.cos(a) * 110, ny = p.y + Math.sin(a) * 70;

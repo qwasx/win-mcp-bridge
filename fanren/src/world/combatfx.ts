@@ -15,6 +15,7 @@ import { drawArt } from '../gfx/artifact';
 import { vfxProj, vfxBurst, vfxRing, vfxColumn, projSet, burstKey, shieldKey } from '../gfx/vfxTex';
 import { wardY, wardR } from './foemind';
 import { AFFIX } from './affix';
+import { drawSupUnder, drawSupOver, supSquash } from './suppress';
 /** 空中单位的排序偏移：排在所有地面物体之后 */
 const AIR_Y = 200000;
 
@@ -109,6 +110,9 @@ function drawEnemy(g: G, c: Combat, e: Enemy, alpha: number, t: number, dt: numb
   if (e.windup > 0) { g.fillStyle = `rgba(220,40,30,${0.25 * (1 - e.windup / 0.4)})`; g.beginPath(); g.ellipse(e.x, e.y, 70, 26, 0, 0, TAU); g.fill(); }
   // 跃起（扑击）：地面留影，身形抬高
   if (e.lift > 0) { g.fillStyle = `rgba(20,16,12,${Math.max(0.08, 0.3 - e.lift / 900)})`; g.beginPath(); g.ellipse(e.x, e.y + 2, 30 + e.lift * 0.05, 9 + e.lift * 0.015, 0, 0, TAU); g.fill(); g.translate(0, -e.lift); }
+  // 第四十一步：境界压制——脚下法印 / 地裂，身形压矮发颤
+  const sv = c.sup.view(e);
+  if (sv) { drawSupUnder(g, e.x, e.y, sv, t); g.save(); supSquash(g, e.x, e.y, sv, t); }
   if (e.look && e.cs) {
     g.fillStyle = 'rgba(30,30,24,0.26)'; g.beginPath(); g.ellipse(e.x, e.y + 2, 22, 7, 0, 0, TAU); g.fill();
     drawCharacter(g, e.look, e.cs, 1.06, e.dead ? 0 : dt);
@@ -118,6 +122,7 @@ function drawEnemy(g: G, c: Combat, e: Enemy, alpha: number, t: number, dt: numb
     if (e.blv >= 5 && !e.dead) drawYaoqi(g, e, t);
     if (!drawBeastSprite(g, 'e:' + e.def.id, e.x, e.y, e.facing, e.anim, 1)) drawBeast(g, e.def.look, e.x, e.y, e.facing, e.anim, 1);
   }
+  if (sv) { g.restore(); drawSupOver(g, e.x, e.y, sv, t, e.anim.flying ? 170 : e.look ? 120 : 70 + 40 * (e.def.look?.size ?? 1)); }
   // 异状表现
   if (e.st.freeze) { g.globalCompositeOperation = 'source-over'; g.fillStyle = 'rgba(190,230,255,0.45)'; g.strokeStyle = 'rgba(240,250,255,0.9)'; g.lineWidth = 1.5; g.beginPath(); const h = e.anim.flying ? 110 : 70; for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; g.lineTo(e.x + Math.cos(a) * 42, e.y - h / 2 + Math.sin(a) * h * 0.6); } g.closePath(); g.fill(); g.stroke(); }
   if (e.st.burn && Math.random() < 0.5) c.sparks.push({ x: e.x + (Math.random() - 0.5) * 40, y: e.y - Math.random() * 60, vx: 0, vy: -60, t: 0, max: 0.5, size: 4, color: '255,130,40' });

@@ -2,6 +2,7 @@
 // - 每个修士都是一个“人”：姓名、境界、门派、性格、目标、钱财、对你的好感与仇怨
 // - 神识外：粗略模拟（赶路、闭关、突破、衰老、坐化、死于险地）；神识附近：完整行为（走/飞/打坐/采药/斗法/劫道/逃命）
 // - 互相以神识感知：比你强又贪婪的会来劫道；比你弱的见你恶名会逃；你可以交谈、交易、切磋、赠礼、请教、出手
+import { supMul, drawSupUnder, drawSupOver, supSquash, SUP_COL_P } from './suppress';
 import { tagLook } from '../data/portraits';
 import type { Game } from './game';
 import { CharState, drawCharacter, drawSwordUnderFeet, randomLook, Look, NpcRole } from '../gfx/character';
@@ -59,6 +60,8 @@ interface Active {
   /** 第二十九步：日常（钓鱼 / 摆摊 / 闲聊 / 围观） */
   life?: { k: 'fish' | 'stall' | 'chat' | 'watch'; dir: number; with?: Active; lines?: string[]; li?: number; lt?: number; cx?: number; cy?: number; ware?: number };
   parley?: boolean;
+  /** 第四十一步：被你的威压压制（1 举步维艰 · 2 镇压）/ 已持续 */
+  sup?: number; supOn?: number;
 }
 
 const SECT_ROBE: Record<string, string> = {
@@ -420,7 +423,9 @@ export class NpcWorld {
     const p = g.player;
     this.focus = null; let best = 190;
     for (const a of this.active.values()) {
+      const x0 = a.st.x, y0 = a.st.y;
       this.behave(a, dt);
+      this.suppress(a, x0, y0, dt);
       const dd = Math.hypot(a.st.x - p.x, a.st.y - p.y);
       if (!a.enemy && a.d.alive && dd < best && g.life.vis({ x: a.st.x, y: a.st.y }) > 0.5) { best = dd; this.focus = a; }
     }
@@ -532,6 +537,29 @@ export class NpcWorld {
   }
 
   // ------------------------------------------------------------ 行为
+  /**
+   * 第四十一步：境界压制——对你动了歹意的人（劫道、追杀、逃窜）在你神识之内被威压压住；
+   * 神识外放时威压全开，闲人、凡人也一并压住。敛息时不外放威压。
+   */
+  private supOf(a: Active): number {
+    const g = this.game, d = a.d, h = g.hero, p = g.player;
+    if (a.enemy || !d.alive || a.act === 'follow' || d.bond || d.helpUntil || g.concealed || h.dead) return 0;
+    const hostile = a.act === 'approach' || a.act === 'flee' || !!d.hunting || !!d.chasing;
+    if (!hostile && !(g.senseBurstT > 0)) return 0;
+    const gap = h.realm - d.realm; if (gap <= 0) return 0;
+    if (Math.hypot(a.st.x - p.x, a.st.y - p.y) > g.senseRadius) return 0;
+    return gap >= 2 ? 2 : 1;
+  }
+  private suppress(a: Active, x0: number, y0: number, dt: number) {
+    const lv = this.supOf(a), st = a.st;
+    if (lv !== (a.sup ?? 0)) { if (lv > (a.sup ?? 0)) this.game.combat.sup.onset(st.x, st.y, lv, true, false); a.sup = lv; a.supOn = 0; }
+    else if (lv) a.supOn = (a.supOn ?? 0) + dt;
+    if (!lv) return;
+    const k = supMul(lv);
+    st.x = x0 + (st.x - x0) * k; st.y = y0 + (st.y - y0) * k; a.d.x = st.x; a.d.y = st.y;
+    st.speed *= k;
+    if (lv >= 2) { st.lift *= Math.pow(0.02, dt); if (a.act === 'walk' || a.act === 'fly' || a.act === 'approach' || a.act === 'flee') st.setAction('idle'); }
+  }
   private behave(a: Active, dt: number) {
     const g = this.game, d = a.d, st = a.st, T = g.terrain, p = g.player;
     a.t += dt;
@@ -1189,7 +1217,10 @@ export class NpcWorld {
     // 斗法护体光
     if (a.duel) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= 0.25 + 0.1 * Math.sin(t * 8); ctx.fillStyle = d.faction === 'demon' ? '#ff3050' : '#80d0ff'; ctx.beginPath(); ctx.ellipse(st.x, st.y - 60 - st.lift, 36, 70, 0, 0, TAU); ctx.fill(); ctx.restore(); }
     if (a.life?.k === 'fish' && a.wait > 0) this.drawRod(ctx, a, t);
+    const sv = a.sup ? { lv: a.sup, on: a.supOn ?? 0, col: SUP_COL_P, seed: a.d.seed % 997 } : null;
+    if (sv) { drawSupUnder(ctx, st.x, st.y, sv, t); ctx.save(); supSquash(ctx, st.x, st.y, sv, t); }
     drawCharacter(ctx, a.look, st, S, dt);
+    if (sv) { ctx.restore(); drawSupOver(ctx, st.x, st.y, sv, t, 120); }
     if (a.life?.k === 'stall' && a.wait > 0) this.drawStall(ctx, a);
     // 法术光弹
     if (a.bolts.length) {

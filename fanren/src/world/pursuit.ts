@@ -276,7 +276,7 @@ export class PursuitSys {
       }
       this.tickWings(P, dt, dist); return this.tail(P, dt, dist, lockR, safe);
     }
-    const tm = !P.lost && !safe && !e.cast && e.realm >= 2 && !(e.st.freeze || e.st.stun || e.st.root);
+    const tm = !P.lost && !safe && !e.cast && e.realm >= 2 && !(e.st.freeze || e.st.stun || e.st.root) && e.sup < 2;
     if (tm && P.earthCd <= 0 && !p.flying && heroV > 150 && dist > 650 && dist < 1800) {
       const lead = Math.min(1.4, dist / Math.max(P.v, 1) * 0.6), ax = p.x + vx * lead, ay = p.y + vy * lead;
       if (g.terrain.walkFactor(ax, ay) > 0 && !c.safeAt(ax, ay)) {
@@ -306,7 +306,7 @@ export class PursuitSys {
     const ddx = tx - e.x, ddy = ty - e.y, dd = Math.hypot(ddx, ddy);
     const stop = safe ? 520 : P.lost ? 20 : 420;
     if (dd > stop && dist > (safe ? 520 : 380)) {
-      const sp = Math.max(0, P.v - (dist <= 700 ? 200 : 0)) * (P.lost ? 0.8 : 1) * (e.st.slow ? 0.5 : 1) * (e.st.freeze || e.st.stun || e.st.root ? 0 : 1);
+      const sp = Math.max(0, P.v - (dist <= 700 ? 200 : 0)) * (P.lost ? 0.8 : 1) * (e.st.slow ? 0.5 : 1) * (e.st.freeze || e.st.stun || e.st.root ? 0 : 1) * (e.sup >= 2 ? 0 : e.sup === 1 ? 0.28 : 1);
       const k = Math.min(1, sp * dt / dd);
       const nx = e.x + ddx * k, ny = e.y + ddy * k;
       if (!c.safeAt(nx, ny)) { e.x = nx; e.y = ny; }

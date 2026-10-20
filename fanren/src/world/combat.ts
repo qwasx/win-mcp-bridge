@@ -22,6 +22,7 @@ import { rollAffix, affixTick, affixOnHurt, affixOnKill, affixOutDmg, affixDealt
 import { DagengAct } from './dageng';
 import { spawnHeroAct } from './heroacts';
 import { Swarm } from './swarm';
+import { Suppress, SUP_SLOW } from './suppress';
 
 /** 各系命中光色 */
 const SCHOOL_COL: Partial<Record<School, string>> = { 火: '255,140,60', 冰: '150,220,255', 雷: '170,190,255', 风: '200,255,230', 土: '220,180,110', 木: '150,230,110', 剑: '210,255,240', 体: '255,220,160', 御: '255,210,120', 魔: '230,60,80', 识: '210,170,255', 阵: '255,230,140', 身: '200,240,255', 符: '255,210,110' };
@@ -76,6 +77,8 @@ export class Enemy {
   vx = 0; vy = 0; kx = 0; ky = 0;
   /** 第三十八步：平滑后的实际移动速度（弹道提前量用）；瞬移时清零 */
   mvx = 0; mvy = 0; lpx = NaN; lpy = NaN;
+  /** 第四十一步：境界压制（0 无 · 1 举步维艰 · 2 镇压）/ 压制持续时间 / 是否来自玩家 */
+  sup = 0; supOn = 0; supP = false;
   realm: number; stage: number; level: number;
   hp: number; maxHp: number; atk: number; dfn: number; speed: number;
   facing = 1; aggro = false; flee = false; dead = false; deathT = 0;
@@ -254,7 +257,9 @@ export class Combat {
   /** 第二十七步：敌人招式与地面预警 */
   foe: FoeAI;
   mind: FoeMind;
-  constructor(game: Game) { this.game = game; this.acts = new ArtActs(this); this.foe = new FoeAI(this); this.mind = new FoeMind(this); }
+  /** 第四十一步：境界压制 */
+  sup: Suppress;
+  constructor(game: Game) { this.game = game; this.acts = new ArtActs(this); this.foe = new FoeAI(this); this.mind = new FoeMind(this); this.sup = new Suppress(this); }
   /** 召唤来的援兵（略弱于施术者） */
   makeMinion(def: EnemyDef, x: number, y: number, src: Enemy): Enemy | null {
     const realm = def === src.def ? src.realm : Math.max(1, src.realm - (def.kind === 'ghost' ? 0 : 1));
@@ -1325,6 +1330,7 @@ export class Combat {
       }
       if (o.t <= 0) this.orbit = null;
     }
+    this.sup.update(dt);
     this.updateEnemies(dt, stealth);
     this.foe.update(dt);
     this.refreshLock(dt);
@@ -1562,7 +1568,7 @@ export class Combat {
       this.tickStatuses(e.st, dt, (d) => { e.hp -= d; if (Math.random() < dt * 2) this.texts.push({ x: e.x + rand(-10, 10), y: e.y - 70, s: String(Math.max(1, Math.round(d * 0.5 / dt * 0.5))), color: e.st.poison ? '#9ad060' : '#ff9a50', t: 0, vy: -40 }); });
       if (e.hp <= 0) { if (e.ally || (e.grudge && e.grudgeT > e.lastHitBy)) this.npcKill(e, e.grudge); else this.kill(e); continue; }   // 第三十九步：烧死 / 毒死的算最后下手的人
       const frozen = !!(e.st.freeze || e.st.stun || e.st.shock);
-      const rooted = frozen || !!e.st.root;
+      const rooted = frozen || !!e.st.root || e.sup >= 2;   // 第四十一步：被镇压者寸步难行
       // 第三十九步：同阵修士只找敌人；带派系的敌人在你隐匿 / 入城时照样彼此厮杀
       let tg: Tank;
       if (e.ally) { const t = this.pickTank(e, dt); e.aggro = !!t; tg = t ?? this.tanks[0]; }
@@ -1601,7 +1607,7 @@ export class Combat {
       if (e.aggro && (((stealth || playerSafe) && e.tgP) || dist > 2600 || Math.hypot(e.x - e.hx, e.y - e.hy) > 3200)) e.aggro = false;
       }
       if (!e.flee && e.def.kind === 'beast' && e.hp < e.maxHp * 0.15 && Math.random() < 0.01) e.flee = true;
-      let mvx = 0, mvy = 0, sp = e.speed * (e.st.slow ? 0.5 : 1);
+      let mvx = 0, mvy = 0, sp = e.speed * (e.st.slow ? 0.5 : 1) * (e.sup === 1 ? SUP_SLOW : 1);
       if (frozen) { e.windup = 0; if (e.cast) this.foe.interrupt(e); }
       else if (e.flee) { mvx = -dx / (dist || 1); mvy = -dy / (dist || 1); sp *= 1.2; if (dist > 1500) { e.flee = false; e.aggro = false; } }
       else if (e.aggro) {
