@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STARBASE LIVE · Roadster 倒置悬停坡道测试</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-family: "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  body { display: flex; align-items: center; justify-content: center; }
+  #stage { position: relative; background: #000; overflow: hidden; }
+  #stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .layer { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .flare { mix-blend-mode: screen; }
+  .hud { transition: opacity .35s; }
+  #loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #8a96a8; letter-spacing: 4px; font-size: 14px; }
+  #bar { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; padding: 8px 14px; border-radius: 10px;
+         background: rgba(8,10,14,.62); backdrop-filter: blur(6px); color: #dfe6ef; font-size: 13px; transition: opacity .4s; z-index: 5; }
+  #bar.hide { opacity: 0; }
+  #bar button { background: none; border: 1px solid rgba(255,255,255,.25); color: #fff; border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 13px; min-width: 40px; }
+  #bar input[type=range] { width: 360px; accent-color: #e3121b; }
+  #tc { font-family: ui-monospace, Menlo, Consolas, monospace; min-width: 64px; text-align: right; opacity: .8; }
+  #help { opacity: .5; font-size: 12px; }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <div id="loading">CONNECTING TO STARBASE FEED…</div>
+    <div id="bar">
+      <button id="play" title="空格">❚❚</button>
+      <input id="scrub" type="range" min="0" max="15" step="0.01" value="0">
+      <span id="tc">0.00 s</span>
+      <button id="speed" title="S">1×</button>
+      <button id="hudbtn" title="H">HUD</button>
+      <span id="help">空格 播放/暂停 · R 重播 · S 慢放 · H 隐藏HUD</span>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

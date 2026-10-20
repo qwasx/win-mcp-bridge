@@ -1,0 +1,16 @@
+{
+  "name": "roadster-flip",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Starbase night test: Tesla Roadster C-ramp inverted hold, cold-gas roll & landing — Three.js + SVG",
+  "scripts": {
+    "build": "esbuild src/main.js --bundle --format=iife --minify --target=es2020 --outfile=app.js",
+    "dev": "esbuild src/main.js --bundle --format=iife --target=es2020 --outfile=app.js --watch"
+  },
+  "dependencies": {
+    "@sparticuz/chromium": "^131.0.1",
+    "esbuild": "^0.24.0",
+    "puppeteer-core": "^23.11.1",
+    "three": "^0.170.0"
+  }
+}
