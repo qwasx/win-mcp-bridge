@@ -206,7 +206,7 @@ function TownPanel({ game, loc, fac }: { game: Game; loc: LocDef; fac?: string }
   }, []);
   const tps = game.ws.tp.map((id) => locHere(id)!).filter((l) => l && l.id !== loc.id);   // 只列本图的传送阵
   return (
-    <Scroll title={loc.name} sub={<span>【{TIER_NAME[cityTier(loc)]}】{loc.desc}　·　灵石 <b>{C.bagCount(h, 'mat_lingshi')}</b>　·　{repName(game.ws.rep)}</span>} onClose={() => game.closeModal()} wide cls="town-panel">
+    <Scroll title={loc.name} sub={<span>【{TIER_NAME[cityTier(loc)]}】{(() => { const [y, j] = game.garrison.count(loc); return y + j ? `坐镇：元婴 ${y} · 结丹 ${j}　` : ''; })()}{loc.desc}　·　灵石 <b>{C.bagCount(h, 'mat_lingshi')}</b>　·　{repName(game.ws.rep)}</span>} onClose={() => game.closeModal()} wide cls="town-panel">
       {occupied && <div className="town-warn">越国已沦陷，此地被魔道占据，商铺尽数关门。</div>}
       <div className="town-grid">
         {fs.map((f, i) => (

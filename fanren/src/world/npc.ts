@@ -42,6 +42,8 @@ export interface NpcData {
   bond?: Bond; bondUntil?: number; helpUntil?: number; lastParley?: number; lunDao?: number; home0?: string; orig?: boolean; vow?: boolean;
   /** 第三十六步：宗门名册上的门人（宗门 id / 名册序号） */
   ros?: string; rosI?: number;
+  /** 第四十步：大城坐镇名册（城池 id / 序号） */
+  gz?: string; gzI?: number;
 }
 export const npcMap = (d: NpcData): MapId => d.map ?? 'tiannan';
 /** 各图常住修士 / 凡人数量 */
@@ -327,7 +329,7 @@ export class NpcWorld {
 
   /** 第三十六步：名册门人散去时，从在场名单中抹掉 */
   forget(id: string) { this.active.delete(id); }
-  toSave() { return this.list.filter((n) => !n.ros || Roster.notable(n)).map((n) => ({ ...n, x: Math.round(n.x), y: Math.round(n.y), tx: Math.round(n.tx), ty: Math.round(n.ty), age: +n.age.toFixed(2) })); }
+  toSave() { return this.list.filter((n) => (!n.ros && !n.gz) || Roster.notable(n)).map((n) => ({ ...n, x: Math.round(n.x), y: Math.round(n.y), tx: Math.round(n.tx), ty: Math.round(n.ty), age: +n.age.toFixed(2) })); }
   fromSave(a: NpcData[] | undefined, wk = 1) {
     this.active.clear();
     if (!a || !a.length) { this.newWorld(); return; }
@@ -384,6 +386,8 @@ export class NpcWorld {
     if (this.game.rel?.hostileExtra(d)) return true;
     // 第三十六步：名册门人守山门的规矩——宗门未与你翻脸，就不会无故出手
     if (d.ros && !d.hunting) return false;
+    // 第四十步：大城坐镇的老怪守城里的规矩——不惹他，他也懒得理你
+    if (d.gz && !d.hunting) return false;
     if (d.faction === 'demon' && (d.pers === 'ruthless' || d.pers === 'greedy')) return true;
     if ((d.pers === 'greedy' || d.pers === 'ruthless') && d.faction === 'rogue') return true;
     if (d.pers === 'righteous' && rep < -40) return true;

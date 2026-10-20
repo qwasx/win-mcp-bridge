@@ -16,6 +16,7 @@ import { itemDef } from '../data/items';
 import * as C from './cultivation';
 import { PursuitSys } from './pursuit';
 import { Roster } from './roster';
+import { Garrison } from './garrison';
 import { WarSys } from './war';
 import { Relations } from './relations';
 import { OrigStory } from './origstory';
@@ -115,6 +116,8 @@ export class Game {
   rel: Relations;
   /** 第三十六步：宗门名册 */
   roster: Roster;
+  /** 第四十步：大城坐镇的元婴 / 结丹 */
+  garrison: Garrison;
   /** 第三十六步：大战与传音玉符 */
   war: WarSys;
   orig: OrigStory;
@@ -161,6 +164,7 @@ export class Game {
     this.pursuit = new PursuitSys(this);
     this.rel = new Relations(this);
     this.roster = new Roster(this);
+    this.garrison = new Garrison(this);
     this.war = new WarSys(this);
     this.orig = new OrigStory(this);
     this.npcs = new NpcWorld(this);
@@ -797,7 +801,7 @@ export class Game {
       let _t = prof.t(); this.combat.update(dt); prof.add('U·战斗', _t);
       _t = prof.t(); this.pursuit.update(dt); this.pursuitTriggers(dt); prof.add('U·追杀', _t);
       _t = prof.t(); this.npcs.update(dt); prof.add('U·NPC', _t);
-      _t = prof.t(); this.rel.update(dt); this.roster.update(dt); this.war.update(dt); prof.add('U·人脉名册大战', _t);
+      _t = prof.t(); this.rel.update(dt); this.roster.update(dt); this.garrison.update(dt); this.war.update(dt); prof.add('U·人脉名册大战', _t);
       _t = prof.t(); this.travel.update(dt); this.events.update(dt); this.story.update(dt); prof.add('U·事件剧情', _t);
       _t = prof.t(); this.landmarks.update(dt); this.sites.update(dt); this.home.update(dt); this.happen.update(dt); this.pets.update(dt); this.heartx.update(dt); prof.add('U·名地遗府奇遇', _t);
       // 采集
@@ -811,7 +815,7 @@ export class Game {
       this.timeScale = p.sitting ? MEDITATE_SPEED : 1;
       const days = dt * DAYS_PER_SEC * this.timeScale;
       this.day += days;
-      this.relAcc += days; if (this.relAcc >= 0.5) { const _d = prof.t(); this.rel.daily(this.relAcc); this.roster.daily(this.relAcc); this.war.daily(this.relAcc); this.orig.daily(this.relAcc); this.relAcc = 0; prof.add('U·日结算', _d); }
+      this.relAcc += days; if (this.relAcc >= 0.5) { const _d = prof.t(); this.rel.daily(this.relAcc); this.roster.daily(this.relAcc); this.garrison.daily(this.relAcc); this.war.daily(this.relAcc); this.orig.daily(this.relAcc); this.relAcc = 0; prof.add('U·日结算', _d); }
       const msgs: Msg[] = [];
       const hadTalent = !!h.pendingTalent;
       const expB = this.hearts.bonus('exp'), e0 = h.exp;
