@@ -1,6 +1,7 @@
 // 夜间测试场环境：混凝土场地（接缝/积水/轮胎印/降落靶标）、夜空与星星、泛光灯塔（SpotLight + 体积光锥）、
 // 地面上照灯车、远景 Starbase（发射塔 + 筷子臂 + Starship 箭体 + 储罐区 + 航空障碍灯）与地平线灯火。
 import * as THREE from 'three';
+import { normalFromHeight } from './track.js';
 
 function rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
@@ -40,9 +41,20 @@ function buildGround(scene, landX) {
     g.fillStyle = 'rgb(0,215,0)'; g.fillRect(0, 0, w, h);
     for (let i = 0; i < 40; i++) { const x = R() * w, y = R() * h, r = 12 + R() * 60; const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(0,80,0,0.9)'); gr.addColorStop(0.7, 'rgba(0,120,0,0.5)'); gr.addColorStop(1, 'rgba(0,215,0,0)'); g.fillStyle = gr; g.save(); g.translate(x, y); g.scale(1.8, 0.7); g.translate(-x, -y); g.fillRect(x - r, y - r, r * 2, r * 2); g.restore(); }
   }, false);
+  const hc = document.createElement('canvas'); hc.width = hc.height = 1024;
+  { const g = hc.getContext('2d'); g.fillStyle = '#808080'; g.fillRect(0, 0, 1024, 1024);
+    const img = g.getImageData(0, 0, 1024, 1024), d = img.data;
+    for (let i = 0; i < d.length; i += 4) { const n = (R() - 0.5) * 40; d[i] = d[i + 1] = d[i + 2] = 128 + n; }
+    g.putImageData(img, 0, 0);
+    for (let i = 0; i < 900; i++) { const x = R() * 1024, y = R() * 1024, r = 1 + R() * 2.5; g.fillStyle = `rgba(0,0,0,${(0.3 + R() * 0.4).toFixed(3)})`; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
+    // 刷纹（扫帚拉毛方向）
+    g.strokeStyle = 'rgba(255,255,255,0.05)'; g.lineWidth = 1; for (let y = 0; y < 1024; y += 3) { g.beginPath(); g.moveTo(0, y + R() * 2); g.lineTo(1024, y + R() * 2); g.stroke(); }
+    const px = 1024 / M * 8; g.strokeStyle = '#000'; g.lineWidth = 3;
+    for (let k = 0; k <= 1024; k += px) { g.beginPath(); g.moveTo(k + 0.5, 0); g.lineTo(k + 0.5, 1024); g.stroke(); g.beginPath(); g.moveTo(0, k + 0.5); g.lineTo(1024, k + 0.5); g.stroke(); } }
+  const nrm = normalFromHeight(hc, 2.2);
   const rep = 400 / M;
-  albedo.repeat.set(rep, rep); rough.repeat.set(rep, rep);
-  const mat = new THREE.MeshStandardMaterial({ map: albedo, roughnessMap: rough, roughness: 1, metalness: 0.0, envMapIntensity: 0.2, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 4 });
+  albedo.repeat.set(rep, rep); rough.repeat.set(rep, rep); nrm.repeat.set(rep, rep);
+  const mat = new THREE.MeshStandardMaterial({ map: albedo, roughnessMap: rough, normalMap: nrm, normalScale: new THREE.Vector2(0.7, 0.7), roughness: 1, metalness: 0.0, envMapIntensity: 0.2, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 4 });
   const pad = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), mat); pad.rotation.x = -Math.PI / 2; pad.receiveShadow = true; scene.add(pad);
   // 场外：沙土 / 盐碱滩
   const sandTex = canvasTex(512, 512, (g, w, h) => { g.fillStyle = '#3b3a34'; g.fillRect(0, 0, w, h); const img = g.getImageData(0, 0, w, h); for (let i = 0; i < img.data.length; i += 4) { const n = (R() - 0.5) * 26; img.data[i] += n; img.data[i + 1] += n; img.data[i + 2] += n * 0.8; } g.putImageData(img, 0, 0); });
@@ -162,7 +174,8 @@ export function buildEnv(scene, T, { landX }) {
     { at: [-32, 0, -16], aim: [-11, 17, 0], I: 1100, shadow: false, color: 0xe8efff },
     { at: [-4, 0, -24], aim: [-10, 16, 0], I: 1000, shadow: false, color: 0xe8efff },
     { at: [32, 0, 8], aim: [14, 8, 0], I: 1300, shadow: false, color: 0xfff1dc },
-    { at: [4, 0, 13], aim: [-11, 17, 0], I: 1300, shadow: false, color: 0xf2f4ff },
+    { at: [4, 0, 13], aim: [-11, 17, 0], I: 1500, shadow: false, color: 0xf2f4ff },
+    { at: [-6, 0, 21], aim: [-10, 17, 0], I: 1100, shadow: false, color: 0xf4f1ea },
   ];
   const mkLight = (pos, aim, I, color, angle, shadow, beamStrength, len) => {
     const sp = new THREE.SpotLight(color, I, 0, angle, 0.55, 2);
@@ -274,13 +287,18 @@ export function buildEnv(scene, T, { landX }) {
 }
 
 /** PMREM 用的反射环境：黑色背景上一圈高亮灯板（让白漆与玻璃有锐利高光） */
-export function buildReflectionScene() {
+export function buildReflectionScene(hdrTex) {
   const s = new THREE.Scene(); s.background = new THREE.Color(0x05070b);
   const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.98, 0.94).multiplyScalar(4) });
   const dirs = [[-86, 22, 30], [34, 24, 30], [-30, 23, -42], [75, 26, -30], [-88, 18, -24], [-20, 2.4, 15], [-3, 2.4, -15]];
   for (const [x, y, z] of dirs) { const p = new THREE.Mesh(new THREE.PlaneGeometry(6, 4), mat); const v = new THREE.Vector3(x, y - 10, z).normalize().multiplyScalar(30); p.position.copy(v); p.lookAt(0, 0, 0); s.add(p); }
   const strip = new THREE.Mesh(new THREE.PlaneGeometry(200, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.05, 0.06, 0.08) })); strip.position.set(0, -2, -40); s.add(strip);
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.035, 0.035, 0.035) })); ground.rotation.x = -Math.PI / 2; ground.position.y = -8; s.add(ground);
-  const skyb = new THREE.Mesh(new THREE.SphereGeometry(90, 32, 16), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.01, 0.015, 0.03), side: THREE.BackSide })); s.add(skyb);
+  const skyb = new THREE.Mesh(new THREE.SphereGeometry(90, 64, 32), hdrTex
+    ? new THREE.MeshBasicMaterial({ map: hdrTex, color: new THREE.Color(0.9, 0.92, 1.0), side: THREE.BackSide })
+    : new THREE.MeshBasicMaterial({ color: new THREE.Color(0.01, 0.015, 0.03), side: THREE.BackSide }));
+  skyb.scale.x = -1; s.add(skyb);
+  // 长条灯带（给车漆一条横贯的反光“腰线”）
+  const bar = new THREE.Mesh(new THREE.PlaneGeometry(70, 1.2), new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 1, 1).multiplyScalar(2.2) })); bar.position.set(0, 26, 0); bar.rotation.x = Math.PI / 2; s.add(bar);
   return s;
 }

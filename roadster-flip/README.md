@@ -21,8 +21,10 @@
 | 文件 | 内容 |
 |---|---|
 | src/timeline.js | 坡道曲线、行驶/下落/悬挂模拟，`state(t)` |
-| src/car.js | 参数化放样车身 + 轮罩凹槽、座舱罩、空气动力轮毂、灯、反推口/RCS 口 |
-| src/track.js | 钢板路面、护墙/扶手/LED、箱梁、远侧双层 C 形脊梁桁架、端部挡块与频闪 |
+| src/car.js | 真实 Tesla Roadster 2020 模型（Meshopt 压缩内嵌）：车轮拆到悬挂节点（滚动 + 行程），珍珠白清漆车漆、深色玻璃、发光前灯/尾灯/刹车灯，加装车底反推口、吸附风扇、RCS 喷口 |
+| src/assets/ | roadster.glb（车模）、night.hdr（夜景环境反射） |
+| tools/prep-assets.mjs | Draco 车模 → 去重/量化 → Meshopt（浏览器 file:// 也能直接解码） |
+| src/track.js | 箱形钢梁路面（防滑花纹钢板法线贴图、腹板加劲肋、底板横肋）、护栏立柱 + 双扶手 + 挡脚板 + LED 灯带、方钢管双层脊梁桁架 + 节点板、工字钢悬臂梁与立柱（底板/地脚螺栓/混凝土基础/X 斜撑）、世界坐标脏污流痕涂装 |
 | src/env.js | 混凝土场地（接缝/积水/轮胎印/降落靶标）、夜空星星、泛光灯塔（SpotLight + 体积光锥）、灯车、远景 Starbase |
 | src/particles.js | 冷气粒子（射流、撞路面/撞地铺开、光锥照亮） |
 | src/post.js | Bloom + ACES + 直播机质感（色差/暗角/颗粒/调色） |
@@ -35,3 +37,16 @@ npm install
 npm run build      # → app.js
 node shoot.mjs 3.5 7.2   # 可选：无头截图到 shots/
 ```
+
+## v2 更新
+- 车辆换成真实车模（之前的参数化车身已废弃）；环境反射使用夜景 HDR + 灯板。
+- 坡道按真实钢结构重做；钢材改为深灰工业涂装，白车从结构前跳出来。
+- 后期渲染目标开启 4× MSAA，桁架不再锯齿。
+- 混凝土地面加法线贴图（接缝凹槽、拉毛纹理）；新增地面上照灯车照亮倒挂段，镜头在倒挂/落地段收得更紧。
+
+## 素材与许可
+- 车模："Tesla Roadster 2020" by **metarex.4d**，CC BY 4.0 — https://sketchfab.com/3d-models/tesla-roadster-2020-1fbf29e297bd4a17ac39a00a378441d8 ；
+  经 swyxio/TeslaRoadster6 简化（Draco、WebP 512 贴图）；本项目再转为 Meshopt，并替换了车漆/玻璃/灯光材质、加装虚构的冷气推进器件。
+- 夜景 HDR：moonless_golf_1k（Poly Haven，CC0，取自 three.js 示例）。
+- three.js（MIT）。
+

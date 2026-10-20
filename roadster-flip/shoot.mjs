@@ -16,7 +16,7 @@ for (const t of times) {
   const ph = await page.evaluate((x) => window.__seek(x), t);
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   await page.evaluate((x) => window.__seek(x), t);
-  await page.screenshot({ path: `shots/t_${t.toFixed(2)}.png` });
+  await page.screenshot({ path: `shots/${process.env.P||'t'}_${t.toFixed(2)}.png` });
   console.log(t, ph, Date.now() - t0, 'ms');
 }
 console.log(logs.slice(0, 30).join('\n'));

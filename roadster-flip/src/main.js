@@ -9,6 +9,10 @@ import { buildEnv, buildReflectionScene } from './env.js';
 import { ColdGas, makeJetCone } from './particles.js';
 import { buildPost } from './post.js';
 import { Overlay } from './overlay.js';
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
+import hdrBytes from './assets/night.hdr';
+
+(async () => {
 
 const params = new URLSearchParams(location.search);
 const T = buildTimeline();
@@ -28,12 +32,15 @@ stage.prepend(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(8, 16 / 9, 0.5, 5000);
 const pm = new THREE.PMREMGenerator(renderer);
-scene.environment = pm.fromScene(buildReflectionScene(), 0.02).texture;
+const hdr = new RGBELoader().parse(hdrBytes.buffer.slice(hdrBytes.byteOffset, hdrBytes.byteOffset + hdrBytes.byteLength));
+const hdrTex = new THREE.DataTexture(hdr.data, hdr.width, hdr.height, THREE.RGBAFormat, hdr.type);
+hdrTex.colorSpace = THREE.LinearSRGBColorSpace; hdrTex.minFilter = hdrTex.magFilter = THREE.LinearFilter; hdrTex.flipY = true; hdrTex.needsUpdate = true;
+scene.environment = pm.fromScene(buildReflectionScene(hdrTex), 0.02).texture;
 
 const landX = T.state(T.T_END).pos.x;
 const env = buildEnv(scene, T, { landX });
 const track = buildTrack(T); scene.add(track.group);
-const car = buildCar(); scene.add(car);
+const car = await buildCar(); scene.add(car);
 const post = buildPost(renderer, scene, camera);
 
 // 粒子光照用的灯光列表
@@ -61,8 +68,8 @@ const overlay = new Overlay(stage, T, env.flares, track.occluders);
 // ---------------------------------------------------------------- 摄像机（手持长焦）
 const CAM_BASE = new THREE.Vector3(-62, 3.2, 68);   // 升降平台上的长焦机位
 const keys = [
-  [0, 7.2], [T.T_ENTRY - 0.9, 8.5], [T.T_ENTRY + 0.3, 22], [T.T_TOP + 0.35, 19], [T.T_STOP - 0.25, 10.5], [T.T_REL - 0.05, 7.4],
-  [T.T_REL + 0.55, 12.5], [T.T_REL + 1.6, 15], [T.T_TOUCH - 0.7, 11.5], [T.T_TOUCH + 0.9, 8.2], [T.T_END + 1, 6.6],
+  [0, 7.2], [T.T_ENTRY - 0.9, 8.5], [T.T_ENTRY + 0.3, 22], [T.T_TOP + 0.35, 19], [T.T_STOP - 0.25, 8.6], [T.T_REL - 0.05, 5.6],
+  [T.T_REL + 0.55, 12.5], [T.T_REL + 1.6, 15], [T.T_TOUCH - 0.7, 9.8], [T.T_TOUCH + 0.9, 6.0], [T.T_END + 1, 5.0],
 ];
 function fovKey(t) {
   if (t <= keys[0][0]) return keys[0][1];
@@ -255,3 +262,4 @@ if (params.get('paused') === '1') playing = false;
 document.getElementById('loading')?.remove();
 window.__ready = true;
 requestAnimationFrame(loop);
+})();

@@ -37,7 +37,8 @@ const Broadcast = {
 };
 
 export function buildPost(renderer, scene, camera) {
-  const composer = new EffectComposer(renderer);
+  const rt = new THREE.WebGLRenderTarget(1920, 1080, { type: THREE.HalfFloatType, samples: 4 });
+  const composer = new EffectComposer(renderer, rt);
   composer.addPass(new RenderPass(scene, camera));
   const bloom = new UnrealBloomPass(new THREE.Vector2(1920, 1080), 0.5, 0.5, 0.95);
   composer.addPass(bloom);
