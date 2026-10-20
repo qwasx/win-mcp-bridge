@@ -1,4 +1,6 @@
 // 第四～六步的界面：对话、交易、城镇、拍卖会、红颜录、大事记
+import type { AuctionLot } from '../world/town';
+import { cityTier, TIER_NAME } from '../data/market';
 import { SECT_DEFS, SECT_DEF, sectTitle, RANKS } from '../world/roster';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Game } from '../world/game';
@@ -204,7 +206,7 @@ function TownPanel({ game, loc, fac }: { game: Game; loc: LocDef; fac?: string }
   }, []);
   const tps = game.ws.tp.map((id) => locHere(id)!).filter((l) => l && l.id !== loc.id);   // 只列本图的传送阵
   return (
-    <Scroll title={loc.name} sub={<span>{loc.desc}　·　灵石 <b>{C.bagCount(h, 'mat_lingshi')}</b>　·　{repName(game.ws.rep)}</span>} onClose={() => game.closeModal()} wide cls="town-panel">
+    <Scroll title={loc.name} sub={<span>【{TIER_NAME[cityTier(loc)]}】{loc.desc}　·　灵石 <b>{C.bagCount(h, 'mat_lingshi')}</b>　·　{repName(game.ws.rep)}</span>} onClose={() => game.closeModal()} wide cls="town-panel">
       {occupied && <div className="town-warn">越国已沦陷，此地被魔道占据，商铺尽数关门。</div>}
       <div className="town-grid">
         {fs.map((f, i) => (
@@ -224,8 +226,7 @@ function TownPanel({ game, loc, fac }: { game: Game; loc: LocDef; fac?: string }
 }
 
 // ---------------------------------------------------------------- 拍卖会
-type Lot = { id: string; base: number; price: number; done?: 'won' | 'lost'; who?: string };
-const BIDDERS = ['一位蒙面修士', '天星宗执事', '富态的商会掌柜', '鬼灵门弟子', '白发老妪', '某世家公子', '黄衫少女', '独眼散修'];
+type Lot = AuctionLot;
 function AuctionPanel({ game, loc }: { game: Game; loc: LocDef }) {
   const key = `auc_${loc.id}_${Math.floor(game.day / 90)}`;
   const [lots, setLots] = useState<Lot[]>(() => (game as any)[key] ?? ((game as any)[key] = game.towns.auctionLots(loc)));
@@ -233,11 +234,12 @@ function AuctionPanel({ game, loc }: { game: Game; loc: LocDef }) {
   const [log, setLog] = useState<string[]>(['拍卖师敲响铜锣：「诸位道友，拍卖会正式开始！」']);
   const [lead, setLead] = useState<'me' | string | null>(null);
   const h = game.hero, money = C.bagCount(h, 'mat_lingshi');
+  const BIDDERS = game.towns.auctionBidders(loc);
   const lot = lots[cur];
   const upd = (l: Lot) => { const nl = lots.slice(); nl[cur] = l; (game as any)[key] = nl; setLots(nl); };
   const npcBid = (l: Lot): string | null => {
     const r = l.price / l.base;
-    const p = Math.max(0, 1.25 - r * 0.45) * (itemDef(l.id).id === 'pill_zhuji' ? 1.3 : 1);
+    const p = Math.max(0, 1.25 - r * 0.45) * (itemDef(l.id).id === 'pill_zhuji' ? 1.3 : 1) * (l.top ? 1.3 : 1);   // 第四十步：压轴之物争的人更多
     return Math.random() < p ? BIDDERS[Math.floor(Math.random() * BIDDERS.length)] : null;
   };
   const bid = (k: number) => {
@@ -249,7 +251,7 @@ function AuctionPanel({ game, loc }: { game: Game; loc: LocDef }) {
     const l2 = { ...lot, price: np };
     const who = npcBid(l2);
     if (who) { l2.price = Math.round(np * (1.08 + Math.random() * 0.12)); lines.push(`${who}冷笑一声：「${l2.price}！」`); setLead(who); }
-    else { lines.push('全场寂静……拍卖师连喊三声，一锤定音！'); C.removeItem(h, 'mat_lingshi', np); C.addItem(h, l2.id, 1); l2.done = 'won'; audio.sfx('chime'); setLead('me'); game.toast(`拍得 ${itemDef(l2.id).name}`, 'good'); if (Math.random() < 0.3 && itemDef(l2.id).price > 3000) { lines.push('（你察觉到有几道神识在你身上停留了片刻……出城时小心些。）'); game.ws.flags.auctionMark = game.day; } }
+    else { lines.push('全场寂静……拍卖师连喊三声，一锤定音！'); C.removeItem(h, 'mat_lingshi', np); C.addItem(h, l2.id, 1, l2.age); l2.done = 'won'; audio.sfx('chime'); setLead('me'); game.toast(`拍得 ${itemDef(l2.id).name}`, 'good'); if (Math.random() < 0.3 && itemDef(l2.id).price > 3000) { lines.push('（你察觉到有几道神识在你身上停留了片刻……出城时小心些。）'); game.ws.flags.auctionMark = game.day; } }
     upd(l2); setLog((x) => [...x.slice(-8), ...lines]);
   };
   const pass = () => {
@@ -259,12 +261,12 @@ function AuctionPanel({ game, loc }: { game: Game; loc: LocDef }) {
   };
   const next = () => { const i = lots.findIndex((l, j) => j > cur && !l.done); if (i >= 0) { setCur(i); setLead(null); setLog((x) => [...x.slice(-8), `下一件拍品：${itemDef(lots[i].id).name}，底价 ${lots[i].base} 灵石。`]); } };
   return (
-    <Scroll title="拍卖会" sub={<span>{loc.name}　·　灵石 <b>{money}</b></span>} onClose={() => game.closeModal()} wide>
+    <Scroll title={game.towns.auctionNote(loc)} sub={<span>{loc.name}（{TIER_NAME[cityTier(loc)]}）　·　灵石 <b>{money}</b></span>} onClose={() => game.closeModal()} wide>
       <div className="auc">
         <div className="auc-lots">
           {lots.map((l, i) => { const d = itemDef(l.id); return (
             <button key={i} className={'auc-lot' + (i === cur ? ' on' : '') + (l.done ? ' ' + l.done : '')} onClick={() => { if (!l.done) { setCur(i); setLead(null); } }}>
-              <ItemGlyph id={d.id} className="glyph" style={{ color: TIER_COLOR[d.tier] }} /><span>{d.name}</span><small>{l.done === 'won' ? '已拍得' : l.done === 'lost' ? `归${l.who}` : `底价 ${l.base}`}</small>
+              <ItemGlyph id={d.id} className="glyph" style={{ color: TIER_COLOR[d.tier] }} /><span>{l.top ? '【压轴】' : ''}{d.name}{l.age ? `（${l.age}年）` : ''}</span><small>{l.done === 'won' ? '已拍得' : l.done === 'lost' ? `归${l.who}` : `底价 ${l.base}`}</small>
             </button>); })}
         </div>
         <div className="auc-main">

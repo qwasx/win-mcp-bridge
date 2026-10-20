@@ -8,7 +8,7 @@ import * as C from './cultivation';
 import { mulberry32 } from '../core/rng';
 import type { DNode, DOpt, Shop, ShopStock } from './modal';
 import { SECT_RANKS, SECT_RANK_NEED, SECT_RANK_REALM, SectTask } from './worldstate';
-import { zoneOfLoc, shopLevel, pzOf, sellableAt, priceMul, yaodanCap, yaodanLv, ruleOf, sectCanOffer, canonOwned, ZONE_NAME, type Zone } from '../data/market';
+import { zoneOfLoc, shopLevel, pzOf, sellableAt, priceMul, yaodanCap, yaodanLv, ruleOf, sectCanOffer, canonOwned, ZONE_NAME, cityTier, auctionLevel, TIER_NAME, type Zone } from '../data/market';
 
 /** 玩家所在处的市集分区：取本图最近的有名地点 */
 export function zoneHere(g: Game): Zone {
@@ -44,6 +44,8 @@ export const SECT_LIB: Record<string, string[]> = {
   qixuan: ['scroll_art_jingang', 'scroll_art_yufeng', 'scroll_art_feishi', 'scroll_art_qingfeng'],
 };
 
+export interface AuctionLot { id: string; base: number; price: number; done?: 'won' | 'lost'; who?: string; top?: boolean; age?: number }
+
 export class Towns {
   game: Game;
   constructor(game: Game) { this.game = game; }
@@ -61,36 +63,51 @@ export class Towns {
 
   // ------------------------------------------------------------ 商店
   tierOf(l: LocDef) { return shopLevel(l); }
-  /** 第三十七步：货按原著产地与稀有度上架，价格按价区浮动（妖丹：乱星海便宜，天南贵得离谱） */
+  /**
+   * 第三十七步：货按原著产地与稀有度上架，价格按价区浮动（妖丹：乱星海便宜，天南贵得离谱）
+   * 第四十步：城池分五档——越大的城，货越多、越好：小镇多是大路货；大城几乎不摆凡品；雄城、天下名城的铺子里能见到拍卖会级的东西
+   */
   shop(l: LocDef, kind: 'market' | 'pill' | 'artifact' | 'talisman'): Shop {
     const g = this.game;
     const month = Math.floor(g.day / 30);
     const rnd = mulberry32(((l.x * 1000 + l.y) | 0) * 31 + month * 7 + kind.length);
-    const z = zoneOfLoc(l), lvl = shopLevel(l), pz = pzOf(z);
-    const yCap = yaodanCap(pz, lvl, rnd);
-    const filt: (it: ItemDef) => boolean = kind === 'pill' ? (it) => it.type === 'pill' : kind === 'artifact' ? (it) => it.type === 'artifact' : kind === 'talisman' ? (it) => it.type === 'talisman' || it.type === 'scroll' : (it) => it.type === 'herb' || it.type === 'material' || (it.type === 'pill' && it.tier <= 1) || it.type === 'talisman';
-    const pool = ITEM_LIST.filter((it) => filt(it) && sellableAt(it, z, lvl, yCap, l.id));
-    // 同档里越稀罕越少见
-    const wt = pool.map((it) => { const gr = yaodanLv(it.id) ? (yaodanLv(it.id) >= yCap ? lvl : 0) : ruleOf(it).g; return gr >= lvl ? 0.4 : gr === lvl - 1 ? 0.8 : 1; });
+    const z = zoneOfLoc(l), lvl = shopLevel(l), pz = pzOf(z), T = cityTier(l);
+    const yCap = yaodanCap(pz, Math.min(3, lvl), rnd);
+    const base: (it: ItemDef) => boolean = kind === 'pill' ? (it) => it.type === 'pill' : kind === 'artifact' ? (it) => it.type === 'artifact' : kind === 'talisman' ? (it) => it.type === 'talisman' || it.type === 'scroll' : (it) => it.type === 'herb' || it.type === 'material' || (it.type === 'pill' && it.tier <= 1) || it.type === 'talisman';
+    // 大城不摆凡品：法器阁里没有入门法器，丹铺里没有聚气丹之流（回气、疗伤另行常备）
+    const minTier = T >= 5 ? 2 : T >= 4 ? (kind === 'market' ? 1 : 2) : T >= 3 ? 1 : 0;
+    const filt = (it: ItemDef) => base(it) && (it.tier >= minTier || (kind === 'market' && it.type === 'talisman' && it.tier >= 1));
+    // 筑基丹不进铺子：天南被七派把持、大晋也只上拍卖（乱星海大岛的丹铺另行处理）
+    const pool = ITEM_LIST.filter((it) => filt(it) && it.id !== 'pill_zhuji' && sellableAt(it, z, lvl, yCap, l.id));
+    // 档次越高，越偏向本档的好货：目标档 1.6 · 次一档 1 · 再次 0.45 · 更低 0.15
+    const target = Math.min(lvl, 4);
+    const gradeOf = (it: ItemDef) => (yaodanLv(it.id) ? (yaodanLv(it.id) >= yCap ? Math.min(3, lvl) : 1) : ruleOf(it).g);
+    const wt = pool.map((it) => { const gr = gradeOf(it); return gr >= target ? 1.6 : gr === target - 1 ? 1 : gr === target - 2 ? 0.45 : 0.15; });
     const tot = wt.reduce((a, b) => a + b, 0);
     const pickW = () => { let r = rnd() * tot; for (let i = 0; i < pool.length; i++) { r -= wt[i]; if (r <= 0) return pool[i]; } return pool[pool.length - 1]; };
     const stock: ShopStock[] = [];
     const k = 1 - this.game.hearts.bonus('luck');
     const add = (it: ItemDef) => {
       if (stock.some((s) => s.id === it.id)) return;
-      stock.push({ id: it.id, price: Math.max(1, Math.round(it.price * priceMul(it, z) * (0.9 + rnd() * 0.4) * k * (g.ws.rep < -40 ? 1.3 : 1))), n: it.type === 'artifact' || it.type === 'scroll' ? 1 : 1 + Math.floor(rnd() * (it.tier <= 1 ? 8 : 3)), age: it.type === 'herb' ? 5 + Math.floor(rnd() * 40) : undefined });
+      const g4 = ruleOf(it).g >= 4 && !yaodanLv(it.id) ? (T >= 5 ? 1.1 : 1.25) : 1;   // 拍卖会级的货摆在铺子里，要价更高
+      stock.push({ id: it.id, price: Math.max(1, Math.round(it.price * priceMul(it, z) * g4 * (0.9 + rnd() * 0.4) * k * (g.ws.rep < -40 ? 1.3 : 1))), n: it.type === 'artifact' || it.type === 'scroll' || ruleOf(it).g >= 4 ? 1 : 1 + Math.floor(rnd() * (it.tier <= 1 ? 8 : 3 + (T >= 4 ? 2 : 0))), age: it.type === 'herb' ? Math.round((5 + rnd() * 40) * (T >= 4 ? 1 + rnd() * 4 : 1)) : undefined });
     };
-    const n = kind === 'market' ? 10 : 7;
+    const n = (kind === 'market' ? [8, 8, 10, 13, 16, 20] : [6, 6, 7, 9, 12, 15])[T] ?? 8;
     for (let i = 0; i < n * 4 && stock.length < n && pool.length; i++) add(pickW());
     // 乱星海坊市：妖丹是硬通货，月月有货
     if (kind === 'market' && pz === 'LX') for (let lv = Math.max(1, yCap - 2); lv <= yCap; lv++) { const it = itemDef(`mat_yaodan${lv}`); if (it && rnd() < 0.75) add(it); }
     // 海外筑基丹不像天南那样被七派把持：大岛丹铺偶有一两颗
-    if (kind === 'pill' && pz === 'LX' && lvl >= 3 && rnd() < 0.3) { const it = itemDef('pill_zhuji'); add(it); const s0 = stock.find((s) => s.id === it.id); if (s0) s0.n = 1; }
+    if (kind === 'pill' && pz === 'LX' && lvl >= 3 && rnd() < (T >= 5 ? 0.6 : 0.3)) { const it = itemDef('pill_zhuji'); add(it); const s0 = stock.find((s) => s.id === it.id); if (s0) s0.n = 1; }
+    // 丹铺常备回气、疗伤
+    if (kind === 'pill') for (const id of ['pill_huiqi', 'pill_liaoshang']) if (!stock.some((s) => s.id === id)) { const it = itemDef(id); stock.push({ id, price: Math.round(it.price * (0.9 + rnd() * 0.3)), n: 5 + Math.floor(rnd() * 6) }); }
     // 第十八步：坊市常备破禁符、回府符
     if (kind === 'market') for (const id of ['tal_pojin', 'tal_huifu']) if (!stock.some((s) => s.id === id)) { const it = itemDef(id); stock.push({ id, price: Math.round(it.price * (0.9 + rnd() * 0.3)), n: 3 + Math.floor(rnd() * 5) }); }
+    // 好货排前
+    stock.sort((a, b) => itemDef(b.id).tier - itemDef(a.id).tier || b.price - a.price);
     const title = { market: '坊市', pill: '丹药铺', artifact: '法器阁', talisman: '符箓斋' }[kind];
     const note = pz === 'LX' ? '海外坊市：妖丹、海兽材料便宜，灵草稀贵' : pz === 'DJ' ? '大晋坊市：品类齐全，价钱也贵' : '天南坊市：灵草不缺，妖丹奇贵';
-    return { title: `${l.name} · ${title}`, desc: (kind === 'market' ? '灵草、材料、符箓杂货，每月换一批货。' : '') + note, stock, sellRate: 0.5, zone: z };
+    const tierNote = ['', '小地方，多是大路货。', '寻常城池，货色平平。', '大城，凡品已不上架。', '雄城，偶有拍卖会级的好货。', '天下名城，奇珍异宝云集。'][T];
+    return { title: `${l.name} · ${title}`, desc: `【${TIER_NAME[T]}】${tierNote}` + (kind === 'market' ? '每月换一批货。' : '') + note, stock, sellRate: 0.5, zone: z };
   }
   /** 卖给这家店能得多少灵石（按价区） */
   sellPrice(shop: Shop, id: string, age = 0) {
@@ -161,31 +178,56 @@ export class Towns {
     return true;
   }
 
-  // ------------------------------------------------------------ 拍卖会（大城，每季度一次，持续十日）
+  // ------------------------------------------------------------ 拍卖会（城池，每季度一次，持续十日）
+  // 第四十步：拍卖会也分档——小城拍的是筑基修士眼热的东西；雄城、天下名城（晋京九霄殿、天星城星宫拍卖）的压轴是元婴老怪也要争的灵宝
   auctionOpen(l: LocDef) { if (!this.isMajorTown(l)) return false; const d = Math.floor(this.game.day) % 90; return d >= 80; }
-  auctionLots(l: LocDef) {
+  auctionLots(l: LocDef): AuctionLot[] {
     const g = this.game;
     const q = Math.floor(g.day / 90);
     const rnd = mulberry32(((l.x * 977 + l.y * 13) | 0) + q * 101);
     // 第三十七步：拍品按原著产地——天南拍不到乱星海的高阶妖丹，乱星海拍不到天南七派把持的筑基丹；原著有主之宝一概不上台
-    const z = zoneOfLoc(l), pz = pzOf(z), yCap = yaodanCap(pz, 4, rnd);
-    const pool = ITEM_LIST.filter((it) => it.price >= 400 && !yaodanLv(it.id) && it.type !== 'misc' && sellableAt(it, z, 4) && ruleOf(it).g >= 3);
-    const wt = pool.map((it) => (ruleOf(it).g >= 4 ? 2 : 1));
+    const z = zoneOfLoc(l), pz = pzOf(z), A = auctionLevel(l), yCap = yaodanCap(pz, A, rnd);
+    const minPrice = [0, 0, 0, 150, 400, 2500, 8000][A], gLo = A <= 3 ? 2 : 3;
+    const pool = ITEM_LIST.filter((it) => it.price >= minPrice && !yaodanLv(it.id) && (it.type !== 'misc' || it.price > 0) && sellableAt(it, z, A, yCap, l.id, true) && ruleOf(it).g >= gLo);
+    const wt = pool.map((it) => { const r = ruleOf(it); return (r.g >= 4 ? (A >= 5 ? 3 : 2) : 1) * (r.minLv ? 2.5 : 1) * (A >= 6 ? 1 + it.tier * 0.25 : 1); });
     const tot = wt.reduce((a, b) => a + b, 0);
-    const lots: { id: string; base: number; price: number; done?: 'won' | 'lost' }[] = [];
-    const push = (id: string, base: number) => { if (!lots.some((x) => x.id === id)) lots.push({ id, base, price: base }); };
-    // 压轴的妖丹：乱星海常见，天南难得一见
-    if (rnd() < (pz === 'LX' ? 0.75 : pz === 'DJ' ? 0.35 : 0.3)) { const it = itemDef(`mat_yaodan${yCap}`); push(it.id, Math.round(it.price * priceMul(it, z) * (0.7 + rnd() * 0.3))); }
-    for (let t = 0; t < 40 && lots.length < 5 && pool.length; t++) {
+    const lots: AuctionLot[] = [];
+    const lot = (id: string, base: number, top = false) => { const it = itemDef(id); return { id, base, price: base, top, age: it.type === 'herb' ? Math.round((it.herbBase ?? 50) * (1 + rnd() * (A >= 5 ? 6 : 2))) : undefined }; };
+    const push = (id: string, base: number, top = false) => { if (!lots.some((x) => x.id === id)) lots.push(lot(id, base, top)); };
+    const basePrice = (id: string, k = 1) => { const it = itemDef(id); return Math.round(it.price * priceMul(it, z) * (0.6 + rnd() * 0.3) * k); };
+    const nLots = [0, 0, 0, 4, 5, 7, 9][A];
+    for (let t = 0; t < 60 && lots.length < nLots && pool.length; t++) {
       let r = rnd() * tot, it = pool[0];
       for (let i = 0; i < pool.length; i++) { r -= wt[i]; if (r <= 0) { it = pool[i]; break; } }
-      push(it.id, Math.round(it.price * priceMul(it, z) * (0.6 + rnd() * 0.3)));
+      push(it.id, basePrice(it.id));
     }
-    if (pz !== 'LX' && rnd() < 0.5 && !lots.some((x) => x.id === 'pill_zhuji')) lots[lots.length - 1] = { id: 'pill_zhuji', base: pz === 'TN' ? 1200 : 1500, price: pz === 'TN' ? 1200 : 1500 };
+    // 筑基丹：天南、大晋的中小拍卖会常客（雄城名城看不上）
+    if (pz !== 'LX' && A <= 4 && rnd() < 0.5 && !lots.some((x) => x.id === 'pill_zhuji') && lots.length) lots[lots.length - 1] = lot('pill_zhuji', pz === 'TN' ? 1200 : 1500);
+    // 压轴的妖丹：乱星海常见，天南难得一见
+    if (rnd() < (pz === 'LX' ? 0.75 : pz === 'DJ' ? 0.35 : 0.3) + (A >= 5 ? 0.2 : 0)) push(`mat_yaodan${yCap}`, basePrice(`mat_yaodan${yCap}`, 1.1), A >= 5);
+    // 雄城 / 名城的压轴：元婴期的灵宝、丹药、功法
+    if (A >= 5) {
+      const tops = pool.filter((it) => (ruleOf(it).minLv ?? 0) >= 5 || it.tier >= 5);
+      for (let i = 0; i < (A >= 6 ? 2 : 1) && tops.length; i++) { const it = tops[Math.floor(rnd() * tops.length)]; push(it.id, basePrice(it.id, 1.1), true); }
+      // 原著：大晋京城拍卖会上拍出过庚精；天星城大拍卖偶有一截天雷竹（妙音门流出）
+      if (l.id === 'jinjing' && rnd() < 0.4) push('mat_gengjing', basePrice('mat_gengjing'), true);
+      if (l.id === 'tiantian' && rnd() < 0.25) push('mat_gengjing', basePrice('mat_gengjing'), true);
+      if (l.id === 'tianxing' && rnd() < 0.12) { push('herb_tianleizhu', basePrice('herb_tianleizhu', 1.4), true); const t = lots.find((x) => x.id === 'herb_tianleizhu'); if (t) t.age = 1000 + Math.round(rnd() * 1500); }
+    }
+    // 压轴的放最后
+    lots.sort((a, b) => Number(!!a.top) - Number(!!b.top) || a.base - b.base);
     return lots;
   }
   /** 本地拍卖会的风格（界面上提一句） */
-  auctionNote(l: LocDef) { const z = zoneOfLoc(l); return `${ZONE_NAME[z]}拍卖会`; }
+  auctionNote(l: LocDef) { const z = zoneOfLoc(l), T = cityTier(l); return `${ZONE_NAME[z]}${T >= 5 ? (l.id === 'jinjing' ? '九霄殿大拍卖' : l.id === 'tianxing' ? '星宫大拍卖' : '大拍卖') : T >= 4 ? '大拍卖会' : '拍卖会'}`; }
+  /** 竞价的人——越大的拍卖会，来的人境界越高 */
+  auctionBidders(l: LocDef): string[] {
+    const T = cityTier(l), map = l.map;
+    const low = ['一位蒙面修士', '富态的商会掌柜', '白发老妪', '某世家公子', '黄衫少女', '独眼散修'];
+    const mid = map === 'luanxing' ? ['星宫执事', '逆星盟长老', '极阴岛弟子', '猎妖团团长'] : map === 'dajin' ? ['太一门长老', '叶家家主', '天魔宗执事', '化意门长老'] : ['落云宗长老', '鬼灵门弟子', '天道盟执事', '古剑门剑修'];
+    const high = map === 'luanxing' ? ['星宫的元婴长老（神识一扫全场）', '某位海外元婴老怪', '雅间里的元婴修士'] : map === 'dajin' ? ['天字号雅间里的元婴老怪', '叶家元婴老祖', '天魔宗元婴长老', '皇族供奉（元婴）'] : ['天道盟的元婴长老', '雅间里的元婴老怪', '鬼灵门元婴长老'];
+    return T >= 4 ? [...mid, ...high, ...high] : T >= 3 ? [...low, ...mid] : low;
+  }
 
   // ------------------------------------------------------------ 宗门
   sectOf() { const s = this.game.ws.sect; return s ? LOC_BY_ID.get(s.id) ?? null : null; }
