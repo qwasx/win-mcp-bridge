@@ -293,6 +293,7 @@ export class Game {
       [this.home.focus ? this.home.focusD : 1e9, () => this.home.interact()],
       [this.happen.focus ? this.happen.focusD : 1e9, () => this.happen.interact()],
       [this.happen.heraldFocus ? 150 : 1e9, () => this.happen.heraldInteract()],
+      [this.happen.great.focus ? 140 : 1e9, () => this.happen.great.interact()],
       [this.pets.focus ? this.pets.focusD : 1e9, () => this.pets.interact()],
       [this.landmarks.focus ? this.landmarks.focusD + 30 : 1e9, () => this.landmarks.interact()],
       [this.space.doorFocus && !this.isFlying ? this.space.doorFocus.d + 20 : 1e9, () => this.enterDoor()],
@@ -902,11 +903,13 @@ export class Game {
     const out: { t: string; d: string; x?: number; y?: number; hot?: boolean; tone?: string }[] = [];
     const f = this.ws.flags as any, p = this.player, day = this.day;
     const far = (x: number, y: number) => `${dirName(x - p.x, y - p.y)}方约 ${Math.round(Math.hypot(x - p.x, y - p.y) / 30)} 丈`;
-    // 异宝
+    // 大夺宝
+    const gc = this.happen.great.chance(); if (gc) out.push(gc);
+    // 异宝（小夺宝）
     const hd = f.herald;
     if (hd && !hd.done && hd.day + 45 > day) {
       const left = Math.max(1, Math.ceil(hd.day + 45 - day));
-      if (hd.map === ACTIVE_MAP) out.push({ t: '异宝出世', d: `${far(hd.x, hd.y)}，宝光冲天。${left} 日内无人取走，便会落入${hd.rival}之手。`, x: hd.x, y: hd.y, hot: true, tone: 'gold' });
+      if (hd.map === ACTIVE_MAP) out.push({ t: '小夺宝·异宝出世', d: `${far(hd.x, hd.y)}，宝光冲天。${left} 日内无人取走，便会落入${hd.rival}之手。`, x: hd.x, y: hd.y, hot: true, tone: 'gold' });
       else out.push({ t: '异宝出世', d: `${MAP_NAME[hd.map as MapId] ?? '别处'}有异宝出世，余 ${left} 日。`, tone: 'gold' });
     } else if (f.heraldNext && f.heraldNext > day) {
       const m = Math.max(1, Math.round((f.heraldNext - day) / 30));

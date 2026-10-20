@@ -8,6 +8,7 @@ const { RECIPES } = await import('../src/data/recipes');
 const { ENEMY_LIST } = await import('../src/data/enemies');
 const { ART_LIST, START_ARTS } = await import('../src/data/arts');
 const { BOUND_ARTS } = await import('../src/world/obtain');
+const GH = await import('../src/world/great');
 const M = await import('../src/data/market');
 const { SECT_LIB } = await import('../src/world/town');
 const { CANON_ONLY_ART } = await import('../src/world/sites');
@@ -44,6 +45,7 @@ const ok = (it: any) => {
   if (randScroll.has(it.id)) how.push('随机卷轴');
   if (explicit(it.id)) how.push('机缘/剧情');
   if (DYNAMIC[it.id]) how.push(DYNAMIC[it.id]);
+  if ([...GH.GREAT_TOP, ...GH.GREAT_LINGBAO, ...GH.GREAT_SECRET].includes(it.id)) how.push('大夺宝（great.ts）');
   if (!how.length && (it.type === 'pill' || it.type === 'talisman' || it.type === 'material') && it.price > 0 && !yl && it.id !== 'mat_gubaocan' && !M.canonOwned(it.id)) how.push('遗物(随机)');
   if (!how.length && it.type === 'artifact' && it.price > 0 && !CANON_ONLY_ART.has(it.id) && !M.canonOwned(it.id) && it.tier >= 1 && it.tier <= 5) how.push('异宝(随机)');
   return how;
