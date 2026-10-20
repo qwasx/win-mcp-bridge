@@ -53,6 +53,8 @@ const I: ItemDef[] = [
   { id: 'herb_huolong', name: '火龙果', type: 'herb', tier: 3, price: 400, desc: '火属灵果，降尘丹主药。', glyph: '果', herbBase: 80, stack: true },
   { id: 'herb_bingpo', name: '冰魄草', type: 'herb', tier: 3, price: 350, desc: '寒属灵草，可炼凝元丹。', glyph: '草', herbBase: 80, stack: true },
   { id: 'herb_jiuqu', name: '九曲灵参', type: 'herb', tier: 5, price: 20000, desc: '结婴圣药，可化形遁走，极难寻得。', glyph: '参', herbBase: 300, stack: true },
+  // 第四十步：原著——韩立以妙音门客卿长老为条件，从紫灵仙子处换来带根的一小截天雷竹，再以掌天瓶绿液催熟成万年金雷竹
+  { id: 'herb_tianleizhu', name: '天雷竹', type: 'herb', tier: 4, price: 9000, desc: '人界三大神木之一，带根的一截。两千年以下只放白雷，五千年以上雷色转蓝，长到万年便化为能放辟邪神雷的金雷竹（掌天瓶绿液可催熟；万年时自成金雷竹，旁生新枝）。', glyph: '竹', herbBase: 3000, stack: true },
   { id: 'herb_xuejing', name: '血精草', type: 'herb', tier: 3, price: 300, desc: '血色灵草，培婴丹辅药。', glyph: '草', herbBase: 100, stack: true },
   { id: 'herb_yangshen', name: '万年灵乳', type: 'herb', tier: 4, price: 3000, desc: '万年钟乳凝成，延寿圣物。', glyph: '乳', herbBase: 200, stack: true },
 
@@ -73,6 +75,11 @@ const I: ItemDef[] = [
   { id: 'pill_yanshou', name: '延寿丹', type: 'pill', tier: 3, price: 5000, desc: '增加二十年寿元，每人服用有限。', glyph: '丹', pill: { life: 20 }, stack: true },
   { id: 'pill_yanghun', name: '养魂丹', type: 'pill', tier: 3, price: 4000, desc: '温养神魂，永久提升神识。', glyph: '丹', pill: { sense: 0.06 }, stack: true },
   { id: 'pill_butian', name: '补天丹', type: 'pill', tier: 6, price: 999999, desc: '虚天殿至宝，可改善灵根资质，伪灵根亦能脱胎换骨。', glyph: '丹', pill: { root: 1 }, stack: true },
+  // 第四十步：元婴期丹药
+  { id: 'pill_yuanling', name: '元灵丹', type: 'pill', tier: 5, price: 45000, desc: '元婴修士温养元婴之丹，药力浑厚。', glyph: '丹', pill: { exp: 160000 }, stack: true },
+  { id: 'pill_zifu', name: '紫府玄元丹', type: 'pill', tier: 5, price: 120000, desc: '以九曲灵参与九级妖丹炼成的元婴圣药，一颗抵得数十年苦修。', glyph: '丹', pill: { exp: 360000 }, stack: true },
+  { id: 'pill_wanshou', name: '万寿丹', type: 'pill', tier: 5, price: 60000, desc: '续命灵丹，服之可增寿六十载。元婴老怪大限将至时愿倾家荡产求一颗。', glyph: '丹', pill: { life: 60 }, stack: true },
+  { id: 'pill_ningpo', name: '凝魄丹', type: 'pill', tier: 5, price: 40000, desc: '凝练神魂，神识大进。', glyph: '丹', pill: { sense: 0.1 }, stack: true },
 
   // ---------- 材料 ----------
   // 妖丹：原著一至十级（1 炼气 · 2–4 筑基 · 5–7 结丹 · 8–10 元婴；七级以上可渡劫化形）
@@ -173,6 +180,7 @@ const I: ItemDef[] = [
   { id: 'egg_wolf', name: '灵狼幼崽', type: 'misc', tier: 3, price: 2600, desc: '狼崽眼神凶悍，长成后扑咬凌厉，是护主的好手。（自动温养）', glyph: '狼', stack: true },
   { id: 'egg_jiao', name: '蛟卵', type: 'misc', tier: 4, price: 9000, desc: '墨蛟之卵，温养极慢，孵出后水火之术俱强。（自动温养）', glyph: '蛟', stack: true },
   { id: 'egg_shijin', name: '噬金虫卵', type: 'misc', tier: 5, price: 36000, desc: '奇虫榜排名第三的噬金虫之卵。原著中韩立倚之横行一方——能吞噬法宝，几乎无物可挡。（自动温养）', glyph: '虫', stack: true },
+  { id: 'item_tihun', name: '啼魂幼兽', type: 'misc', tier: 5, price: 0, desc: '专吞魂魄的上古异兽幼崽，蜷在掌心像只小猫。带在身边，便可学会召唤它的《啼魂兽》。', glyph: '兽', stack: true },
   { id: 'gift_fan', name: '题诗团扇', type: 'misc', tier: 1, price: 0, desc: '她亲手题了半阙诗的团扇，墨香犹在。', glyph: '扇' },
   { id: 'gift_hairpin', name: '青玉发簪', type: 'misc', tier: 2, price: 0, desc: '她鬓边常戴的那支发簪，如今在你手里。', glyph: '簪' },
   { id: 'gift_sachet', name: '同心香囊', type: 'misc', tier: 3, price: 0, desc: '绣着并蒂莲的香囊，里面封着她的一缕青丝。', glyph: '囊' },
@@ -274,6 +282,21 @@ const I: ItemDef[] = [
   { id: 'art_heifengqi', name: '黑风旗', type: 'artifact', tier: 5, price: 150000, desc: '灵宝。黑风滚滚，旗中封着上古风魔，一出便是遮天蔽日。', glyph: '旗', art: { kind: 'banner', reqRealm: 4, sense: 140, pieces: 1, power: 2.6, mp: 60, cd: 10, element: 'yin', color: '#303040' } },
   { id: 'art_zhenhaizhong', name: '镇海钟', type: 'artifact', tier: 5, price: 170000, desc: '灵宝。钟声如潮，可镇四海，元婴修士亦被震得神魂失守。', glyph: '钟', art: { kind: 'bell', reqRealm: 4, sense: 150, pieces: 1, power: 3.4, mp: 60, cd: 8, element: 'water', color: '#60a0c0' } },
   { id: 'art_tianajian', name: '天阿神剑', type: 'artifact', tier: 5, price: 190000, desc: '灵宝。剑气纵横三千丈，天南罕见的神剑。', glyph: '剑', art: { kind: 'sword', reqRealm: 4, sense: 150, pieces: 1, power: 7.5, mp: 8, cd: 1.0, element: 'gold', color: '#f0f0ff' } },
+  // —— 第四十步：元婴修士的灵宝（雄城 / 名城拍卖会的压轴、大夺宝的彩头）——
+  { id: 'art_zixiao', name: '紫霄雷剑', type: 'artifact', tier: 5, price: 160000, desc: '灵宝。剑身紫电缭绕，一剑落下雷光三千丈。', glyph: '剑', art: { kind: 'sword', reqRealm: 4, sense: 150, pieces: 1, power: 7.2, mp: 8, cd: 1.0, element: 'thunder', color: '#b8a0ff' } },
+  { id: 'art_xuanming', name: '玄冥寒魄针', type: 'artifact', tier: 5, price: 150000, desc: '灵宝。二十四枚寒魄针，神识越强同时驱使越多，中者元神冻结。', glyph: '针', art: { kind: 'needle', reqRealm: 4, sense: 40, pieces: 24, power: 0.95, mp: 2, cd: 0.9, element: 'ice', color: '#a8e0ff' } },
+  { id: 'art_jiuyanglu', name: '九阳焚天炉', type: 'artifact', tier: 5, price: 200000, desc: '灵宝。炉中九缕真阳之火，一倾而出便是一片火海。', glyph: '炉', art: { kind: 'flame', reqRealm: 4, sense: 150, pieces: 1, power: 4.4, mp: 40, cd: 5, element: 'fire', color: '#ff9a40' } },
+  { id: 'art_shanheyin', name: '山河印', type: 'artifact', tier: 5, price: 170000, desc: '灵宝。印落如山河倾覆，结丹修士挨上一记便筋断骨折。', glyph: '印', art: { kind: 'slam', reqRealm: 4, sense: 150, pieces: 1, power: 14, mp: 70, cd: 6, element: 'earth', color: '#b89a60' } },
+  { id: 'art_qiankunjing', name: '乾坤镜', type: 'artifact', tier: 5, price: 165000, desc: '灵宝。镜光一照，乾坤颠倒，护体灵光尽数剥落。', glyph: '镜', art: { kind: 'mirror', reqRealm: 4, sense: 150, pieces: 1, power: 5.6, mp: 40, cd: 3.5, element: 'gold', color: '#e8dcb0' } },
+  { id: 'art_xuanwudun', name: '玄武宝盾', type: 'artifact', tier: 5, price: 150000, desc: '灵宝。龟甲纹路的宝盾，祭起时一道玄武虚影护住全身。', glyph: '盾', art: { kind: 'shield', reqRealm: 4, sense: 120, pieces: 1, power: 0, mp: 0, cd: 0, absorb: 1.3, color: '#5a7a6a' } },
+  { id: 'art_longlinjia', name: '龙鳞宝甲', type: 'artifact', tier: 5, price: 155000, desc: '灵宝。以蛟龙逆鳞缀成，寻常法宝打上去只溅起一串火星。', glyph: '甲', art: { kind: 'armor', reqRealm: 4, sense: 120, pieces: 1, power: 0, mp: 0, cd: 0, def: 0.4, color: '#6a8a7a' } },
+  { id: 'art_wanhunfan', name: '万魂幡', type: 'artifact', tier: 5, price: 180000, desc: '灵宝。幡中拘着万千生魂，一展便是阴风惨惨、鬼哭盈野。魔道至宝。', glyph: '幡', art: { kind: 'banner', reqRealm: 4, sense: 150, pieces: 1, power: 2.3, mp: 45, cd: 9, element: 'blood', color: '#7a2a40' } },
+  { id: 'art_fulongsuo', name: '缚龙索', type: 'artifact', tier: 5, price: 140000, desc: '灵宝。金索一抛，便是蛟龙也挣脱不得。', glyph: '索', art: { kind: 'bind', reqRealm: 4, sense: 150, pieces: 1, power: 2.4, mp: 35, cd: 8, element: 'gold', color: '#e0c060' } },
+  { id: 'art_yunxiaozhou', name: '云霄宝舟', type: 'artifact', tier: 5, price: 130000, desc: '灵宝飞舟。祭出后按 F 乘舟，日行万里，飞渡大海如履平地。', glyph: '舟', art: { kind: 'flight', reqRealm: 4, sense: 0, pieces: 1, power: 0, mp: 0, cd: 0, mapSpeed: 2.0, color: '#d8e8f0' } },
+  // —— 第四十步：通天级的原创至宝，只在大夺宝里出世 ——
+  { id: 'art_taixujianxia', name: '太虚剑匣', type: 'artifact', tier: 6, price: 900000, desc: '剑匣中藏九口太虚剑，匣开时剑气冲霄，三十里外都看得见。元婴修士得之，可与化神周旋。', glyph: '匣', art: { kind: 'sword', reqRealm: 4, sense: 60, pieces: 9, power: 3.6, mp: 6, cd: 0.9, element: 'gold', color: '#f8f0d0' } },
+  { id: 'art_zhoutianpan', name: '周天星斗盘', type: 'artifact', tier: 6, price: 850000, desc: '星盘一转，周天星力倾泻而下，盘中三百六十五颗星辰各自为阵。', glyph: '盘', art: { kind: 'ring', reqRealm: 4, sense: 160, pieces: 1, power: 6, mp: 30, cd: 3, element: 'gold', color: '#4a5a9a' } },
+  { id: 'art_jiuyoudeng', name: '九幽冥灯', type: 'artifact', tier: 6, price: 880000, desc: '灯焰碧绿，照见九幽。灯火所及，元神如雪遇汤。', glyph: '灯', art: { kind: 'flame', reqRealm: 4, sense: 160, pieces: 1, power: 6.2, mp: 45, cd: 5, element: 'blood', color: '#60ffa0' } },
 ];
 
 // 法术卷轴（第三步）：每门法术一卷

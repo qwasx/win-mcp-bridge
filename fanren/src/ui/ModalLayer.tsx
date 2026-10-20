@@ -188,6 +188,7 @@ function TownPanel({ game, loc, fac }: { game: Game; loc: LocDef; fac?: string }
   fs.push({ seal: '栈', name: isSect ? '洞府' : '客栈', desc: isSect ? '歇息一夜，自动存档' : `住店一晚（${loc.type === 'city' ? 5 : 2} 灵石），气血法力尽复，自动存档`, act: () => { T.rest(loc); re(); } });
   if (T.hasTeleport(loc)) fs.push({ seal: '阵', name: '传送阵', desc: `已激活 ${game.ws.tp.length} 处，按路程收取灵石`, act: () => setTp(!tp) });
   if (T.isMajorTown(loc)) { const open = T.auctionOpen(loc); const d = Math.floor(game.day) % 90; fs.push({ seal: '拍', name: '拍卖会', desc: open ? `正在举行（还剩 ${90 - d} 日）` : `每季末举行，${80 - d} 日后开拍`, act: () => game.openModal({ kind: 'auction', loc }), dis: open ? undefined : '尚未开拍', cls: open ? 'gold' : '' }); }
+  { const ob = game.happen.obtain.facility(loc.id); if (ob) fs.push({ seal: '客', name: ob.name, desc: ob.desc, act: () => game.openDialog(game.happen.obtain.node()), cls: 'gold' }); }
   for (const b of BEAUTIES) if (b.home === loc.id) { const s = game.ws.hearts[b.id]; const n = game.npcs.byId.get('b_' + b.id); if (n?.alive && (n.map ?? 'tiannan') === loc.map && Math.hypot(n.x - loc.x * 300, n.y - loc.y * 300) < 8000) fs.push({ seal: '缘', name: s?.met ? `拜访${b.name}` : '传闻中的仙子', desc: s?.met ? b.title : '听说此地住着一位女修……', act: () => game.hearts.talk(b.id), cls: 'love' }); }
   const SEAL_KEY: Record<string, string> = { 宗: 'sect', 市: 'market', 丹: 'pill', 器: 'artifact', 符: 'talisman', 酒: 'tavern', 赏: 'board', 栈: 'rest', 阵: 'teleport', 拍: 'auction' };
   for (const f of fs) f.key = SEAL_KEY[f.seal];

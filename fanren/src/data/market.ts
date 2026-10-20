@@ -56,27 +56,29 @@ interface Rule {
   homes?: string[];
   /** 价区倍率 */
   m?: Partial<Record<PZone, number>>;
+  /** 第四十步：只在档次 ≥ minLv 的地方露面（4 大城坊市 · 5 名城坊市 / 雄城拍卖会 · 6 天下名城拍卖会） */
+  minLv?: number;
 }
 const TN: PZone = 'TN', LX: PZone = 'LX', DJ: PZone = 'DJ';
 
 // ---------------------------------------------------------------- 原著有主之宝 / 天下独一份
 const OWNED: Record<string, string> = {
   art_qingzhu: '韩立', art_sanyan: '韩立', art_leihuogong: '韩立', mat_jinleizhu: '韩立',
-  art_zhuque: '南宫婉', art_zhuxie: '南宫婉', art_ningguang: '掩月宗南宫婉师姐',
-  art_tianyang: '温天仁（六道极圣一脉）', art_lanjin: '龙夫人', art_huanglin: '蛮胡子', art_zibing: '蛮胡子',
+  art_zhuque: '南宫婉', art_zhuxie: '南宫婉',
+  art_tianyang: '温天仁（六道极圣一脉）', art_huanglin: '蛮胡子', art_zibing: '蛮胡子',
   art_qingmingzhen: '青易居士', art_guanrijian: '星宫执法长老', art_yuanci: '星宫（元磁神山）', art_xuanhuangjing: '万法门', art_liangyihuan: '玄黄老人',
   art_yufengche: '穆上师', art_qianchongfeng: '穆上师', art_jingangzhao: '炫烨王', art_luohunsha: '狂沙上人', art_sifangxue: '四散真人', art_molongren: '上古魔修（魔龙刃）',
   art_fenglei: '风希', mat_leipenggu: '风希', art_guiluo: '阴罗宗（十八杆鬼罗幡）', art_tiandu: '魔道老怪', art_sanshen: '魔道老怪',
   art_xutian: '虚天殿', art_qianlan: '虚天殿', art_wuxing: '虚天殿', art_huolan: '虚天殿', pill_butian: '虚天殿', tal_liuding: '虚天殿',
   art_wuzi: '昆吾山', art_balingchi: '昆吾山', art_heifengqi: '昆吾山', mat_yinchi: '昆吾山（银翅夜叉）', mat_xueyan: '坠魔谷（古魔血焰）',
   art_zhenhaizhong: '小极宫', mat_shuanggongdu: '小极宫（六翼霜蚣）', art_tianajian: '太一门',
-  mat_jinjiaolin: '十级金蛟王', mat_bingfengyu: '冰凤', mat_gengjing: '天道盟（赌斗所得）', item_yuanqi: '上古遗物',
-  herb_jiuqu: '万年灵物', pill_jiuqu: '万年灵物', egg_shijin: '噬金虫（天下难寻）',
+  mat_jinjiaolin: '十级金蛟王', mat_bingfengyu: '冰凤', item_yuanqi: '上古遗物',
+  herb_jiuqu: '万年灵物', pill_jiuqu: '万年灵物', egg_shijin: '噬金虫（天下难寻）', item_tihun: '上古异兽（啼魂）',
   mat_huochan: '坠魔谷（火蟾兽）', mat_mangpi: '坠魔谷（蟒兽）',
   // 原著独门功法 / 秘术：只能靠机缘
-  scroll_dayan: '大衍神君（千竹教）', scroll_art_jingshen: '大衍诀', scroll_art_dayanchong: '大衍诀', scroll_art_wugui: '大衍诀', scroll_art_shishen: '大衍诀',
-  scroll_yuanci: '星宫', scroll_art_yuanci: '星宫', scroll_art_qianlan: '小极宫', scroll_art_bixie: '韩立（金雷竹）', scroll_art_jinlei: '韩立（金雷竹）',
-  scroll_art_fengleichi: '风希', scroll_art_jifeng: '萧翠儿（兽皮书）', scroll_art_nifeng: '萧翠儿（兽皮书）', scroll_art_xueyingdun: '玄阴经 / 兽皮书',
+ 
+  scroll_art_qianlan: '小极宫', scroll_art_bixie: '韩立（金雷竹）', scroll_art_jinlei: '韩立（金雷竹）',
+  scroll_art_fengleichi: '风希',
   scroll_art_dageng: '青元剑诀（韩立）', scroll_art_shijin: '噬金虫', scroll_art_tihun: '啼魂兽', scroll_art_wuzi: '昆吾山',
   scroll_art_xutianding: '虚天鼎', scroll_art_dongxuan: '上古秘术', scroll_art_shengmo: '上古魔功', scroll_art_quhun: '墨大夫（曲魂）', scroll_art_tiandushihuo: '魔道老怪',
 };
@@ -157,6 +159,23 @@ const R: Record<string, Rule> = {
   scroll_art_xuelian: { z: ['mo', DJ], g: 4, homes: ['yinluo', 'tianmo'] }, scroll_art_xuedun: { z: ['mo', DJ], g: 3, homes: ['tiansha', 'tianmo', 'guiling'] },
   scroll_art_qingyang: { z: ['mo'], g: 3 },                          // 青阳门魔火
   scroll_art_sanyuan: { g: 4 }, scroll_art_tishen: { g: 3 }, scroll_art_tianleifu: { g: 3 },
+  // —— 第四十步：宗门秘传（大衍诀一脉归千竹教、元磁神光归星宫天星城、疾风九变 / 匿风术归七玄门、血影遁归极阴岛；名城拍卖会上偶尔也有）
+  scroll_dayan: { g: 4, homes: ['qianzhu'] }, scroll_art_shishen: { g: 3, homes: ['qianzhu'] }, scroll_art_jingshen: { g: 4, homes: ['qianzhu'] },
+  scroll_art_wugui: { g: 4, homes: ['qianzhu'] }, scroll_art_dayanchong: { g: 4, homes: ['qianzhu'], minLv: 5 },
+  scroll_yuanci: { z: [LX], g: 4, homes: ['tianxing'], minLv: 5 }, scroll_art_yuanci: { z: [LX], g: 4, homes: ['tianxing'], minLv: 5 },
+  scroll_art_jifeng: { z: ['yue'], g: 3, homes: ['qixuan'] }, scroll_art_nifeng: { z: ['yue'], g: 2, homes: ['qixuan'] },
+  scroll_art_xueyingdun: { z: [LX, 'mo'], g: 4, homes: ['jiyin'] },
+  // —— 第四十步：雄城 / 名城拍品
+  art_ningguang: { z: [TN], g: 4, minLv: 5 }, art_lanjin: { z: [LX], g: 4, minLv: 5 },
+  mat_gengjing: { g: 4, minLv: 5, m: { TN: 1.2, DJ: 1, LX: 1.3 } },        // 庚精：原著阗天城、大晋京城拍卖会上都出现过
+  herb_tianleizhu: { z: [LX], g: 4, minLv: 6, m: { LX: 1.2 } },            // 天雷竹：妙音门之物，天星城大拍卖偶有一截
+  // —— 第四十步：元婴期的货——只在雄城（minLv 5）/ 天下名城（minLv 6）露面
+  pill_yuanling: { g: 4, minLv: 5 }, pill_wanshou: { g: 4, minLv: 5 }, pill_ningpo: { g: 4, minLv: 5 }, pill_zifu: { g: 4, minLv: 6 },
+  art_zixiao: { g: 4, minLv: 5 }, art_xuanming: { z: [LX, DJ], g: 4, minLv: 5 }, art_jiuyanglu: { g: 4, minLv: 6 }, art_shanheyin: { z: [TN, DJ], g: 4, minLv: 5 },
+  art_qiankunjing: { g: 4, minLv: 6 }, art_xuanwudun: { g: 4, minLv: 5 }, art_longlinjia: { z: [LX, DJ], g: 4, minLv: 5 }, art_wanhunfan: { z: ['mo', DJ, LX], g: 4, minLv: 5 },
+  art_fulongsuo: { g: 4, minLv: 5 }, art_yunxiaozhou: { g: 4, minLv: 6 },
+  scroll_art_yingshun: { g: 4, minLv: 5 }, scroll_art_leihai: { g: 4, minLv: 6 }, scroll_art_xuanbingyu: { z: [LX, DJ], g: 4, minLv: 5 }, scroll_art_taixu: { g: 4, minLv: 6 },
+  scroll_art_shanhe: { z: [TN, DJ], g: 4, minLv: 5 }, scroll_art_jiuyou: { z: ['mo', DJ, LX], g: 4, minLv: 5 }, scroll_art_wanmu: { g: 4, minLv: 5 }, scroll_art_faxiang: { g: 4, minLv: 5 },
 };
 
 /** 规则（显式 > 推断） */
@@ -184,6 +203,12 @@ export const yaodanLv = (id: string) => (id.startsWith('mat_yaodan') ? parseInt(
 /** 各价区、各档次坊市能见到的最高妖丹（rnd 决定最高那一档是否“这个月恰好有货”）
  *  level：1 村镇 · 2 城池 · 3 大城/宗门/大岛 · 4 拍卖会 */
 export function yaodanCap(pz: PZone, level: number, rnd: () => number = Math.random): number {
+  // 第四十步：雄城 / 名城拍卖会的压轴妖丹更高（七级仍只在外海拍卖会上）
+  if (level >= 5) {
+    if (pz === 'LX') return level >= 6 ? (rnd() < 0.65 ? 7 : 6) : (rnd() < 0.4 ? 7 : 6);
+    if (pz === 'DJ') return level >= 6 ? (rnd() < 0.4 ? 6 : 5) : (rnd() < 0.2 ? 6 : 5);
+    return rnd() < (level >= 6 ? 0.35 : 0.2) ? 5 : 4;
+  }
   if (pz === 'LX') return level >= 4 ? (rnd() < 0.3 ? 7 : 6) : level >= 3 ? (rnd() < 0.35 ? 6 : 5) : level >= 2 ? 4 : 3;
   if (pz === 'DJ') return level >= 4 ? (rnd() < 0.12 ? 6 : 5) : level >= 3 ? 4 : level >= 2 ? 3 : 2;
   return level >= 4 ? (rnd() < 0.08 ? 5 : 4) : level >= 3 ? 3 : level >= 2 ? 2 : 1;   // 天南：五级妖丹已是拍卖会上的稀罕物
@@ -215,16 +240,21 @@ export function inZone(it: ItemDef, z: Zone): boolean {
   const pz = pzOf(z);
   return r.z.includes(z) || r.z.includes(pz);
 }
-/** 坊市（档次 level）能否摆出这件货 */
-export function sellableAt(it: ItemDef, z: Zone, level: number, yCap?: number, locId?: string): boolean {
+/**
+ * 坊市 / 拍卖会（档次 level）能否摆出这件货
+ * 第四十步：level 统一为“场所档次”——坊市 = 城池档次 1~5（cityTier）；拍卖会 = 3 小城 · 4 大城 · 5 雄城 · 6 天下名城（auctionLevel）
+ *   · 流通等级 g ≤ level 才上架（g4 只在 4 档以上：大城坊市少量、雄城名城常见、拍卖会）
+ *   · minLv：雄城 / 名城才有的好东西
+ *   · 宗门秘传：本宗坊市有；别处只在 4 档以上的拍卖会上偶尔露面
+ */
+export function sellableAt(it: ItemDef, z: Zone, level: number, yCap?: number, locId?: string, auction = false): boolean {
   if (it.price <= 0 || it.id === 'mat_lingshi') return false;
   const lv = yaodanLv(it.id);
-  if (lv) return lv <= (yCap ?? yaodanCap(pzOf(z), level, () => 0.5)) && lv <= 7;
+  if (lv) return lv <= (yCap ?? yaodanCap(pzOf(z), auction ? level : Math.min(3, level), () => 0.5)) && lv <= 7;
   const r = ruleOf(it);
   if (r.g >= 5 || r.owner || canonOwned(it.id)) return false;
-  if (r.homes && r.g >= 5) return false;
-  // 宗门之物：本宗坊市有，别处只在拍卖会上偶尔露面
-  if (r.homes && level < 4 && !(locId && r.homes.includes(locId))) return false;
+  if (r.minLv && level < r.minLv) return false;
+  if (r.homes && !(locId && r.homes.includes(locId)) && !(auction && level >= 4)) return false;
   if (!inZone(it, z)) return false;
   return r.g <= level;
 }
@@ -235,12 +265,26 @@ export function sectCanOffer(it: ItemDef, sectId: string): boolean {
   if (r.homes) return r.homes.includes(sectId);
   return r.g <= 3 && inZone(it, zoneOfLoc(LOC_BY_ID.get(sectId)));
 }
-/** 地点的坊市档次 */
-export function shopLevel(l: LocDef): number {
+/**
+ * 第四十步：城池档次（1 村镇 · 2 城池 · 3 大城 · 4 雄城 · 5 天下名城）
+ * 原著：大晋京城（九霄殿拍卖、天机阁）与乱星海天星城（星宫）是人界最繁华的两处；阗天城是天道盟腹地、天南第一大城；
+ * 魁星岛是外海门户、猎妖人云集；朔州城是大晋北方雄城。名城的坊市、拍卖会、坐镇的高人，都远非小城可比。
+ */
+export const CITY_TIER: Record<string, number> = {
+  jinjing: 5, tianxing: 5,
+  tiantian: 4, kuixing: 4, shuozhou: 4,
+  yuejing: 3, jiayuan: 3, qiyuan: 3, jin_fangshi: 3, youzhou: 3, yunzhou: 3, qinzhou: 3, xiangzhou: 3,
+};
+export const TIER_NAME = ['', '村镇', '城池', '大城', '雄城', '天下名城'];
+export function cityTier(l: LocDef): number {
+  if (CITY_TIER[l.id]) return CITY_TIER[l.id];
   if (l.minor) return 1;
-  if (l.id === 'tianxing' || l.id === 'kuixing' || l.id === 'jinjing' || l.id === 'tiantian') return 3;
   if (l.type === 'city') return l.major ? 3 : 2;
   if (l.type === 'sect') return 3;
   if (l.type === 'isle') return l.major ? 3 : 2;
-  return l.id === 'tainan' || l.id === 'jin_fangshi' ? 2 : 1;
+  return l.id === 'tainan' ? 2 : 1;
 }
+/** 地点的坊市档次（= 城池档次） */
+export function shopLevel(l: LocDef): number { return cityTier(l); }
+/** 拍卖会档次：3 小城 · 4 大城 · 5 雄城 · 6 天下名城 */
+export function auctionLevel(l: LocDef): number { const t = cityTier(l); return t >= 5 ? 6 : t >= 4 ? 5 : t >= 3 ? 4 : 3; }

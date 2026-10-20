@@ -21,6 +21,7 @@ import { CharState, drawCharacter, randomLook, Look } from '../gfx/character';
 import { loot, pickArt, dirName } from './sites';
 import { audio } from './audio';
 import { cultivator, newTeam, sectName, YUE_SECTS } from './melee';
+import { Obtain } from './obtain';
 
 type G = CanvasRenderingContext2D;
 const TAU = Math.PI * 2;
@@ -44,7 +45,9 @@ export class Happen {
   private nid = 1;
   private hapT = rand(25, 40);
   private chkT = 0;
-  constructor(g: Game) { this.game = g; }
+  /** 第四十步：原著独门之物的获取（客卿之约、器物神通） */
+  obtain: Obtain;
+  constructor(g: Game) { this.game = g; this.obtain = new Obtain(g); }
   reset() { this.haps = []; this.focus = null; }
 
   // ------------------------------------------------------------ 每帧
@@ -66,6 +69,7 @@ export class Happen {
     }
     this.heraldTick(dt);
     this.bountyTick(dt);
+    this.obtain.tick(dt);
     if (g.combat.safeAt(p.x, p.y) || p.sitting) return;
     this.hapT -= dt;
     if (this.hapT > 0 || this.haps.length >= 2) return;
@@ -503,6 +507,7 @@ export class Happen {
     }
     if (e.tag?.startsWith('herald')) this.heraldKill(e);
     if (e.tag?.startsWith('bounty:')) this.bountyKill(e);
+    this.obtain.onKill(e);
     void h;
   }
   interact(): boolean {
@@ -584,7 +589,7 @@ export class Happen {
   }
   private heraldKill(e: Enemy) { if (e.tag === 'herald:guard') this.game.toast(e.npcKill ? `镇宝妖兽被${e.killer?.name ?? '旁人'}斩杀！争宝的人正扑向宝光——抢在他们前面（T）！` : '镇宝妖兽伏诛！宝光就在眼前——上前取宝（T）。', e.npcKill ? 'warn' : 'good'); }
   /** 第三十九步：死于旁人之手（混战） */
-  onNpcKill(e: Enemy) { if (e.tag?.startsWith('herald')) this.heraldKill(e); }
+  onNpcKill(e: Enemy) { if (e.tag?.startsWith('herald')) this.heraldKill(e); this.obtain.onKill(e); }
   heraldInteract(): boolean {
     const g = this.game, f = g.ws.flags as any, hd = f.herald, h = g.hero;
     if (!this.heraldFocus || !hd) return false;
@@ -663,6 +668,7 @@ export class Happen {
     const hd = (g.ws.flags as any).herald;
     if (hd && !hd.done && hd.map === ACTIVE_MAP) out.push({ x: hd.x, y: hd.y, glyph: '宝', color: '#ffe080', name: '异宝出世' });
     for (const b of g.ws.bounties ?? []) if (!b.done && b.map === ACTIVE_MAP && b.until > g.day) out.push({ x: b.x, y: b.y, glyph: '赏', color: '#ff7a6a', ring: 700, name: '悬赏：' + b.name });
+    out.push(...this.obtain.marks());
     return out;
   }
 

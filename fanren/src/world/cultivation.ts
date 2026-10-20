@@ -24,6 +24,9 @@ export interface Hero {
   kills: number;
   /** 第三十六步：本小境界已服修为丹药数（耐药） */
   pillN?: number;
+  /** 第四十步：青竹蜂云剑的口数（每根金雷竹十二口，至七十二口）与是否已熔入庚精（大庚剑阵） */
+  qzN?: number;
+  qzGeng?: boolean;
 }
 
 /** 第三十六步：奇遇、切磋、任务所得修为的折算（修为主要靠岁月苦修） */
@@ -230,6 +233,14 @@ export function useBottle(h: Hero, stack: BagItem): Msg {
   removeItem(h, stack.id, n, stack.age ?? 0);
   // removeItem 会挑最小够龄的，确保精确移除该堆
   addItem(h, stack.id, n, age);
+  // 第四十步：天雷竹长到万年便化为金雷竹（原著：第一株成竹后从根上脱落，旁边已长出一根新枝）
+  if (stack.id === 'herb_tianleizhu' && age >= 10000) {
+    removeItem(h, stack.id, n, age);
+    addItem(h, 'mat_jinleizhu', n);
+    addItem(h, stack.id, n, 1000);
+    return { text: `绿液滴落，天雷竹满了万年——竹身骤然化作纯金之色，雷光大作，成了一根金雷竹！旧竹根旁，一根新枝已悄然长出（千年）。`, kind: 'good' };
+  }
+  if (stack.id === 'herb_tianleizhu' && age >= 5000 && age - BOTTLE_YEARS < 5000) return { text: `绿液滴落，天雷竹药龄长至 ${age} 年——竹上的电光由白转蓝了。`, kind: 'good' };
   return { text: `绿液滴落，${n} 株${itemDef(stack.id).name}药龄暴涨至 ${age} 年！`, kind: 'good' };
 }
 
@@ -269,6 +280,11 @@ export function checkRecipe(h: Hero, r: Recipe, fire = true): AlchemyCheck {
   const missing: string[] = [];
   const forge = r.kind === 'forge';
   if (forge && h.realm < r.reqRealm) missing.push(`修为不足（需${['凡人', '炼气', '筑基', '结丹', '元婴'][r.reqRealm]}期方能驾驭此器）`);
+  // 第四十步：青竹蜂云剑——首炼 / 续炼 / 庚精淬剑
+  const hasQz = bagCount(h, 'art_qingzhu') > 0, qn = hasQz ? (h.qzN ?? 12) : 0;
+  if (r.special === 'qz' && hasQz) missing.push('你已炼有青竹蜂云剑——请用“续炼”添剑');
+  if (r.special === 'qz_add') { if (!hasQz) missing.push('需先炼成青竹蜂云剑'); else if (qn >= 72) missing.push('已足七十二口'); }
+  if (r.special === 'qz_geng') { if (!hasQz || qn < 72) missing.push(`需七十二口青竹蜂云剑（现有 ${qn} 口）`); else if (h.qzGeng) missing.push('庚精已熔入剑身'); }
   let bonus = 0;
   for (const inp of r.inputs) {
     const have = bagCount(h, inp.id, inp.minAge ?? 0);
@@ -294,9 +310,16 @@ export function brew(h: Hero, r: Recipe, fire = true): { ok: boolean; msgs: Msg[
   const c = checkRecipe(h, r, fire);
   if (!c.ok) return { ok: false, msgs: [{ text: (r.kind === 'forge' ? '无法开炉：' : '药材不足：') + c.missing.join('，'), kind: 'warn' }], days: 0 };
   if (r.kind === 'forge') {
-    for (const inp of r.inputs) removeItem(h, inp.id, inp.n, inp.minAge ?? 0);
+    // 第四十步：青竹蜂云剑的主材（金雷竹 / 庚精）失手时完好无损，只毁辅材
+    const main = r.special ? (r.special === 'qz_geng' ? 'mat_gengjing' : 'mat_jinleizhu') : '';
+    const win = Math.random() < c.chance;
+    for (const inp of r.inputs) if (win || inp.id !== main) removeItem(h, inp.id, inp.n, inp.minAge ?? 0);
     h.stats.alchemy++;
-    if (Math.random() < c.chance) { addItem(h, r.out, 1); return { ok: true, msgs: [{ text: `炉中霞光冲起，器成！得${itemDef(r.out).name}。`, kind: 'good' }], days: r.days }; }
+    if (win && r.special === 'qz') { addItem(h, r.out, 1); h.qzN = 12; return { ok: true, msgs: [{ text: '竹液化作十二道青光没入剑胚，剑鸣如蜂——十二口青竹蜂云剑炼成！剑身上金色电弧跳动，辟邪神雷自蕴其中。', kind: 'good' }], days: r.days }; }
+    if (win && r.special === 'qz_add') { h.qzN = Math.min(72, (h.qzN ?? 12) + 12); return { ok: true, msgs: [{ text: `又是十二口飞剑出炉，与原有飞剑合为一套——青竹蜂云剑已有 ${h.qzN} 口。`, kind: 'good' }], days: r.days }; }
+    if (win && r.special === 'qz_geng') { h.qzGeng = true; return { ok: true, msgs: [{ text: '庚精化作银色细流渗入七十二口飞剑，剑身锋芒内敛——大庚剑阵可布矣！', kind: 'good' }], days: r.days }; }
+    if (r.special && !win) return { ok: false, msgs: [{ text: `火候一偏，辅材尽毁——好在${itemDef(main).name}完好无损。（成器率 ${(c.chance * 100).toFixed(0)}%）`, kind: 'warn' }], days: r.days };
+    if (win) { addItem(h, r.out, 1); return { ok: true, msgs: [{ text: `炉中霞光冲起，器成！得${itemDef(r.out).name}。`, kind: 'good' }], days: r.days }; }
     return { ok: false, msgs: [{ text: `火候一偏，器胚崩裂，材料尽毁……（成器率 ${(c.chance * 100).toFixed(0)}%）`, kind: 'warn' }], days: r.days };
   }
   for (const inp of r.inputs) removeItem(h, inp.id, inp.n, inp.minAge ?? 0);

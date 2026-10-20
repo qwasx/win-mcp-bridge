@@ -20,7 +20,7 @@ export function zoneHere(g: Game): Zone {
 
 const DEMON = new Set(['guiling', 'hehuan', 'yuling', 'qianhuan', 'tiansha', 'yinluo', 'tianmo']);
 /** 各宗门藏经阁特色功法/法术（与原著对应） */
-const SECT_LIB: Record<string, string[]> = {
+export const SECT_LIB: Record<string, string[]> = {
   huangfeng: ['scroll_qingyuan', 'scroll_art_qingyuanmang', 'scroll_art_yujian', 'scroll_art_huoshe', 'scroll_luoyan', 'scroll_tianyan', 'scroll_art_hutijiandun', 'scroll_art_jinren', 'scroll_art_shenxing', 'scroll_art_fengdun'],
   yanyue: ['scroll_art_bingzhui', 'scroll_art_huichun', 'scroll_art_hanbing', 'scroll_art_xuanbing', 'scroll_lianqi', 'scroll_art_shuidan', 'scroll_art_mihun', 'scroll_art_shuangren'],
   lingshou: ['scroll_art_yushou', 'scroll_art_tengfu', 'scroll_art_feisha', 'scroll_art_qingmu'],

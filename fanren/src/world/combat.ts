@@ -757,7 +757,8 @@ export class Combat {
     const color = hexToRgb(art.color);
     const sch: School | undefined = art.element === 'fire' ? '火' : art.element === 'ice' ? '冰' : art.element === 'thunder' ? '雷' : art.element === 'wood' ? '木' : art.element === 'earth' ? '土' : art.element === 'blood' ? '魔' : '剑';
     const status: StatusSpec | undefined = art.element === 'fire' ? { k: 'burn', dur: 3, ch: 0.4 } : art.element === 'ice' ? { k: 'freeze', dur: 1.5, ch: 0.3 } : art.element === 'thunder' ? { k: 'shock', dur: 0.8, ch: 0.4 } : art.element === 'earth' ? { k: 'stun', dur: 0.8, ch: 0.4 } : undefined;
-    const pieces = Math.max(1, Math.min(art.pieces, 1 + Math.floor(ps.sense / Math.max(1, art.sense * 2.5))));
+    const owned = itemId === 'art_qingzhu' ? (h.qzN ?? 12) : art.pieces;   // 第四十步：青竹蜂云剑按炼成的口数
+    const pieces = Math.max(1, Math.min(owned, 1 + Math.floor(ps.sense / Math.max(1, art.sense * 2.5))));
     const fake: ArtSkill = {
       id: key, name: d.name, school: sch ?? '剑', tier: 0, realm: 0, cast: 'bolt', fx: 'sword', mp: 0, cd: art.cd, power: art.power * 1.3 * weak, range: this.reach, speed: Math.max(950, this.reach / 1.1), pierce: art.kind === 'sword', status, color, desc: '', evo: ['', '', ''], vsEvil: art.element === 'thunder' ? 2 : undefined,
     };

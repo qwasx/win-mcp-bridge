@@ -798,7 +798,7 @@ export function loot(g: Game, tier: number, mult = 1, opt: { scroll?: number; ar
   const bless = g.day < g.ws.blessUntil ? 1.25 : 1;
   const ls = Math.round(rand(18, 48) * Math.pow(3, tier) * mult * bless);
   C.addItem(h, 'mat_lingshi', ls); out.push(`灵石 ${ls}`);
-  const pool = ITEM_LIST.filter((it) => (it.type === 'pill' || it.type === 'talisman' || it.type === 'material') && it.price > 0 && it.tier <= tier + 1 && it.tier >= Math.max(0, tier - 1) && it.id !== 'mat_lingshi' && !it.id.startsWith('mat_yaodan') && it.id !== 'mat_gubaocan' && it.price < 1500 * Math.pow(3, tier));
+  const pool = ITEM_LIST.filter((it) => (it.type === 'pill' || it.type === 'talisman' || it.type === 'material') && it.price > 0 && it.tier <= tier + 1 && it.tier >= Math.max(0, tier - 1) && it.id !== 'mat_lingshi' && !it.id.startsWith('mat_yaodan') && it.id !== 'mat_gubaocan' && !canonOwned(it.id) && it.price < 1500 * Math.pow(3, tier));
   const n = Math.random() < 0.45 * mult * bless ? 2 : 1;
   for (let i = 0; i < n && pool.length; i++) { const it = pick(pool); const k = it.stack ? rint(1, it.price < 200 ? 3 : 1) : 1; C.addItem(h, it.id, k); out.push(k > 1 ? `${it.name}×${k}` : it.name); }
   if (Math.random() < (opt.scroll ?? 0.2) * bless) { const sk = g.combat.randomScroll(Math.min(4, tier + 1)); if (sk) { C.addItem(h, sk, 1); out.push(itemDef(sk).name); } }
@@ -806,7 +806,7 @@ export function loot(g: Game, tier: number, mult = 1, opt: { scroll?: number; ar
   if (Math.random() < (opt.map ?? 0.12)) { const c = g.sites.makeCache(tier + 1); if (c) out.push('一角残破的藏宝图'); }
   return out;
 }
-const CANON_ONLY_ART = new Set(['art_xutianding', 'art_fenglei', 'art_qingzhu', 'art_xuese']);
+export const CANON_ONLY_ART = new Set(['art_xutianding', 'art_fenglei', 'art_qingzhu', 'art_xuese']);
 export function pickArt(maxTier: number, gubao: boolean): string | null {
   const pool = ITEM_LIST.filter((it) => it.type === 'artifact' && it.price > 0 && !CANON_ONLY_ART.has(it.id) && !canonOwned(it.id) && (gubao ? it.tier === 5 : it.tier >= 1 && it.tier <= Math.min(4, maxTier)) && it.price < 400000);
   return pool.length ? pick(pool).id : null;

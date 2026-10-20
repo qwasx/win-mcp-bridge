@@ -386,7 +386,7 @@ export class WarSys {
       const tier = Math.max(1, Math.min(5, h.realm + (Math.random() < 0.3 ? 1 : 0)));
       // 第三十七步：私下转手的也得是当地真有的东西；原著有主之宝不会有人拿来卖
       const z = zoneOfLoc(LOC_BY_ID.get(d.home));
-      const goods = ITEM_LIST.filter((it) => (it.type === 'artifact' || it.type === 'pill' || it.type === 'talisman' || it.type === 'material' || it.type === 'herb') && it.price >= 150 && it.tier <= tier + 1 && it.tier >= tier - 2 && ruleOf(it).g >= 2 && sellableAt(it, z, 4, yaodanCap(pzOf(z), 3)));
+      const goods = ITEM_LIST.filter((it) => (it.type === 'artifact' || it.type === 'pill' || it.type === 'talisman' || it.type === 'material' || it.type === 'herb') && it.price >= 150 && it.tier <= tier + 1 && it.tier >= tier - 2 && ruleOf(it).g >= 2 && sellableAt(it, z, 4, yaodanCap(pzOf(z), 3), undefined, true));
       if (!goods.length) return;
       const it = pick(goods), id = it.id, price = Math.round(Math.max(200, it.price * priceMul(it, z)) * rand(0.6, 0.85));
       this.send({ kind: '交易', from: d.name, fromId: d.id, text: `听闻道友在寻${it.name}。在下手上恰有一件，急需灵石周转，${price} 灵石便让与道友——比坊市便宜不少。三日内回信即可。`, item: id, price, n: 1, until: g.day + 3 });

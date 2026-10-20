@@ -94,7 +94,8 @@ export const CANON_EVENTS: CanonEvent[] = [
       { list: [['jindan_mo', 2]] },
       { list: [['jindan_mo', 1]], boss: { def: 'jindan_mo', name: '温天仁', realm: 3, stage: 2, npc: 'wentianren', hp: 3.5 } },
     ],
-    reward: (g) => { const roll = Math.random(); const id = roll < 0.12 ? 'art_xutian' : roll < 0.55 ? 'art_qianlan' : 'art_bamen'; C.addItem(g.hero, id, 1); C.addItem(g.hero, 'mat_lingshi', 8000); return `${itemDef(id).name}、灵石 8000`; },
+    // 第四十步：虚天殿的古宝厅——五行环、古宝花篮；偶有六丁天甲符、补天丹
+    reward: (g) => { const roll = Math.random(); const id = roll < 0.12 ? 'art_xutian' : roll < 0.55 ? 'art_qianlan' : 'art_bamen'; C.addItem(g.hero, id, 1); C.addItem(g.hero, 'mat_lingshi', 8000); const ex: string[] = []; const gb = Math.random() < 0.5 ? 'art_wuxing' : 'art_huolan'; if (Math.random() < 0.6) { C.addItem(g.hero, gb, 1); ex.push(itemDef(gb).name); } if (Math.random() < 0.2) { C.addItem(g.hero, 'tal_liuding', 1); ex.push(itemDef('tal_liuding').name); } if (Math.random() < 0.08) { C.addItem(g.hero, 'pill_butian', 1); ex.push(itemDef('pill_butian').name); } return [itemDef(id).name, ...ex, '灵石 8000'].join('、'); },
   },
   {
     id: 'zhuimo', gate: [3, 1], name: '坠魔谷异变', year: 120, month: 4, dur: 120, loc: 'zhuimo', radius: 10, minRealm: 3, foe: [3, 4],
