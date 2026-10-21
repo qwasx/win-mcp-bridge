@@ -22,7 +22,8 @@ export interface TreeDeco { kind: 'tree'; sp: Species; v: number; x: number; y: 
 export interface MtnDeco { kind: 'mtn'; id: string; spec: MtnSpec; x: number; y: number; w: number; h: number; flip: boolean }
 /** 第十九步：瀑布（崖壁精灵 + 逐帧水练） */
 export interface FallDeco { kind: 'fall'; id: string; x: number; y: number; w: number; h: number; seed: number; tiers: number; name?: string }
-export type Deco = ImgDeco | TreeDeco | MtnDeco | FallDeco;
+export interface AssetDeco { kind: 'asset'; id: string; key: string; x: number; y: number; w: number; h: number; flip?: boolean; name?: string }
+export type Deco = ImgDeco | TreeDeco | MtnDeco | FallDeco | AssetDeco;
 const GROVE_MIX: Species[] = ['peach', 'peach', 'peach', 'peach', 'peach', 'peach', 'peach', 'peach', 'peach', 'apricot', 'apricot', 'apricot', 'apricot', 'apricot', 'apricot', 'plum', 'plum', 'plum', 'maple', 'maple'];
 const GVC = 2600, FC = 3000;
 /** 草丛（实时绘制，见 gfx/grass.ts） */
@@ -1113,6 +1114,8 @@ export class Terrain {
         out.push({ kind: 'tree', sp, v: Math.floor(hash2(xx, yy, 307) * TREE_VARIANTS), x, y, w: base * 1.2, h: base * 1.35, s: sc, flip: rnd() < 0.5, ph: rnd() * Math.PI * 2, lod: (xx + yy) % 3 });
       }
     }
+    // ---------- 1e. 原创名胜小景（只在对应世界坐标生成一次）----------
+    for (const p of SCENIC.props) if (inChunk(p.x, p.y)) out.push({ kind: 'asset', ...p });
     // ---------- 2. 树林（成片的林子，大小不一）----------
     const GC = 640;
     for (let gy = Math.floor((oy - 700) / GC); gy <= Math.floor((oy + CHUNK + 700) / GC); gy++) for (let gx = Math.floor((ox - 700) / GC); gx <= Math.floor((ox + CHUNK + 700) / GC); gx++) {

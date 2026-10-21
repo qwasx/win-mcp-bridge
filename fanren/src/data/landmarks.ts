@@ -173,9 +173,10 @@ export const LANDMARKS: Landmark[] = build();
 export interface NamedPeak extends LmPeak { name: string }
 export interface FallSpot { id: string; x: number; y: number; w: number; h: number; seed: number; tiers: number; name?: string }
 export interface GroveSpot { x: number; y: number; r: number; sp: Species; seed: number; name?: string }
+export interface ScenicPropSpot { id: string; key: string; x: number; y: number; w: number; h: number; flip?: boolean; name?: string }
 
 function buildScenic() {
-  const peaks: NamedPeak[] = [], falls: FallSpot[] = [], groves: GroveSpot[] = [];
+  const peaks: NamedPeak[] = [], falls: FallSpot[] = [], groves: GroveSpot[] = [], props: ScenicPropSpot[] = [];
   const at = (loc: string) => { const l = locHere(loc); return l ? [l.x * WORLD_SCALE, l.y * WORLD_SCALE] as const : null; };
   const pk = (loc: string, name: string, dx: number, dy: number, w: number, h: number, style: MtnStyle, extra: Partial<NamedPeak> = {}) => {
     const c = at(loc); if (!c) return;
@@ -206,6 +207,9 @@ function buildScenic() {
     fall('qixuan', 1300, -2650, 460, 420, 1);
     fall('taiyue', -1500, -700, 640, 760, 3);
     fall('huangfeng', -2300, -2600, 480, 520, 2);
+    // 黄枫谷瀑布旁的原创观景点：只补一座手绘亭台，山、树、水帘仍由原有程序绘制。
+    const hf = at('huangfeng');
+    if (hf) props.push({ id: 'sp_huangfeng_tingpu', key: 'p_map42_hf_pavilion', x: hf[0] - 1550 + 700, y: hf[1] + 950 + 220, w: 580, h: 623, name: '黄枫谷·听瀑亭' });
     // 花林
     grove('luoyun', 1700, 1250, 620, 'peach', '灵药园桃林');
     grove('qixuan', -900, 1200, 520, 'peach');
@@ -227,7 +231,7 @@ function buildScenic() {
     grove('yunzhou', 1300, 1100, 520, 'peach');
     grove('youzhou', -1200, 1000, 480, 'plum', '幽州梅林');
   }
-  return { peaks, falls, groves };
+  return { peaks, falls, groves, props };
 }
 export const SCENIC = buildScenic();
 
@@ -254,6 +258,7 @@ export function lmCleared(x: number, y: number, pad = 0): boolean {
   }
   for (const p of SCENIC.peaks) if (Math.abs(x - p.x) < p.w * 0.55 + pad && y < p.y + 250 && y > p.y - p.h * 0.5 - pad) return true;
   for (const f of SCENIC.falls) if (Math.abs(x - f.x) < f.w * 0.75 + pad && y < f.y + f.w * 0.6 && y > f.y - f.h * 0.6 - pad) return true;
+  for (const p of SCENIC.props) if (Math.abs(x - p.x) < p.w * 0.55 + pad && y < p.y + 150 + pad && y > p.y - p.h * 0.85 - pad) return true;
   return false;
 }
 export function groveAt(x: number, y: number, pad = 0): GroveSpot | null {

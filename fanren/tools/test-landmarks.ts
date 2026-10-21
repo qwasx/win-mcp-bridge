@@ -16,7 +16,7 @@ const guard = (name: string, f: () => void) => { try { f(); } catch (e: any) { e
 const cv: any = createCanvas(400, 300); const ctx = cv.getContext('2d');
 const view = () => ({ left: g.player.x - 1500, top: g.player.y - 1000, right: g.player.x + 1500, bottom: g.player.y + 1000 });
 const clearFoes = () => { for (const e of g.combat.enemies) { e.dead = true; e.hp = 0; } g.combat.enemies = []; };
-console.log('map', ACTIVE_MAP, 'landmarks', LANDMARKS.map((l: any) => l.id).join(','), 'scenic peaks', SCENIC.peaks.length, 'falls', SCENIC.falls.length, 'groves', SCENIC.groves.length);
+console.log('map', ACTIVE_MAP, 'landmarks', LANDMARKS.map((l: any) => l.id).join(','), 'scenic peaks', SCENIC.peaks.length, 'falls', SCENIC.falls.length, 'groves', SCENIC.groves.length, 'props', SCENIC.props.length);
 ok(LANDMARKS.length >= 1, '本图有原著名地');
 g.hero.realm = 2; g.hero.stage = 2;
 
@@ -39,6 +39,16 @@ guard('decos', () => {
   for (const f of allF.slice(0, 3)) { const cx = Math.floor(f.x / CHUNK), cy = Math.floor(f.y / CHUNK); ok(terrain.getDecos(cx, cy).some((d: any) => d.kind === 'fall' && d.id === f.id), '瀑布进入装饰列表', f.id); }
   for (const gv of SCENIC.groves.slice(0, 3)) { const cx = Math.floor(gv.x / CHUNK), cy = Math.floor(gv.y / CHUNK); for (const d of terrain.getDecos(cx, cy)) if (d.kind === 'tree' && (d.sp === 'peach' || d.sp === 'apricot' || d.sp === 'plum')) blossom++; }
   ok(blossom > 10 || !SCENIC.groves.length, '花林里有桃杏', String(blossom));
+  for (const p of SCENIC.props) {
+    const cx = Math.floor(p.x / CHUNK), cy = Math.floor(p.y / CHUNK);
+    const hits = terrain.getDecos(cx, cy).filter((d: any) => d.kind === 'asset' && d.id === p.id && d.key === p.key);
+    ok(hits.length === 1, `原创名胜只生成一次：${p.name ?? p.id}`, `chunk=${cx},${cy} count=${hits.length}`);
+    let blockers = 0;
+    for (let yy = Math.floor((p.y - p.h * 0.85) / CHUNK); yy <= Math.floor((p.y + 150) / CHUNK); yy++) for (let xx = Math.floor((p.x - p.w * 0.55) / CHUNK); xx <= Math.floor((p.x + p.w * 0.55) / CHUNK); xx++) {
+      for (const d of terrain.getDecos(xx, yy)) if (d.kind === 'tree' && Math.abs(d.x - p.x) < p.w * 0.55 && d.y > p.y - p.h * 0.85 && d.y < p.y + 150) blockers++;
+    }
+    ok(blockers === 0, `观景亭贴图区域留白：${p.name ?? p.id}`, `trees=${blockers}`);
+  }
   let pg = 0; for (let y = 0; y < H; y += 2600) for (let x = 0; x < W; x += 2600) pg += terrain.grovesNear(x, y, 0).length > 0 ? 1 : 0;
   console.log('     procedural grove cells ~', pg);
 });

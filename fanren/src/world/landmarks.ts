@@ -474,6 +474,7 @@ export class LandmarkSys {
       for (const pk of SCENIC.peaks) if (pk.name) lab(pk.x, pk.y + 50, pk.name);
       for (const f of SCENIC.falls) if (f.name) lab(f.x, f.y + f.w * 0.2, f.name);
       for (const gv of SCENIC.groves) if (gv.name) lab(gv.x, gv.y, gv.name);
+      for (const p of SCENIC.props) if (p.name) lab(p.x, p.y - p.h - 32, p.name);
     }
   }
 

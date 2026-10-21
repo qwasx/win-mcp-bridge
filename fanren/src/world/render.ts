@@ -444,6 +444,10 @@ export class Renderer {
           }
         } else if (d.kind === 'fall') {
           if (!(d.x + d.w < left || d.x - d.w > right || d.y - d.h - 100 > bottom || d.y + d.w * 0.4 < top)) { nM++; list.push({ y: d.y, k: 'D·瀑布', draw: () => this.drawFall(d, t) }); }
+        } else if (d.kind === 'asset') {
+          if (!vis || z < 0.3) continue;
+          nD++;
+          list.push({ y: d.y, k: 'D·名胜', draw: () => { drawBld(ctx, d.key, d.x, d.y, t, 1, !!d.flip); } });
         } else {
           if (!vis || z < 0.3) continue;
           nD++;
