@@ -1,0 +1,18 @@
+{
+  "name": "rainy-night-convenience-store-diorama",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "dependencies": {
+    "@fontsource/noto-sans-jp": "^5.3.1",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "vite": "^5.4.11"
+  }
+}
