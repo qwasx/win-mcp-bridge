@@ -1,0 +1,19 @@
+{
+  "name": "roadster-c-ramp",
+  "private": true,
+  "type": "module",
+  "description": "Night live-stream style animation: Tesla Roadster up a C-ramp, inverted mag-lock release, cold-gas retro burn, 180 deg roll recovery and soft landing (Three.js 3D + SVG HUD/flares)",
+  "scripts": {
+    "build": "esbuild js/main.js --bundle --minify --format=esm --target=es2020 --outfile=app.js",
+    "test": "node test/timeline.test.mjs",
+    "serve": "python3 -m http.server 8020 --bind 0.0.0.0"
+  },
+  "dependencies": {
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@sparticuz/chromium": "^153.0.0",
+    "esbuild": "^0.24.0",
+    "puppeteer-core": "^25.16.0"
+  }
+}
