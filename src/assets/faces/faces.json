@@ -1,0 +1,578 @@
+{
+ "hanli": {
+  "sex": "m",
+  "skin": "#ecd7c0",
+  "views": {
+   "front": {
+    "cx": 97.5,
+    "cy": 128.28,
+    "ppu": 17.0,
+    "file": "hanli_front.webp"
+   },
+   "q": {
+    "cx": 100.0,
+    "cy": 126.28,
+    "ppu": 17.0,
+    "file": "hanli_q.webp"
+   },
+   "side": {
+    "cx": 108.0,
+    "cy": 122.78,
+    "ppu": 17.0,
+    "file": "hanli_side.webp"
+   }
+  }
+ },
+ "m1": {
+  "sex": "m",
+  "skin": "#e6d3c2",
+  "views": {
+   "front": {
+    "cx": 98.0,
+    "cy": 128.28,
+    "ppu": 17.0,
+    "file": "m1_front.webp"
+   },
+   "q": {
+    "cx": 101.0,
+    "cy": 126.28,
+    "ppu": 17.0,
+    "file": "m1_q.webp"
+   },
+   "side": {
+    "cx": 108.5,
+    "cy": 122.28,
+    "ppu": 17.0,
+    "file": "m1_side.webp"
+   }
+  }
+ },
+ "m2": {
+  "sex": "m",
+  "skin": "#dec7b2",
+  "views": {
+   "front": {
+    "cx": 99.0,
+    "cy": 127.78,
+    "ppu": 17.0,
+    "file": "m2_front.webp"
+   },
+   "q": {
+    "cx": 100.0,
+    "cy": 126.78,
+    "ppu": 17.0,
+    "file": "m2_q.webp"
+   },
+   "side": {
+    "cx": 109.0,
+    "cy": 123.78,
+    "ppu": 17.0,
+    "file": "m2_side.webp"
+   }
+  }
+ },
+ "m3": {
+  "sex": "m",
+  "skin": "#dfcdbc",
+  "views": {
+   "front": {
+    "cx": 99.0,
+    "cy": 127.78,
+    "ppu": 17.0,
+    "file": "m3_front.webp"
+   },
+   "q": {
+    "cx": 101.5,
+    "cy": 125.78,
+    "ppu": 17.0,
+    "file": "m3_q.webp"
+   },
+   "side": {
+    "cx": 109.0,
+    "cy": 123.28,
+    "ppu": 17.0,
+    "file": "m3_side.webp"
+   }
+  }
+ },
+ "m4": {
+  "sex": "m",
+  "skin": "#ebd6c0",
+  "views": {
+   "front": {
+    "cx": 99.5,
+    "cy": 127.28,
+    "ppu": 17.0,
+    "file": "m4_front.webp"
+   },
+   "q": {
+    "cx": 99.0,
+    "cy": 126.28,
+    "ppu": 17.0,
+    "file": "m4_q.webp"
+   },
+   "side": {
+    "cx": 107.5,
+    "cy": 122.78,
+    "ppu": 17.0,
+    "file": "m4_side.webp"
+   }
+  }
+ },
+ "m5": {
+  "sex": "m",
+  "skin": "#dac1a8",
+  "views": {
+   "front": {
+    "cx": 98.5,
+    "cy": 128.78,
+    "ppu": 17.0,
+    "file": "m5_front.webp"
+   },
+   "q": {
+    "cx": 101.0,
+    "cy": 126.28,
+    "ppu": 17.0,
+    "file": "m5_q.webp"
+   },
+   "side": {
+    "cx": 108.0,
+    "cy": 123.78,
+    "ppu": 17.0,
+    "file": "m5_side.webp"
+   }
+  }
+ },
+ "m6": {
+  "sex": "m",
+  "skin": "#c3a796",
+  "views": {
+   "front": {
+    "cx": 98.0,
+    "cy": 127.78,
+    "ppu": 17.0,
+    "file": "m6_front.webp"
+   },
+   "q": {
+    "cx": 100.5,
+    "cy": 126.28,
+    "ppu": 17.0,
+    "file": "m6_q.webp"
+   },
+   "side": {
+    "cx": 108.0,
+    "cy": 123.28,
+    "ppu": 17.0,
+    "file": "m6_side.webp"
+   }
+  }
+ },
+ "m7": {
+  "sex": "m",
+  "skin": "#e3ccb8",
+  "views": {
+   "front": {
+    "cx": 99.5,
+    "cy": 129.28,
+    "ppu": 17.0,
+    "file": "m7_front.webp"
+   },
+   "q": {
+    "cx": 100.5,
+    "cy": 126.28,
+    "ppu": 17.0,
+    "file": "m7_q.webp"
+   },
+   "side": {
+    "cx": 108.0,
+    "cy": 124.78,
+    "ppu": 17.0,
+    "file": "m7_side.webp"
+   }
+  }
+ },
+ "m8": {
+  "sex": "m",
+  "skin": "#e7d0b9",
+  "views": {
+   "front": {
+    "cx": 98.0,
+    "cy": 129.28,
+    "ppu": 17.0,
+    "file": "m8_front.webp"
+   },
+   "q": {
+    "cx": 101.5,
+    "cy": 125.78,
+    "ppu": 17.0,
+    "file": "m8_q.webp"
+   },
+   "side": {
+    "cx": 108.0,
+    "cy": 123.78,
+    "ppu": 17.0,
+    "file": "m8_side.webp"
+   }
+  }
+ },
+ "f1": {
+  "sex": "f",
+  "skin": "#ead4c4",
+  "views": {
+   "front": {
+    "cx": 92.0,
+    "cy": 118.78,
+    "ppu": 17.0,
+    "file": "f1_front.webp"
+   },
+   "q": {
+    "cx": 94.5,
+    "cy": 117.28,
+    "ppu": 17.0,
+    "file": "f1_q.webp"
+   },
+   "side": {
+    "cx": 101.5,
+    "cy": 115.28,
+    "ppu": 17.0,
+    "file": "f1_side.webp"
+   }
+  }
+ },
+ "f2": {
+  "sex": "f",
+  "skin": "#e7d4c6",
+  "views": {
+   "front": {
+    "cx": 93.5,
+    "cy": 119.28,
+    "ppu": 17.0,
+    "file": "f2_front.webp"
+   },
+   "q": {
+    "cx": 95.0,
+    "cy": 117.28,
+    "ppu": 17.0,
+    "file": "f2_q.webp"
+   },
+   "side": {
+    "cx": 101.0,
+    "cy": 114.78,
+    "ppu": 17.0,
+    "file": "f2_side.webp"
+   }
+  }
+ },
+ "f3": {
+  "sex": "f",
+  "skin": "#eed0bb",
+  "views": {
+   "front": {
+    "cx": 91.0,
+    "cy": 120.78,
+    "ppu": 17.0,
+    "file": "f3_front.webp"
+   },
+   "q": {
+    "cx": 95.5,
+    "cy": 117.78,
+    "ppu": 17.0,
+    "file": "f3_q.webp"
+   },
+   "side": {
+    "cx": 101.0,
+    "cy": 115.28,
+    "ppu": 17.0,
+    "file": "f3_side.webp"
+   }
+  }
+ },
+ "f4": {
+  "sex": "f",
+  "skin": "#ead3c1",
+  "views": {
+   "front": {
+    "cx": 93.5,
+    "cy": 118.28,
+    "ppu": 17.0,
+    "file": "f4_front.webp"
+   },
+   "q": {
+    "cx": 95.0,
+    "cy": 117.78,
+    "ppu": 17.0,
+    "file": "f4_q.webp"
+   },
+   "side": {
+    "cx": 102.0,
+    "cy": 115.78,
+    "ppu": 17.0,
+    "file": "f4_side.webp"
+   }
+  }
+ },
+ "f5": {
+  "sex": "f",
+  "skin": "#e9d5c1",
+  "views": {
+   "front": {
+    "cx": 91.5,
+    "cy": 119.28,
+    "ppu": 17.0,
+    "file": "f5_front.webp"
+   },
+   "q": {
+    "cx": 94.5,
+    "cy": 117.28,
+    "ppu": 17.0,
+    "file": "f5_q.webp"
+   },
+   "side": {
+    "cx": 101.0,
+    "cy": 114.78,
+    "ppu": 17.0,
+    "file": "f5_side.webp"
+   }
+  }
+ },
+ "f6": {
+  "sex": "f",
+  "skin": "#eacfbb",
+  "views": {
+   "front": {
+    "cx": 91.0,
+    "cy": 119.28,
+    "ppu": 17.0,
+    "file": "f6_front.webp"
+   },
+   "q": {
+    "cx": 95.0,
+    "cy": 118.28,
+    "ppu": 17.0,
+    "file": "f6_q.webp"
+   },
+   "side": {
+    "cx": 101.5,
+    "cy": 115.28,
+    "ppu": 17.0,
+    "file": "f6_side.webp"
+   }
+  }
+ },
+ "f7": {
+  "sex": "f",
+  "skin": "#efd1bb",
+  "views": {
+   "front": {
+    "cx": 92.0,
+    "cy": 119.28,
+    "ppu": 17.0,
+    "file": "f7_front.webp"
+   },
+   "q": {
+    "cx": 94.5,
+    "cy": 118.28,
+    "ppu": 17.0,
+    "file": "f7_q.webp"
+   },
+   "side": {
+    "cx": 100.5,
+    "cy": 114.78,
+    "ppu": 17.0,
+    "file": "f7_side.webp"
+   }
+  }
+ },
+ "nangongwan": {
+  "sex": "f",
+  "skin": "#ecdac8",
+  "views": {
+   "front": {
+    "cx": 93.0,
+    "cy": 118.28,
+    "ppu": 17.0,
+    "file": "nangongwan_front.webp"
+   },
+   "q": {
+    "cx": 94.5,
+    "cy": 117.28,
+    "ppu": 17.0,
+    "file": "nangongwan_q.webp"
+   },
+   "side": {
+    "cx": 102.0,
+    "cy": 114.78,
+    "ppu": 17.0,
+    "file": "nangongwan_side.webp"
+   }
+  }
+ },
+ "dongxuaner": {
+  "sex": "f",
+  "skin": "#ecd3c1",
+  "views": {
+   "front": {
+    "cx": 93.5,
+    "cy": 119.28,
+    "ppu": 17.0,
+    "file": "dongxuaner_front.webp"
+   },
+   "q": {
+    "cx": 95.0,
+    "cy": 117.28,
+    "ppu": 17.0,
+    "file": "dongxuaner_q.webp"
+   },
+   "side": {
+    "cx": 101.0,
+    "cy": 114.78,
+    "ppu": 17.0,
+    "file": "dongxuaner_side.webp"
+   }
+  }
+ },
+ "chenqiaoqian": {
+  "sex": "f",
+  "skin": "#f1d8c6",
+  "views": {
+   "front": {
+    "cx": 91.5,
+    "cy": 118.28,
+    "ppu": 17.0,
+    "file": "chenqiaoqian_front.webp"
+   },
+   "q": {
+    "cx": 95.0,
+    "cy": 117.78,
+    "ppu": 17.0,
+    "file": "chenqiaoqian_q.webp"
+   },
+   "side": {
+    "cx": 101.0,
+    "cy": 114.78,
+    "ppu": 17.0,
+    "file": "chenqiaoqian_side.webp"
+   }
+  }
+ },
+ "mocaihuan": {
+  "sex": "f",
+  "skin": "#efd2be",
+  "views": {
+   "front": {
+    "cx": 91.5,
+    "cy": 118.78,
+    "ppu": 17.0,
+    "file": "mocaihuan_front.webp"
+   },
+   "q": {
+    "cx": 95.0,
+    "cy": 117.28,
+    "ppu": 17.0,
+    "file": "mocaihuan_q.webp"
+   },
+   "side": {
+    "cx": 100.5,
+    "cy": 114.78,
+    "ppu": 17.0,
+    "file": "mocaihuan_side.webp"
+   }
+  }
+ },
+ "mupeiling": {
+  "sex": "f",
+  "skin": "#e7d0c2",
+  "views": {
+   "front": {
+    "cx": 92.0,
+    "cy": 118.78,
+    "ppu": 17.0,
+    "file": "mupeiling_front.webp"
+   },
+   "q": {
+    "cx": 95.0,
+    "cy": 116.78,
+    "ppu": 17.0,
+    "file": "mupeiling_q.webp"
+   },
+   "side": {
+    "cx": 101.0,
+    "cy": 114.78,
+    "ppu": 17.0,
+    "file": "mupeiling_side.webp"
+   }
+  }
+ },
+ "ziling": {
+  "sex": "f",
+  "skin": "#e7cebd",
+  "views": {
+   "front": {
+    "cx": 91.5,
+    "cy": 118.78,
+    "ppu": 17.0,
+    "file": "ziling_front.webp"
+   },
+   "q": {
+    "cx": 95.5,
+    "cy": 117.28,
+    "ppu": 17.0,
+    "file": "ziling_q.webp"
+   },
+   "side": {
+    "cx": 101.0,
+    "cy": 114.28,
+    "ppu": 17.0,
+    "file": "ziling_side.webp"
+   }
+  }
+ },
+ "yuanyao": {
+  "sex": "f",
+  "skin": "#edcfb9",
+  "views": {
+   "front": {
+    "cx": 92.0,
+    "cy": 118.78,
+    "ppu": 17.0,
+    "file": "yuanyao_front.webp"
+   },
+   "q": {
+    "cx": 94.5,
+    "cy": 117.78,
+    "ppu": 17.0,
+    "file": "yuanyao_q.webp"
+   },
+   "side": {
+    "cx": 101.0,
+    "cy": 114.78,
+    "ppu": 17.0,
+    "file": "yuanyao_side.webp"
+   }
+  }
+ },
+ "yinyue": {
+  "sex": "f",
+  "skin": "#e5d1be",
+  "views": {
+   "front": {
+    "cx": 92.5,
+    "cy": 118.78,
+    "ppu": 17.0,
+    "file": "yinyue_front.webp"
+   },
+   "q": {
+    "cx": 95.0,
+    "cy": 117.78,
+    "ppu": 17.0,
+    "file": "yinyue_q.webp"
+   },
+   "side": {
+    "cx": 101.5,
+    "cy": 115.78,
+    "ppu": 17.0,
+    "file": "yinyue_side.webp"
+   }
+  }
+ }
+}
