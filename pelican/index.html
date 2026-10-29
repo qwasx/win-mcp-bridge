@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>鹈鹕骑自行车 · Pelican riding a bicycle</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 50% 0%, #2b3550, #151a26 70%);
+    font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+    color: #e8ecf4;
+    padding: 28px 18px 40px;
+  }
+  .wrap { width: min(960px, 100%); }
+  .head { text-align: center; margin-bottom: 16px; }
+  h1 { margin: 0 0 6px; font-size: clamp(22px, 4vw, 34px); letter-spacing: .06em; }
+  .sub { margin: 0; font-size: 14px; color: #9fb0cc; letter-spacing: .04em; }
+  .stage {
+    border-radius: 18px; overflow: hidden;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.08);
+    background: #cfe7f7;
+    line-height: 0;
+  }
+  svg { display: block; width: 100%; height: auto; }
+  .controls {
+    margin-top: 16px; display: flex; flex-wrap: wrap; gap: 14px;
+    align-items: center; justify-content: center;
+    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
+    border-radius: 14px; padding: 12px 16px;
+  }
+  .controls label { font-size: 13px; color: #b9c6dd; display: flex; align-items: center; gap: 10px; }
+  input[type=range] { width: 180px; accent-color: #ff8a5c; }
+  button {
+    font: inherit; font-size: 13px; cursor: pointer; color: #1d2331;
+    background: linear-gradient(#ffd66b, #ffb347);
+    border: 0; border-radius: 999px; padding: 8px 18px; font-weight: 700;
+    box-shadow: 0 4px 0 #cc7f22;
+  }
+  button:active { transform: translateY(2px); box-shadow: 0 2px 0 #cc7f22; }
+  .hint { margin-top: 10px; text-align: center; font-size: 12px; color: #7f8fab; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>鹈鹕骑自行车</h1>
+    <p class="sub">Pelican riding a bicycle — 手写 SVG，腿部用逆运动学解算，脚真的踩在脚踏上</p>
+  </div>
+
+  <div class="stage">
+  <svg viewBox="0 0 900 560" xmlns="http://www.w3.org/2000/svg" role="img"
+       aria-label="一只鹈鹕骑着自行车在路上飞驰">
+    <defs>
+      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%"   stop-color="#8ec9ee"/>
+        <stop offset="55%"  stop-color="#cfe7f7"/>
+        <stop offset="100%" stop-color="#ffeccd"/>
+      </linearGradient>
+      <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
+        <stop offset="0%"   stop-color="#fff3c4" stop-opacity=".95"/>
+        <stop offset="60%"  stop-color="#ffe08a" stop-opacity=".35"/>
+        <stop offset="100%" stop-color="#ffe08a" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="bodyG" x1="0.1" y1="0" x2="0.7" y2="1">
+        <stop offset="0%"   stop-color="#ffffff"/>
+        <stop offset="60%"  stop-color="#f2f5f9"/>
+        <stop offset="100%" stop-color="#d9e0ea"/>
+      </linearGradient>
+      <linearGradient id="wingG" x1="0" y1="0" x2="1" y2="0.6">
+        <stop offset="0%"   stop-color="#ffffff"/>
+        <stop offset="55%"  stop-color="#eaeef4"/>
+        <stop offset="100%" stop-color="#c3ccda"/>
+      </linearGradient>
+      <linearGradient id="beakG" x1="0" y1="0" x2="1" y2="0.4">
+        <stop offset="0%"   stop-color="#ffd07a"/>
+        <stop offset="70%"  stop-color="#f6a83f"/>
+        <stop offset="100%" stop-color="#e0872a"/>
+      </linearGradient>
+      <linearGradient id="pouchG" x1="0" y1="0" x2="0.4" y2="1">
+        <stop offset="0%"   stop-color="#ffc46b"/>
+        <stop offset="100%" stop-color="#ef8f2c"/>
+      </linearGradient>
+      <linearGradient id="roadG" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%"   stop-color="#5b6068"/>
+        <stop offset="100%" stop-color="#3b3f47"/>
+      </linearGradient>
+      <linearGradient id="frameG" x1="0" y1="0" x2="0.3" y2="1">
+        <stop offset="0%"   stop-color="#ff7a5e"/>
+        <stop offset="100%" stop-color="#d8362c"/>
+      </linearGradient>
+      <clipPath id="sceneClip"><rect x="0" y="0" width="900" height="560"/></clipPath>
+    </defs>
+
+    <g clip-path="url(#sceneClip)">
+
+      <!-- SKY -->
+      <rect x="0" y="0" width="900" height="470" fill="url(#sky)"/>
+      <circle cx="772" cy="96" r="150" fill="url(#sunGlow)"/>
+      <circle cx="772" cy="96" r="42" fill="#fff0b8"/>
+
+      <!-- clouds (slow parallax) -->
+      <g fill="#ffffff" opacity=".85">
+        <g>
+          <animateTransform attributeName="transform" type="translate"
+            values="0 0; -1200 0" dur="48s" repeatCount="indefinite"/>
+          <g transform="translate(120,110)">
+            <ellipse cx="0" cy="0" rx="46" ry="20"/>
+            <ellipse cx="34" cy="-12" rx="32" ry="22"/>
+            <ellipse cx="-34" cy="4" rx="30" ry="16"/>
+          </g>
+          <g transform="translate(1320,110)">
+            <ellipse cx="0" cy="0" rx="46" ry="20"/>
+            <ellipse cx="34" cy="-12" rx="32" ry="22"/>
+            <ellipse cx="-34" cy="4" rx="30" ry="16"/>
+          </g>
+        </g>
+        <g opacity=".7">
+          <animateTransform attributeName="transform" type="translate"
+            values="0 0; -1400 0" dur="70s" repeatCount="indefinite"/>
+          <g transform="translate(560,62)" >
+            <ellipse cx="0" cy="0" rx="34" ry="14"/>
+            <ellipse cx="26" cy="-9" rx="24" ry="16"/>
+            <ellipse cx="-24" cy="3" rx="22" ry="11"/>
+          </g>
+          <g transform="translate(1960,62)">
+            <ellipse cx="0" cy="0" rx="34" ry="14"/>
+            <ellipse cx="26" cy="-9" rx="24" ry="16"/>
+            <ellipse cx="-24" cy="3" rx="22" ry="11"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- HILLS -->
+      <g>
+        <animateTransform attributeName="transform" type="translate"
+          values="0 0; -900 0" dur="26s" repeatCount="indefinite"/>
+        <path fill="#a9c9ae" d="M0 470 L0 392 C 60 356, 130 372, 190 396 C 250 420, 300 372, 372 384
+              C 440 396, 486 366, 552 392 C 620 419, 676 380, 742 396 C 806 411, 856 400, 900 392 L900 470 Z"/>
+        <path fill="#a9c9ae" transform="translate(900,0)" d="M0 470 L0 392 C 60 356, 130 372, 190 396 C 250 420, 300 372, 372 384
+              C 440 396, 486 366, 552 392 C 620 419, 676 380, 742 396 C 806 411, 856 400, 900 392 L900 470 Z"/>
+      </g>
+      <g>
+        <animateTransform attributeName="transform" type="translate"
+          values="0 0; -900 0" dur="14s" repeatCount="indefinite"/>
+        <path fill="#7fb08c" d="M0 470 L0 428 C 70 404, 118 434, 186 424 C 254 414, 306 438, 380 428
+              C 452 418, 500 436, 574 426 C 648 416, 700 436, 772 426 C 830 421, 868 432, 900 428 L900 470 Z"/>
+        <path fill="#7fb08c" transform="translate(900,0)" d="M0 470 L0 428 C 70 404, 118 434, 186 424 C 254 414, 306 438, 380 428
+              C 452 418, 500 436, 574 426 C 648 416, 700 436, 772 426 C 830 421, 868 432, 900 428 L900 470 Z"/>
+      </g>
+      <!-- bushes whipping by -->
+      <g>
+        <animateTransform attributeName="transform" type="translate"
+          values="0 0; -900 0" dur="5.2s" repeatCount="indefinite"/>
+        <g fill="#5d9970">
+          <ellipse cx="70" cy="452" rx="34" ry="20"/>
+          <ellipse cx="330" cy="456" rx="40" ry="17"/>
+          <ellipse cx="600" cy="450" rx="30" ry="21"/>
+          <ellipse cx="840" cy="455" rx="38" ry="18"/>
+        </g>
+        <g fill="#5d9970" transform="translate(900,0)">
+          <ellipse cx="70" cy="452" rx="34" ry="20"/>
+          <ellipse cx="330" cy="456" rx="40" ry="17"/>
+          <ellipse cx="600" cy="450" rx="30" ry="21"/>
+          <ellipse cx="840" cy="455" rx="38" ry="18"/>
+        </g>
+      </g>
+
+      <!-- ROAD -->
+      <rect x="0" y="470" width="900" height="90" fill="url(#roadG)"/>
+      <rect x="0" y="468" width="900" height="4" fill="#6d747f"/>
+      <g stroke="#8d939d" stroke-width="3" stroke-linecap="round" opacity=".8">
+        <line x1="0" y1="484" x2="900" y2="484"/>
+        <line x1="0" y1="548" x2="900" y2="548"/>
+      </g>
+      <!-- centre dashes scrolling -->
+      <g stroke="#ffd76b" stroke-width="8" stroke-linecap="round" opacity=".95">
+        <animateTransform attributeName="transform" type="translate"
+          values="0 0; -160 0" dur="0.42s" repeatCount="indefinite"/>
+        <g>
+          <line x1="0"   y1="516" x2="70" y2="516"/>
+          <line x1="160" y1="516" x2="230" y2="516"/>
+          <line x1="320" y1="516" x2="390" y2="516"/>
+          <line x1="480" y1="516" x2="550" y2="516"/>
+          <line x1="640" y1="516" x2="710" y2="516"/>
+          <line x1="800" y1="516" x2="870" y2="516"/>
+          <line x1="960" y1="516" x2="1030" y2="516"/>
+          <line x1="1120" y1="516" x2="1190" y2="516"/>
+        </g>
+      </g>
+
+      <!-- speed lines -->
+      <g stroke="#ffffff" stroke-linecap="round" fill="none">
+        <g opacity=".55" stroke-width="5">
+          <animateTransform attributeName="transform" type="translate"
+            values="240 0; -260 0" dur="0.6s" repeatCount="indefinite"/>
+          <line x1="0" y1="250" x2="90" y2="250"/>
+        </g>
+        <g opacity=".45" stroke-width="4">
+          <animateTransform attributeName="transform" type="translate"
+            values="300 0; -300 0" dur="0.75s" repeatCount="indefinite"/>
+          <line x1="0" y1="330" x2="80" y2="330"/>
+        </g>
+        <g opacity=".4" stroke-width="4">
+          <animateTransform attributeName="transform" type="translate"
+            values="320 0; -280 0" dur="0.55s" repeatCount="indefinite"/>
+          <line x1="0" y1="180" x2="70" y2="180"/>
+        </g>
+        <g opacity=".35" stroke-width="6">
+          <animateTransform attributeName="transform" type="translate"
+            values="360 0; -300 0" dur="0.9s" repeatCount="indefinite"/>
+          <line x1="0" y1="410" x2="110" y2="410"/>
+        </g>
+      </g>
+
+      <!-- PELICAN + BICYCLE -->
+      <g>
+        <!-- whole-rig bounce, twice per pedal stroke -->
+        <animateTransform attributeName="transform" type="translate"
+          values="0 0; 0 -2.5; 0 0; 0 -2.5; 0 0" dur="1.2s" repeatCount="indefinite"/>
+
+        <!-- WHEELS -->
+        <g>
+          <g>
+            <animateTransform attributeName="transform" type="rotate"
+              values="0 270 390; 360 270 390" dur="1.2s" repeatCount="indefinite"/>
+            <circle cx="270" cy="390" r="78" fill="none" stroke="#23262d" stroke-width="11"/>
+            <circle cx="270" cy="390" r="66" fill="none" stroke="#cdd4dd" stroke-width="4"/>
+            <g stroke="#e6ebf1" stroke-width="2.2" opacity=".9">
+              <line x1="270" y1="324" x2="270" y2="456"/>
+              <line x1="204" y1="390" x2="336" y2="390"/>
+              <line x1="223" y1="343" x2="317" y2="437"/>
+              <line x1="317" y1="343" x2="223" y2="437"/>
+              <line x1="244" y1="330" x2="296" y2="450"/>
+              <line x1="296" y1="330" x2="244" y2="450"/>
+            </g>
+            <circle cx="270" cy="390" r="7" fill="#8d949e"/>
+          </g>
+          <g>
+            <animateTransform attributeName="transform" type="rotate"
+              values="0 610 390; 360 610 390" dur="1.2s" repeatCount="indefinite"/>
+            <circle cx="610" cy="390" r="78" fill="none" stroke="#23262d" stroke-width="11"/>
+            <circle cx="610" cy="390" r="66" fill="none" stroke="#cdd4dd" stroke-width="4"/>
+            <g stroke="#e6ebf1" stroke-width="2.2" opacity=".9">
+              <line x1="610" y1="324" x2="610" y2="456"/>
+              <line x1="544" y1="390" x2="676" y2="390"/>
+              <line x1="563" y1="343" x2="657" y2="437"/>
+              <line x1="657" y1="343" x2="563" y2="437"/>
+              <line x1="584" y1="330" x2="636" y2="450"/>
+              <line x1="636" y1="330" x2="584" y2="450"/>
+            </g>
+            <circle cx="610" cy="390" r="7" fill="#8d949e"/>
+          </g>
+        </g>
+
+        <!-- FRAME -->
+        <g stroke-linecap="round" fill="none">
+          <g stroke="url(#frameG)" stroke-width="11">
+            <path d="M420 408 L270 390"/>        <!-- chain stay -->
+            <path d="M378 300 L270 390"/>        <!-- seat stay -->
+            <path d="M420 408 L378 300"/>        <!-- seat tube -->
+            <path d="M420 408 L556 330"/>        <!-- down tube -->
+            <path d="M382 310 L570 300"/>        <!-- top tube -->
+            <path d="M556 330 L582 276"/>        <!-- head tube -->
+          </g>
+          <path d="M582 276 L610 390" stroke="#3a3f49" stroke-width="9"/>   <!-- fork -->
+          <path d="M582 276 C 580 258, 598 252, 610 262 C 618 270, 612 282, 600 282"
+                stroke="#3a3f49" stroke-width="9"/>                          <!-- drop bar -->
+          <path d="M378 300 L392 292" stroke="#3a3f49" stroke-width="8"/>   <!-- seat post -->
+        </g>
+        <!-- bottle -->
+        <g transform="rotate(-30 490 368)">
+          <rect x="481" y="351" width="18" height="34" rx="6" fill="#5cc6d6"
+                stroke="#37a0b2" stroke-width="2"/>
+          <rect x="485" y="345" width="10" height="7" rx="2.5" fill="#37a0b2"/>
+        </g>
+        <!-- saddle -->
+        <path d="M352 296 C 366 288, 396 286, 414 292 C 420 294, 418 302, 410 303
+                 C 392 306, 366 306, 354 302 C 348 300, 347 298, 352 296 Z" fill="#2f333c"/>
+        <!-- pedals' chainring + chain -->
+        <circle cx="270" cy="390" r="11" fill="#9aa2ad" stroke="#6d747f" stroke-width="2"/>
+        <path d="M420 384 L270 379 M420 432 L270 401" stroke="#7d848f" stroke-width="3" fill="none"/>
+        <g>
+          <animateTransform attributeName="transform" type="rotate"
+            values="0 420 408; 360 420 408" dur="1.2s" repeatCount="indefinite"/>
+          <circle cx="420" cy="408" r="26" fill="none" stroke="#b8c0cb" stroke-width="5"/>
+          <circle cx="420" cy="408" r="26" fill="none" stroke="#8d949e" stroke-width="2"
+                  stroke-dasharray="3 7"/>
+        </g>
+
+        <!-- FAR CRANK + PEDAL -->
+        <g>
+          <g>
+            <animateTransform attributeName="transform" type="rotate"
+              values="180.00 420 408;195.00 420 408;210.00 420 408;225.00 420 408;240.00 420 408;255.00 420 408;270.00 420 408;285.00 420 408;300.00 420 408;315.00 420 408;330.00 420 408;345.00 420 408;360.00 420 408;375.00 420 408;390.00 420 408;405.00 420 408;420.00 420 408;435.00 420 408;450.00 420 408;465.00 420 408;480.00 420 408;495.00 420 408;510.00 420 408;525.00 420 408;540.00 420 408" dur="1.2s" repeatCount="indefinite"/>
+            <path d="M420 408 L456 408" stroke="#7d848f" stroke-width="7" stroke-linecap="round"/>
+            <g transform="translate(456,0)">
+              <g>
+                <animateTransform attributeName="transform" type="rotate"
+                  values="-180.00;-195.00;-210.00;-225.00;-240.00;-255.00;-270.00;-285.00;-300.00;-315.00;-330.00;-345.00;-360.00;-375.00;-390.00;-405.00;-420.00;-435.00;-450.00;-465.00;-480.00;-495.00;-510.00;-525.00;-540.00" dur="1.2s" repeatCount="indefinite"/>
+                <rect x="-13" y="-4" width="26" height="8" rx="3" fill="#3a3f49"/>
+              </g>
+            </g>
+          </g>
+        </g>
+
+        <!-- FAR LEG (DARKER, BEHIND THE BIRD) -->
+        <g opacity=".92" transform="translate(390,316)">
+          <g>
+            <animateTransform attributeName="transform" type="rotate"
+              values="152.40;158.53;162.35;162.86;159.20;151.39;140.99;130.26;120.69;112.77;106.39;101.32;97.37;94.43;92.57;92.00;93.18;96.55;102.20;109.64;118.18;127.20;136.20;144.76;152.40" dur="1.2s" repeatCount="indefinite"/>
+            <path d="M0 0 L62 0" stroke="#cbd3de" stroke-width="30" stroke-linecap="round" fill="none"/>
+            <g transform="translate(62,0)">
+              <g>
+                <animateTransform attributeName="transform" type="rotate"
+                  values="-100.13;-109.95;-118.72;-125.75;-130.18;-131.25;-128.74;-123.14;-115.31;-106.04;-95.93;-85.44;-74.95;-64.84;-55.64;-48.08;-43.19;-41.99;-44.79;-50.91;-59.25;-68.89;-79.21;-89.75;-100.13" dur="1.2s" repeatCount="indefinite"/>
+                <path d="M0 0 L80 0" stroke="#d1872f" stroke-width="9" stroke-linecap="round" fill="none"/>
+                <g transform="translate(80,0)">
+                  <g>
+                    <animateTransform attributeName="transform" type="rotate"
+                      values="-52.28;-48.58;-43.63;-37.12;-29.02;-20.13;-12.25;-7.12;-5.39;-6.73;-10.46;-15.88;-22.42;-29.59;-36.93;-43.92;-49.99;-54.56;-57.40;-58.73;-58.94;-58.31;-57.00;-55.02;-52.28" dur="1.2s" repeatCount="indefinite"/>
+                    <path d="M-8 -3 L20 -8 L30 2 L8 9 Z" fill="#d1872f"/>
+                  </g>
+                </g>
+              </g>
+            </g>
+          </g>
+        </g>
+
+        <!-- THE PELICAN -->
+        <g>
+          <animateTransform attributeName="transform" type="translate"
+            values="0 0; 0 -3; 0 0; 0 -3; 0 0" dur="1.2s" repeatCount="indefinite"/>
+
+          <!-- tail feathers -->
+          <g>
+            <animateTransform attributeName="transform" type="rotate"
+              values="0 214 232; 2.6 214 232; 0 214 232; -2.6 214 232; 0 214 232"
+              dur="1.2s" repeatCount="indefinite"/>
+            <path fill="#dbe2ec" stroke="#c3ccda" stroke-width="1.5" d="M216 228
+              C 182 192, 150 176, 130 178 C 152 194, 176 210, 206 226
+              C 176 216, 146 216, 126 224 C 150 232, 182 238, 210 242
+              C 184 242, 156 250, 140 262 C 168 260, 200 256, 220 252 Z"/>
+          </g>
+
+          <!-- far wing (reaches the bar, hidden behind the body) -->
+          <path fill="#cfd7e2" d="M402 206 C 442 206, 494 226, 542 254 C 562 265, 578 276, 588 288
+                 C 580 300, 562 296, 540 284 C 492 258, 442 242, 404 236 C 386 232, 386 212, 402 206 Z"/>
+
+          <!-- body -->
+          <path fill="url(#bodyG)" stroke="#c3ccda" stroke-width="2" d="M302 302
+            C 252 298, 216 276, 206 246
+            C 197 219, 208 193, 238 179
+            C 268 164, 308 158, 348 165
+            C 398 173, 436 205, 449 240
+            C 459 268, 436 297, 401 307
+            C 376 314, 330 307, 302 302 Z"/>
+          <!-- breast shading -->
+          <path fill="#dfe6ef" opacity=".75" d="M401 307 C 436 297, 459 268, 449 240
+            C 442 262, 424 288, 396 300 C 380 306, 366 308, 352 308
+            C 368 310, 386 311, 401 307 Z"/>
+
+          <!-- neck -->
+          <path d="M424 206 C 434 168, 452 132, 492 112" fill="none"
+                stroke="url(#bodyG)" stroke-width="38" stroke-linecap="round"/>
+
+          <!-- head group: slight lag/wobble -->
+          <g>
+            <animateTransform attributeName="transform" type="rotate"
+              values="0 424 206; -1.1 424 206; 0 424 206; 1.1 424 206; 0 424 206"
+              dur="1.2s" repeatCount="indefinite"/>
+            <!-- head -->
+            <circle cx="508" cy="100" r="29" fill="url(#bodyG)" stroke="#c3ccda" stroke-width="2"/>
+            <!-- little crest -->
+            <path fill="#e7ecf3" d="M492 78 C 484 60, 496 50, 508 56 C 500 62, 496 70, 500 84 Z"/>
+            <!-- pouch (drawn before the upper mandible so it tucks under) -->
+            <path fill="url(#pouchG)" d="M524 98
+              C 536 122, 550 141, 567 153
+              C 588 167, 612 152, 620 130
+              C 624 120, 627 114, 629 110
+              C 600 122, 558 122, 530 107 Z"/>
+            <path fill="#ffffff" opacity=".18" d="M534 112 C 546 128, 560 140, 574 146
+              C 560 148, 544 138, 532 122 Z"/>
+            <!-- upper mandible -->
+            <path fill="url(#beakG)" stroke="#d98a2b" stroke-width="1.6" d="M522 82
+              C 556 76, 592 89, 629 110
+              C 622 119, 606 123, 588 121
+              C 566 119, 540 110, 523 99 Z"/>
+            <path d="M560 92 C 580 98, 600 106, 620 114" stroke="#ffe6b0" stroke-width="2.4"
+                  fill="none" opacity=".8" stroke-linecap="round"/>
+            <!-- eye -->
+            <circle cx="516" cy="88" r="10.5" fill="#ffffff" stroke="#cfd6e0" stroke-width="1.2"/>
+            <circle cx="519.5" cy="89" r="5.6" fill="#1f242e"/>
+            <circle cx="517.4" cy="86.6" r="2.1" fill="#ffffff"/>
+            <path d="M502 74 C 510 68, 522 68, 530 73" stroke="#c3ccda" stroke-width="3"
+                  fill="none" stroke-linecap="round"/>
+          </g>
+
+          <!-- near wing: shoulder -> handlebar, with feather scallops -->
+          <path fill="url(#wingG)" stroke="#b9c3d1" stroke-width="2" d="M406 194
+            C 448 194, 500 214, 548 242
+            C 570 254, 586 266, 596 278
+            C 588 291, 570 287, 548 275
+            C 500 249, 448 233, 410 227
+            C 392 223, 390 200, 406 194 Z"/>
+          <g stroke="#c3ccda" stroke-width="1.6" fill="none" opacity=".9">
+            <path d="M430 210 C 452 218, 476 230, 500 246"/>
+            <path d="M452 214 C 476 224, 502 238, 526 254"/>
+            <path d="M478 222 C 500 232, 528 246, 552 262"/>
+          </g>
+          <!-- wing tip gripping the bar -->
+          <path fill="#e7ecf3" stroke="#b9c3d1" stroke-width="2"
+                d="M580 262 C 596 262, 606 272, 604 282 C 600 290, 588 290, 582 284
+                   C 576 278, 574 268, 580 262 Z"/>
+        </g>
+
+        <!-- NEAR CRANK + PEDAL -->
+        <g>
+          <animateTransform attributeName="transform" type="rotate"
+            values="0.00 420 408;15.00 420 408;30.00 420 408;45.00 420 408;60.00 420 408;75.00 420 408;90.00 420 408;105.00 420 408;120.00 420 408;135.00 420 408;150.00 420 408;165.00 420 408;180.00 420 408;195.00 420 408;210.00 420 408;225.00 420 408;240.00 420 408;255.00 420 408;270.00 420 408;285.00 420 408;300.00 420 408;315.00 420 408;330.00 420 408;345.00 420 408;360.00 420 408" dur="1.2s" repeatCount="indefinite"/>
+          <path d="M420 408 L456 408" stroke="#5b616b" stroke-width="8" stroke-linecap="round"/>
+          <g transform="translate(456,0)">
+            <g>
+              <animateTransform attributeName="transform" type="rotate"
+                values="-0.00;-15.00;-30.00;-45.00;-60.00;-75.00;-90.00;-105.00;-120.00;-135.00;-150.00;-165.00;-180.00;-195.00;-210.00;-225.00;-240.00;-255.00;-270.00;-285.00;-300.00;-315.00;-330.00;-345.00;-360.00" dur="1.2s" repeatCount="indefinite"/>
+              <rect x="-15" y="-4.5" width="30" height="9" rx="3.5" fill="#2f333c"/>
+              <rect x="-15" y="-4.5" width="30" height="3" rx="1.5" fill="#5b616b"/>
+            </g>
+          </g>
+        </g>
+
+        <!-- NEAR LEG -->
+        <g transform="translate(390,316)">
+          <g>
+            <animateTransform attributeName="transform" type="rotate"
+              values="97.37;94.43;92.57;92.00;93.18;96.55;102.20;109.64;118.18;127.20;136.20;144.76;152.40;158.53;162.35;162.86;159.20;151.39;140.99;130.26;120.69;112.77;106.39;101.32;97.37" dur="1.2s" repeatCount="indefinite"/>
+            <path d="M0 0 L62 0" stroke="#f4f7fb" stroke-width="32" stroke-linecap="round" fill="none"/>
+            <path d="M8 -8 L54 -8" stroke="#dfe6ef" stroke-width="8" stroke-linecap="round"
+                  fill="none" opacity=".8"/>
+            <g transform="translate(62,0)">
+              <g>
+                <animateTransform attributeName="transform" type="rotate"
+                  values="-74.95;-64.84;-55.64;-48.08;-43.19;-41.99;-44.79;-50.91;-59.25;-68.89;-79.21;-89.75;-100.13;-109.95;-118.72;-125.75;-130.18;-131.25;-128.74;-123.14;-115.31;-106.04;-95.93;-85.44;-74.95" dur="1.2s" repeatCount="indefinite"/>
+                <path d="M0 0 L80 0" stroke="#f0a03c" stroke-width="10" stroke-linecap="round" fill="none"/>
+                <path d="M6 -2.5 L72 -2.5" stroke="#ffc880" stroke-width="3" stroke-linecap="round"
+                      fill="none" opacity=".7"/>
+                <g transform="translate(80,0)">
+                  <g>
+                    <animateTransform attributeName="transform" type="rotate"
+                      values="-22.42;-29.59;-36.93;-43.92;-49.99;-54.56;-57.40;-58.73;-58.94;-58.31;-57.00;-55.02;-52.28;-48.58;-43.63;-37.12;-29.02;-20.13;-12.25;-7.12;-5.39;-6.73;-10.46;-15.88;-22.42" dur="1.2s" repeatCount="indefinite"/>
+                    <path d="M-10 -4 L22 -9 L34 2 L10 10 Z" fill="#f0a03c"
+                          stroke="#d1872f" stroke-width="1.6"/>
+                    <path d="M2 -3 L30 -1 M2 -1 L26 4" stroke="#d1872f" stroke-width="1.4" fill="none"/>
+                  </g>
+                </g>
+              </g>
+            </g>
+          </g>
+        </g>
+      </g>
+
+      <!-- dust kicked up by the rear wheel -->
+      <g fill="#e9eef4">
+        <circle cx="238" cy="462" r="6" opacity="0">
+          <animate attributeName="opacity" values="0;.55;0" dur="0.9s" repeatCount="indefinite"/>
+          <animate attributeName="cy" values="462;440" dur="0.9s" repeatCount="indefinite"/>
+          <animate attributeName="r" values="5;16" dur="0.9s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="212" cy="466" r="5" opacity="0">
+          <animate attributeName="opacity" values="0;.45;0" dur="1.1s" repeatCount="indefinite"/>
+          <animate attributeName="cy" values="466;436" dur="1.1s" repeatCount="indefinite"/>
+          <animate attributeName="r" values="4;14" dur="1.1s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="262" cy="466" r="5" opacity="0">
+          <animate attributeName="opacity" values="0;.4;0" dur="0.75s" repeatCount="indefinite"/>
+          <animate attributeName="cy" values="466;448" dur="0.75s" repeatCount="indefinite"/>
+          <animate attributeName="r" values="4;12" dur="0.75s" repeatCount="indefinite"/>
+        </circle>
+      </g>
+
+      <!-- contact shadow -->
+      <ellipse cx="446" cy="474" rx="205" ry="13" fill="#262a31" opacity=".3"/>
+    </g>
+  </svg>
+  </div>
+
+  <div class="controls">
+    <label>速度
+      <input id="speed" type="range" min="40" max="220" value="100" step="5">
+      <span id="speedVal">1.0×</span>
+    </label>
+    <button id="honk" type="button">🦢 鸣笛</button>
+  </div>
+  <p class="hint">纯 SVG 动画，没有外部依赖；拖速度条可以调速（腿部与脚踏由逆运动学实时解算，永远同步）。</p>
+</div>
+
+<script>
+(function () {
+  var svg = document.querySelector('svg');
+  var anims = [];
+  function collect() {
+    anims = [];
+    svg.querySelectorAll('animate, animateTransform').forEach(function (a) {
+      if (a.dataset.base === undefined) {
+        a.dataset.base = a.getAttribute('dur') || '1s';
+        a.dataset.begin = a.getAttribute('begin') || '0s';
+      }
+      anims.push(a);
+    });
+  }
+  collect();
+
+  var slider = document.getElementById('speed');
+  var out = document.getElementById('speedVal');
+  function apply() {
+    var k = slider.value / 100;
+    out.textContent = k.toFixed(2).replace(/0$/, '') + '×';
+    anims.forEach(function (a) {
+      var base = parseFloat(a.dataset.base);
+      var unit = (a.dataset.base + '').replace(/[\d.\-]/g, '') || 's';
+      a.setAttribute('dur', (base / k).toFixed(3) + unit);
+      var b = parseFloat(a.dataset.begin) || 0;
+      a.setAttribute('begin', (b / k).toFixed(3) + 's');
+    });
+    if (svg.pauseAnimations) { svg.unpauseAnimations(); }
+  }
+  slider.addEventListener('input', apply);
+
+  // a very dignified pelican honk
+  var honk = document.getElementById('honk');
+  honk.addEventListener('click', function () {
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      var ctx = new Ctx();
+      [0, 0.17].forEach(function (t0, i) {
+        var o = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(i ? 300 : 380, ctx.currentTime + t0);
+        o.frequency.exponentialRampToValueAtTime(i ? 170 : 210, ctx.currentTime + t0 + 0.13);
+        f.type = 'lowpass'; f.frequency.value = 1300;
+        g.gain.setValueAtTime(0.0001, ctx.currentTime + t0);
+        g.gain.exponentialRampToValueAtTime(0.28, ctx.currentTime + t0 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t0 + 0.15);
+        o.connect(f); f.connect(g); g.connect(ctx.destination);
+        o.start(ctx.currentTime + t0); o.stop(ctx.currentTime + t0 + 0.18);
+      });
+    } catch (e) { /* audio is a bonus, ignore */ }
+  });
+})();
+</script>
+</body>
+</html>
