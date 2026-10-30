@@ -77,7 +77,8 @@ export class Happen {
     if (g.combat.safeAt(p.x, p.y) || p.sitting) return;
     this.hapT -= dt;
     if (this.hapT > 0 || this.haps.length >= 2) return;
-    this.hapT = rand(26, 48);
+    // 第五十步（活世界）：世界上的事多的是，专门冲着你来的少一点
+    this.hapT = rand(42, 78);
     this.spawn();
   }
   private drop(x: Hap) { const g = this.game; g.combat.enemies = g.combat.enemies.filter((e) => !x.foes.includes(e) || e.aggro); }
@@ -113,7 +114,8 @@ export class Happen {
   }
   private spawn() {
     const g = this.game, h = g.hero, ws = g.ws;
-    const w: [HKind, number][] = [['robber', ws.rep < -30 ? 34 : 20], ['tribul', 10], ['chase', 14], ['caravan', 11], ['wager', 11], ['beastfight', 16]];
+    // 活世界：少一点“专门来劫你”，多一点世界自己的事（渡劫、商队、赌斗、妖兽相争）
+    const w: [HKind, number][] = [['robber', ws.rep < -30 ? 26 : 10], ['tribul', 14], ['chase', 9], ['caravan', 15], ['wager', 14], ['beastfight', 18]];
     const tot = w.reduce((a, b) => a + b[1], 0); let r = Math.random() * tot, kind: HKind = 'robber';
     for (const [k, v] of w) { r -= v; if (r <= 0) { kind = k; break; } }
     const pos = this.place(1.08, 1.4, kind === 'caravan');
