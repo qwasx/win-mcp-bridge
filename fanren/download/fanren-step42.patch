@@ -1,0 +1,782 @@
+Binary files orig/fanren/src/assets/faces/f1.jpg and fanren/src/assets/faces/f1.jpg differ
+Binary files orig/fanren/src/assets/faces/f2.jpg and fanren/src/assets/faces/f2.jpg differ
+Binary files orig/fanren/src/assets/faces/m1.jpg and fanren/src/assets/faces/m1.jpg differ
+Binary files orig/fanren/src/assets/faces/m2.jpg and fanren/src/assets/faces/m2.jpg differ
+diff -ruN '--exclude=node_modules' '--exclude=dist' orig/fanren/src/data/faces.ts fanren/src/data/faces.ts
+--- orig/fanren/src/data/faces.ts	1970-01-01 00:00:00.000000000 +0000
++++ fanren/src/data/faces.ts	2026-10-30 14:12:39.936052189 +0000
+@@ -0,0 +1,15 @@
++// 第四十二步：面容预设 —— AI 工笔立绘 + 与之对应的代码脸型参数 / 发型
++import m1 from '../assets/faces/m1.jpg';
++import m2 from '../assets/faces/m2.jpg';
++import f1 from '../assets/faces/f1.jpg';
++import f2 from '../assets/faces/f2.jpg';
++import type { Look } from '../gfx/character';
++
++export interface FacePreset { id: string; sex: 'm' | 'f'; name: string; img: string; set: Partial<Look> }
++export const FACES: FacePreset[] = [
++  { id: 'm1', sex: 'm', name: '沉毅', img: m1, set: { hairStyle: 'bun', face: { jaw: 1.02, eye: 0.95, eyeTilt: 0.15, brow: 1.25, browTilt: 0.4 } } },
++  { id: 'm2', sex: 'm', name: '温雅', img: m2, set: { hairStyle: 'halfup', face: { jaw: 0.95, chin: 0.97, eye: 1.05, eyeTilt: 0, brow: 0.95, browTilt: 0.1, mouth: 0.95 } } },
++  { id: 'f1', sex: 'f', name: '温婉', img: f1, set: { hairStyle: 'long', bangs: true, pin: 'jade', huadian: '#d0303a', lash: true, lip: '#c84a56', face: { eye: 1.15, eyeTilt: 0.05, browTilt: -0.3 } } },
++  { id: 'f2', sex: 'f', name: '清冷', img: f2, set: { hairStyle: 'updo', bangs: false, pin: 'gold', huadian: undefined, lash: true, lip: '#b84050', face: { jaw: 0.9, eye: 1.0, eyeTilt: 0.5, brow: 0.75, browTilt: -0.1, mouth: 0.85 } } },
++];
++export const FACE_BY_ID = new Map(FACES.map((f) => [f.id, f]));
+diff -ruN '--exclude=node_modules' '--exclude=dist' orig/fanren/src/data/outfits.ts fanren/src/data/outfits.ts
+--- orig/fanren/src/data/outfits.ts	1970-01-01 00:00:00.000000000 +0000
++++ fanren/src/data/outfits.ts	2026-10-30 14:10:24.156052189 +0000
+@@ -0,0 +1,40 @@
++// 第四十二步：换衣系统 —— 一套衣装 = 对 Look 中服饰字段的覆盖；身体/脸/发型不受影响。
++import type { Look } from '../gfx/character';
++
++export type OutfitSlot = 'robe' | 'inner' | 'trim' | 'belt' | 'pants' | 'boots' | 'robeLen' | 'sleeve' | 'shawl' | 'sash' | 'ribbon' | 'hat';
++export interface Outfit { id: string; name: string; sex: 'm' | 'f' | 'u'; desc: string; set: Partial<Pick<Look, OutfitSlot>> }
++
++export const OUTFITS: Outfit[] = [
++  { id: 'qingshan', name: '青衫', sex: 'u', desc: '七玄门弟子常服，素净耐脏。',
++    set: { robe: '#3f6a4c', inner: '#ece6d6', trim: '#2b4636', belt: '#1f2420', pants: '#8a7a62', boots: '#2a2622', robeLen: 'long', sleeve: 'wide', sash: '#1f2420', ribbon: '#2a3a30', shawl: undefined } },
++  { id: 'huangfeng', name: '黄枫谷道袍', sex: 'u', desc: '黄枫谷外门制式道袍，镶枫叶黄边。',
++    set: { robe: '#c9a24a', inner: '#f3ecd8', trim: '#7a4a1a', belt: '#4a2e14', pants: '#5a4630', boots: '#2a2018', robeLen: 'long', sleeve: 'wide', sash: '#7a4a1a', ribbon: '#7a4a1a' } },
++  { id: 'xuanyi', name: '玄衣劲装', sex: 'u', desc: '窄袖短打，便于斗法奔袭。',
++    set: { robe: '#24262c', inner: '#6a6e78', trim: '#8a2a24', belt: '#8a2a24', pants: '#1c1d22', boots: '#121214', robeLen: 'short', sleeve: 'narrow', sash: '#8a2a24', ribbon: '#8a2a24', shawl: undefined } },
++  { id: 'baiyi', name: '白衣书生', sex: 'm', desc: '月白长衫，墨蓝镶边，一派斯文。',
++    set: { robe: '#e8e6e0', inner: '#ffffff', trim: '#2c3e5a', belt: '#2c3e5a', pants: '#cfcbc0', boots: '#2a2a30', robeLen: 'long', sleeve: 'wide', sash: '#2c3e5a', ribbon: '#2c3e5a' } },
++  { id: 'zhanpao', name: '赤金战袍', sex: 'm', desc: '朱红外袍配金边，结丹修士出行之服。',
++    set: { robe: '#8a2a24', inner: '#f0dcc0', trim: '#d8b050', belt: '#3a1a12', pants: '#3a2a22', boots: '#1e1410', robeLen: 'long', sleeve: 'wide', sash: '#d8b050', ribbon: '#d8b050' } },
++  { id: 'nongfu', name: '粗布短褐', sex: 'm', desc: '山村少年的旧衣裳。',
++    set: { robe: '#8a7a5a', inner: '#d8ccb0', trim: '#5a4a32', belt: '#3a3024', pants: '#6a5a44', boots: '#3a2e22', robeLen: 'short', sleeve: 'narrow', sash: undefined, ribbon: '#5a4a32' } },
++  { id: 'liuxian', name: '流仙裙', sex: 'f', desc: '浅粉襦裙，披帛随风。',
++    set: { robe: '#e8b8c4', inner: '#fff4f4', trim: '#b05068', belt: '#b05068', pants: '#f0d8de', boots: '#c87a8a', robeLen: 'long', sleeve: 'wide', shawl: '#f6e6ee', sash: '#b05068', ribbon: '#b05068' } },
++  { id: 'bingxue', name: '冰绡衣', sex: 'f', desc: '月白冰蚕丝，镶天青色边，清冷出尘。',
++    set: { robe: '#e6eef4', inner: '#ffffff', trim: '#6a9ab8', belt: '#6a9ab8', pants: '#dce6ee', boots: '#8aaac0', robeLen: 'long', sleeve: 'wide', shawl: '#cfe4f0', sash: '#6a9ab8', ribbon: '#6a9ab8' } },
++  { id: 'ziyun', name: '紫云宫装', sex: 'f', desc: '紫绫宫装，金线压边，雍容华贵。',
++    set: { robe: '#6a4a8a', inner: '#f4e8f4', trim: '#d8b050', belt: '#3a2450', pants: '#4a3462', boots: '#2a1a3a', robeLen: 'long', sleeve: 'wide', shawl: '#c8a8e0', sash: '#d8b050', ribbon: '#d8b050' } },
++  { id: 'hongzhuang', name: '红妆劲服', sex: 'f', desc: '朱红窄袖，英气飒爽的女剑修。',
++    set: { robe: '#b8323a', inner: '#f6e4d8', trim: '#2a1a1a', belt: '#2a1a1a', pants: '#3a2224', boots: '#1e1214', robeLen: 'short', sleeve: 'narrow', shawl: undefined, sash: '#2a1a1a', ribbon: '#2a1a1a' } },
++];
++export const OUTFIT_BY_ID = new Map(OUTFITS.map((o) => [o.id, o]));
++
++export function outfitsFor(sex: 'm' | 'f') { return OUTFITS.filter((o) => o.sex === 'u' || o.sex === sex); }
++
++/** 换上某套衣装（返回新 Look，不改原对象） */
++export function wear(look: Look, id: string): Look {
++  const o = OUTFIT_BY_ID.get(id); if (!o) return look;
++  const out: Look = { ...look, outfit: id };
++  for (const [k, val] of Object.entries(o.set)) (out as any)[k] = val;
++  if (look.sex === 'm') out.shawl = undefined;
++  return out;
++}
+diff -ruN '--exclude=node_modules' '--exclude=dist' orig/fanren/src/gfx/character.ts fanren/src/gfx/character.ts
+--- orig/fanren/src/gfx/character.ts	2026-10-20 01:55:19.000000000 +0000
++++ fanren/src/gfx/character.ts	2026-10-30 14:12:05.140052189 +0000
+@@ -4,6 +4,7 @@
+ import { headTex, headTexReady, type HeadView } from './headTex';
+ import { drawArt } from './artifact';
+ import { artLook } from '../data/artlooks';
++import { faceOf, bodyOf, drawHand, handFor, type FaceParams, type BodyParams } from './figure';
+ 
+ export type Action = 'idle' | 'walk' | 'run' | 'fly' | 'sit' | 'cast' | 'hit' | 'dodge' | 'gather';
+ export const ACTION_NAMES: Record<Action, string> = {
+@@ -43,13 +44,20 @@
+   eyeTint?: string;        // 瞳色
+   earring?: string;        // 耳坠
+   headTex?: string;        // 头部改用手绘贴图（五个角度），身体仍为代码绘制
++  // 第四十二步：参数化人物
++  face?: Partial<FaceParams>;  // 脸型参数
++  body?: Partial<BodyParams>;  // 身材参数
++  headScale?: number;          // 头部大小 0.9–1.1
++  outfit?: string;             // 当前衣装 id（data/outfits）
++  portrait?: string;           // AI 绘制的面容立绘 id（data/faces）
++  hero?: boolean;              // 主角（专用跑姿/衣袂）
+ }
+ 
+ export const HANLI_LOOK: Look = {
+   sex: 'm', height: 1, build: 1, skin: '#f1d9bd', hair: '#1d1a17', hairStyle: 'bun',
+   robe: '#3f6a4c', inner: '#ece6d6', trim: '#2b4636', belt: '#1f2420', pants: '#8a7a62', boots: '#2a2622',
+   robeLen: 'long', sleeve: 'wide', ribbon: '#2a3a30', sash: '#1f2420', back: 'none', waist: 'pouch', hand: 'none',
+-  swordColor: '#7ff0c0', headTex: 'hanli',
++  swordColor: '#7ff0c0', headTex: 'hanli', hero: true, outfit: 'qingshan', portrait: 'm1',
+ };
+ 
+ // ---------------------------------------------------------------- 姿态
+@@ -251,7 +259,7 @@
+     p.twist = 0.07 * s; p.lean = 0.06; p.side = 0.025 * c;
+     p.rootY = 0.5 * Math.cos(ph * 2);
+     p.breath = br * 0.5;
+-  } else if (a === 'run' && look.headTex) {
++  } else if (a === 'run' && (look.headTex || look.hero)) {
+     heroRun(p, st);
+   } else if (a === 'run') {
+     const ph = st.phase, s = Math.sin(ph), c = Math.cos(ph);
+@@ -332,16 +340,19 @@
+   lSh: V3; rSh: V3; lEl: V3; rEl: V3; lWr: V3; rWr: V3; lHa: V3; rHa: V3;
+   lHip: V3; rHip: V3; lKn: V3; rKn: V3; lAn: V3; rAn: V3; lToe: V3; rToe: V3;
+   sw: number; hw: number; ww: number; td: number; // 肩宽、臀宽、腰宽、躯干厚
++  limb: number; bust: number;
+ }
+ 
+ function solve(p: Pose, look: Look): Skel {
+   const f = look.sex === 'f';
+-  const sw = (f ? 8.0 : 9.6) * look.build, hw = f ? 8.6 : 8.0, ww = f ? 5.6 : 7.0, td = f ? 5.6 : 6.6;
+-  let pelvis = v(p.rootX, 51 + p.rootY, p.rootZ);
++  const B = bodyOf(look);
++  const sw = (f ? 8.0 : 9.6) * look.build * B.shoulder, hw = (f ? 8.6 : 8.0) * B.hip, ww = (f ? 5.4 : 7.0) * B.waist, td = (f ? 5.6 : 6.6) * B.chest;
++  const LG = B.leg;
++  let pelvis = v(p.rootX, 51 * LG + p.rootY, p.rootZ);
+   if (p.sit > 0.5) pelvis = v(p.rootX, 13 + p.rootY, p.rootZ - 1);
+   const up = v(Math.sin(p.side) * Math.cos(p.lean), Math.cos(p.lean) * Math.cos(p.side), Math.sin(p.lean));
+   const chest = add(pelvis, up, 22 + p.breath * 0.35);
+-  const neck = add(chest, up, 6.5 + p.breath * 0.15);
++  const neck = add(chest, up, (6.5 + p.breath * 0.15) * B.neck);
+   const head = add(neck, v(Math.sin(p.side) * 0.5, Math.cos(p.headPitch), Math.sin(p.headPitch) + up.z * 0.4), 7.2);
+   const tw = p.twist, ct = Math.cos(tw), stt = Math.sin(tw);
+   const shY = 0.6 + p.breath * 0.25;
+@@ -352,7 +363,7 @@
+   const lFo = limbDir(p.lSh + p.lEl, p.lFr, 1), rFo = limbDir(p.rSh + p.rEl, p.rFr, -1);
+   const lWr = add(lEl, lFo, 12.5), rWr = add(rEl, rFo, 12.5);
+   const lHa = add(lWr, lFo, 3.2), rHa = add(rWr, rFo, 3.2);
+-  const hx = (f ? 4.6 : 4.4), ht = -tw * 0.5;
++  const hx = (f ? 4.6 : 4.4) * B.hip, ht = -tw * 0.5;
+   const lHip = add(pelvis, v(hx * Math.cos(ht), -1, -hx * Math.sin(ht)));
+   const rHip = add(pelvis, v(-hx * Math.cos(ht), -1, hx * Math.sin(ht)));
+   let lKn: V3, rKn: V3, lAn: V3, rAn: V3, lToe: V3, rToe: V3;
+@@ -362,9 +373,9 @@
+     lToe = add(rKn, v(-1, -1, 3)); rToe = add(lKn, v(1, -1, 3));
+   } else {
+     const lTh = limbDir(p.lHip, p.lHipR, 1), rTh = limbDir(p.rHip, p.rHipR, -1);
+-    lKn = add(lHip, lTh, 23.5); rKn = add(rHip, rTh, 23.5);
++    lKn = add(lHip, lTh, 23.5 * LG); rKn = add(rHip, rTh, 23.5 * LG);
+     const lSn = limbDir(p.lHip - p.lKn, p.lHipR * 0.6, 1), rSn = limbDir(p.rHip - p.rKn, p.rHipR * 0.6, -1);
+-    lAn = add(lKn, lSn, 22.5); rAn = add(rKn, rSn, 22.5);
++    lAn = add(lKn, lSn, 22.5 * LG); rAn = add(rKn, rSn, 22.5 * LG);
+     lToe = add(lAn, v(0, -3.2 - Math.sin(p.lFoot) * 4, 6.5 * Math.cos(p.lFoot)));
+     rToe = add(rAn, v(0, -3.2 - Math.sin(p.rFoot) * 4, 6.5 * Math.cos(p.rFoot)));
+     // 贴地：最低的脚落在地面
+@@ -375,13 +386,13 @@
+     }
+     if (p.air > 0.01) for (const q of [pelvis, chest, neck, head, lSh, rSh, lEl, rEl, lWr, rWr, lHa, rHa, lHip, rHip, lKn, rKn, lAn, rAn, lToe, rToe]) q.y += p.air;
+   }
+-  return { pelvis, chest, neck, head, up, lSh, rSh, lEl, rEl, lWr, rWr, lHa, rHa, lHip, rHip, lKn, rKn, lAn, rAn, lToe, rToe, sw, hw, ww, td };
++  return { pelvis, chest, neck, head, up, lSh, rSh, lEl, rEl, lWr, rWr, lHa, rHa, lHip, rHip, lKn, rKn, lAn, rAn, lToe, rToe, sw, hw, ww, td, limb: B.limb, bust: f ? B.chest : 0 };
+ }
+ 
+ // 头部轮廓点（局部坐标）
+ const HEAD_PTS: Record<string, [number, number, number][]> = {};
+-function headPts(fem: boolean) {
+-  const key = fem ? 'f' : 'm';
++function headPts(fem: boolean, jaw = 1, chin = 1) {
++  const key = (fem ? 'f' : 'm') + jaw.toFixed(2) + chin.toFixed(2);
+   if (HEAD_PTS[key]) return HEAD_PTS[key];
+   const pts: [number, number, number][] = [];
+   for (const el of [-0.4, -0.15, 0.15, 0.45, 0.8, 1.15, 1.42]) for (let i = 0; i < 16; i++) {
+@@ -389,9 +400,9 @@
+     pts.push([4.75 * 1.04 * Math.cos(el) * Math.sin(az), 1 + 5.8 * 1.04 * Math.sin(el), 5.3 * 1.04 * Math.cos(el) * Math.cos(az) - 0.3]);
+   }
+   pts.push([0, 7.05, -0.3]);
+-  const jx = fem ? 0.9 : 1;
+-  for (const sx of [1, -1]) pts.push([sx * 4.35 * jx, -1.6, 1.3], [sx * 3.95 * jx, -3.4, 1.7], [sx * 3.0 * jx, -5.0, 2.5], [sx * 1.55 * jx, -6.25, 3.45], [sx * 3.9, -2.8, -1.4], [sx * 2.6, -4.2, -2.3]);
+-  pts.push([0, fem ? -6.6 : -6.8, 3.9], [0, -2.4, 5.55]);
++  const jx = (fem ? 0.9 : 1) * jaw, cy2 = chin;
++  for (const sx of [1, -1]) pts.push([sx * 4.35 * jx, -1.6, 1.3], [sx * 3.95 * jx, -3.4, 1.7], [sx * 3.0 * jx, -5.0 * (0.5 + 0.5 * cy2), 2.5], [sx * 1.55 * jx, -6.25 * cy2, 3.45], [sx * 3.9, -2.8, -1.4], [sx * 2.6, -4.2, -2.3]);
++  pts.push([0, (fem ? -6.6 : -6.8) * cy2, 3.9], [0, -2.4, 5.55]);
+   HEAD_PTS[key] = pts;
+   return pts;
+ }
+@@ -437,8 +448,8 @@
+   const physDt = opts.ghost ? 0 : dt;
+   // 风：与移动方向相反 + 环境风 + 飞行时的猎猎飘动
+   const flying = st.action === 'fly';
+-  const flutter = (flying ? 1 : st.action === 'run' ? (look.headTex ? 0.85 : 0.5) : 0.15) * Math.sin(st.t * 13 + st.seed);   // 第三十步：主角奔跑时衣袂飘得更开
+-  const runK = st.action === 'run' && look.headTex ? 1.35 : 1;
++  const flutter = (flying ? 1 : st.action === 'run' ? (look.headTex || look.hero ? 0.85 : 0.5) : 0.15) * Math.sin(st.t * 13 + st.seed);   // 第三十步：主角奔跑时衣袂飘得更开
++  const runK = st.action === 'run' && (look.headTex || look.hero) ? 1.35 : 1;
+   const windX = -st.vx * runK + st.windX + flutter * 40 * S;
+   const windY = -st.vy * runK + st.windY + flutter * 20 * S;
+   const grav = 520 * S;
+@@ -535,8 +546,9 @@
+     if (seated) return;
+     const legOne = (hip: V3, kn: V3, an: V3, toe: V3) => {
+       const H = P(hip), K = P(kn), A = P(an), T = P(toe);
+-      tube(H, K, 4.4 * S, 3.6 * S, look.pants);
+-      tube(K, A, 3.6 * S, 2.6 * S, look.pants);
++      const lm = sk.limb;
++      tube(H, K, 4.4 * S * lm, 3.6 * S * lm, look.pants);
++      tube(K, A, 3.6 * S * lm, 2.6 * S * lm, look.pants);
+       // 靴
+       const heel = P(add(an, v(0, -2.6, -1.6)));
+       tube(heel, T, 2.6 * S, 2.1 * S, look.boots);
+@@ -576,7 +588,7 @@
+       return;
+     }
+     const long = look.robeLen === 'long';
+-    const heroRun = st.action === 'run' && !!look.headTex;
++    const heroRun = st.action === 'run' && !!(look.headTex || look.hero);
+     const fl = (flying ? 1 : heroRun ? 0.9 : st.action === 'run' ? 0.6 : 0.2);
+     const half = (side: 1 | -1) => {
+       const hip = side > 0 ? sk.lHip : sk.rHip, kn = side > 0 ? sk.lKn : sk.rKn, an = side > 0 ? sk.lAn : sk.rAn;
+@@ -674,8 +686,34 @@
+     const x0 = L1.c.x - L1.hw, x1 = L1.c.x + L1.hw;
+     g.fillStyle = lightGrad(x0, x1, L1.c.y, look.robe); g.fill();
+     g.strokeStyle = ink; g.lineWidth = lw; g.stroke();
+-    // 交领右衽（面向镜头可见）
+     const fv = Math.cos(yaw + tw);
++    // 第四十二步：胸形 / 胸肌明暗 + 收腰褶（随身材参数）
++    if (fv > 0.1 && S > 1.2) {
++      g.save(); g.clip();
++      const al = Math.min(1, fv * 1.6);
++      const fem2 = look.sex === 'f';
++      const bk = fem2 ? 0.6 + sk.bust * 0.9 : 0.4 + (sk.td / 6.6) * 0.5;
++      for (const sx of [1, -1]) {
++        const c = P(add(sk.chest, v(sx * sk.sw * 0.42, fem2 ? -3.6 : -2.4, sk.td * 0.95)));
++        const r = (fem2 ? 3.1 : 3.6) * S * bk;
++        // 下缘阴影
++        const sh = g.createRadialGradient(c.x, c.y + r * 0.55, r * 0.2, c.x, c.y + r * 0.55, r * 1.25);
++        sh.addColorStop(0, rgba(shade(look.robe, -0.45), 0.32 * al)); sh.addColorStop(1, rgba(shade(look.robe, -0.45), 0));
++        g.fillStyle = sh; g.beginPath(); g.ellipse(c.x, c.y + r * 0.65, r * 1.2, r * 0.55, 0, 0, Math.PI * 2); g.fill();
++        // 高光
++        const hl = g.createRadialGradient(c.x - r * 0.25, c.y - r * 0.2, 0, c.x, c.y, r);
++        hl.addColorStop(0, rgba(shade(look.robe, 0.35), 0.28 * al)); hl.addColorStop(1, rgba(shade(look.robe, 0.35), 0));
++        g.fillStyle = hl; g.beginPath(); g.arc(c.x, c.y, r, 0, Math.PI * 2); g.fill();
++      }
++      // 收腰：腰带上方两道斜褶
++      g.strokeStyle = rgba(shade(look.robe, -0.5), 0.35 * al); g.lineWidth = lw * 0.6;
++      for (const sx of [1, -1]) {
++        const p0 = P(add(sk.pelvis, v(sx * sk.ww * 0.9, 15, sk.td * 0.8))), p1 = P(add(sk.pelvis, v(sx * sk.ww * 0.45, 10.5, sk.td)));
++        g.beginPath(); g.moveTo(p0.x, p0.y); g.quadraticCurveTo((p0.x + p1.x) / 2 + sx * 0.4 * S, (p0.y + p1.y) / 2, p1.x, p1.y); g.stroke();
++      }
++      g.restore();
++    }
++    // 交领右衽（面向镜头可见）
+     if (fv > 0.05) {
+       g.save(); g.globalAlpha *= Math.min(1, fv * 2.2);
+       const td = sk.td + 0.2;
+@@ -780,8 +818,15 @@
+       z, f: () => {
+         // 手
+         const handDraw = () => {
+-          g.fillStyle = look.skin; g.beginPath(); g.ellipse(H.x, H.y, 2.1 * S, 2.6 * S, Math.atan2(H.y - W.y, H.x - W.x) + Math.PI / 2, 0, Math.PI * 2); g.fill();
+-          g.strokeStyle = ink; g.lineWidth = lw * 0.7; g.stroke();
++          // 第四十二步：分指绘制的手 + 手势/发力
++          const spec = handFor(st.action, side, st.actionT, st.t + st.seed, look.hand, !!(look.headTex || look.hero));
++          const hx = H.x - W.x, hy = H.y - W.y, hl = Math.hypot(hx, hy) || 1;
++          const n0x = -hy / hl, n0y = hx / hl;
++          const toC = (che.x - W.x) * n0x + (che.y - W.y) * n0y;
++          const thumbSide = (toC >= 0 ? 1 : -1) * (Math.abs(toC) < 0.5 * S ? side * (front >= 0 ? 1 : -1) : 1);
++          // 手部朝向：骨骼末端略延长，让手掌长度自然
++          const H2 = { x: W.x + hx / hl * Math.max(hl, 2.2 * S), y: W.y + hy / hl * Math.max(hl, 2.2 * S) };
++          g.save(); drawHand(g, W, H2, S * 1.12 * (sk.limb * 0.3 + 0.7), spec, look.skin, ink, lw, thumbSide, front < 0, look.sex === 'f', st.t); g.restore();
+         };
+         handDraw();
+         if (look.hand === 'fan' && side < 0) {
+@@ -791,7 +836,7 @@
+           g.strokeStyle = '#6a4a2a'; g.lineWidth = 1.6 * S; g.beginPath(); g.moveTo(H.x, H.y - 30 * S); g.lineTo(H.x, H.y + 30 * S); g.stroke();
+         }
+         // 上臂袖
+-        tube(S0, E, 4.6 * S, (wide ? 5.4 : 3.6) * S, look.robe);
++        tube(S0, E, 4.6 * S * sk.limb, (wide ? 5.4 : 3.6) * S * sk.limb, look.robe);
+         if (wide && hang) {
+           // 广袖：袖筒上缘到腕，下缘为垂落的布料
+           const r1 = 4.6 * S;
+@@ -816,7 +861,7 @@
+           g.beginPath(); g.moveTo(E.x, E.y); g.quadraticCurveTo((E.x + hang.x[3]) / 2, (E.y + hang.y[3]) / 2 + 1 * S, hang.x[3], hang.y[3]); g.stroke();
+           handDraw();
+         } else {
+-          tube(E, W, 3.4 * S, 2.9 * S, look.robe);
++          tube(E, W, 3.4 * S * sk.limb, 2.9 * S * sk.limb, look.robe);
+           g.strokeStyle = look.trim; g.lineWidth = 1.4 * S;
+           g.beginPath(); g.moveTo(W.x + nx * 2.8 * S, W.y + ny * 2.8 * S); g.lineTo(W.x - nx * 2.8 * S, W.y - ny * 2.8 * S); g.stroke();
+           handDraw();
+@@ -868,7 +913,8 @@
+ 
+   // ---------- 头部（3D 头型 + 发际线投影 + 五官）----------
+   const fem = look.sex === 'f';
+-  const hk = fem ? 0.93 : 1;
++  const FP = faceOf(look);
++  const hk = (fem ? 0.93 : 1) * (look.headScale ?? 1);
+   const hyaw = pose.headYaw, chy = Math.cos(hyaw), shy = Math.sin(hyaw);
+   const Yh = yaw + hyaw, cY = Math.cos(Yh), sY = Math.sin(Yh);
+   const HP = (x: number, y: number, z: number): P2 => {
+@@ -900,7 +946,7 @@
+     return y;
+   };
+   // 头部轮廓点（局部坐标，按性别缓存）
+-  const hullLocal = headPts(fem);
++  const hullLocal = headPts(fem, FP.jaw, FP.chin);
+   // ---- 背后长发 ----
+   let backHair: { s: Strand } | null = null;
+   if (drape && !texHead) {
+@@ -1052,8 +1098,8 @@
+       // 眉
+       for (const sx of [1, -1]) {
+         const k = visN(sx * 0.42, 0.15, 0.9); if (k < 0.08) continue;
+-        const a = HP(sx * 0.7, fem ? 1.7 : 1.45, 4.95), b = HP(sx * (fem ? 2.0 : 1.9), fem ? 2.15 : 1.85, 4.78), c = HP(sx * 3.2, fem ? 1.6 : 2.0, 4.05);
+-        const w0 = (fem ? 0.2 : 0.34) * detail, w1 = (fem ? 0.05 : 0.1) * detail;
++        const a = HP(sx * 0.7, fem ? 1.7 : 1.45, 4.95), b = HP(sx * (fem ? 2.0 : 1.9), (fem ? 2.15 : 1.85) + FP.browTilt * 0.35, 4.78), c = HP(sx * 3.2, (fem ? 1.6 : 2.0) + FP.browTilt * 0.5, 4.05);
++        const w0 = (fem ? 0.2 : 0.34) * FP.brow * detail, w1 = (fem ? 0.05 : 0.1) * detail;
+         g.fillStyle = rgba(shade(look.hair, fem ? 0.1 : -0.1), 0.9 * Math.min(1, k * 2));
+         g.beginPath(); g.moveTo(a.x, a.y - w0); g.quadraticCurveTo(b.x, b.y - w0 * 0.9, c.x, c.y - w1);
+         g.quadraticCurveTo(b.x, b.y + w0 * 0.5, a.x, a.y + w0 * 0.6); g.closePath(); g.fill();
+@@ -1079,9 +1125,9 @@
+       for (const sx of [1, -1]) {
+         const k = visN(sx * 0.4, 0, 0.92); if (k < 0.06) continue;
+         const al = Math.min(1, k * 2.2);
+-        const inn = HP(sx * 0.82, -0.05, 4.88), out = HP(sx * 3.15, fem ? 0.42 : 0.15, 4.08);
++        const inn = HP(sx * 0.82, -0.05, 4.88), out = HP(sx * (2.0 + 1.15 * (0.85 + 0.15 * FP.eye)), (fem ? 0.42 : 0.15) + FP.eyeTilt * 0.55 - 0.1, 4.08);
+         const ctr = HP(sx * 1.95, 0.05, 4.75);
+-        const open = (blink ? 0 : 1) * (fem ? 1.12 : 0.92);
++        const open = (blink ? 0 : 1) * (fem ? 1.12 : 0.92) * FP.eye;
+         const up = { x: ctr.x, y: ctr.y - 1.4 * open * detail }, lo = { x: ctr.x, y: ctr.y + 0.75 * open * detail };
+         if (pose.eyes < 0.5 || blink) {
+           g.strokeStyle = `rgba(30,20,16,${0.9 * al})`; g.lineWidth = Math.max(0.6, 0.55 * detail);
+@@ -1094,7 +1140,7 @@
+           g.beginPath(); g.moveTo(inn.x, inn.y); g.quadraticCurveTo(up.x, up.y, out.x, out.y); g.quadraticCurveTo(lo.x, lo.y, inn.x, inn.y); g.closePath();
+           g.fillStyle = `rgba(250,246,238,${al})`; g.fill(); g.clip();
+           // 虹膜（看向前方，随头部转动略偏）
+-          const ix = ctr.x + (inn.x - out.x) * 0.04, iy = ctr.y - 0.05 * detail, ir = 0.74 * detail;
++          const ix = ctr.x + (inn.x - out.x) * 0.04, iy = ctr.y - 0.05 * detail, ir = 0.74 * detail * (0.8 + 0.2 * FP.eye);
+           const ig = g.createRadialGradient(ix, iy - ir * 0.3, 0, ix, iy, ir);
+           ig.addColorStop(0, look.eyeTint ?? (fem ? '#6a4632' : '#4a3426')); ig.addColorStop(0.7, fem ? '#2e1a12' : '#24170f'); ig.addColorStop(1, '#120a06');
+           g.fillStyle = ig; g.beginPath(); g.arc(ix, iy, ir, 0, Math.PI * 2); g.fill();
+@@ -1132,7 +1178,7 @@
+       {
+         const k = faceVis;
+         if (k > 0.05) {
+-          const top = HP(0, -0.7, 5.3), tip = HP(0, -2.35, 5.6), side = HP(0.65 * Math.sign(-sY || 1), -2.2, 5.1);
++          const top = HP(0, -0.7, 5.3), tip = HP(0, -0.7 - 1.65 * FP.nose, 5.6), side = HP(0.65 * Math.sign(-sY || 1), -0.7 - 1.5 * FP.nose, 5.1);
+           g.strokeStyle = `rgba(150,85,62,${0.42 * Math.min(1, k * 2)})`; g.lineWidth = Math.max(0.35, 0.32 * detail);
+           g.beginPath(); g.moveTo(top.x + (side.x - tip.x) * 0.5, top.y); g.quadraticCurveTo(side.x, (top.y + tip.y) / 2, tip.x + (side.x - tip.x) * 0.6, tip.y); g.stroke();
+           g.fillStyle = `rgba(150,80,60,${0.3 * Math.min(1, k * 2)})`;
+@@ -1144,7 +1190,7 @@
+         const k = visN(0, -0.3, 1);
+         if (k > 0.05) {
+           const al = Math.min(1, k * 2);
+-          const mc = HP(0, -4.15, 4.8), ml = HP(1.15 * (fem ? 0.82 : 1), -4.05, 4.45), mr = HP(-1.15 * (fem ? 0.82 : 1), -4.05, 4.45);
++          const my = -4.15 * (0.6 + 0.4 * FP.chin), mc = HP(0, my, 4.8), ml = HP(1.15 * (fem ? 0.82 : 1) * FP.mouth, my + 0.1, 4.45), mr = HP(-1.15 * (fem ? 0.82 : 1) * FP.mouth, my + 0.1, 4.45);
+           if (fem) {
+             g.fillStyle = look.lip ? rgba(look.lip, 0.95 * al) : `rgba(200,74,86,${0.95 * al})`;
+             g.beginPath(); g.moveTo(ml.x, ml.y);
+diff -ruN '--exclude=node_modules' '--exclude=dist' orig/fanren/src/gfx/figure.ts fanren/src/gfx/figure.ts
+--- orig/fanren/src/gfx/figure.ts	1970-01-01 00:00:00.000000000 +0000
++++ fanren/src/gfx/figure.ts	2026-10-30 14:10:00.832052189 +0000
+@@ -0,0 +1,220 @@
++// 第四十二步：人物参数化 —— 男女两套基准，脸 / 头 / 身材为参数，其余共用一套骨骼与动作框架。
++// 另含重做的手部：掌 + 五指分段绘制，手势（自然 / 握拳 / 剑指 / 推掌 / 持物 / 结印）与“用力”程度。
++import { shade, rgba } from '../core/canvas';
++
++/** 脸部参数（均为倍率/偏移，1 或 0 为基准） */
++export interface FaceParams {
++  jaw: number;      // 下颌宽 0.85–1.12
++  chin: number;     // 下巴长 0.85–1.15
++  eye: number;      // 眼睛大小 0.8–1.25
++  eyeTilt: number;  // 眼尾上挑 -0.4–0.6
++  brow: number;     // 眉浓 0.6–1.5
++  browTilt: number; // 眉峰（剑眉 >0，柳叶眉 <0）-0.5–0.6
++  nose: number;     // 鼻长 0.85–1.15
++  mouth: number;    // 嘴宽 0.8–1.2
++}
++/** 身材参数 */
++export interface BodyParams {
++  shoulder: number; // 肩宽
++  chest: number;    // 胸厚（男：胸肌 / 女：胸型）
++  waist: number;    // 腰围
++  hip: number;      // 臀宽
++  limb: number;     // 四肢粗细
++  leg: number;      // 腿长
++  neck: number;     // 脖长
++}
++
++export const FACE_BASE: Record<'m' | 'f', FaceParams> = {
++  m: { jaw: 1, chin: 1, eye: 1, eyeTilt: 0.1, brow: 1.1, browTilt: 0.25, nose: 1, mouth: 1 },
++  f: { jaw: 0.92, chin: 0.95, eye: 1.08, eyeTilt: 0.15, brow: 0.8, browTilt: -0.15, nose: 0.94, mouth: 0.9 },
++};
++export const BODY_BASE: Record<'m' | 'f', BodyParams> = {
++  m: { shoulder: 1, chest: 1, waist: 1, hip: 1, limb: 1, leg: 1, neck: 1 },
++  f: { shoulder: 1, chest: 1, waist: 1, hip: 1, limb: 0.86, leg: 1.03, neck: 1.08 },
++};
++
++export const FACE_RANGE: Record<keyof FaceParams, [number, number, string]> = {
++  jaw: [0.85, 1.12, '下颌'], chin: [0.85, 1.15, '下巴'], eye: [0.8, 1.25, '眼睛'], eyeTilt: [-0.4, 0.6, '眼尾'],
++  brow: [0.6, 1.5, '眉浓'], browTilt: [-0.5, 0.6, '眉峰'], nose: [0.85, 1.15, '鼻长'], mouth: [0.8, 1.2, '嘴宽'],
++};
++export const BODY_RANGE: Record<keyof BodyParams, [number, number, string]> = {
++  shoulder: [0.85, 1.18, '肩宽'], chest: [0.85, 1.25, '胸'], waist: [0.8, 1.25, '腰'], hip: [0.85, 1.2, '臀'],
++  limb: [0.8, 1.2, '四肢'], leg: [0.92, 1.1, '腿长'], neck: [0.85, 1.2, '脖长'],
++};
++
++export function faceOf(look: { sex: 'm' | 'f'; face?: Partial<FaceParams> }): FaceParams {
++  return { ...FACE_BASE[look.sex], ...(look.face || {}) };
++}
++export function bodyOf(look: { sex: 'm' | 'f'; body?: Partial<BodyParams> }): BodyParams {
++  return { ...BODY_BASE[look.sex], ...(look.body || {}) };
++}
++
++// ---------------------------------------------------------------- 手
++export type HandPose = 'relax' | 'fist' | 'sword' | 'palm' | 'grip' | 'mudra';
++export interface HandSpec { pose: HandPose; force: number }
++
++/** 动作 → 手势与发力 */
++export function handFor(action: string, side: 1 | -1, at: number, t: number, hold: string | undefined, hero: boolean): HandSpec {
++  const right = side < 0;
++  if (hold && hold !== 'none' && right && action !== 'cast' && action !== 'fly') return { pose: 'grip', force: 0.45 };
++  switch (action) {
++    case 'run': return { pose: 'fist', force: hero ? 0.75 : 0.5 };
++    case 'walk': return { pose: 'relax', force: 0.1 };
++    case 'fly': return right ? { pose: 'sword', force: 0.85 } : { pose: 'fist', force: 0.3 };
++    case 'sit': return { pose: 'mudra', force: 0.2 };
++    case 'cast': {
++      const k = Math.min(1, at / 0.22);
++      return right ? { pose: 'palm', force: k * (0.85 + 0.15 * Math.sin(at * 9)) } : { pose: 'sword', force: 0.9 * k };
++    }
++    case 'gather': return right ? { pose: 'grip', force: 0.6 + 0.2 * Math.sin(at * 6) } : { pose: 'relax', force: 0.2 };
++    case 'hit': return { pose: 'palm', force: 0.35 };
++    case 'dodge': return { pose: 'palm', force: 0.55 };
++    default: return { pose: 'relax', force: 0.05 + 0.03 * Math.sin(t) };
++  }
++}
++
++type Pt = { x: number; y: number };
++
++/**
++ * 画一只手。W=腕，H=手掌中心方向点（骨骼末端）。
++ * thumbSide: 拇指在屏幕上的法线一侧（+1/-1）；back: 看到的是手背；fem: 女性手更纤长。
++ */
++export function drawHand(g: CanvasRenderingContext2D, W: Pt, H: Pt, S: number, spec: HandSpec, skin: string, ink: string,
++  lw: number, thumbSide: number, back: boolean, fem: boolean, tt: number) {
++  const f = Math.max(0, Math.min(1, spec.force));
++  // 用力时轻微颤动
++  void back;
++  const tr = f > 0.6 ? (f - 0.6) * 0.35 * S * Math.sin(tt * 47) : 0;
++  let dx = H.x - W.x, dy = H.y - W.y; const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;
++  const nx = -dy * thumbSide, ny = dx * thumbSide;          // 指向拇指一侧
++  const k = fem ? 0.86 : 1, fl = fem ? 1.12 : 1;              // 女：窄而指长
++  const at = (u: number, w: number): Pt => ({ x: W.x + dx * u * S + nx * w * S + tr, y: W.y + dy * u * S + ny * w * S });
++  const skinD = shade(skin, -0.2), skinL = shade(skin, 0.1);
++  const fingerTube = (pts: Pt[], r0: number, r1: number) => {
++    // 多段手指：带关节的锥形
++    g.lineCap = 'round'; g.lineJoin = 'round';
++    g.strokeStyle = ink; g.lineWidth = (r0 * 2 + lw * 1.4);
++    g.beginPath(); g.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y); g.stroke();
++    for (let i = 1; i < pts.length; i++) {
++      const r = r0 + (r1 - r0) * (i / (pts.length - 1));
++      g.strokeStyle = skin; g.lineWidth = r * 2;
++      g.beginPath(); g.moveTo(pts[i - 1].x, pts[i - 1].y); g.lineTo(pts[i].x, pts[i].y); g.stroke();
++    }
++  };
++  // 手指：从掌根 u0 起，沿方向角弯曲 curl（每节）
++  const finger = (base: Pt, ang: number, lens: number[], curl: number, r: number) => {
++    const pts: Pt[] = [base]; let a = ang, p = base;
++    for (const L of lens) { a += curl * -thumbSide; p = { x: p.x + Math.cos(a) * L * S * fl, y: p.y + Math.sin(a) * L * S * fl }; pts.push(p); }
++    fingerTube(pts, r * S * k, r * 0.8 * S * k);
++    return pts;
++  };
++  const dirA = Math.atan2(dy, dx);
++  const palmLen = 2.5, wristW = 1.05 * k, knW = 1.35 * k;
++  const palm = () => {
++    const a = at(0, wristW), b = at(palmLen, knW + 0.1), c = at(palmLen + 0.25, -knW), e = at(0, -wristW * 0.95);
++    g.beginPath(); g.moveTo(a.x, a.y);
++    g.quadraticCurveTo(at(palmLen * 0.6, knW + 0.35).x, at(palmLen * 0.6, knW + 0.35).y, b.x, b.y);
++    g.quadraticCurveTo(at(palmLen + 0.55, 0).x, at(palmLen + 0.55, 0).y, c.x, c.y);
++    g.quadraticCurveTo(at(palmLen * 0.5, -knW - 0.25).x, at(palmLen * 0.5, -knW - 0.25).y, e.x, e.y);
++    g.closePath();
++    const gr = g.createLinearGradient(at(0, knW).x, at(0, knW).y, at(0, -knW).x, at(0, -knW).y);
++    gr.addColorStop(0, skinL); gr.addColorStop(0.55, skin); gr.addColorStop(1, skinD);
++    g.fillStyle = gr; g.fill(); g.strokeStyle = ink; g.lineWidth = lw * 0.75; g.stroke();
++  };
++  // 用力：手背筋、指节泛白泛红
++  const tendons = () => {
++    if (f < 0.35 || S < 1.6) return;
++    g.strokeStyle = rgba(shade(skin, -0.35), 0.25 + 0.35 * f); g.lineWidth = Math.max(0.3, 0.16 * S);
++    for (const w of [0.65, 0.15, -0.35, -0.8]) {
++      const a = at(0.5, w * 0.7), b = at(palmLen + 0.1, w * k);
++      g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke();
++    }
++  };
++  const knuckles = (u: number) => {
++    for (let i = 0; i < 4; i++) {
++      const w = knW * (0.75 - i * 0.5);
++      const c = at(u, w);
++      g.fillStyle = rgba(f > 0.5 ? '#fff4ea' : skinL, 0.35 + 0.4 * f);
++      g.beginPath(); g.arc(c.x, c.y, 0.42 * S * k, 0, Math.PI * 2); g.fill();
++      if (f > 0.5) { g.fillStyle = `rgba(200,90,80,${0.18 * f})`; g.beginPath(); g.arc(c.x + dx * 0.2 * S, c.y + dy * 0.2 * S, 0.35 * S * k, 0, Math.PI * 2); g.fill(); }
++    }
++  };
++  const fr = 0.42; // 指半径
++  const thumbBase = at(0.7, wristW + 0.15);
++  const pose = spec.pose;
++  if (pose === 'fist' || pose === 'grip') {
++    // 拳：掌短、四指折叠成一排“指节块”，拇指横压在食中指上
++    const hole = pose === 'grip';
++    palm();
++    const rowU = palmLen + 0.25;
++    for (let i = 0; i < 4; i++) {
++      const w = knW * (0.78 - i * 0.52);
++      const p0 = at(rowU, w), p1 = at(rowU + 0.85 - f * 0.15, w * 1.02), p2 = at(rowU + 0.5 - f * 0.2, w * 0.98 + 0.0), p3 = at(rowU - 0.2, w * 0.95);
++      fingerTube([p0, p1, p2, p3], fr * S * k * (1 + 0.08 * f), fr * 0.95 * S * k);
++    }
++    if (hole) { const c = at(rowU + 0.2, 0); g.fillStyle = rgba(shade(skin, -0.55), 0.55); g.beginPath(); g.ellipse(c.x, c.y, 0.5 * S, 0.35 * S, dirA, 0, Math.PI * 2); g.fill(); }
++    knuckles(rowU + 0.7 - f * 0.12);
++    // 拇指压住
++    const t1 = at(1.6, wristW + 0.55), t2 = at(rowU + 0.15, knW * 0.35), t3 = at(rowU + 0.25, -knW * (hole ? 0.05 : 0.3 + 0.2 * f));
++    fingerTube([thumbBase, t1, t2, t3], 0.5 * S * k, 0.42 * S * k);
++    tendons();
++  } else if (pose === 'sword') {
++    // 剑指：食、中二指并拢伸直，无名、小指屈回，拇指扣住
++    palm();
++    const stiff = 0.04 - f * 0.08; // 用力时指尖微反翘
++    for (let i = 2; i < 4; i++) {
++      const w = knW * (0.78 - i * 0.52);
++      fingerTube([at(palmLen, w), at(palmLen + 0.85, w), at(palmLen + 0.45, w * 0.9), at(palmLen - 0.1, w * 0.85)], fr * S * k, fr * 0.9 * S * k);
++    }
++    for (let i = 0; i < 2; i++) {
++      const w = knW * (0.62 - i * 0.62);
++      finger(at(palmLen + 0.1, w), dirA, [1.35, 1.0, 0.85], stiff, fr * (1 + 0.06 * f));
++    }
++    const t1 = at(1.7, wristW + 0.5), t2 = at(palmLen + 0.35, -knW * 0.35);
++    fingerTube([thumbBase, t1, t2], 0.5 * S * k, 0.42 * S * k);
++    tendons();
++    if (f > 0.6 && S > 1.6) { // 指尖凝聚一点灵光
++      const tip = at(palmLen + 3.4 * fl, 0.2);
++      const gr = g.createRadialGradient(tip.x, tip.y, 0, tip.x, tip.y, 2.4 * S);
++      gr.addColorStop(0, `rgba(200,255,235,${0.55 * (f - 0.6) * 2.5})`); gr.addColorStop(1, 'rgba(200,255,235,0)');
++      g.fillStyle = gr; g.beginPath(); g.arc(tip.x, tip.y, 2.4 * S, 0, Math.PI * 2); g.fill();
++    }
++  } else if (pose === 'palm') {
++    // 推掌：五指张开，用力越大张得越开、指尖反翘
++    palm();
++    const spread = 0.12 + 0.22 * f, back2 = -0.02 - 0.1 * f;
++    for (let i = 0; i < 4; i++) {
++      const w = knW * (0.78 - i * 0.52);
++      const L = [[1.15, 0.8, 0.65], [1.3, 0.9, 0.7], [1.2, 0.85, 0.65], [0.95, 0.65, 0.55]][i];
++      finger(at(palmLen + 0.1, w), dirA + (1.5 - i) * spread * thumbSide, L, back2, fr * (i === 3 ? 0.85 : 1));
++    }
++    finger(at(0.9, wristW + 0.2), dirA + (0.75 + 0.35 * f) * thumbSide, [1.1, 0.95], -0.05, 0.5);
++    tendons();
++  } else if (pose === 'mudra') {
++    // 结印：拇指与食指相扣成环，余指舒展
++    palm();
++    for (let i = 1; i < 4; i++) {
++      const w = knW * (0.78 - i * 0.52);
++      finger(at(palmLen + 0.1, w), dirA, [1.1, 0.8, 0.6], 0.18, fr);
++    }
++    const i0 = at(palmLen + 0.1, knW * 0.78);
++    finger(i0, dirA, [1.0, 0.7, 0.6], 0.75, fr);
++    const ring = at(palmLen + 0.8, knW + 0.5);
++    fingerTube([thumbBase, at(1.8, wristW + 0.8), ring], 0.5 * S * k, 0.42 * S * k);
++  } else {
++    // 自然：手指微屈，层次分明
++    palm();
++    for (let i = 0; i < 4; i++) {
++      const w = knW * (0.78 - i * 0.52);
++      const L = [[1.05, 0.75, 0.6], [1.2, 0.85, 0.65], [1.1, 0.8, 0.6], [0.85, 0.6, 0.5]][i];
++      finger(at(palmLen + 0.1, w), dirA, L, 0.28 + i * 0.05 + f * 0.2, fr * (i === 3 ? 0.85 : 1));
++    }
++    finger(at(0.8, wristW + 0.15), dirA + 0.55 * thumbSide, [1.0, 0.85], 0.2, 0.5);
++  }
++  // 腕部收口线（袖口压住）
++  if (S > 1.4) {
++    g.strokeStyle = rgba(shade(skin, -0.4), 0.35); g.lineWidth = Math.max(0.3, 0.14 * S);
++    const a = at(0.15, wristW * 0.9), b = at(0.15, -wristW * 0.9);
++    g.beginPath(); g.moveTo(a.x, a.y); g.quadraticCurveTo(at(0.4, 0).x, at(0.4, 0).y, b.x, b.y); g.stroke();
++  }
++}
+diff -ruN '--exclude=node_modules' '--exclude=dist' orig/fanren/src/styles.css fanren/src/styles.css
+--- orig/fanren/src/styles.css	2026-10-20 01:55:19.000000000 +0000
++++ fanren/src/styles.css	2026-10-30 14:13:17.096052189 +0000
+@@ -740,3 +740,27 @@
+ .wm-zoom button:disabled { opacity: 0.4; cursor: default; }
+ .wm-zoom .wm-me { font-size: 15px; }
+ .wm-zl { font-size: 11px; color: #2b2620; background: rgba(246,239,222,0.85); padding: 1px 5px; border-radius: 8px; min-width: 30px; text-align: center; }
++
++/* 第四十二步：衣橱 */
++.wardrobe-mask{position:fixed;inset:0;background:rgba(20,14,8,.45);z-index:80;display:flex;align-items:center;justify-content:center}
++.wardrobe{width:min(860px,96vw);max-height:94vh;overflow:auto;background:linear-gradient(#f6efdf,#ece2cb);border:2px solid #5a4630;border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.4);color:#2a2018;font-family:'Noto Serif SC',serif}
++.wd-head{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid #b8a27a;font-size:18px}
++.wd-x{background:none;border:none;font-size:24px;cursor:pointer;color:#5a4630}
++.wd-body{display:flex;gap:16px;padding:14px;flex-wrap:wrap}
++.wd-left{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;background:radial-gradient(#fffaf0,#e4d6b8);border-radius:8px;padding:8px}
++.wd-portrait{position:absolute;left:8px;top:8px;width:76px;border-radius:6px;border:1px solid #8a7050;box-shadow:0 2px 6px rgba(0,0,0,.2)}
++.wd-acts{display:flex;flex-wrap:wrap;gap:4px;max-width:270px;justify-content:center}
++.wardrobe button{font-family:inherit;cursor:pointer;border:1px solid #8a7050;background:#fbf6ea;color:#3a2a1a;border-radius:5px;padding:4px 9px;font-size:13px}
++.wardrobe button.on{background:#5a4630;color:#f6efdf}
++.wd-right{flex:1;min-width:300px;display:flex;flex-direction:column;gap:10px}
++.wd-row,.wd-tabs{display:flex;gap:6px;align-items:center}
++.wd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
++.wardrobe .wd-card{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;padding:8px}
++.wardrobe .wd-card small{font-size:11px;opacity:.75}
++.wd-sw{width:100%;height:20px;border-radius:3px;border:1px solid rgba(0,0,0,.3)}
++.wd-faces{display:flex;gap:8px}
++.wardrobe .wd-faces button{display:flex;flex-direction:column;align-items:center;padding:4px}
++.wd-faces img{width:84px;height:100px;object-fit:cover;border-radius:4px}
++.wd-sl{display:grid;grid-template-columns:48px 1fr;align-items:center;font-size:13px}
++.wd-sl input,.wd-left input{accent-color:#5a4630;width:100%}
++.wd-foot{justify-content:flex-end;margin-top:auto}.wd-foot span{margin-right:auto;opacity:.7}
+diff -ruN '--exclude=node_modules' '--exclude=dist' orig/fanren/src/ui/GameView.tsx fanren/src/ui/GameView.tsx
+--- orig/fanren/src/ui/GameView.tsx	2026-10-20 01:55:19.000000000 +0000
++++ fanren/src/ui/GameView.tsx	2026-10-30 14:13:27.316052189 +0000
+@@ -13,6 +13,7 @@
+ import { GainOverlay } from './GainOverlay';
+ import { PursuitHUD } from './PursuitHUD';
+ import { BossHUD } from './BossHUD';
++import { Wardrobe } from './Wardrobe';
+ 
+ const CN = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+ export function cnNum(n: number): string {
+@@ -276,6 +277,7 @@
+   const canvasRef = useRef<HTMLCanvasElement>(null);
+   type PanelId = '' | 'map' | 'settings' | 'char' | 'bag' | 'alchemy' | 'seclude' | 'save' | 'skills';
+   const [panel, setPanel] = useState<PanelId>('');
++  const [wardrobe, setWardrobe] = useState(false);
+   const [travelFx, setTravelFx] = useState<{ to: MapId; via: 'portal' | 'edge' } | null>(null);
+   const [showHelp, setShowHelp] = useState(() => { try { return !localStorage.getItem('fanren_help_seen'); } catch { return true; } });
+ 
+@@ -318,6 +320,7 @@
+ 
+   return (
+     <div className={"game-root" + (isTouch ? " touch" : "")}>
++      {wardrobe && <Wardrobe look={game.player.look} onClose={() => setWardrobe(false)} onApply={(l) => { game.player.look = l; setWardrobe(false); }} />}
+       <canvas ref={canvasRef} className="game-canvas" />
+       <PerfHud game={game} />
+       <QuestTracker game={game} />
+@@ -391,6 +394,7 @@
+           <div className="btn-grid">
+             <button className={'round-btn small' + (ui.pendingTalent || ui.bottleneck !== 'none' ? ' glow' : '')} onClick={() => { audio.sfx('open'); setPanel('char'); }}>修<small>角色</small></button>
+             <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('bag'); }}>袋<small>储物</small></button>
++            <button className="round-btn small" onClick={() => { audio.sfx('open'); setWardrobe(true); }}>衣<small>衣橱</small></button>
+             <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('skills'); }}>术<small>法术</small></button>
+             <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('alchemy'); }}>丹<small>丹器</small></button>
+             <button className="round-btn small" onClick={() => { audio.sfx('open'); setPanel('seclude'); }}>关<small>闭关</small></button>
+diff -ruN '--exclude=node_modules' '--exclude=dist' orig/fanren/src/ui/Wardrobe.tsx fanren/src/ui/Wardrobe.tsx
+--- orig/fanren/src/ui/Wardrobe.tsx	1970-01-01 00:00:00.000000000 +0000
++++ fanren/src/ui/Wardrobe.tsx	2026-10-30 14:13:17.092052189 +0000
+@@ -0,0 +1,112 @@
++// 第四十二步：衣橱 / 捏脸 —— 性别、面容（AI 立绘预设）、头身参数、衣装；实时预览各动作（含手势）。
++import { useEffect, useRef, useState } from 'react';
++import { CharState, drawCharacter, HANLI_LOOK, type Look, type Action } from '../gfx/character';
++import { FACE_RANGE, BODY_RANGE, faceOf, bodyOf, type FaceParams, type BodyParams } from '../gfx/figure';
++import { outfitsFor, wear, OUTFIT_BY_ID } from '../data/outfits';
++import { FACES, FACE_BY_ID } from '../data/faces';
++
++const KEY = 'fanren.heroLook';
++export function savedHeroLook(): Look | null {
++  try { const s = localStorage.getItem(KEY); return s ? { ...HANLI_LOOK, ...JSON.parse(s) } : null; } catch { return null; }
++}
++const FEMALE_BASE: Partial<Look> = { sex: 'f', skin: '#f4ddc4', headTex: undefined, height: 0.96, build: 1, ribbon: '#b05068', earring: '#9fd0b0' };
++
++function Preview({ look, action, yaw }: { look: Look; action: Action; yaw: number }) {
++  const ref = useRef<HTMLCanvasElement>(null);
++  const st = useRef<CharState>();
++  useEffect(() => {
++    const cv = ref.current!; const dpr = Math.min(2, window.devicePixelRatio || 1);
++    cv.width = 260 * dpr; cv.height = 380 * dpr;
++    const g = cv.getContext('2d')!;
++    const S = 3.2 * dpr;
++    const s = st.current ?? (st.current = new CharState());
++    s.x = cv.width / 2; s.y = cv.height * 0.95;
++    s.targetYaw = yaw; s.speed = action === 'run' ? 260 : action === 'walk' ? 80 : 0; s.setAction(action);
++    let raf = 0, last = performance.now();
++    const loop = (t: number) => {
++      const dt = Math.min(0.05, (t - last) / 1000); last = t;
++      if (action === 'cast' && s.actionT > 1.6) { s.action = 'idle'; s.setAction('cast'); }
++      s.update(dt);
++      g.clearRect(0, 0, cv.width, cv.height);
++      g.fillStyle = 'rgba(40,30,20,0.12)'; g.beginPath(); g.ellipse(s.x, s.y, 22 * S, 6 * S, 0, 0, Math.PI * 2); g.fill();
++      g.save(); drawCharacter(g, look, s, S, dt, { preview: true, mount: undefined }); g.restore();
++      raf = requestAnimationFrame(loop);
++    };
++    raf = requestAnimationFrame(loop);
++    return () => cancelAnimationFrame(raf);
++  }, [look, action, yaw]);
++  return <canvas ref={ref} style={{ width: 260, height: 380 }} />;
++}
++
++const ACTS: [Action, string][] = [['idle', '待机'], ['walk', '行走'], ['run', '奔跑(握拳)'], ['cast', '施法(推掌)'], ['fly', '御剑(剑指)'], ['sit', '打坐(结印)'], ['gather', '采集(抓握)']];
++
++export function Wardrobe({ look, onApply, onClose }: { look: Look; onApply: (l: Look) => void; onClose: () => void }) {
++  const [lk, setLk] = useState<Look>(look);
++  const [act, setAct] = useState<Action>('idle');
++  const [yaw, setYaw] = useState(0.5);
++  const [tab, setTab] = useState<'face' | 'body' | 'cloth'>('cloth');
++  const F = faceOf(lk), B = bodyOf(lk);
++
++  const setSex = (sex: 'm' | 'f') => {
++    if (sex === lk.sex) return;
++    const base: Look = sex === 'm' ? { ...HANLI_LOOK, face: undefined, body: undefined } : { ...HANLI_LOOK, ...FEMALE_BASE, hero: true } as Look;
++    const fp = FACES.find((f) => f.sex === sex)!;
++    let n: Look = { ...base, ...fp.set, portrait: fp.id, face: { ...(fp.set.face || {}) } };
++    if (sex === 'f') n.headTex = undefined;
++    const of = outfitsFor(sex); n = wear(n, of.find((o) => o.sex === sex)?.id || of[0].id);
++    setLk(n);
++  };
++  const pickFace = (id: string) => {
++    const fp = FACE_BY_ID.get(id)!;
++    // 换面容：男主默认手绘头只配“沉毅”；其余用参数化代码头
++    setLk({ ...lk, ...fp.set, portrait: id, face: { ...(fp.set.face || {}) }, headTex: lk.sex === 'm' && id === 'm1' ? 'hanli' : undefined });
++  };
++  const setFace = (k: keyof FaceParams, val: number) => setLk({ ...lk, headTex: undefined, face: { ...F, [k]: val } });
++  const setBody = (k: keyof BodyParams, val: number) => setLk({ ...lk, body: { ...B, [k]: val } });
++  const portrait = FACE_BY_ID.get(lk.portrait || '');
++
++  return <div className="wardrobe-mask" onClick={onClose}>
++    <div className="wardrobe" onClick={(e) => e.stopPropagation()}>
++      <div className="wd-head"><b>衣橱 · 容貌</b><button className="wd-x" onClick={onClose}>×</button></div>
++      <div className="wd-body">
++        <div className="wd-left">
++          {portrait && <img className="wd-portrait" src={portrait.img} alt={portrait.name} />}
++          <Preview look={lk} action={act} yaw={yaw} />
++          <input type="range" min={-3.14} max={3.14} step={0.01} value={yaw} onChange={(e) => setYaw(+e.target.value)} title="转身" />
++          <div className="wd-acts">{ACTS.map(([a, n]) => <button key={a} className={act === a ? 'on' : ''} onClick={() => setAct(a)}>{n}</button>)}</div>
++        </div>
++        <div className="wd-right">
++          <div className="wd-row">
++            <button className={lk.sex === 'm' ? 'on' : ''} onClick={() => setSex('m')}>男</button>
++            <button className={lk.sex === 'f' ? 'on' : ''} onClick={() => setSex('f')}>女</button>
++          </div>
++          <div className="wd-tabs">
++            {([['cloth', '衣装'], ['face', '面容'], ['body', '头身']] as const).map(([t, n]) => <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{n}</button>)}
++          </div>
++          {tab === 'cloth' && <div className="wd-grid">
++            {outfitsFor(lk.sex).map((o) => <button key={o.id} className={'wd-card' + (lk.outfit === o.id ? ' on' : '')} onClick={() => setLk(wear(lk, o.id))}>
++              <span className="wd-sw" style={{ background: `linear-gradient(135deg, ${o.set.robe} 60%, ${o.set.trim} 60%)` }} />
++              <b>{o.name}</b><small>{o.desc}</small>
++            </button>)}
++          </div>}
++          {tab === 'face' && <>
++            <div className="wd-faces">{FACES.filter((f) => f.sex === lk.sex).map((f) => <button key={f.id} className={lk.portrait === f.id ? 'on' : ''} onClick={() => pickFace(f.id)}><img src={f.img} alt="" /><span>{f.name}</span></button>)}</div>
++            {(Object.keys(FACE_RANGE) as (keyof FaceParams)[]).map((k) => <label key={k} className="wd-sl"><span>{FACE_RANGE[k][2]}</span>
++              <input type="range" min={FACE_RANGE[k][0]} max={FACE_RANGE[k][1]} step={0.01} value={F[k]} onChange={(e) => setFace(k, +e.target.value)} /></label>)}
++          </>}
++          {tab === 'body' && <>
++            <label className="wd-sl"><span>头</span><input type="range" min={0.9} max={1.1} step={0.01} value={lk.headScale ?? 1} onChange={(e) => setLk({ ...lk, headScale: +e.target.value })} /></label>
++            <label className="wd-sl"><span>身高</span><input type="range" min={0.9} max={1.08} step={0.01} value={lk.height} onChange={(e) => setLk({ ...lk, height: +e.target.value })} /></label>
++            {(Object.keys(BODY_RANGE) as (keyof BodyParams)[]).map((k) => <label key={k} className="wd-sl"><span>{BODY_RANGE[k][2]}</span>
++              <input type="range" min={BODY_RANGE[k][0]} max={BODY_RANGE[k][1]} step={0.01} value={B[k]} onChange={(e) => setBody(k, +e.target.value)} /></label>)}
++          </>}
++          <div className="wd-row wd-foot">
++            <span>{OUTFIT_BY_ID.get(lk.outfit || '')?.name}</span>
++            <button onClick={() => setLk(look)}>还原</button>
++            <button className="on" onClick={() => { try { localStorage.setItem(KEY, JSON.stringify(lk)); } catch { /* */ } onApply(lk); }}>换上</button>
++          </div>
++        </div>
++      </div>
++    </div>
++  </div>;
++}
+diff -ruN '--exclude=node_modules' '--exclude=dist' orig/fanren/src/world/game.ts fanren/src/world/game.ts
+--- orig/fanren/src/world/game.ts	2026-10-20 02:19:03.000000000 +0000
++++ fanren/src/world/game.ts	2026-10-30 14:13:27.320052189 +0000
+@@ -9,6 +9,7 @@
+ import { clamp } from '../core/rng';
+ import { audio } from './audio';
+ import { CharState, HANLI_LOOK, Look } from '../gfx/character';
++import { savedHeroLook } from '../ui/Wardrobe';
+ import { Life } from './life';
+ import { Weather, WEATHER_NAME, WeatherKind } from './weather';
+ import { NodeField, GatherNode } from './nodes';
+@@ -179,7 +180,7 @@
+     this.hookCombat();
+     const start = this.startPos();
+     const st = new CharState(start.x, start.y);
+-    this.player = { name: '韩立', x: start.x, y: start.y, facing: 1, moving: false, flying: false, walkT: 0, running: false, sitting: false, st, look: HANLI_LOOK };
++    this.player = { name: '韩立', x: start.x, y: start.y, facing: 1, moving: false, flying: false, walkT: 0, running: false, sitting: false, st, look: savedHeroLook() ?? HANLI_LOOK };
+     this.cam.x = this.player.x; this.cam.y = this.player.y;
+     this.weather.onThunder = () => audio.sfx('thunder');
+     this.updateUI();
