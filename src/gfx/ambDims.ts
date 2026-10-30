@@ -1,0 +1,22 @@
+// 第二十五步：野外动物世界尺寸（tools/ambconvert.ts 生成，勿手改）
+export const AMB_DIM: Record<string, { w: number; h: number }> = {
+  deer: { w: 60, h: 82 },
+  rabbit: { w: 36, h: 23 },
+  snowfox: { w: 54, h: 32 },
+  monkey: { w: 57, h: 48 },
+  egret: { w: 75, h: 72 },
+  crane_idle: { w: 41, h: 98 },
+  crane_fly: { w: 120, h: 117 },
+  camel: { w: 178, h: 135 },
+  yak: { w: 120, h: 82 },
+  carp_a: { w: 34, h: 28 },
+  carp_b: { w: 30, h: 15 },
+  turtle: { w: 40, h: 26 },
+  seagull: { w: 56, h: 70 },
+  chicken: { w: 25, h: 30 },
+  dog: { w: 51, h: 46 },
+  duck: { w: 40, h: 23 },
+  horse: { w: 134, h: 110 },
+  ox: { w: 130, h: 80 },
+  sheep: { w: 62, h: 51 },
+};
