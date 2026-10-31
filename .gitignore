@@ -1,0 +1,12 @@
+node_modules/
+.next/
+next-env.d.ts
+tsconfig.tsbuildinfo
+*.log
+
+# 游戏构建产物（源码在 game/，构建方式见 README）
+game/node_modules
+game/dist
+public/game
+
+.env
