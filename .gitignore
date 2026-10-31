@@ -1,21 +1,6 @@
-# ---- SECRETS: never commit ----
-machine.json
-tunnel.json
-config.yml
-*.pem
-cert.pem
-machines.json
-
-# ---- logs / runtime ----
+node_modules
+dist
+.DS_Store
 *.log
-bridge-workspace/
-__pycache__/
-*.pyc
-python/
-venv-desktop/
-offline/
-*.bak
-*.bak-*
-
-# token cached by bridge_server.py on first run
-.bridge_token
+release/
+tools/out/
