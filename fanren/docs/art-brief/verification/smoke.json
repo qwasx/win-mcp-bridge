@@ -1,0 +1,102 @@
+{
+  "errors": [],
+  "requests": [],
+  "checks": [
+    {
+      "name": "Brand and new game visible",
+      "pass": true
+    },
+    {
+      "name": "Continue disabled for a fresh player",
+      "pass": true
+    },
+    {
+      "name": "Scene dawn switches",
+      "pass": true
+    },
+    {
+      "name": "Scene dusk switches",
+      "pass": true
+    },
+    {
+      "name": "Scene night switches",
+      "pass": true
+    },
+    {
+      "name": "Scene rain switches",
+      "pass": true
+    },
+    {
+      "name": "Guide opens",
+      "pass": true
+    },
+    {
+      "name": "Escape dismisses dialog",
+      "pass": true
+    },
+    {
+      "name": "Contemplation hides menu",
+      "pass": true
+    },
+    {
+      "name": "Audio toggle works",
+      "pass": true
+    },
+    {
+      "name": "Settings opens",
+      "pass": true
+    },
+    {
+      "name": "Mobile new game reachable",
+      "pass": true
+    },
+    {
+      "name": "Original game starts",
+      "pass": true
+    },
+    {
+      "name": "Original player and mood pool preserved",
+      "pass": true
+    },
+    {
+      "name": "Original movement simulation works",
+      "pass": true
+    },
+    {
+      "name": "Photo mode opens",
+      "pass": true
+    },
+    {
+      "name": "Photo preview cannot leak into save",
+      "pass": true
+    },
+    {
+      "name": "PNG wallpaper downloads",
+      "pass": true
+    },
+    {
+      "name": "Downloaded wallpaper has PNG signature",
+      "pass": true
+    },
+    {
+      "name": "Photo state restored",
+      "pass": true
+    },
+    {
+      "name": "Camera calendar weather and player restore exactly",
+      "pass": true
+    },
+    {
+      "name": "Original save succeeds",
+      "pass": true
+    },
+    {
+      "name": "No runtime exceptions",
+      "pass": true
+    },
+    {
+      "name": "No missing resources",
+      "pass": true
+    }
+  ]
+}

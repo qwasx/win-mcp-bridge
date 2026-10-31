@@ -1,0 +1,255 @@
+[
+  {
+    "asset": "far_mtn_1",
+    "rgba": true,
+    "dimensions": [
+      2048,
+      400
+    ],
+    "srgb": true,
+    "x_seam_max": 0,
+    "y_seam_max": null
+  },
+  {
+    "asset": "far_mtn_2",
+    "rgba": true,
+    "dimensions": [
+      2048,
+      520
+    ],
+    "srgb": true,
+    "x_seam_max": 0,
+    "y_seam_max": null
+  },
+  {
+    "asset": "far_mtn_3",
+    "rgba": true,
+    "dimensions": [
+      2048,
+      640
+    ],
+    "srgb": true,
+    "x_seam_max": 0,
+    "y_seam_max": null
+  },
+  {
+    "asset": "sky_dawn_mist",
+    "rgba": true,
+    "dimensions": [
+      2048,
+      360
+    ],
+    "srgb": true,
+    "x_seam_max": 0,
+    "y_seam_max": null
+  },
+  {
+    "asset": "sky_dusk_glow",
+    "rgba": true,
+    "dimensions": [
+      2048,
+      360
+    ],
+    "srgb": true,
+    "x_seam_max": 0,
+    "y_seam_max": null
+  },
+  {
+    "asset": "sky_cloud_band",
+    "rgba": true,
+    "dimensions": [
+      2048,
+      300
+    ],
+    "srgb": true,
+    "x_seam_max": 0,
+    "y_seam_max": null
+  },
+  {
+    "asset": "moon_full",
+    "rgba": true,
+    "dimensions": [
+      512,
+      512
+    ],
+    "srgb": true,
+    "x_seam_max": null,
+    "y_seam_max": null
+  },
+  {
+    "asset": "moon_crescent",
+    "rgba": true,
+    "dimensions": [
+      512,
+      512
+    ],
+    "srgb": true,
+    "x_seam_max": null,
+    "y_seam_max": null
+  },
+  {
+    "asset": "sky_starriver",
+    "rgba": true,
+    "dimensions": [
+      2048,
+      512
+    ],
+    "srgb": true,
+    "x_seam_max": 0,
+    "y_seam_max": null
+  },
+  {
+    "asset": "rain_veil",
+    "rgba": true,
+    "dimensions": [
+      1024,
+      1024
+    ],
+    "srgb": true,
+    "x_seam_max": 0,
+    "y_seam_max": 0
+  },
+  {
+    "asset": "mist_band_1",
+    "rgba": true,
+    "dimensions": [
+      1024,
+      256
+    ],
+    "srgb": true,
+    "x_seam_max": null,
+    "y_seam_max": null
+  },
+  {
+    "asset": "mist_band_2",
+    "rgba": true,
+    "dimensions": [
+      1024,
+      256
+    ],
+    "srgb": true,
+    "x_seam_max": null,
+    "y_seam_max": null
+  },
+  {
+    "asset": "mist_puff_1",
+    "rgba": true,
+    "dimensions": [
+      512,
+      512
+    ],
+    "srgb": true,
+    "x_seam_max": null,
+    "y_seam_max": null
+  },
+  {
+    "asset": "mist_puff_2",
+    "rgba": true,
+    "dimensions": [
+      512,
+      512
+    ],
+    "srgb": true,
+    "x_seam_max": null,
+    "y_seam_max": null
+  },
+  {
+    "asset": "wild_geese",
+    "rgba": true,
+    "dimensions": [
+      1024,
+      256
+    ],
+    "srgb": true,
+    "x_seam_max": null,
+    "y_seam_max": null
+  },
+  {
+    "asset": "lone_sail",
+    "rgba": true,
+    "dimensions": [
+      384,
+      512
+    ],
+    "srgb": true,
+    "x_seam_max": null,
+    "y_seam_max": null
+  },
+  {
+    "asset": "fishing_light",
+    "rgba": true,
+    "dimensions": [
+      256,
+      256
+    ],
+    "srgb": true,
+    "x_seam_max": null,
+    "y_seam_max": null
+  },
+  {
+    "asset": "cooking_smoke",
+    "rgba": true,
+    "dimensions": [
+      256,
+      768
+    ],
+    "srgb": true,
+    "x_seam_max": null,
+    "y_seam_max": null
+  },
+  {
+    "asset": "reed_marsh",
+    "rgba": true,
+    "dimensions": [
+      768,
+      384
+    ],
+    "srgb": true,
+    "x_seam_max": null,
+    "y_seam_max": null
+  },
+  {
+    "asset": "lotus_withered",
+    "rgba": true,
+    "dimensions": [
+      512,
+      384
+    ],
+    "srgb": true,
+    "x_seam_max": null,
+    "y_seam_max": null
+  },
+  {
+    "asset": "plum_branch",
+    "rgba": true,
+    "dimensions": [
+      512,
+      512
+    ],
+    "srgb": true,
+    "x_seam_max": null,
+    "y_seam_max": null
+  },
+  {
+    "asset": "paper_grain",
+    "rgba": true,
+    "dimensions": [
+      1024,
+      1024
+    ],
+    "srgb": true,
+    "x_seam_max": 0,
+    "y_seam_max": 0
+  },
+  {
+    "asset": "ink_vignette",
+    "rgba": true,
+    "dimensions": [
+      1024,
+      1024
+    ],
+    "srgb": true,
+    "x_seam_max": null,
+    "y_seam_max": null
+  }
+]

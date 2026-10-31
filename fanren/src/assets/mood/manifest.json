@@ -1,0 +1,232 @@
+{
+  "far_mtn_1": {
+    "width": 2048,
+    "height": 400,
+    "mode": "RGBA",
+    "tile_x": true,
+    "tile_y": false,
+    "source": "mood-textures-23",
+    "alpha_min": 0,
+    "alpha_max": 83
+  },
+  "far_mtn_2": {
+    "width": 2048,
+    "height": 520,
+    "mode": "RGBA",
+    "tile_x": true,
+    "tile_y": false,
+    "source": "mood-textures-23",
+    "alpha_min": 0,
+    "alpha_max": 216
+  },
+  "far_mtn_3": {
+    "width": 2048,
+    "height": 640,
+    "mode": "RGBA",
+    "tile_x": true,
+    "tile_y": false,
+    "source": "mood-textures-23",
+    "alpha_min": 0,
+    "alpha_max": 255
+  },
+  "sky_dawn_mist": {
+    "width": 2048,
+    "height": 360,
+    "mode": "RGBA",
+    "tile_x": true,
+    "tile_y": false,
+    "source": "mood-textures-23",
+    "alpha_min": 0,
+    "alpha_max": 255
+  },
+  "sky_dusk_glow": {
+    "width": 2048,
+    "height": 360,
+    "mode": "RGBA",
+    "tile_x": true,
+    "tile_y": false,
+    "source": "mood-textures-23",
+    "alpha_min": 0,
+    "alpha_max": 255
+  },
+  "sky_cloud_band": {
+    "width": 2048,
+    "height": 300,
+    "mode": "RGBA",
+    "tile_x": true,
+    "tile_y": false,
+    "source": "mood-textures-23",
+    "alpha_min": 0,
+    "alpha_max": 140
+  },
+  "moon_full": {
+    "width": 512,
+    "height": 512,
+    "mode": "RGBA",
+    "tile_x": false,
+    "tile_y": false,
+    "source": "mood-textures-23",
+    "alpha_min": 0,
+    "alpha_max": 239
+  },
+  "moon_crescent": {
+    "width": 512,
+    "height": 512,
+    "mode": "RGBA",
+    "tile_x": false,
+    "tile_y": false,
+    "source": "mood-textures-23",
+    "alpha_min": 0,
+    "alpha_max": 255
+  },
+  "sky_starriver": {
+    "width": 2048,
+    "height": 512,
+    "mode": "RGBA",
+    "tile_x": true,
+    "tile_y": false,
+    "source": "mood-textures-23",
+    "alpha_min": 0,
+    "alpha_max": 252
+  },
+  "rain_veil": {
+    "width": 1024,
+    "height": 1024,
+    "mode": "RGBA",
+    "tile_x": true,
+    "tile_y": true,
+    "source": "mood-textures-23",
+    "alpha_min": 0,
+    "alpha_max": 30
+  },
+  "mist_band_1": {
+    "width": 1024,
+    "height": 256,
+    "mode": "RGBA",
+    "tile_x": false,
+    "tile_y": false,
+    "source": "mood-textures-23",
+    "alpha_min": 0,
+    "alpha_max": 178
+  },
+  "mist_band_2": {
+    "width": 1024,
+    "height": 256,
+    "mode": "RGBA",
+    "tile_x": false,
+    "tile_y": false,
+    "source": "mood-textures-23",
+    "alpha_min": 0,
+    "alpha_max": 147
+  },
+  "mist_puff_1": {
+    "width": 512,
+    "height": 512,
+    "mode": "RGBA",
+    "tile_x": false,
+    "tile_y": false,
+    "source": "mood-textures-23",
+    "alpha_min": 0,
+    "alpha_max": 150
+  },
+  "mist_puff_2": {
+    "width": 512,
+    "height": 512,
+    "mode": "RGBA",
+    "tile_x": false,
+    "tile_y": false,
+    "source": "mood-textures-23",
+    "alpha_min": 0,
+    "alpha_max": 143
+  },
+  "wild_geese": {
+    "width": 1024,
+    "height": 256,
+    "mode": "RGBA",
+    "tile_x": false,
+    "tile_y": false,
+    "source": "mood-textures-23",
+    "alpha_min": 0,
+    "alpha_max": 255
+  },
+  "lone_sail": {
+    "width": 384,
+    "height": 512,
+    "mode": "RGBA",
+    "tile_x": false,
+    "tile_y": false,
+    "source": "mood-textures-23",
+    "alpha_min": 0,
+    "alpha_max": 254
+  },
+  "fishing_light": {
+    "width": 256,
+    "height": 256,
+    "mode": "RGBA",
+    "tile_x": false,
+    "tile_y": false,
+    "source": "mood-textures-23",
+    "alpha_min": 0,
+    "alpha_max": 250
+  },
+  "cooking_smoke": {
+    "width": 256,
+    "height": 768,
+    "mode": "RGBA",
+    "tile_x": false,
+    "tile_y": false,
+    "source": "mood-textures-23",
+    "alpha_min": 0,
+    "alpha_max": 178
+  },
+  "reed_marsh": {
+    "width": 768,
+    "height": 384,
+    "mode": "RGBA",
+    "tile_x": false,
+    "tile_y": false,
+    "source": "mood-textures-23",
+    "alpha_min": 0,
+    "alpha_max": 254
+  },
+  "lotus_withered": {
+    "width": 512,
+    "height": 384,
+    "mode": "RGBA",
+    "tile_x": false,
+    "tile_y": false,
+    "source": "mood-textures-23",
+    "alpha_min": 0,
+    "alpha_max": 255
+  },
+  "plum_branch": {
+    "width": 512,
+    "height": 512,
+    "mode": "RGBA",
+    "tile_x": false,
+    "tile_y": false,
+    "source": "mood-textures-23",
+    "alpha_min": 0,
+    "alpha_max": 254
+  },
+  "paper_grain": {
+    "width": 1024,
+    "height": 1024,
+    "mode": "RGBA",
+    "tile_x": true,
+    "tile_y": true,
+    "source": "mood-textures-23",
+    "alpha_min": 255,
+    "alpha_max": 255
+  },
+  "ink_vignette": {
+    "width": 1024,
+    "height": 1024,
+    "mode": "RGBA",
+    "tile_x": false,
+    "tile_y": false,
+    "source": "mood-textures-23",
+    "alpha_min": 0,
+    "alpha_max": 36
+  }
+}

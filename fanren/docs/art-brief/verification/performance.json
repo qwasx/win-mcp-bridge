@@ -1,0 +1,17 @@
+{
+  "renderer": "WebKit WebGL",
+  "hardwareGPU": false,
+  "viewport": [
+    960,
+    540
+  ],
+  "frames": 60,
+  "enabledMedianMs": 2.6000000000931323,
+  "disabledMedianMs": 2.2999999998137355,
+  "pairedMedianRegressionMs": 0.10000000009313226,
+  "pairedP95RegressionMs": 9.899999999906868,
+  "moodCpuMedianMs": 0.10000000009313226,
+  "moodCpuP95Ms": 0.2999999998137355,
+  "under1ms": true,
+  "note": "Headless Chromium / SwiftShader software GPU. Paired warm-cache incremental comparison, not a physical-GPU certification."
+}
