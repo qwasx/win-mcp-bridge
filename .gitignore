@@ -1,0 +1,12 @@
+node_modules/
+.next/
+dist/
+game/dist/
+.env
+.env.*
+!.env.example
+*.log
+/tmp/
+test-results/
+playwright-report/
+release/
