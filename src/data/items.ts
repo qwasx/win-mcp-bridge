@@ -35,6 +35,8 @@ export interface ItemDef {
   scroll?: { gongfa?: string; skill?: string };
   herbBase?: number;      // 灵药天然年份基准
   giftValue?: number;     // 作为礼物的基础价值
+  /** 第四十九步「人心」：假货的真身名（服下才露馅，见 world/scams.ts） */
+  fakeOf?: string;
   stack?: boolean;
 }
 

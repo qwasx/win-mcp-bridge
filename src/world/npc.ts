@@ -60,7 +60,7 @@ interface Active {
   act: 'walk' | 'idle' | 'sit' | 'gather' | 'fly' | 'duel' | 'flee' | 'approach' | 'follow';
   t: number; wait: number; enemy?: Enemy; noticed: number;
   duel?: { foe: Active; hp: number; cd: number; t: number };
-  hp: number; bubble?: { text: string; t: number; mind?: boolean }; bolts: { x: number; y: number; x2: number; y2: number; t: number; col: string }[];
+  hp: number; bubble?: { text: string; t: number; mind?: boolean; real?: boolean }; bolts: { x: number; y: number; x2: number; y2: number; t: number; col: string }[];
   ally?: Enemy | null; allyCd: number;
   /** 第二十九步：日常（钓鱼 / 摆摊 / 闲聊 / 围观） */
   life?: { k: 'fish' | 'stall' | 'chat' | 'watch' | import('./alive').AliveK; dir: number; with?: Active; lines?: string[]; li?: number; lt?: number; cx?: number; cy?: number; ware?: number; ph?: number; n?: number };
@@ -1283,7 +1283,7 @@ export class NpcWorld {
     }
     if (a.bubble?.mind) {
       const fs = Math.max(11, 12.5 / Math.max(0.5, z));
-      drawMindBubble(ctx, st.x, st.y - 175 * S - st.lift - fs * 0.6, a.bubble.text, fs, Math.min(1, a.bubble.t * 1.5));
+      drawMindBubble(ctx, st.x, st.y - 175 * S - st.lift - fs * 0.6, a.bubble.text, fs, Math.min(1, a.bubble.t * 1.5), !!a.bubble.real);
     } else if (a.bubble) {
       const fs = Math.max(12, 14 / Math.max(0.5, z));
       ctx.font = `${fs}px "Noto Serif SC","Songti SC",serif`; ctx.textAlign = 'center';

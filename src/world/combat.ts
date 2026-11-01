@@ -1029,6 +1029,7 @@ export class Combat {
         }
       }
     }
+    if (srcEnemy) (this as any).lastFoe = { e: srcEnemy, t: this.game.time };   // 第四十九步：记下最后出手的敌人（决定战败的代价）
     if (h.hp <= 0) this.playerDown();
   }
 
@@ -1044,7 +1045,8 @@ export class Combat {
       this.vfx.push({ kind: 'aura', x: g.player.x, y: g.player.y, r: 140, t: 0, dur: 1.2, color: '255,200,120' });
       return;
     }
-    g.onPlayerDown();
+    const lf = (this as any).lastFoe as { e: Enemy; t: number } | undefined;
+    g.onPlayerDown(lf && g.time - lf.t < 8 ? lf.e : undefined);
   }
 
   // ------------------------------------------------------------ 危险度与刷怪

@@ -24,6 +24,8 @@ import { cultivator, newTeam, sectName, YUE_SECTS } from './melee';
 import { Obtain } from './obtain';
 import { GreatHunt } from './great';
 
+import { scamNode, pickRival, borrowKilled, borrowTick } from './scams';
+import { revengeNode, returnLoot } from './defeat';
 type G = CanvasRenderingContext2D;
 const TAU = Math.PI * 2;
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -34,7 +36,7 @@ const SURN = ['王', '李', '赵', '孙', '周', '吴', '郑', '冯', '陈', '�
 const GIVEN = ['元', '无极', '天霸', '青', '不凡', '长风', '一刀', '玄', '寒', '万里', '千山', '铁手', '百川', '飞', '老怪', '三娘', '秋水', '冥'];
 const rname = () => pick(SURN) + pick(GIVEN);
 
-type HKind = 'robber' | 'tribul' | 'chase' | 'caravan' | 'wager' | 'beastfight';
+type HKind = 'robber' | 'tribul' | 'chase' | 'caravan' | 'wager' | 'beastfight' | 'scam_vendor' | 'scam_borrow' | 'scam_elder';
 interface Npc { look: Look; st: CharState; x: number; y: number }
 interface Hap { id: number; kind: HKind; x: number; y: number; t: number; done: boolean; seen: boolean; foes: Enemy[]; npc?: Npc; npc2?: Npc; d: any }
 
@@ -68,7 +70,7 @@ export class Happen {
       const d = Math.hypot(x.x - p.x, x.y - p.y);
       if (!x.seen && d < R * 0.95) { x.seen = true; const s = this.seenText(x); if (s) g.toast(s, x.kind === 'robber' || x.kind === 'tribul' ? 'warn' : 'info'); }
       this.tick(x, dt, d);
-      if (x.npc && !x.d.engaged && (x.kind === 'tribul' || x.kind === 'caravan' || x.kind === 'wager')) { const dn = Math.hypot(x.npc.x - p.x, x.npc.y - p.y); if (dn < 220 && dn < this.focusD) { this.focus = x; this.focusD = dn; } }
+      if (x.npc && !x.d.engaged && (x.kind === 'tribul' || x.kind === 'caravan' || x.kind === 'wager' || x.kind.startsWith('scam_'))) { const dn = Math.hypot(x.npc.x - p.x, x.npc.y - p.y); if (dn < 220 && dn < this.focusD) { this.focus = x; this.focusD = dn; } }
     }
     this.heraldTick(dt);
     this.bountyTick(dt);
@@ -89,6 +91,9 @@ export class Happen {
       case 'chase': return '神识中：一道遁光仓皇奔逃，身后几人紧追不舍！';
       case 'caravan': return '神识中：一支凡人商队正在赶路。';
       case 'wager': return '神识中：一个年轻修士抱臂立在路中，似在等人比试。';
+      case 'scam_vendor': return '神识中：路边一个摊贩守着一块旧布，摊上摆着几粒丹药。';
+      case 'scam_borrow': return '神识中：一个修士跪在路边，身前一道血迹蜿蜒向山谷深处。';
+      case 'scam_elder': return '神识中：山石下倚着一个白发老者，气息奄奄。';
       case 'beastfight': return `神识中：一头${d.a}与一头${d.b}正在殊死相搏——鹬蚌相争？`;
     }
   }
@@ -113,7 +118,7 @@ export class Happen {
   }
   private spawn() {
     const g = this.game, h = g.hero, ws = g.ws;
-    const w: [HKind, number][] = [['robber', ws.rep < -30 ? 34 : 20], ['tribul', 10], ['chase', 14], ['caravan', 11], ['wager', 11], ['beastfight', 16]];
+    const w: [HKind, number][] = [['robber', ws.rep < -30 ? 34 : 20], ['tribul', 10], ['chase', 14], ['caravan', 11], ['wager', 11], ['beastfight', 16], ['scam_vendor', 6], ['scam_borrow', 6], ['scam_elder', 5]];
     const tot = w.reduce((a, b) => a + b[1], 0); let r = Math.random() * tot, kind: HKind = 'robber';
     for (const [k, v] of w) { r -= v; if (r <= 0) { kind = k; break; } }
     const pos = this.place(1.08, 1.4, kind === 'caravan');
@@ -157,6 +162,21 @@ export class Happen {
     } else if (kind === 'wager') {
       x.npc = this.mkNpc(pos.x, pos.y, Math.random() < 0.3 ? 'female' : 'cultivator');
       x.d.name = rname(); x.d.realm = hr; x.d.stage = clamp(hs + rint(-1, 2), 0, 12); x.d.stake = Math.round(50 * Math.pow(3, Math.max(0, hr - 1)));
+    } else if (kind === 'scam_vendor') {
+      // #2 三折筑基丹：路边摊，药是假的（scams.ts）
+      x.npc = this.mkNpc(pos.x, pos.y, 'merchant'); x.d.name = pick(['老汉', '瘦猴', '青衫妇人', '黑脸汉子']); x.d.sharp = Math.random() < 0.35;
+    } else if (kind === 'scam_borrow') {
+      // #3 借刀杀人：苦主求你去除魔；那“魔修”其实是他的死敌，正在山谷里等你
+      const rv = pickRival(g);
+      x.npc = this.mkNpc(pos.x, pos.y, Math.random() < 0.3 ? 'female' : 'cultivator'); x.d.name = rname();
+      x.d.rivalId = rv?.id; x.d.fakeName = rv?.name ?? '魔修·' + rname();
+      const e = this.human(pos.x + 520, pos.y + rand(-120, 120), rv ? clamp(rv.realm, 1, 4) : clamp(hr + rint(0, 1), 1, 4), rint(0, 6), x.d.fakeName, true);
+      e.tag = 'scam:borrow'; e.busy = true; x.foes.push(e); g.combat.enemies.push(e);
+    } else if (kind === 'scam_elder') {
+      // #5 夺舍老魔：重伤“前辈”求渡灵力，接触即夺舍；只找结丹以上的人
+      if (hr < 2) return;
+      x.npc = this.mkNpc(pos.x, pos.y, 'cultivator'); x.npc.st.setAction('sit');
+      x.d.name = rname(); x.d.realm = Math.min(4, hr + (Math.random() < 0.4 ? 2 : 1)); x.d.stage = rint(0, 6); x.d.sharp = Math.random() < 0.35;
     } else if (kind === 'beastfight') {
       const a = g.combat.rollBeast(pos.x, pos.y, 0.3, { noFlee: true }), b = g.combat.rollBeast(pos.x, pos.y, 0.3, { noFlee: true });
       if (!a || !b) return;
@@ -177,7 +197,7 @@ export class Happen {
           for (const e of alive) { const d = Math.hypot(e.x - p.x, e.y - p.y); if (d > 230) this.walk(e, p.x, p.y, 150, dt); }
           const lead = alive[0];
           if (lead) { x.x = lead.x; x.y = lead.y; }
-          if (lead && Math.hypot(lead.x - p.x, lead.y - p.y) < 280 && !g.modal) { x.d.engaged = true; g.openDialog(this.robberNode(x)); }
+          if (lead && Math.hypot(lead.x - p.x, lead.y - p.y) < 280 && !g.modal) { x.d.engaged = true; g.openDialog(x.d.revenge ? revengeNode(g, x) : this.robberNode(x)); }
           if (alive.some((e) => !e.busy)) { x.d.engaged = true; for (const e of alive) { e.busy = false; e.aggro = true; } }
         }
         if (!alive.length) x.done = true;
@@ -187,6 +207,7 @@ export class Happen {
       case 'chase': this.chaseTick(x, dt, alive); break;
       case 'caravan': this.caravanTick(x, dt, alive); break;
       case 'wager': if (x.npc) { x.npc.st.faceToward(p.x - x.npc.x, p.y - x.npc.y); } break;
+      case 'scam_borrow': borrowTick(g, x, alive); break;
       case 'beastfight': {
         const [a, b] = x.foes;
         if (!a || !b) { x.done = true; break; }
@@ -502,7 +523,30 @@ export class Happen {
     else g.openDialog({ speaker: d.name, look: e.look, text: `${d.name}收起法器，掂了掂赢来的灵石：「承让。道友回去再练几年吧。」`, options: [{ label: '……', act: () => null }] });
     return true;
   }
+  /** 借刀杀人的“魔修”倒下 / 寻仇的劫修倒下：分别结算（第四十九步「人心」） */
+  private specialKill(e: Enemy) {
+    const x = this.haps.find((h0) => h0.foes.includes(e));
+    if (e.tag === 'scam:borrow' && x) borrowKilled(this.game, x);
+    if (e.tag === 'revenge') returnLoot(this.game);
+  }
+  /** 寻仇夺回：凶徒带着你的赃物回来找你（同时只一伙，且不在安全之地） */
+  spawnRevenge(): boolean {
+    const g = this.game, h = g.hero;
+    if (!g.ws.renxin.lost || this.haps.some((x) => x.d.revenge)) return false;
+    if (g.combat.safeAt(g.player.x, g.player.y) || g.player.sitting) return false;
+    const pos = this.place(1.0, 1.25, false);
+    if (!pos) return false;
+    const x: Hap = { id: this.nid++, kind: 'robber', x: pos.x, y: pos.y, t: g.time, done: false, seen: false, foes: [], d: { revenge: true } };
+    const n = rint(2, 3);
+    for (let i = 0; i < n; i++) {
+      const e = this.human(pos.x + rand(-80, 80), pos.y + rand(-60, 60), Math.max(1, h.realm), rint(0, 6), i === 0 ? '寻仇的劫修头目' : '劫修帮众');
+      e.busy = true; e.tag = 'revenge'; g.combat.enemies.push(e); x.foes.push(e);
+    }
+    this.haps.push(x);
+    return true;
+  }
   onKill(e: Enemy) {
+    if (e.tag === 'scam:borrow' || e.tag === 'revenge') this.specialKill(e);
     const g = this.game, h = g.hero;
     if (e.tag === 'tribrob') {
       const got = loot(g, clamp(e.realm, 0, 4), 2, { scroll: 0.5, art: 0.5, map: 0.2 });
@@ -518,6 +562,7 @@ export class Happen {
   interact(): boolean {
     const x = this.focus; if (!x || !x.npc) return false;
     const g = this.game;
+    if (x.kind.startsWith('scam_') && !x.d.engaged) { x.d.engaged = true; const n = scamNode(g, x); if (n) g.openDialog(n); return true; }
     if (x.kind === 'tribul' && !x.d.engaged) { g.openDialog(this.tribNode(x)); return true; }
     if (x.kind === 'caravan' && !x.d.engaged) { g.openDialog(this.caravanNode(x)); return true; }
     if (x.kind === 'wager' && !x.d.engaged) { g.openDialog(this.wagerNode(x)); return true; }

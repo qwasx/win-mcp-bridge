@@ -4,6 +4,6 @@ import '@fontsource/noto-serif-sc/400.css';
 import '@fontsource/noto-serif-sc/700.css';
 import './styles.css';
 import './ui/wardrobe.css';
-import { App } from './ui/App';
+import { App } from './App';
 
 createRoot(document.getElementById('root')!).render(<App />);

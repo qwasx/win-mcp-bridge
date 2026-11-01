@@ -26,17 +26,21 @@ export interface WorldState {
   bounties: Bounty[];                  // 已接的悬赏
   caches: CacheState[];                // 残图所指的藏宝处
   blessUntil: number;                  // 山神庇佑（至某日）
+  /** 第四十九步「人心」：阅历、假货账、赃物（随存档保存） */
+  renxin: RenxinState;
 }
 export interface SiteState { done?: number; layer?: number; seen?: 1; partner?: number; read?: 1; drink?: number; dive?: number; [k: string]: any }
 export interface Plot { herb: string | null; age: number; n: number; day: number }
 export interface HomeState { map: string; x: number; y: number; key: string; name: string; plots: Plot[]; array: number; built: number; robbed?: number }
+import { newRenxin, type RenxinState } from './renxin';
+
 export interface PetState { kind: string; name: string; lv: number; xp: number; bond: number; born: number }
 export interface Letter { id: number; from: string; day: number; text: string; kind: 'chat' | 'req' | 'sos' | 'fest' | 'jealous' | 'gift'; read?: boolean; replied?: boolean; replies?: { label: string; favor: number; reply: string }[] }
 export interface Bounty { id: string; town: string; map: string; name: string; def: string; realm: number; stage: number; x: number; y: number; reward: number; until: number; done?: boolean; spawned?: boolean }
 export interface CacheState { id: number; map: string; x: number; y: number; ox: number; oy: number; tier: number; done?: boolean }
 
 export function newWorldState(): WorldState {
-  return { rep: 0, sect: null, hearts: {}, flags: {}, events: {}, news: [], tp: [], kills: {}, hints: [], sites: {}, home: null, pets: [], petActive: 0, incubate: null, letters: [], bounties: [], caches: [], blessUntil: 0 };
+  return { rep: 0, sect: null, hearts: {}, flags: {}, events: {}, news: [], tp: [], kills: {}, hints: [], sites: {}, home: null, pets: [], petActive: 0, incubate: null, letters: [], bounties: [], caches: [], blessUntil: 0, renxin: newRenxin() };
 }
 
 export const SECT_RANKS = ['外门弟子', '内门弟子', '核心弟子', '执事', '长老'];

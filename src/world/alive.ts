@@ -9,6 +9,7 @@ import { PLAN_NAME } from './living';
 import { locsOf, ACTIVE_MAP, WORLD_SCALE } from '../data/world';
 import { LANDMARKS } from '../data/landmarks';
 
+import { mindFor } from './renxin';
 type G = CanvasRenderingContext2D;
 const TAU = Math.PI * 2;
 const pk = <T,>(x: T[]) => x[Math.floor(Math.random() * x.length)];
@@ -20,7 +21,7 @@ export const ALIVE_NAME: Record<AliveK, string> = { sword: '练剑', spar: '对�
 export interface AliveActor {
   d: NpcData; st: any; act: string; wait: number;
   life?: { k: string; dir: number; with?: AliveActor; lines?: string[]; li?: number; lt?: number; cx?: number; cy?: number; ware?: number; ph?: number; n?: number };
-  bubble?: { text: string; t: number; mind?: boolean };
+  bubble?: { text: string; t: number; mind?: boolean; real?: boolean };
   /** 心声计时、上一次心声 */
   mindT?: number; mindLast?: string;
   /** 反应冷却 */
@@ -259,7 +260,7 @@ export function reactTick(g: Game, a: AliveActor, dt: number, dist: number) {
   const quiet = !a.bubble || (a.bubble.t < 0.5 && !a.bubble.mind);
   if (dist < 900 && a.mindT <= 0 && quiet && a.act !== 'flee' && a.act !== 'approach' && a.act !== 'follow' && !(a as any).enemy) {
     a.mindT = 11 + Math.random() * 16;
-    const s = thoughtOf(g, a); if (s) { a.bubble = { text: s, t: 3.4, mind: true }; a.mindLast = s; }
+    const s = thoughtOf(g, a); if (s) { const m = mindFor(g, d, s, dist); a.bubble = { text: m.text, t: 3.4, mind: true, real: m.real }; a.mindLast = s; }
   }
   if (a.reactCd > 0 || a.act === 'flee' || a.act === 'approach' || a.act === 'follow' || (a as any).enemy || (a as any).duel) return;
   const L = a.life;
@@ -401,11 +402,11 @@ export function drawAliveOver(ctx: G, a: AliveActor, t: number) {
   ctx.restore();
 }
 /** 心声泡：云朵形、灰字、斜体感 */
-export function drawMindBubble(ctx: G, x: number, y: number, text: string, fs: number, alpha: number) {
+export function drawMindBubble(ctx: G, x: number, y: number, text: string, fs: number, alpha: number, gold = false) {
   ctx.save(); ctx.globalAlpha *= alpha;
   ctx.font = `${fs}px "Noto Serif SC","Songti SC",serif`; ctx.textAlign = 'center';
   const w = ctx.measureText(text).width + fs * 1.2, h = fs * 1.7;
-  ctx.fillStyle = 'rgba(236,238,236,0.9)'; ctx.strokeStyle = 'rgba(90,100,96,0.55)'; ctx.lineWidth = 1;
+  ctx.fillStyle = 'rgba(236,238,236,0.9)'; ctx.strokeStyle = gold ? 'rgba(214,176,92,0.95)' : 'rgba(90,100,96,0.55)'; ctx.lineWidth = gold ? 1.8 : 1;
   ctx.beginPath();
   const n = Math.max(6, Math.round(w / (fs * 0.9)));
   for (let i = 0; i <= n; i++) { const px = x - w / 2 + (i / n) * w; ctx.arc(px, y - h * 0.5, h * 0.42, Math.PI, 0); }

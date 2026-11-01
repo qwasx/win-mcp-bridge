@@ -31,6 +31,8 @@ export interface Hero {
   /** 第四十步：青竹蜂云剑的口数（每根金雷竹十二口，至七十二口）与是否已熔入庚精（大庚剑阵） */
   qzN?: number;
   qzGeng?: boolean;
+  /** 第四十九步「人心」：道伤剩余天数（经脉受损：修为慢四成、法力上限低两成；闭关养伤更快） */
+  daoLeft?: number;
 }
 
 /** 第三十六步：奇遇、切磋、任务所得修为的折算（修为主要靠岁月苦修） */
@@ -79,7 +81,7 @@ export function heroStats(h: Hero) {
   const R = REALMS[h.realm], s = h.stage, gf = gongfaDef(h);
   return {
     hp: Math.round(R.hp[s] * (1 + (gf.hp ?? 0) + mod(h, 'hp'))),
-    mp: Math.round(R.mp[s] * (1 + (gf.mp ?? 0) + mod(h, 'mp'))),
+    mp: Math.round(R.mp[s] * (1 + (gf.mp ?? 0) + mod(h, 'mp')) * (h.daoLeft ? 0.8 : 1)),
     atk: Math.round(R.atk[s] * (1 + (gf.atk ?? 0) + mod(h, 'atk'))),
     def: Math.round(R.def[s] * (1 + (gf.def ?? 0) + mod(h, 'def'))),
     sense: Math.round(R.sense[s] * (1 + mod(h, 'sense') + h.senseBonus)),
@@ -92,7 +94,7 @@ export function heroStats(h: Hero) {
 export function expPerDay(h: Hero, place = 1) {
   const gf = gongfaDef(h);
   const over = h.realm > gf.maxRealm ? 0.5 : 1;
-  return 10 * softRate(rootDef(h).rate * gf.rate * over * (1 + mod(h, 'exp')) * place);
+  return 10 * softRate(rootDef(h).rate * gf.rate * over * (1 + mod(h, 'exp')) * place * (h.daoLeft ? 0.6 : 1));
 }
 
 export function need(h: Hero) { return expNeed(h.realm, h.stage); }
@@ -236,6 +238,8 @@ export function passDays(h: Hero, days: number, meditating: boolean, place: numb
   // 气血法力缓慢恢复
   h.hp = Math.min(1, h.hp + days * (meditating ? 0.08 : 0.02));
   h.mp = Math.min(1, h.mp + days * (meditating ? 0.2 : 0.05));
+  // 道伤：闭关养伤快一倍（疗伤丹另有奇效，见 game.usePill）
+  if (h.daoLeft) h.daoLeft = Math.max(0, h.daoLeft - days * (meditating ? 2 : 1));
   if (meditating) { gainExp(h, expPerDay(h, place) * days, out, 'med'); h.stats.meditateDays += days; }
   if (h.age >= maxLife(h)) { h.dead = true; out.push({ text: '寿元已尽……', kind: 'warn' }); }
 }

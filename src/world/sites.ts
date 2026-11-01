@@ -19,6 +19,7 @@ import type { SiteState, CacheState } from './worldstate';
 import { CharState, drawCharacter, randomLook, Look } from '../gfx/character';
 import { drawBld } from '../gfx/bldTex2';
 
+import { labelOf } from './renxin';
 type G = CanvasRenderingContext2D;
 const TAU = Math.PI * 2;
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -390,7 +391,7 @@ export class SiteSys {
     const pr = PARTNER_PERS.find((p0) => p0.id === v.pp);
     if (v.partner === 1 && pr) {
       const pl = this.partnerLook(s);
-      return { speaker: v.pn, title: `${realmName(v.pr, 2)} · ${pr.name}`, look: pl.look, text: `（洞府前站着一位修士，见你到来，手按储物袋，又慢慢松开）\n\n${pr.line}`, options: [
+      return { speaker: v.pn, title: `${realmName(v.pr, 2)} · ${labelOf(pr.id, pr.name, h.realm - v.pr >= 2)}`, look: pl.look, text: `（洞府前站着一位修士，见你到来，手按储物袋，又慢慢松开）\n\n${pr.line}`, options: [
         { label: '联手破禁', tone: 'good', act: () => { v.partner = 2; return this.ruinNode(s); } },
         { label: '婉拒，各凭本事', act: () => {
           v.partner = 0;

@@ -42,6 +42,9 @@ import { LandmarkSys } from './landmarks';
 import { HeartLife } from './heartsx';
 import { XinMo } from './xinmo';
 import { WorldState, newWorldState, SECT_RANKS } from './worldstate';
+import { foeKindOf, plunder, recordLoss, daoDays, captiveScene, daily as defeatDaily } from './defeat';
+import { onPillUsed } from './scams';
+import type { Enemy as FoeEnemy } from './combat';
 import { dirName } from './sites';
 import { ITEM_LIST } from '../data/items';
 import { LOC_BY_ID, locHere } from '../data/world';
@@ -838,7 +841,7 @@ export class Game {
       this.timeScale = p.sitting ? MEDITATE_SPEED : 1;
       const days = dt * DAYS_PER_SEC * this.timeScale;
       this.day += days;
-      this.relAcc += days; if (this.relAcc >= 0.5) { const _d = prof.t(); this.rel.daily(this.relAcc); this.roster.daily(this.relAcc); this.garrison.daily(this.relAcc); this.war.daily(this.relAcc); this.orig.daily(this.relAcc); this.relAcc = 0; prof.add('U·日结算', _d); }
+      this.relAcc += days; if (this.relAcc >= 0.5) { const _d = prof.t(); this.rel.daily(this.relAcc); defeatDaily(this, this.relAcc); this.roster.daily(this.relAcc); this.garrison.daily(this.relAcc); this.war.daily(this.relAcc); this.orig.daily(this.relAcc); this.relAcc = 0; prof.add('U·日结算', _d); }
       const msgs: Msg[] = [];
       const hadTalent = !!h.pendingTalent;
       const expB = this.hearts.bonus('exp'), e0 = h.exp;
@@ -1184,6 +1187,8 @@ export class Game {
   usePill(id: string) {
     const msgs: Msg[] = [];
     const ok = C.usePill(this.hero, id, msgs);
+    if (ok) onPillUsed(this, id, msgs);   // 假丹露馅（scams.ts）
+    if (ok && id === 'pill_liaoshang' && (this.hero.daoLeft ?? 0) > 0) { this.hero.daoLeft = Math.max(0, (this.hero.daoLeft ?? 0) - 6); msgs.push({ text: '疗伤丹的药力化开，经脉中的暗伤松动了几分（道伤 -6 日）。', kind: 'good' }); }
     this.flushMsgs(msgs);
     if (ok) audio.sfx('chime');
     this.updateUI(true);
@@ -1237,20 +1242,34 @@ export class Game {
   }
 
   /** 战斗中倒下：损失一成修为与部分物品，在最近的城镇醒来 */
-  onPlayerDown() {
+  onPlayerDown(foe?: FoeEnemy) {
     if (this.story.onDown()) return;
     const h = this.hero, p = this.player;
+    // 第四十九步「人心」：谁打死的，决定你怎么输
+    const kind = foeKindOf(this, foe);
     const lostExp = Math.floor(C.need(h) * C.INSIGHT * 0.1);
     h.exp = Math.max(0, h.exp - lostExp);
     const lost: string[] = [];
-    const ls = C.bagCount(h, 'mat_lingshi');
-    if (ls > 0) { const n = Math.ceil(ls * 0.1); C.removeItem(h, 'mat_lingshi', n); lost.push(`灵石 ${n}`); }
-    const pool = h.bag.filter((b) => b.id !== 'mat_lingshi' && itemDef(b.id).type !== 'artifact' && itemDef(b.id).type !== 'scroll');
-    for (let i = 0; i < 2 && pool.length; i++) {
-      const b = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
-      const n = Math.max(1, Math.floor(b.n * (0.3 + Math.random() * 0.3)));
-      C.removeItem(h, b.id, n, b.age ?? 0); lost.push(`${itemDef(b.id).name} ${n}`);
+    if (kind !== 'beast') {
+      // 劫修 / 魔修搜身：储物袋被扫走七成以上（装备栏不在其内）；死敌补刀则全部落入仇人之手
+      const L = plunder(this, kind === 'grudge' ? 1 : 0.7, 1);
+      recordLoss(this, L, foe?.name ?? '劫修', kind !== 'grudge');
+      for (const [id, n] of L.items) lost.push(`${itemDef(id).name} ${n}`);
+      if (L.ls) lost.push(`灵石 ${L.ls}`);
+    } else {
+      // 妖兽：它只想吃肉，路人把你救走——拿走一成灵石、两件杂物
+      const ls = C.bagCount(h, 'mat_lingshi');
+      if (ls > 0) { const n = Math.ceil(ls * 0.1); C.removeItem(h, 'mat_lingshi', n); lost.push(`灵石 ${n}`); }
+      const pool = h.bag.filter((b) => b.id !== 'mat_lingshi' && itemDef(b.id).type !== 'artifact' && itemDef(b.id).type !== 'scroll');
+      for (let i = 0; i < 2 && pool.length; i++) {
+        const b = pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
+        const n = Math.max(1, Math.floor(b.n * (0.3 + Math.random() * 0.3)));
+        C.removeItem(h, b.id, n, b.age ?? 0); lost.push(`${itemDef(b.id).name} ${n}`);
+      }
     }
+    // 道伤：经脉受损（妖兽七至二十多日；劫修、魔修、死敌更久）
+    h.daoLeft = Math.max(h.daoLeft ?? 0, daoDays(kind, (foe?.realm ?? h.realm) - h.realm));
+    const captured = kind === 'demon' && Math.random() < 0.25;   // 魔修有几率把你掳去炼宝
     // 最近的城镇
     let best: LocDef | null = null, bd = 1e12;
     for (const l of LOCATIONS) {
@@ -1267,7 +1286,9 @@ export class Game {
     h.hp = 0.3; h.mp = 0.3; this.day += 3;
     p.flying = false; p.sitting = false; this.destination = null; this.gathering = null;
     this.combat.reset(); this.pursuit?.reset(); this.combat.fade = 1;
-    this.toast(`你身受重创，昏死过去……三日后在${best?.name ?? '荒野'}醒来。修为损失 ${lostExp}${lost.length ? '，遗失：' + lost.join('、') : ''}。`, 'warn');
+    const daoTxt = `经脉受损，道伤 ${h.daoLeft} 日（修炼慢四成、法力上限低两成）`;
+    this.toast(`你身受重创，昏死过去……三日后在${captured ? '一座魔窟' : (best?.name ?? '荒野')}醒来。修为损失 ${lostExp}${lost.length ? '，遗失：' + lost.join('、') : ''}。${daoTxt}。`, 'warn');
+    if (captured) captiveScene(this);
     audio.sfx('fail');
     this.updateUI(true);
   }
