@@ -516,14 +516,14 @@ function ChroniclePanel({ game }: { game: Game }) {
 }
 
 // ---------------------------------------------------------------- 帮助
-export const VERSION = 'v0.42 · 千人千面';
+export const VERSION = 'v0.47 · 人心（尔虞我诈）';
 function HelpPanel({ game }: { game: Game }) {
   const [tab, setTab] = useState(0);
   const T = ['操作', '修炼', '战斗', '人界', '神识', '机缘'];
   const body = [
     <div className="keys" key={0}>
       <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / 方向键 / 点击地面 移动　·　<kbd>Shift</kbd> 疾行　·　<kbd>空格</kbd> 闪避（无敌帧，躲开红色预警）<br />
-      <kbd>T</kbd> 交谈 / 查看奇遇　·　<kbd>G</kbd> 进城 / 入宗门　·　<kbd>H</kbd> 红颜录　·　<kbd>N</kbd> 人脉录　·　<kbd>J</kbd> 大事记<br />
+      <kbd>T</kbd> 交谈 / 查看奇遇　·　<kbd>G</kbd> 进城 / 入宗门　·　<kbd>H</kbd> 红颜录　·　<kbd>N</kbd> 人脉录　·　<kbd>J</kbd> 大事记　·　<kbd>X</kbd> 韩立随笔（阅历 / 听来的消息 / 骗术图谱 / 江湖信义）<br />
       <kbd>Z</kbd> 打坐　·　<kbd>E</kbd> 采集　·　<kbd>C</kbd> 角色 / 冲关　·　<kbd>B</kbd> 储物袋　·　<kbd>L</kbd> 丹房　·　<kbd>P</kbd> 闭关<br />
       <kbd>1</kbd>–<kbd>9</kbd> 施法　·　<kbd>K</kbd> 法术书　·　<kbd>I</kbd> 衣橱　·　<kbd>Q</kbd> 神识外放　·　<kbd>R</kbd> 敛息<br />
       <kbd>Y</kbd> 回洞府（需回府符）　·　<kbd>U</kbd> 灵宠　·　<kbd>T</kbd> 也用于机缘、悬赏、灵宠、洞府<br />
