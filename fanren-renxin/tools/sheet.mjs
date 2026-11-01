@@ -1,0 +1,10 @@
+import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { writeFileSync } from 'fs';
+const names = process.argv.slice(3);
+const out = process.argv[2];
+const ims = await Promise.all(names.map((n) => loadImage(n)));
+const H = 300; let W = 0; const sz = ims.map((im) => { const w = Math.round(im.width * H / im.height); W += w + 10; return w; });
+const c = createCanvas(W, H + 20); const g = c.getContext('2d');
+g.fillStyle = '#7d8a6a'; g.fillRect(0, 0, W, H + 20);
+let x = 0; ims.forEach((im, i) => { g.drawImage(im, x, 10, sz[i], H); x += sz[i] + 10; });
+writeFileSync(out, c.toBuffer('image/jpeg', 85)); console.log(W, H, ims.map((m) => m.width + 'x' + m.height).join(' '));
