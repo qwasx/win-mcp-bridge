@@ -263,7 +263,7 @@ export function reactTick(g: Game, a: AliveActor, dt: number, dist: number) {
   const quiet = !a.bubble || (a.bubble.t < 0.5 && !a.bubble.mind);
   if (dist < 900 && a.mindT <= 0 && quiet && a.act !== 'flee' && a.act !== 'approach' && a.act !== 'follow' && !(a as any).enemy) {
     a.mindT = 11 + Math.random() * 16;
-    const s = thoughtOf(g, a); if (s) { a.bubble = { text: s, t: 3.4, mind: true }; a.mindLast = s; }
+    const s = thoughtOf(g, a); if (s) { a.bubble = { text: s, t: 3.4, mind: true, mindReal: a.mindReal !== false }; a.mindLast = s; }
   }
   if (a.reactCd > 0 || a.act === 'flee' || a.act === 'approach' || a.act === 'follow' || (a as any).enemy || (a as any).duel) return;
   const L = a.life;
