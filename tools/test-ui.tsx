@@ -1,0 +1,25 @@
+// 界面 SSR 冒烟：渲染各类弹窗，确保不抛异常
+const CW = 1280, CH = 800;
+(globalThis as any).window = { innerWidth: CW, innerHeight: CH, devicePixelRatio: 1, addEventListener() {}, removeEventListener() {}, matchMedia: () => ({ matches: false }) };
+(globalThis as any).localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+await import('./env');
+const React = await import('react');
+const { renderToString } = await import('react-dom/server');
+const { Terrain } = await import('../src/world/terrain');
+const { Game } = await import('../src/world/game');
+const { LOC_BY_ID } = await import('../src/data/world');
+const { ModalLayer } = await import('../src/ui/ModalLayer');
+const terrain = new Terrain(); terrain.build();
+const g = new Game(terrain);
+const C = await import('../src/world/cultivation');
+C.addItem(g.hero, 'mat_lingshi', 3000); C.addItem(g.hero, 'herb_lingzhi', 3, 40);
+g.day = 85;
+const r = (label: string) => { const html = renderToString(React.createElement(ModalLayer, { game: g })); console.log(label, html.length); };
+g.openModal({ kind: 'town', loc: LOC_BY_ID.get('yuejing')! }); r('town');
+g.openShop(g.towns.shop(LOC_BY_ID.get('yuejing')!, 'artifact')); r('shop');
+g.closeModal(true); g.openModal({ kind: 'auction', loc: LOC_BY_ID.get('yuejing')! }); r('auction');
+g.closeModal(true); g.hearts.talk('ziling'); r('dialog');
+g.closeModal(true); g.openModal({ kind: 'hearts' }); r('hearts');
+g.closeModal(true); g.openModal({ kind: 'chronicle' }); r('chron');
+g.closeModal(true); g.openModal({ kind: 'town', loc: LOC_BY_ID.get('huangfeng')! }); r('sect-town');
+g.openDialog(g.towns.sectNode(LOC_BY_ID.get('huangfeng')!)); r('sect');

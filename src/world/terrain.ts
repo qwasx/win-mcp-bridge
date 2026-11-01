@@ -1,0 +1,1272 @@
+// 人界地形：宏观栅格 + 分块水墨渲染
+import { fbm, hash2, valueNoise, mulberry32, clamp, hashU, pnoise } from '../core/rng';
+import {
+  MACRO_W, MACRO_H, WORLD_SCALE, MAINLAND, LAKES, LAKE_ISLES, RANGES, RIVERS, ARID_ZONES, COLD_ZONES, FOREST_ZONES,
+  LOCATIONS, ISLAND_FIELD, EXTRA_ISLANDS, ISLAND_K, pointInPoly, toLegacy, P, zoneAt } from '../data/world';
+import type { MtnSpec, MtnStyle } from '../gfx/mountain';
+import { pickSpecies, Species, TREE_SIZE } from '../gfx/tree';
+import { getLayout, setLayoutEnv, LOC_SCALE } from '../gfx/building';
+import { GRASS_VARIANTS, type GrassKind } from '../gfx/grass';
+import { RiverGeo } from './rivergeo';
+import { LANDMARKS, SCENIC, landmarkAt, lmCleared, lmNoGrass, type GroveSpot, type FallSpot } from '../data/landmarks';
+
+export const CHUNK = 1024;          // 每块世界像素
+export const CHUNK_RES = 384;       // 每块纹理分辨率（含笔触细节）
+const PIX_RES = 192;                // 底色像素分辨率（柔和水彩，之后放大）
+const CELL = 256;                   // 装饰物摆放网格
+
+export interface Sample { land: number; elev: number; arid: number; cold: number; forest: number; depth: number }
+
+export interface ImgDeco { kind: 'img'; img: HTMLCanvasElement; x: number; y: number; w: number; h: number; flip: boolean; alpha: number }
+export interface TreeDeco { kind: 'tree'; sp: Species; v: number; x: number; y: number; w: number; h: number; s: number; flip: boolean; ph: number; lod: number }
+export interface MtnDeco { kind: 'mtn'; id: string; spec: MtnSpec; x: number; y: number; w: number; h: number; flip: boolean }
+/** 第十九步：瀑布（崖壁精灵 + 逐帧水练） */
+export interface FallDeco { kind: 'fall'; id: string; x: number; y: number; w: number; h: number; seed: number; tiers: number; name?: string }
+export type Deco = ImgDeco | TreeDeco | MtnDeco | FallDeco;
+const GROVE_MIX: Species[] = ['peach', 'peach', 'peach', 'peach', 'peach', 'peach', 'peach', 'peach', 'peach', 'apricot', 'apricot', 'apricot', 'apricot', 'apricot', 'apricot', 'plum', 'plum', 'plum', 'maple', 'maple'];
+const GVC = 2600, FC = 3000;
+/** 草丛（实时绘制，见 gfx/grass.ts） */
+export interface Clump { x: number; y: number; kind: GrassKind; v: number; s: number; ph: number; lod: number }
+export const TREE_VARIANTS = 24;
+const DEMON_SECTS = ['tianmo', 'guiling', 'yuling', 'tiansha', 'yinluo', 'hehuan', 'qianhuan'];
+
+export interface Chunk { cx: number; cy: number; canvas: HTMLCanvasElement; used: number; season: number }
+
+function boxBlur(src: Float32Array, w: number, h: number, r: number) {
+  const tmp = new Float32Array(w * h), out = new Float32Array(w * h);
+  const k = 2 * r + 1;
+  for (let y = 0; y < h; y++) {
+    let s = 0;
+    for (let x = -r; x <= r; x++) s += src[y * w + clamp(x, 0, w - 1)];
+    for (let x = 0; x < w; x++) {
+      tmp[y * w + x] = s / k;
+      s += src[y * w + clamp(x + r + 1, 0, w - 1)] - src[y * w + clamp(x - r, 0, w - 1)];
+    }
+  }
+  for (let x = 0; x < w; x++) {
+    let s = 0;
+    for (let y = -r; y <= r; y++) s += tmp[clamp(y, 0, h - 1) * w + x];
+    for (let y = 0; y < h; y++) {
+      out[y * w + x] = s / k;
+      s += tmp[clamp(y + r + 1, 0, h - 1) * w + x] - tmp[clamp(y - r, 0, h - 1) * w + x];
+    }
+  }
+  return out;
+}
+
+function segDist(px: number, py: number, ax: number, ay: number, bx: number, by: number) {
+  const dx = bx - ax, dy = by - ay;
+  const t = clamp(((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy || 1), 0, 1);
+  return Math.hypot(px - (ax + dx * t), py - (ay + dy * t));
+}
+
+// Catmull-Rom 平滑 + 噪声扰动，让河流自然弯曲
+function smoothLine(pts: P[], seed: number, jitter: number): P[] {
+  const out: P[] = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const len = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
+    const steps = Math.max(4, Math.ceil(len / 1.5));
+    for (let s = 0; s < steps; s++) {
+      const t = s / steps, t2 = t * t, t3 = t2 * t;
+      const x = 0.5 * (2 * p1[0] + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3);
+      const y = 0.5 * (2 * p1[1] + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
+      const n = (valueNoise(x * 0.15, y * 0.15, seed) - 0.5) * jitter;
+      out.push([x + n, y - n * 0.6]);
+    }
+  }
+  out.push(pts[pts.length - 1]);
+  return out;
+}
+
+export class Terrain {
+  W = MACRO_W; H = MACRO_H;
+  land!: Float32Array; elev!: Float32Array; arid!: Float32Array; cold!: Float32Array; forest!: Float32Array; depth!: Float32Array;
+  islands: { x: number; y: number; r: number }[] = [];
+  rivers: { pts: P[]; w: number }[] = [];
+  chunks = new Map<string, Chunk>();
+  decoCache = new Map<string, { d: Deco[]; used: number }>();
+  grassCache = new Map<string, { d: Clump[]; used: number }>();
+  /** 当前季节（0 春 1 夏 2 秋 3 冬）：底图随之重烘焙 */
+  season = 1;
+  riverMask!: Uint8Array;
+  locZones: { x: number; y: number; rx: number; ry: number; id: string }[] = [];
+  waveGlyph?: HTMLCanvasElement;
+  grassGlyph?: HTMLCanvasElement;
+  rockGlyphs: HTMLCanvasElement[] = [];
+  reedGlyph?: HTMLCanvasElement;
+  shrubGlyph?: HTMLCanvasElement; yurtGlyph?: HTMLCanvasElement;
+  roads: { pts: P[]; major: boolean }[] = [];
+  roadMask!: Uint8Array;
+  frame = 0;
+
+  constructor() { /* */ }
+
+  build() {
+    const W = this.W, H = this.H, N = W * H;
+    // ---------- 1. 陆地掩码（用 Canvas 栅格化多边形） ----------
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const g = cv.getContext('2d', { willReadFrequently: true })!;
+    g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#f00';
+    if (MAINLAND.length > 2) { g.beginPath(); MAINLAND.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); g.fill(); }
+    g.fillStyle = '#000';
+    for (const l of LAKES) { g.beginPath(); g.arc(l.c[0], l.c[1], l.r, 0, Math.PI * 2); g.fill(); }
+    // 第四十五步：湖心岛
+    g.fillStyle = '#f00'; for (const l of LAKE_ISLES) { g.beginPath(); g.arc(l.c[0], l.c[1], l.r, 0, Math.PI * 2); g.fill(); }
+    g.fillStyle = '#000';
+    // 岛屿
+    const rnd = mulberry32(20261014);
+    this.islands = [];
+    for (const loc of LOCATIONS) if (loc.island) this.islands.push({ x: loc.x, y: loc.y, r: loc.island });
+    const F = ISLAND_FIELD;
+    let tries = 0;
+    const n0 = this.islands.length;
+    if (F) {
+      // 群岛：以大岛为核，四周撒落成串的小岛；群岛之间留出开阔海面；外海（东侧）稀疏而多礁
+      const fw = F.x1 - F.x0, fh = F.y1 - F.y0;
+      const cores: { x: number; y: number; s: number }[] = this.islands.filter((o) => o.r >= 9).map((o) => ({ x: o.x, y: o.y, s: o.r * 3.2 }));
+      for (let i = 0; i < 30; i++) cores.push({ x: F.x0 + rnd() * fw, y: F.y0 + rnd() * fh, s: 14 + rnd() * 26 });
+      const gauss = () => (rnd() + rnd() + rnd() - 1.5) / 1.5;
+      while (this.islands.length < F.count + n0 && tries++ < F.count * 20) {
+        let x: number, y: number;
+        if (rnd() < 0.82) { const c = cores[Math.floor(rnd() * cores.length)]; const a = rnd() * Math.PI * 2, d = Math.abs(gauss()) * c.s * 1.6; x = c.x + Math.cos(a) * d * 1.25; y = c.y + Math.sin(a) * d * 0.85; }
+        else { x = F.x0 + rnd() * fw; y = F.y0 + rnd() * fh; }
+        if (x < F.x0 || x > F.x1 || y < F.y0 || y > F.y1 || pointInPoly(x, y, MAINLAND)) continue;
+        const outer = (x - F.x0) / fw > 0.78;
+        if (outer && rnd() < 0.55) continue;
+        const r = (1.1 + Math.pow(rnd(), 2.6) * (outer ? 4.5 : 6.5)) * ISLAND_K;
+        if (this.islands.some((o) => Math.hypot(o.x - x, o.y - y) < o.r + r + 1.6)) continue;
+        this.islands.push({ x, y, r });
+      }
+    }
+    // 外海零星小岛（天南东、南外海，大晋北海，乱星海西侧无边海）
+    for (const E of EXTRA_ISLANDS) for (let i = 0; i < E.n; i++) {
+      const x = E.x0 + rnd() * (E.x1 - E.x0), y = E.y0 + rnd() * (E.y1 - E.y0);
+      if (!pointInPoly(x, y, MAINLAND)) this.islands.push({ x, y, r: E.r0 + rnd() * (E.r1 - E.r0) });
+    }
+    g.globalCompositeOperation = 'lighter'; g.fillStyle = '#0f0';
+    for (const is of this.islands) {
+      // 海岛轮廓：主椭圆 + 3~6 个偏心小椭圆（形如半岛、岬角），随机朝向
+      const h = hashU(Math.round(is.x * 7), Math.round(is.y * 7), 77);
+      let q = h; const r1 = () => { q = (q * 1664525 + 1013904223) >>> 0; return q / 4294967296; };
+      const rot = r1() * Math.PI, el = 0.55 + r1() * 0.45;
+      g.beginPath(); g.ellipse(is.x, is.y, is.r * (0.85 + r1() * 0.3), is.r * el, rot, 0, Math.PI * 2); g.fill();
+      const k = is.r > 2.5 ? 3 + Math.floor(r1() * 4) : 1;
+      for (let j = 0; j < k; j++) {
+        const a = rot + (r1() - 0.5) * 2.2 + (j % 2 ? Math.PI : 0), d = is.r * (0.45 + r1() * 0.5), rr = is.r * (0.28 + r1() * 0.4);
+        g.beginPath(); g.ellipse(is.x + Math.cos(a) * d, is.y + Math.sin(a) * d * 0.8, rr, rr * (0.5 + r1() * 0.5), a, 0, Math.PI * 2); g.fill();
+      }
+    }
+    g.globalCompositeOperation = 'source-over';
+    const raw = g.getImageData(0, 0, W, H).data;
+    const land0 = new Float32Array(N), isle0 = new Float32Array(N);
+    for (let i = 0; i < N; i++) { land0[i] = raw[i * 4] / 255; isle0[i] = raw[i * 4 + 1] / 255; }
+
+    // ---------- 2. 噪声扰动海岸线 ----------
+    const land = new Float32Array(N);
+    const samp = (src: Float32Array, x: number, y: number) => {
+      x = clamp(x, 0, W - 1.001); y = clamp(y, 0, H - 1.001);
+      const xi = x | 0, yi = y | 0, fx = x - xi, fy = y - yi, i = yi * W + xi;
+      const a = src[i], b = src[i + 1], c = src[i + W], d = src[i + W + 1];
+      return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
+    };
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const wx = (fbm(x * 0.022, y * 0.022, 3, 11) - 0.5) * 16;
+      const wy = (fbm(x * 0.022, y * 0.022, 3, 29) - 0.5) * 16;
+      // 大陆海岸：大尺度扭曲（海湾、半岛）+ 中尺度扭曲（岬角、小湾）
+      const bx = (fbm(x * 0.008, y * 0.008, 3, 53) - 0.5) * 70 + (fbm(x * 0.04, y * 0.04, 3, 71) - 0.5) * 26;
+      const by = (fbm(x * 0.008, y * 0.008, 3, 59) - 0.5) * 70 + (fbm(x * 0.04, y * 0.04, 3, 73) - 0.5) * 26;
+      let v = Math.max(samp(land0, x + wx + bx, y + wy + by), samp(isle0, x + wx * 0.35, y + wy * 0.35));
+      v += (valueNoise(x * 0.18, y * 0.18, 5) - 0.5) * 0.25;
+      land[y * W + x] = clamp(v, 0, 1);
+    }
+    this.land = land;
+    this.depth = boxBlur(boxBlur(land, W, H, 5), W, H, 5);
+    const landAt = (x: number, y: number) => land[clamp(Math.round(y), 0, H - 1) * W + clamp(Math.round(x), 0, W - 1)];
+    for (const l of LOCATIONS) {
+      if (l.island || landAt(l.x, l.y) > 0.6) continue;
+      let done = false;
+      for (let r = 1; r < 40 && !done; r += 1) for (let a = 0; a < 16; a++) {
+        const qx = l.x + Math.cos(a / 16 * Math.PI * 2) * r, qy = l.y + Math.sin(a / 16 * Math.PI * 2) * r;
+        if (landAt(qx, qy) > 0.75 && landAt(qx + 3, qy) > 0.6 && landAt(qx - 3, qy) > 0.6) { l.x = qx; l.y = qy; done = true; break; }
+      }
+    }
+
+    // ---------- 3. 山脉高度 ----------
+    // 海岛高度：Canvas 径向渐变栅格化
+    g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+    for (const is of this.islands) {
+      const rg = g.createRadialGradient(is.x, is.y, 0, is.x, is.y, is.r);
+      const peak = is.r > 7 ? 0.6 : 0.38;
+      rg.addColorStop(0, `rgba(255,255,255,${peak})`); rg.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = rg; g.beginPath(); g.arc(is.x, is.y, is.r, 0, Math.PI * 2); g.fill();
+    }
+    const isleRaw = g.getImageData(0, 0, W, H).data;
+    const rangeBoxes = RANGES.map((r) => {
+      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+      for (const [x, y] of r.pts) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+      const m = r.w * 1.4;
+      return [x0 - m, y0 - m, x1 + m, y1 + m];
+    });
+    const elev = new Float32Array(N);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (land[i] < 0.3) continue;
+      let ridge = 0;
+      for (let ri = 0; ri < RANGES.length; ri++) {
+        const bb = rangeBoxes[ri];
+        if (x < bb[0] || x > bb[2] || y < bb[1] || y > bb[3]) continue;
+        const r = RANGES[ri];
+        let d = 1e9;
+        for (let k = 0; k < r.pts.length - 1; k++) {
+          const [ax, ay] = r.pts[k], [bx, by] = r.pts[k + 1];
+          d = Math.min(d, segDist(x, y, ax, ay, bx, by));
+        }
+        if (d > r.w * 1.3) continue;
+        const half = r.w * (0.7 + 0.6 * valueNoise(x * 0.05, y * 0.05, 3));
+        if (d < half) ridge = Math.max(ridge, r.h * Math.pow(1 - d / half, 1.3));
+      }
+      const n = fbm(x * 0.04, y * 0.04, 3, 7);
+      const hills = Math.max(0, n - 0.55) * 1.1;
+      const isle = isleRaw[i * 4] / 255;
+      elev[i] = clamp(ridge * (0.65 + 0.7 * n) + hills + isle, 0, 1.2) * clamp((land[i] - 0.3) * 3, 0, 1);
+    }
+    this.elev = elev;
+
+    // ---------- 4. 气候区域 ----------
+    const zone = (zones: { pts: P[]; v: number }[], blur: number) => {
+      const a = new Float32Array(N);
+      const A = 46;   // 扭曲幅度（宏观单位）
+      for (const z of zones) {
+        let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+        for (const [x, y] of z.pts) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+        for (let y = Math.max(0, (y0 - A) | 0); y < Math.min(H, y1 + A + 1); y++)
+          for (let x = Math.max(0, (x0 - A) | 0); x < Math.min(W, x1 + A + 1); x++) {
+            const qx = x + (fbm(x * 0.011, y * 0.011, 3, 61) - 0.5) * A * 5 + (valueNoise(x * 0.06, y * 0.06, 63) - 0.5) * 10;
+            const qy = y + (fbm(x * 0.011, y * 0.011, 3, 67) - 0.5) * A * 5 + (valueNoise(x * 0.06, y * 0.06, 69) - 0.5) * 10;
+            if (pointInPoly(qx, qy, z.pts)) a[y * W + x] = Math.max(a[y * W + x], z.v);
+          }
+      }
+      return boxBlur(boxBlur(a, W, H, blur), W, H, blur);
+    };
+    this.arid = zone(ARID_ZONES, 12);
+    this.cold = zone(COLD_ZONES, 14);
+    const forestBase = zone(FOREST_ZONES, 14);
+    const forest = new Float32Array(N);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      forest[i] = clamp(forestBase[i] * (0.4 + 1.0 * fbm(x * 0.035, y * 0.035, 3, 41)) - this.arid[i] * 0.6, 0, 1);
+    }
+    this.forest = forest;
+
+    // ---------- 5. 河流 ----------
+    this.rivers = RIVERS.map((r, i) => ({ pts: smoothLine(r.pts, 100 + i, 3.2), w: r.w }));
+
+    // ---------- 6. 道路（连接相邻城镇宗门的官道/小径）----------
+    this.buildRoads(g);
+    this.buildSegs();
+
+    // ---------- 7. 河流栅格（近水判定：柳树、芦苇、鱼跃）----------
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+    g.strokeStyle = '#fff'; g.lineCap = 'round'; g.lineJoin = 'round';
+    for (const rv of this.rivers) { g.lineWidth = rv.w * 0.8 + 6.5; g.beginPath(); rv.pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke(); }
+    const rr = g.getImageData(0, 0, W, H).data;
+    this.riverMask = new Uint8Array(W * H);
+    for (let i = 0; i < W * H; i++) this.riverMask[i] = rr[i * 4] > 60 ? 1 : 0;
+    // ---------- 8. 地点占地（装饰物避让）----------
+    // 第二十二步：布局按此处地形避开水面、河道（屋不落水）
+    setLayoutEnv((l) => {
+      const ox = l.x * WORLD_SCALE, oy = l.y * WORLD_SCALE, sm = this.sample(ox, oy);
+      return { site: (x: number, y: number) => this.isLand(ox + x, oy + y) && this.riverEdge(ox + x, oy + y) > 50, cold: sm.cold, arid: sm.arid };
+    });
+    this.locZones = LOCATIONS.map((l) => {
+      const L = getLayout(l);
+      return { x: l.x * WORLD_SCALE, y: l.y * WORLD_SCALE, rx: L.gw * LOC_SCALE * 0.42, ry: L.gh * LOC_SCALE * 0.42, id: l.id };
+    });
+    for (const z of this.locZones) this.zoneById.set(z.id, z);
+    // ---------- 9. 预制装饰图 ----------
+    this.makeGlyphs();
+  }
+
+  private buildRoads(g: CanvasRenderingContext2D) {
+    const W = this.W, H = this.H;
+    const nodes = LOCATIONS.filter((l) => l.type !== 'isle' && !l.island && pointInPoly(l.x, l.y, MAINLAND));
+    const pairs = new Set<string>();
+    this.roads = [];
+    for (const a of nodes) {
+      const near = nodes.filter((b) => b !== a && (a.minor || !b.minor)).map((b) => ({ b, d: Math.hypot(a.x - b.x, a.y - b.y) }))
+        .filter((o) => o.d < (a.minor ? 40 : 95)).sort((u, v) => u.d - v.d).slice(0, a.minor ? (a.type === 'town' ? 2 : 1) : 3);
+      for (const { b, d } of near) {
+        const key = a.id < b.id ? a.id + '|' + b.id : b.id + '|' + a.id;
+        if (pairs.has(key)) continue;
+        // 中点需在陆地上
+        const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+        if (this.land[(my | 0) * W + (mx | 0)] < 0.6) continue;
+        // 第四十五步：路不穿湖
+        if ([0.15, 0.3, 0.42, 0.58, 0.7, 0.85].some((q) => this.land[((a.y + (b.y - a.y) * q) | 0) * W + ((a.x + (b.x - a.x) * q) | 0)] < 0.6)) continue;
+        pairs.add(key);
+        const h = hash2(a.x + b.x, a.y + b.y, 61) - 0.5;
+        const nx = -(b.y - a.y) / d, ny = (b.x - a.x) / d;
+        const mid: P = [mx + nx * h * d * 0.25, my + ny * h * d * 0.25];
+        const pts = smoothLine([[a.x, a.y], mid, [b.x, b.y]], 300 + pairs.size, 2.2);
+        const major = (a.type === 'city' || a.major) && (b.type === 'city' || b.major);
+        this.roads.push({ pts, major });
+      }
+    }
+    // 道路栅格（用于加速步行）
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+    g.strokeStyle = '#fff'; g.lineWidth = 1.6; g.lineCap = 'round'; g.lineJoin = 'round';
+    for (const r of this.roads) { g.beginPath(); r.pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke(); }
+    const raw = g.getImageData(0, 0, W, H).data;
+    this.roadMask = new Uint8Array(W * H);
+    for (let i = 0; i < W * H; i++) this.roadMask[i] = raw[i * 4] > 60 ? 1 : 0;
+  }
+
+  /** 世界坐标线段（Catmull-Rom 细分到 ~150px，GPU 地表与 CPU 判定共用）：
+   *  每段 8 个数 [ax,ay,bx,by, 宽, 累计长, 标记, 0]；河：标记=河号；路：标记=1 官道 */
+  rivSegW = new Float32Array(0); roadSegW = new Float32Array(0);
+  /** 与 GPU 地表一致的蜿蜒河道（第十七步） */
+  riverGeo: RiverGeo | null = null;
+  /** 到河水边缘的有符号距离（负 = 在河里） */
+  riverEdge(wx: number, wy: number) { return this.riverMask && this.nearRiver(wx, wy) && this.riverGeo ? this.riverGeo.edgeDist(wx, wy) : 1e9; }
+  private buildSegs() {
+    const S = WORLD_SCALE;
+    const resample = (pts: P[]) => {
+      const out: number[] = [];
+      const at = (i: number) => pts[Math.max(0, Math.min(pts.length - 1, i))];
+      for (let i = 0; i < pts.length - 1; i++) {
+        const p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2);
+        const len = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) * S;
+        const n = Math.max(1, Math.ceil(len / 150));
+        for (let k = 0; k < n; k++) {
+          const t = k / n, t2 = t * t, t3 = t2 * t;
+          const x = 0.5 * (2 * p1[0] + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3);
+          const y = 0.5 * (2 * p1[1] + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
+          out.push(x * S, y * S);
+        }
+      }
+      const l = pts[pts.length - 1]; out.push(l[0] * S, l[1] * S);
+      return out;
+    };
+    const riv: number[] = [];
+    this.rivers.forEach((rv, ri) => {
+      const p = resample(rv.pts);
+      let tot = 0; for (let i = 2; i < p.length; i += 2) tot += Math.hypot(p[i] - p[i - 2], p[i + 1] - p[i - 1]);
+      let acc = 0;
+      for (let i = 2; i < p.length; i += 2) {
+        const L = Math.hypot(p[i] - p[i - 2], p[i + 1] - p[i - 1]);
+        // 源头窄、入海宽
+        const w = 110 * rv.w * (0.55 + 0.45 * Math.min(1, (acc + L / 2) / tot));
+        riv.push(p[i - 2], p[i - 1], p[i], p[i + 1], w, acc, ri, 0);
+        acc += L;
+      }
+    });
+    const road: number[] = [];
+    for (const r of this.roads) {
+      const p = resample(r.pts);
+      for (let i = 2; i < p.length; i += 2) road.push(p[i - 2], p[i - 1], p[i], p[i + 1], r.major ? 40 : 24, 0, r.major ? 1 : 0, 0);
+    }
+    this.rivSegW = new Float32Array(riv); this.roadSegW = new Float32Array(road);
+    this.riverGeo = new RiverGeo(this.rivSegW);
+  }
+
+  private _gl: { W: number; H: number; scale: number; a: Float32Array; b: Float32Array } | null = null;
+  /** GPU 地表所需的宏观图（陆地/海拔/干旱/寒冷 + 森林/水深），只打包一次 */
+  glData() {
+    if (this._gl) return this._gl;
+    const N = this.W * this.H, a = new Float32Array(N * 4), b = new Float32Array(N * 4);
+    for (let i = 0; i < N; i++) {
+      a[i * 4] = this.land[i]; a[i * 4 + 1] = this.elev[i]; a[i * 4 + 2] = this.arid[i]; a[i * 4 + 3] = this.cold[i];
+      b[i * 4] = this.forest[i]; b[i * 4 + 1] = this.depth[i];
+    }
+    return (this._gl = { W: this.W, H: this.H, scale: WORLD_SCALE, a, b });
+  }
+
+  private roadSegs: Map<string, number[]> | null = null;
+  /** 精确：距道路中线 < pad（世界像素） */
+  nearRoad(wx: number, wy: number, pad: number) {
+    if (!this.onRoad(wx, wy)) return false;
+    const RC = 600;
+    if (!this.roadSegs) {
+      const m = new Map<string, number[]>();
+      const R = this.roadSegW;
+      {
+        for (let q = 0; q < R.length; q += 8) {
+          const ax = R[q], ay = R[q + 1], bx = R[q + 2], by = R[q + 3], w = R[q + 4] / 2;
+          for (let gy = Math.floor((Math.min(ay, by) - 60) / RC); gy <= Math.floor((Math.max(ay, by) + 60) / RC); gy++)
+            for (let gx = Math.floor((Math.min(ax, bx) - 60) / RC); gx <= Math.floor((Math.max(ax, bx) + 60) / RC); gx++) {
+              const key = gx + ',' + gy; let a = m.get(key); if (!a) m.set(key, (a = [])); a.push(ax, ay, bx, by, w);
+            }
+        }
+      }
+      this.roadSegs = m;
+    }
+    const a = this.roadSegs.get(Math.floor(wx / RC) + ',' + Math.floor(wy / RC));
+    if (!a) return false;
+    for (let i = 0; i < a.length; i += 5) if (segDist(wx, wy, a[i], a[i + 1], a[i + 2], a[i + 3]) < a[i + 4] + pad) return true;
+    return false;
+  }
+
+  onRoad(wx: number, wy: number) {
+    const x = (wx / WORLD_SCALE) | 0, y = (wy / WORLD_SCALE) | 0;
+    if (x < 0 || y < 0 || x >= this.W || y >= this.H) return false;
+    return this.roadMask[y * this.W + x] === 1;
+  }
+
+  private makeGlyphs() {
+    // 水波纹
+    const w = document.createElement('canvas'); w.width = 160; w.height = 60;
+    const wg = w.getContext('2d')!;
+    wg.strokeStyle = 'rgba(70,100,110,0.45)'; wg.lineCap = 'round';
+    for (let k = 0; k < 3; k++) {
+      wg.lineWidth = 2.2 - k * 0.5;
+      wg.beginPath();
+      const oy = 18 + k * 13, ox = k * 14;
+      wg.moveTo(10 + ox, oy);
+      wg.bezierCurveTo(35 + ox, oy - 12, 55 + ox, oy - 12, 70 + ox, oy);
+      wg.bezierCurveTo(85 + ox, oy + 9, 105 + ox, oy + 9, 125 + ox, oy - 2);
+      wg.stroke();
+    }
+    this.waveGlyph = w;
+    // 草叶（草原）
+    const gr = document.createElement('canvas'); gr.width = 90; gr.height = 50;
+    const gg = gr.getContext('2d')!;
+    gg.strokeStyle = 'rgba(110,105,60,0.55)'; gg.lineCap = 'round';
+    for (let k = 0; k < 9; k++) {
+      gg.lineWidth = 1.6;
+      const x = 10 + k * 8 + Math.sin(k) * 3;
+      gg.beginPath(); gg.moveTo(x, 48); gg.quadraticCurveTo(x + 4, 30, x + 10 - (k % 3) * 6, 8 + (k % 4) * 6); gg.stroke();
+    }
+    this.grassGlyph = gr;
+    // 山石（几块圆润巨石，墨线勾勒 + 皴擦）
+    const rr = mulberry32(777);
+    for (let v = 0; v < 3; v++) {
+      const c = document.createElement('canvas'); c.width = 160; c.height = 110;
+      const q = c.getContext('2d')!;
+      const stones = v === 0 ? [[80, 100, 52, 46]] : v === 1 ? [[62, 100, 44, 40], [112, 102, 30, 24]] : [[50, 102, 30, 26], [92, 100, 46, 44], [132, 104, 20, 14]];
+      for (const [cx0, by, rw, rh] of stones) {
+        const pts: P[] = [];
+        const N = 14;
+        for (let k = 0; k <= N; k++) {
+          const t = Math.PI + (k / N) * Math.PI;
+          const j = 0.82 + rr() * 0.3;
+          pts.push([cx0 + Math.cos(t) * rw * j, by + Math.sin(t) * rh * j * (k === 0 || k === N ? 0 : 1)]);
+        }
+        const path = new Path2D();
+        path.moveTo(pts[0][0], by);
+        for (let k = 1; k < pts.length; k++) {
+          const [x0, y0] = pts[k - 1], [x1, y1] = pts[k];
+          path.quadraticCurveTo(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2);
+        }
+        path.lineTo(pts[N][0], by); path.closePath();
+        const grd = q.createLinearGradient(cx0 - rw * 0.4, by - rh, cx0 + rw * 0.3, by);
+        grd.addColorStop(0, 'rgba(206,204,190,0.98)'); grd.addColorStop(0.55, 'rgba(150,152,138,0.98)'); grd.addColorStop(1, 'rgba(96,100,90,0.98)');
+        q.fillStyle = grd; q.fill(path);
+        q.save(); q.clip(path);
+        q.strokeStyle = 'rgba(50,52,44,0.45)'; q.lineWidth = 1.6; q.lineCap = 'round';
+        for (let k = 0; k < 5; k++) {
+          const x = cx0 + (rr() - 0.3) * rw, y = by - rh * (0.2 + rr() * 0.6);
+          q.beginPath(); q.moveTo(x, y); q.quadraticCurveTo(x + 4, y + 7, x + 1 + rr() * 8, y + 14 + rr() * 8); q.stroke();
+        }
+        q.fillStyle = 'rgba(60,62,54,0.18)'; q.fillRect(cx0 + rw * 0.1, by - rh, rw, rh);
+        q.restore();
+        q.strokeStyle = 'rgba(34,36,30,0.9)'; q.lineWidth = 2.4; q.lineJoin = 'round'; q.stroke(path);
+        q.fillStyle = 'rgba(40,64,44,0.75)';
+        for (let k = 0; k < 4; k++) { q.beginPath(); q.ellipse(cx0 + (rr() - 0.5) * rw * 1.1, by - rh * (0.75 + rr() * 0.2), 2.6, 1.8, 0, 0, Math.PI * 2); q.fill(); }
+      }
+      q.strokeStyle = 'rgba(70,100,62,0.6)'; q.lineWidth = 1.5; q.lineCap = 'round';
+      for (let k = 0; k < 12; k++) { const x = 14 + rr() * 132; q.beginPath(); q.moveTo(x, 106); q.quadraticCurveTo(x + 1, 98, x + (rr() - 0.5) * 8, 92 - rr() * 6); q.stroke(); }
+      this.rockGlyphs.push(c);
+    }
+    // 枯枝灌木（荒漠）
+    {
+      const c = document.createElement('canvas'); c.width = 110; c.height = 90;
+      const q = c.getContext('2d')!; q.lineCap = 'round'; q.strokeStyle = 'rgba(60,46,32,0.85)';
+      const br = (x: number, y: number, a: number, len: number, w: number, d: number) => {
+        if (d > 4 || len < 4) return;
+        const x2 = x + Math.cos(a) * len, y2 = y + Math.sin(a) * len;
+        q.lineWidth = w; q.beginPath(); q.moveTo(x, y); q.lineTo(x2, y2); q.stroke();
+        br(x2, y2, a - 0.45 - rr() * 0.3, len * 0.68, w * 0.65, d + 1);
+        br(x2, y2, a + 0.4 + rr() * 0.3, len * 0.64, w * 0.65, d + 1);
+      };
+      br(55, 88, -Math.PI / 2 - 0.15, 26, 3.4, 0); br(55, 88, -Math.PI / 2 + 0.6, 18, 2.4, 1); br(55, 88, -Math.PI / 2 - 0.8, 16, 2.2, 1);
+      q.fillStyle = 'rgba(120,96,60,0.35)'; q.beginPath(); q.ellipse(55, 88, 30, 4, 0, 0, Math.PI * 2); q.fill();
+      this.shrubGlyph = c;
+    }
+    // 毡帐（草原部落）
+    {
+      const c = document.createElement('canvas'); c.width = 120; c.height = 96;
+      const q = c.getContext('2d')!;
+      q.fillStyle = 'rgba(60,50,30,0.25)'; q.beginPath(); q.ellipse(60, 88, 52, 8, 0, 0, Math.PI * 2); q.fill();
+      const body = new Path2D(); body.moveTo(14, 86); body.lineTo(16, 52); body.lineTo(104, 52); body.lineTo(106, 86); body.closePath();
+      q.fillStyle = '#efe9da'; q.fill(body);
+      const dome = new Path2D(); dome.moveTo(10, 54); dome.quadraticCurveTo(60, 2, 110, 54); dome.closePath();
+      q.fillStyle = '#e6dfcc'; q.fill(dome);
+      q.fillStyle = 'rgba(120,110,90,0.25)'; q.fillRect(64, 52, 42, 34);
+      q.strokeStyle = 'rgba(40,36,28,0.9)'; q.lineWidth = 2.4; q.lineJoin = 'round'; q.stroke(body); q.stroke(dome);
+      q.fillStyle = '#a8352a'; q.fillRect(15, 56, 90, 5);
+      q.fillStyle = '#3a2e22'; q.fillRect(50, 64, 18, 22);
+      q.strokeStyle = 'rgba(40,36,28,0.6)'; q.lineWidth = 1.2;
+      for (let k = 0; k < 5; k++) { q.beginPath(); q.moveTo(60, 14); q.lineTo(18 + k * 21, 52); q.stroke(); }
+      q.fillStyle = '#5a4630'; q.beginPath(); q.ellipse(60, 16, 6, 3, 0, 0, Math.PI * 2); q.fill();
+      this.yurtGlyph = c;
+    }
+    // 芦苇（水边）
+    const rd = document.createElement('canvas'); rd.width = 80; rd.height = 90;
+    const rq = rd.getContext('2d')!; rq.lineCap = 'round';
+    for (let k = 0; k < 9; k++) {
+      const x = 10 + k * 7 + Math.sin(k * 2.3) * 3, top = 14 + (k % 3) * 12;
+      rq.strokeStyle = 'rgba(70,80,55,0.75)'; rq.lineWidth = 1.5;
+      rq.beginPath(); rq.moveTo(x, 88); rq.quadraticCurveTo(x + 3, 50, x + 6 - (k % 2) * 10, top); rq.stroke();
+      if (k % 2 === 0) { rq.fillStyle = 'rgba(120,96,60,0.8)'; rq.beginPath(); rq.ellipse(x + 6 - (k % 2) * 10, top + 4, 2.4, 8, 0.2, 0, Math.PI * 2); rq.fill(); }
+    }
+    this.reedGlyph = rd;
+  }
+
+  // 宏观坐标采样（双线性）
+  private bil(a: Float32Array, x: number, y: number) {
+    const W = this.W;
+    x = clamp(x, 0, this.W - 1.001); y = clamp(y, 0, this.H - 1.001);
+    const xi = x | 0, yi = y | 0, fx = x - xi, fy = y - yi, i = yi * W + xi;
+    const p = a[i], q = a[i + 1], r = a[i + W], s = a[i + W + 1];
+    return p + (q - p) * fx + (r - p) * fy + (p - q - r + s) * fx * fy;
+  }
+
+  sample(wx: number, wy: number): Sample {
+    const x = wx / WORLD_SCALE, y = wy / WORLD_SCALE;
+    return {
+      land: this.bil(this.land, x, y), elev: this.bil(this.elev, x, y), arid: this.bil(this.arid, x, y),
+      cold: this.bil(this.cold, x, y), forest: this.bil(this.forest, x, y), depth: this.bil(this.depth, x, y),
+    };
+  }
+
+  /** 底图上画出来的海岸线所用的陆地值（0.5 为岸） */
+  visLand(wx: number, wy: number) {
+    return this.bil(this.land, wx / WORLD_SCALE, wy / WORLD_SCALE) + (pnoise(wx / 150, wy / 150, 9) - 0.5) * 0.12;
+  }
+  isLand(wx: number, wy: number) {
+    const x = wx / WORLD_SCALE, y = wy / WORLD_SCALE;
+    const l = this.bil(this.land, x, y) + (pnoise(wx / 150, wy / 150, 9) - 0.5) * 0.12;
+    return l > 0.5;
+  }
+
+  // 徒步速度倍率（0 表示不可通行）
+  walkFactor(wx: number, wy: number) {
+    if (!this.isLand(wx, wy)) return 0;
+    const s = this.sample(wx, wy);
+    let f = 1;
+    if (s.elev > 0.55) f *= 0.6; else if (s.elev > 0.35) f *= 0.8;
+    if (s.forest > 0.6) f *= 0.88;
+    if (s.cold > 0.6) f *= 0.85;
+    if (this.onRoad(wx, wy)) f = Math.max(f, 1) * 1.25;
+    else if (this.riverEdge(wx, wy) < 0) f *= 0.5;   // 涉水而过
+    return f;
+  }
+
+  // ---------- 颜色 ----------
+  private colorAt(wx: number, wy: number, out: number[]) {
+    const x = wx / WORLD_SCALE, y = wy / WORLD_SCALE;
+    const land = this.bil(this.land, x, y);
+    const n1 = fbm(wx / 1400, wy / 1400, 3, 3);
+    const n2 = pnoise(wx / 150, wy / 150, 9);
+    const L = land + (n2 - 0.5) * 0.12;
+    let r: number, g: number, b: number;
+    if (L < 0.5) {
+      const dep = this.bil(this.depth, x, y);
+      const t = clamp(dep * 1.6, 0, 1);       // 越近岸越浅
+      r = 70 + 82 * t; g = 122 + 72 * t; b = 136 + 50 * t;
+      const m = 0.94 + 0.12 * n1 + (n2 - 0.5) * 0.05;
+      r *= m; g *= m; b *= m;
+      if (L > 0.44) { const k = (L - 0.44) / 0.06; r += (222 - r) * k * 0.55; g += (226 - g) * k * 0.55; b += (214 - b) * k * 0.55; }
+    } else {
+      const elev = this.bil(this.elev, x, y), arid = this.bil(this.arid, x, y), cold = this.bil(this.cold, x, y), forest = this.bil(this.forest, x, y);
+      // 基础：宣纸色平原
+      r = 226; g = 217; b = 184;
+      // 湿润绿意
+      const green = clamp((1 - arid) * (0.5 + 0.5 * n1), 0, 1);
+      const nm = valueNoise(wx / 700, wy / 700, 13);   // 成片的嫩绿 / 青绿
+      const gr0 = 168 + nm * 30, gg0 = 194 + nm * 14, gb0 = 128 - nm * 10;
+      r += (gr0 - r) * green; g += (gg0 - g) * green; b += (gb0 - b) * green;
+      // 森林
+      const f = clamp(forest * 1.2, 0, 1);
+      r += (136 - r) * f; g += (166 - g) * f; b += (118 - b) * f;
+      // 干旱/草原/荒漠
+      const a = clamp(arid, 0, 1);
+      const desert = clamp((arid - 0.74) / 0.18, 0, 1);
+      const steppe = a * (1 - desert);
+      r += (210 - r) * steppe; g += (200 - g) * steppe; b += (128 - b) * steppe;
+      r += (234 - r) * desert; g += (208 - g) * desert; b += (152 - b) * desert;
+      // 山地
+      const e = clamp((elev - 0.2) * 1.4, 0, 1);
+      r += (168 - r) * e; g += (172 - g) * e; b += (154 - b) * e;
+      // 冰雪
+      const c = clamp(cold * (0.7 + elev * 0.6), 0, 1);
+      r += (243 - r) * c; g += (242 - g) * c; b += (238 - b) * c;
+      // 水彩斑驳
+      const m = 0.93 + 0.11 * n1 + (n2 - 0.5) * 0.04;
+      r *= m; g *= m; b *= m;
+      // 山体明暗（光自西北来）：随高度起伏的整体光影
+      const ex = this.bil(this.elev, x + 0.9, y) - this.bil(this.elev, x - 0.9, y);
+      const ey = this.bil(this.elev, x, y + 0.9) - this.bil(this.elev, x, y - 0.9);
+      const sh = clamp((ex * 0.8 + ey) * 3.2, -0.3, 0.26);
+      if (sh > 0) { r += (250 - r) * sh * 0.55; g += (246 - g) * sh * 0.55; b += (228 - b) * sh * 0.5; }
+      else { const k2 = -sh; r *= 1 - k2 * 0.55; g *= 1 - k2 * 0.5; b *= 1 - k2 * 0.38; }
+      // 高处略带青灰（远山感）
+      const hi = clamp((elev - 0.55) * 1.2, 0, 0.35);
+      r += (150 - r) * hi * 0.4; g += (160 - g) * hi * 0.4; b += (160 - b) * hi * 0.4;
+      // 四季：春嫩、夏浓、秋黄、冬枯（雪原另算）
+      const veg = clamp(green * (1 - desert) * (1 - c) * (1 - e * 0.6), 0, 1);
+      const S = this.season;
+      if (S === 0) { const k = 0.3 * veg; r += (184 - r) * k; g += (210 - g) * k; b += (132 - b) * k; }
+      else if (S === 2) { const k = (0.62 + 0.2 * n1) * veg; r += (200 - r) * k; g += (180 - g) * k; b += (108 - b) * k; }
+      else if (S === 3) {
+        const k = 0.75 * veg; r += (206 - r) * k; g += (202 - g) * k; b += (180 - b) * k;
+        const sn = clamp((valueNoise(wx / 420, wy / 420, 29) - 0.55) * 4, 0, 1) * veg;
+        r += (244 - r) * sn; g += (244 - g) * sn; b += (240 - b) * sn;
+      }
+      // 海岸墨线
+      if (L < 0.535) { const k = 1 - (L - 0.5) / 0.035; r += (96 - r) * k * 0.7; g += (104 - g) * k * 0.7; b += (92 - b) * k * 0.7; }
+    }
+    out[0] = r; out[1] = g; out[2] = b;
+  }
+
+  getChunk(cx: number, cy: number, allowBuild: boolean): Chunk | null {
+    const key = cx + ',' + cy;
+    let c = this.chunks.get(key);
+    if (c && (c.season === this.season || !allowBuild)) { c.used = this.frame; return c; }
+    if (!allowBuild) return null;
+    c = this.buildChunk(cx, cy);
+    this.chunks.set(key, c);
+    if (this.chunks.size > 130) this.evict();
+    return c;
+  }
+
+  private evict() {
+    const arr = [...this.chunks.values()].sort((a, b) => a.used - b.used);
+    for (let i = 0; i < 40; i++) this.chunks.delete(arr[i].cx + ',' + arr[i].cy);
+  }
+
+  private buildChunk(cx: number, cy: number): Chunk {
+    const R = CHUNK_RES, PR = PIX_RES, sc = CHUNK / PR;
+    const ox = cx * CHUNK, oy = cy * CHUNK;
+    // 底色（低分辨率水彩）
+    const base = document.createElement('canvas'); base.width = base.height = PR;
+    const bg = base.getContext('2d')!;
+    const img = bg.createImageData(PR, PR);
+    const d = img.data, col = [0, 0, 0];
+    for (let j = 0; j < PR; j++) for (let i = 0; i < PR; i++) {
+      this.colorAt(ox + (i + 0.5) * sc, oy + (j + 0.5) * sc, col);
+      const k = (j * PR + i) * 4;
+      d[k] = col[0]; d[k + 1] = col[1]; d[k + 2] = col[2]; d[k + 3] = 255;
+    }
+    bg.putImageData(img, 0, 0);
+    const cv = document.createElement('canvas'); cv.width = cv.height = R;
+    const g = cv.getContext('2d')!;
+    g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+    g.drawImage(base, 0, 0, R, R);
+    g.save();
+    g.scale(R / CHUNK, R / CHUNK); g.translate(-ox, -oy);
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    const rnd = mulberry32(((cx * 73856093) ^ (cy * 19349663)) >>> 0);
+    let landish = false;
+    for (let k = 0; k < 9 && !landish; k++) landish = this.sample(ox + (k % 3 + 0.5) * CHUNK / 3, oy + ((k / 3 | 0) + 0.5) * CHUNK / 3).land > 0.4;
+
+    if (landish) {
+      // 1. 水墨晕染（全局网格，跨块连续，避免接缝）
+      const BC = 640;
+      const bx0 = Math.floor((ox - 700) / BC), bx1 = Math.floor((ox + CHUNK + 700) / BC);
+      const by0 = Math.floor((oy - 700) / BC), by1 = Math.floor((oy + CHUNK + 700) / BC);
+      for (let by = by0; by <= by1; by++) for (let bx = bx0; bx <= bx1; bx++) {
+        const x = (bx + hash2(bx, by, 81)) * BC, y = (by + hash2(bx, by, 82)) * BC;
+        const r = 220 + hash2(bx, by, 83) * 420;
+        if (x + r < ox || x - r > ox + CHUNK || y + r < oy || y - r > oy + CHUNK) continue;
+        const sm = this.sample(x, y);
+        if (sm.land < 0.55) continue;
+        const a = 0.05 + hash2(bx, by, 84) * 0.07;
+        const c = sm.cold > 0.5 ? '120,135,150' : sm.arid > 0.78 ? '170,130,70' : sm.arid > 0.45 ? '110,120,60' : sm.elev > 0.4 ? '80,86,76' : '60,96,62';
+        const rg = g.createRadialGradient(x, y, 0, x, y, r);
+        rg.addColorStop(0, `rgba(${c},${a})`); rg.addColorStop(0.6, `rgba(${c},${a * 0.6})`); rg.addColorStop(1, `rgba(${c},0)`);
+        g.fillStyle = rg; g.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+      // 2. 田畴
+      this.drawFields(g, ox, oy);
+    }
+    // 3. 河流
+    for (const rv of this.rivers) {
+      const pts = rv.pts.map(([x, y]) => [x * WORLD_SCALE, y * WORLD_SCALE]);
+      if (!pts.some(([x, y]) => x > ox - 2000 && x < ox + CHUNK + 2000 && y > oy - 2000 && y < oy + CHUNK + 2000)) continue;
+      const path = () => { g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); };
+      path(); g.strokeStyle = 'rgba(92,110,104,0.55)'; g.lineWidth = 70 * rv.w + 26; g.stroke();
+      path(); g.strokeStyle = 'rgba(150,178,180,0.95)'; g.lineWidth = 70 * rv.w; g.stroke();
+      path(); g.strokeStyle = 'rgba(190,210,206,0.6)'; g.lineWidth = 20 * rv.w; g.stroke();
+      // 水纹
+      g.strokeStyle = 'rgba(240,248,245,0.5)'; g.lineWidth = 3;
+      for (let k = 0; k < pts.length - 1; k += 3) {
+        const [x, y] = pts[k];
+        if (x < ox - 100 || x > ox + CHUNK + 100 || y < oy - 100 || y > oy + CHUNK + 100) continue;
+        const h = hash2(x, y, 3);
+        if (h > 0.5) continue;
+        const off = (h - 0.25) * 70 * rv.w;
+        g.beginPath(); g.moveTo(x - 20, y + off); g.quadraticCurveTo(x, y + off - 6, x + 22, y + off); g.stroke();
+      }
+    }
+    // 4. 道路
+    for (const rd of this.roads) {
+      const pts = rd.pts;
+      let hit = false;
+      for (let k = 0; k < pts.length; k += 4) { const x = pts[k][0] * WORLD_SCALE, y = pts[k][1] * WORLD_SCALE; if (x > ox - 800 && x < ox + CHUNK + 800 && y > oy - 800 && y < oy + CHUNK + 800) { hit = true; break; } }
+      if (!hit) continue;
+      const path = () => { g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x * WORLD_SCALE, y * WORLD_SCALE) : g.moveTo(x * WORLD_SCALE, y * WORLD_SCALE))); };
+      const w = rd.major ? 34 : 22;
+      // 土路：柔和路肩 → 深色路缘 → 夯土路面 → 两道车辙 → 中间被踩亮的一线
+      path(); g.strokeStyle = 'rgba(150,132,88,0.16)'; g.lineWidth = w + 30; g.stroke();
+      path(); g.strokeStyle = 'rgba(118,98,64,0.34)'; g.lineWidth = w + 7; g.stroke();
+      path(); g.strokeStyle = 'rgba(206,188,146,0.96)'; g.lineWidth = w; g.stroke();
+      path(); g.strokeStyle = 'rgba(160,138,96,0.4)'; g.lineWidth = w * 0.66; g.stroke();
+      path(); g.strokeStyle = 'rgba(214,198,158,1)'; g.lineWidth = w * 0.54; g.stroke();
+      path(); g.strokeStyle = 'rgba(234,224,194,0.55)'; g.lineWidth = w * 0.18; g.stroke();
+    }
+    if (landish) {
+      // 5. 水彩笔触：成片的嫩绿/墨绿晕染 + 细密草纹（远看有质感，近看由实时草丛接管）
+      const dune = new Path2D(), drift = new Path2D(), pebble = new Path2D();
+      const hatchA = new Path2D(), hatchB = new Path2D();
+      // 全局网格摆放，跨块连续（无接缝）
+      const DC = 64;
+      for (let Y = Math.floor((oy - 200) / DC); Y <= Math.floor((oy + CHUNK + 200) / DC); Y++) for (let X = Math.floor((ox - 200) / DC); X <= Math.floor((ox + CHUNK + 200) / DC); X++) {
+        if (hash2(X, Y, 61) > 0.26) continue;
+        const x = (X + hash2(X, Y, 62)) * DC, y = (Y + hash2(X, Y, 63)) * DC;
+        const h4 = hash2(X, Y, 64), h5 = hash2(X, Y, 65);
+        const rw = 50 + h4 * 130, rh = rw * (0.14 + h5 * 0.14);
+        if (x + rw < ox || x - rw > ox + CHUNK || y + rh < oy || y - rh > oy + CHUNK) continue;
+        const sm = this.sample(x, y);
+        if (sm.land < 0.62 || sm.cold > 0.6 || sm.arid > 0.8) continue;
+        const lightK = h5 < 0.55;
+        const S = this.season;
+        const c = sm.arid > 0.45 ? (lightK ? '226,214,150' : '150,140,80')
+          : S === 2 ? (lightK ? '234,206,126' : '130,100,48')
+          : S === 3 ? (lightK ? '248,248,244' : '140,134,112')
+          : (lightK ? (S === 0 ? '214,234,150' : '206,226,150') : '70,112,64');
+        g.fillStyle = `rgba(${c},${0.05 + h4 * 0.06})`;
+        g.beginPath(); g.ellipse(x, y, rw, rh, (h4 - 0.5) * 0.4, 0, Math.PI * 2); g.fill();
+      }
+      for (let i = 0; i < 700; i++) {
+        const x = ox + rnd() * CHUNK, y = oy + rnd() * CHUNK;
+        const sm = this.sample(x, y);
+        if (sm.land < 0.62 || sm.cold > 0.6 || sm.arid > 0.8 || sm.elev > 0.5) continue;
+        const L = 6 + rnd() * 8, lean = (rnd() - 0.5) * 6;
+        const P2 = rnd() < 0.5 ? hatchA : hatchB;
+        P2.moveTo(x, y); P2.lineTo(x + lean, y - L);
+        P2.moveTo(x + 4, y + 1); P2.lineTo(x + 4 + lean * 0.6, y - L * 0.7);
+      }
+      for (let i = 0; i < 240; i++) {
+        const x = ox + rnd() * CHUNK, y = oy + rnd() * CHUNK;
+        const sm = this.sample(x, y);
+        if (sm.land < 0.62) continue;
+        if (sm.cold > 0.6) {
+          const q = rnd();
+          if (q < 0.12) { pebble.moveTo(x + 6, y); pebble.ellipse(x, y, 6 + rnd() * 5, 3 + rnd() * 2, 0, 0, Math.PI * 2); }
+          else if (q < 0.5) { const L = 40 + rnd() * 90; drift.moveTo(x, y); drift.quadraticCurveTo(x + L / 2, y - 6 - rnd() * 8, x + L, y + rnd() * 4); }
+        } else if (sm.arid > 0.8 && i % 3 === 0) {
+          const L = 120 + rnd() * 220, b = 14 + rnd() * 18;
+          dune.moveTo(x, y); dune.bezierCurveTo(x + L * 0.3, y - b, x + L * 0.7, y - b, x + L, y + rnd() * 10);
+          dune.moveTo(x + L * 0.2, y + 12); dune.quadraticCurveTo(x + L * 0.5, y - b * 0.4, x + L * 0.8, y + 14);
+        }
+      }
+      for (let i = 0; i < 22; i++) {
+        const x = ox + rnd() * CHUNK, y = oy + rnd() * CHUNK;
+        const sm = this.sample(x, y);
+        if (sm.land < 0.62 || sm.elev < 0.25 || this.nearRoad(x, y, 10)) continue;
+        const r = 4 + rnd() * 7;
+        pebble.moveTo(x + r, y); pebble.ellipse(x, y, r, r * 0.6, 0, 0, Math.PI * 2);
+      }
+      g.lineWidth = 2.2; g.strokeStyle = 'rgba(60,96,54,0.16)'; g.stroke(hatchA);
+      g.strokeStyle = 'rgba(190,214,140,0.22)'; g.stroke(hatchB);
+      g.lineWidth = 3; g.strokeStyle = 'rgba(150,115,60,0.32)'; g.stroke(dune);
+      g.lineWidth = 2.5; g.strokeStyle = 'rgba(120,140,165,0.35)'; g.stroke(drift);
+      g.fillStyle = 'rgba(176,172,156,0.7)'; g.fill(pebble);
+      g.lineWidth = 1.4; g.strokeStyle = 'rgba(90,88,76,0.4)'; g.stroke(pebble);
+    }
+    g.restore();
+    return { cx, cy, canvas: cv, used: this.frame, season: this.season };
+  }
+
+  /** 是否落在 drawFields 画出的某块田里（与其网格同构） */
+  /** 第二十二步：田畴环绕城镇——内圈让出整座城（贴图布局占地大得多） */
+  fieldR(l: { id: string; type: string }): [number, number] {
+    const z = this.zoneById.get(l.id);
+    const hole = z ? Math.max(620, Math.max(z.rx, z.ry * 1.2) + 260) : 620;
+    return [hole, hole + (l.type === 'city' ? 2100 : 1200)];
+  }
+  zoneById = new Map<string, { rx: number; ry: number }>();
+  private inField(wx: number, wy: number, locs: typeof LOCATIONS) {
+    const cw = 300, chh = 210;
+    for (const l of locs) {
+      const lx = l.x * WORLD_SCALE, ly = l.y * WORLD_SCALE;
+      const [hole, RR] = this.fieldR(l);
+      const ang = (hash2(l.x, l.y, 77) - 0.5) * 0.7;
+      const ca = Math.cos(ang), sa = Math.sin(ang);
+      const dx = wx - lx, dy = wy - ly;
+      const u = dx * ca + dy * sa, v = -dx * sa + dy * ca;
+      const j = Math.floor(v / chh);
+      const i = Math.floor((u - (j % 2 ? cw * 0.4 : 0)) / cw);
+      const fx = i * cw + (j % 2 ? cw * 0.4 : 0), fy = j * chh;
+      const dd = Math.hypot(fx + cw / 2, (fy + chh / 2) * 1.2);
+      const h = hashU(i + ((l.x * 7) | 0), j + ((l.y * 13) | 0), 5);
+      if (dd > RR * (0.55 + 0.45 * h) || dd < hole || h < 0.12) continue;
+      return true;
+    }
+    return false;
+  }
+
+  // 城镇周边的田畴
+  private drawFields(g: CanvasRenderingContext2D, ox: number, oy: number) {
+    const PAL = ['196,202,136', '172,192,118', '214,198,128', '152,184,118', '204,210,160'];
+    for (const l of LOCATIONS) {
+      if (l.type !== 'city' && l.type !== 'town') continue;
+      const lx = l.x * WORLD_SCALE, ly = l.y * WORLD_SCALE;
+      const [hole, RR] = this.fieldR(l);
+      if (lx + RR < ox || lx - RR > ox + CHUNK || ly + RR < oy || ly - RR > oy + CHUNK) continue;
+      const ang = (hash2(l.x, l.y, 77) - 0.5) * 0.7;
+      const ca = Math.cos(ang), sa = Math.sin(ang);
+      const cw = 300, chh = 210;
+      const n = Math.ceil(RR / chh);
+      g.save(); g.translate(lx, ly); g.rotate(ang);
+      for (let j = -n; j <= n; j++) for (let i = -n; i <= n; i++) {
+        const fx = i * cw + (j % 2 ? cw * 0.4 : 0), fy = j * chh;
+        const cxm = fx + cw / 2, cym = fy + chh / 2;
+        const dd = Math.hypot(cxm, cym * 1.2);
+        const h = hashU(i + ((l.x * 7) | 0), j + ((l.y * 13) | 0), 5);
+        if (dd > RR * (0.55 + 0.45 * h) || dd < hole) continue;
+        const wx = lx + cxm * ca - cym * sa, wy = ly + cxm * sa + cym * ca;
+        if (wx < ox - 400 || wx > ox + CHUNK + 400 || wy < oy - 400 || wy > oy + CHUNK + 400) continue;
+        const sm = this.sample(wx, wy);
+        if (sm.land < 0.62 || sm.elev > 0.3 || sm.cold > 0.6 || sm.arid > 0.75) continue;
+        if (h < 0.12) continue; // 留白
+        const c = PAL[(h * 97 | 0) % PAL.length];
+        const a = 0.42 + h * 0.2;
+        g.fillStyle = `rgba(${c},${a})`;
+        const x0 = fx + 7, y0 = fy + 7, w = cw - 14, hh = chh - 14;
+        g.fillRect(x0, y0, w, hh);
+        g.strokeStyle = 'rgba(110,100,70,0.22)'; g.lineWidth = 2;
+        g.beginPath();
+        if (h > 0.55) for (let t = 18; t < w; t += 22) { g.moveTo(x0 + t, y0 + 4); g.lineTo(x0 + t, y0 + hh - 4); }
+        else for (let t = 16; t < hh; t += 20) { g.moveTo(x0 + 4, y0 + t); g.lineTo(x0 + w - 4, y0 + t); }
+        g.stroke();
+        g.strokeStyle = 'rgba(96,110,70,0.35)'; g.lineWidth = 3; g.strokeRect(x0, y0, w, hh);
+      }
+      g.restore();
+    }
+  }
+
+  nearRiver(wx: number, wy: number) {
+    const x = (wx / WORLD_SCALE) | 0, y = (wy / WORLD_SCALE) | 0;
+    if (x < 0 || y < 0 || x >= this.W || y >= this.H) return false;
+    return this.riverMask[y * this.W + x] === 1;
+  }
+  inLocZone(wx: number, wy: number, pad = 0) {
+    for (const z of this.locZones) {
+      const dx = (wx - z.x) / (z.rx + pad), dy = (wy - z.y) / (z.ry + pad);
+      if (dx * dx + dy * dy < 1) return z;
+    }
+    return null;
+  }
+  /** 地点核心区（广场、院落）：不长野草；外围仍可 */
+  inLocCore(wx: number, wy: number) {
+    for (const z of this.locZones) {
+      const dx = (wx - z.x) / (z.rx * 0.62), dy = (wy - z.y) / (z.ry * 0.62);
+      if (dx * dx + dy * dy < 1) return true;
+    }
+    return false;
+  }
+  demonNear(wx: number, wy: number) {
+    for (const z of this.locZones) if (DEMON_SECTS.includes(z.id) && Math.hypot(wx - z.x, wy - z.y) < 5200) return true;
+    return false;
+  }
+
+  /** 装饰物（独立于底图缓存，可预取更大范围，避免高山突然出现） */
+  getDecos(cx: number, cy: number): Deco[] {
+    const key = cx + ',' + cy;
+    let e = this.decoCache.get(key);
+    if (!e) {
+      e = { d: this.buildDecos(cx, cy), used: this.frame };
+      this.decoCache.set(key, e);
+      if (this.decoCache.size > 260) {
+        const arr = [...this.decoCache.entries()].sort((a, b) => a[1].used - b[1].used);
+        for (let i = 0; i < 60; i++) this.decoCache.delete(arr[i][0]);
+      }
+    }
+    e.used = this.frame;
+    return e.d;
+  }
+
+  /** 草丛分布：按 56 像素网格抖动，随地貌决定疏密与种类（跨块连续） */
+  getGrass(cx: number, cy: number): Clump[] {
+    const key = cx + ',' + cy;
+    let e = this.grassCache.get(key);
+    if (!e) {
+      e = { d: this.buildGrass(cx, cy), used: this.frame };
+      this.grassCache.set(key, e);
+      if (this.grassCache.size > 200) {
+        const arr = [...this.grassCache.entries()].sort((a, b) => a[1].used - b[1].used);
+        for (let i = 0; i < 50; i++) this.grassCache.delete(arr[i][0]);
+      }
+    }
+    e.used = this.frame;
+    return e.d;
+  }
+  private buildGrass(cx: number, cy: number): Clump[] {
+    const out: Clump[] = [];
+    const GC = 40, ox = cx * CHUNK, oy = cy * CHUNK;
+    // 城镇周边田畴：草少
+    const towns = LOCATIONS.filter((l) => (l.type === 'city' || l.type === 'town') && Math.abs(l.x * WORLD_SCALE - ox - CHUNK / 2) < 3600 && Math.abs(l.y * WORLD_SCALE - oy - CHUNK / 2) < 3600);
+    for (let Y = Math.floor(oy / GC); Y < Math.ceil((oy + CHUNK) / GC); Y++) for (let X = Math.floor(ox / GC); X < Math.ceil((ox + CHUNK) / GC); X++) {
+      const h1 = hash2(X, Y, 41), h2 = hash2(X, Y, 42), h3 = hash2(X, Y, 43), h4 = hash2(X, Y, 44);
+      const x = (X + h1) * GC, y = (Y + h2) * GC;
+      if (x < ox || x >= ox + CHUNK || y < oy || y >= oy + CHUNK) continue;
+      const s = this.sample(x, y);
+      if (s.land < 0.6 || !this.isLand(x, y)) continue;
+      if (this.riverEdge(x, y) < 14) continue;
+      if (lmNoGrass(x, y)) continue;
+      // 疏密：大尺度噪声形成成片的草甸与空地
+      const patch = valueNoise(x / 520, y / 520, 47);
+      let dens = clamp((patch - 0.4) * 2.0, 0.02, 0.62);   // 第十七步：成簇而疏（地表着色器已有细草）
+      dens *= 1 - clamp((s.elev - 0.25) * 1.6, 0, 0.85);
+      if (s.arid > 0.82) dens *= 0.12; else if (s.arid > 0.45) dens *= 0.36;
+      if (s.cold > 0.6) dens *= 0.035;
+      if (h3 > dens) {
+        // 空地上的零星小草
+        if (h3 - dens < 0.35 && s.cold < 0.6 && s.arid < 0.82 && !this.nearRoad(x, y, 8) && !this.inLocCore(x, y))
+          out.push({ x: x + 13, y: y + 9, kind: 'sprig', v: Math.floor(h4 * GRASS_VARIANTS), s: 0.9 + h1 * 0.4, ph: h2 * 6.28, lod: 2 });
+        continue;
+      }
+      if (this.nearRoad(x, y, 14) || this.inLocCore(x, y)) continue;
+      if (towns.length && this.inField(x, y, towns) && h4 > 0.15) continue;
+      let kind: GrassKind;
+      const k = hash2(X, Y, 45);
+      if (s.cold > 0.6) kind = 'snow';
+      else if (s.arid > 0.45) kind = k < 0.55 ? 'dry' : k < 0.8 ? 'tall' : k < 0.9 ? 'flower' : 'tuft';
+      else if (s.forest > 0.45) kind = k < 0.1 ? 'fern' : k < 0.26 ? 'clover' : k < 0.36 ? 'flower' : 'tuft';
+      else kind = k < 0.13 ? 'flower' : k < 0.24 ? 'clover' : k < 0.3 ? 'tall' : 'tuft';
+      out.push({ x, y, kind, v: Math.floor(h4 * GRASS_VARIANTS), s: 0.85 + hash2(X, Y, 46) * 0.4 + patch * 0.25, ph: h1 * 6.28, lod: h2 < 0.45 ? 0 : 1 });
+    }
+    out.sort((a, b) => a.y - b.y);
+    return out;
+  }
+
+  // ---------- 第十九步：程序化花林与瀑布 ----------
+  private gvMemo = new Map<string, GroveSpot | null>();
+  private fallMemo = new Map<string, FallSpot | null>();
+  private procGrove(gx: number, gy: number): GroveSpot | null {
+    const key = gx + ',' + gy;
+    if (this.gvMemo.has(key)) return this.gvMemo.get(key)!;
+    let res: GroveSpot | null = null;
+    if (hash2(gx, gy, 311) < 0.12) {
+      const x = (gx + 0.2 + hash2(gx, gy, 312) * 0.6) * GVC, y = (gy + 0.2 + hash2(gx, gy, 313) * 0.6) * GVC;
+      const s = this.sample(x, y);
+      if (s.land > 0.7 && this.isLand(x, y) && s.elev < 0.38 && s.arid < 0.4 && s.cold < 0.4 && !this.inLocZone(x, y, 500) && !landmarkAt(x, y, 600) && !this.nearRiver(x, y)) {
+        const r = 300 + hash2(gx, gy, 314) * 260;
+        res = { x, y, r, sp: 'peach', seed: (gx * 7919 + gy * 104729) >>> 0 } as GroveSpot;
+        (res as any).mix = true;
+      }
+    }
+    this.gvMemo.set(key, res);
+    return res;
+  }
+  grovesNear(x: number, y: number, pad: number): GroveSpot[] {
+    const out: GroveSpot[] = [];
+    for (const g of SCENIC.groves) if (Math.abs(g.x - x) < g.r + pad && Math.abs(g.y - y) < g.r + pad) out.push(g);
+    const gx = Math.floor(x / GVC), gy = Math.floor(y / GVC);
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const g = this.procGrove(gx + i, gy + j); if (g && Math.abs(g.x - x) < g.r + pad && Math.abs(g.y - y) < g.r + pad) out.push(g); }
+    return out;
+  }
+  groveHere(x: number, y: number): GroveSpot | null {
+    for (const g of this.grovesNear(x, y, 0)) { const dx = (x - g.x) / g.r, dy = (y - g.y) / (g.r * 0.75); if (dx * dx + dy * dy < 1.1) return g; }
+    return null;
+  }
+  private procFall(gx: number, gy: number): FallSpot | null {
+    const key = gx + ',' + gy;
+    if (this.fallMemo.has(key)) return this.fallMemo.get(key)!;
+    let res: FallSpot | null = null;
+    if (hash2(gx, gy, 321) < 0.3) {
+      const x = (gx + 0.2 + hash2(gx, gy, 322) * 0.6) * FC, y = (gy + 0.2 + hash2(gx, gy, 323) * 0.6) * FC;
+      const s = this.sample(x, y);
+      if (s.land > 0.7 && this.isLand(x, y) && this.isLand(x, y + 120) && s.elev > 0.5 && s.elev < 1.1 && s.arid < 0.45 && s.cold < 0.45 && !this.inLocZone(x, y, 500) && !landmarkAt(x, y, 300) && !this.onRoad(x, y)) {
+        const h4 = hash2(gx, gy, 324);
+        const w = 420 + h4 * 260, h = w * (0.9 + hash2(gx, gy, 325) * 0.45);
+        res = { id: `wf${gx}_${gy}`, x, y, w, h, seed: (gx * 48271 + gy * 69621) >>> 0, tiers: 1 + Math.floor(hash2(gx, gy, 326) * 3) };
+      }
+    }
+    this.fallMemo.set(key, res);
+    return res;
+  }
+  procFallsNear(x: number, y: number, pad: number): FallSpot[] {
+    const out: FallSpot[] = [];
+    const gx = Math.floor(x / FC), gy = Math.floor(y / FC);
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const f = this.procFall(gx + i, gy + j); if (f && Math.abs(f.x - x) < f.w + pad && Math.abs(f.y - y) < f.h + pad) out.push(f); }
+    return out;
+  }
+  private nearProcFall(x: number, y: number, pad: number) {
+    for (const f of this.procFallsNear(x, y, 0)) if (Math.abs(x - f.x) < f.w * 0.6 + pad * 0.5 && y < f.y + f.w * 0.5 + pad * 0.3 && y > f.y - f.h * 0.6 - pad) return true;
+    return false;
+  }
+  /** 当前地图所有瀑布（地图界面、水声用） */
+  allFallsIn(x0: number, y0: number, x1: number, y1: number): FallSpot[] {
+    const out: FallSpot[] = SCENIC.falls.filter((f) => f.x > x0 && f.x < x1 && f.y > y0 && f.y < y1);
+    for (let gy = Math.floor(y0 / FC); gy <= Math.floor(y1 / FC); gy++) for (let gx = Math.floor(x0 / FC); gx <= Math.floor(x1 / FC); gx++) { const f = this.procFall(gx, gy); if (f && f.x > x0 && f.x < x1 && f.y > y0 && f.y < y1) out.push(f); }
+    return out;
+  }
+
+  private mountainStyle(wx: number, wy: number, s: Sample, h: number): MtnStyle {
+    const mx = wx / WORLD_SCALE, my = wy / WORLD_SCALE;
+    if (s.cold > 0.42 || (s.elev > 1.15 && s.cold > 0.2)) return 'snow';
+    if (this.demonNear(wx, wy) && h < 0.75) return 'demon';
+    if (s.arid > 0.75) return 'desert';
+    if (s.arid > 0.45) return h < 0.7 ? 'qianjiang' : 'hill';
+    const island = !pointInPoly(mx, my, MAINLAND);
+    if (island) return 'island';
+    const [lx, ly] = toLegacy(mx, my);   // 喀斯特峰林：越国南部与天道盟一带（按旧版经纬）
+    if (ly > 540 && lx > 430 && lx < 600 && h < 0.4) return 'karst';
+    if (ly > 440 && ly < 540 && lx < 340 && h < 0.3) return 'karst';
+    return h < 0.72 ? 'qinglv' : 'qianjiang';
+  }
+
+  private buildDecos(cx: number, cy: number): Deco[] {
+    const out: Deco[] = [];
+    const ox = cx * CHUNK, oy = cy * CHUNK;
+    const inChunk = (x: number, y: number) => x >= ox && x < ox + CHUNK && y >= oy && y < oy + CHUNK;
+    // ---------- 1. 山（粗网格，高处更密更高）----------
+    const MC = 460;
+    for (let gy = Math.floor(oy / MC); gy <= Math.floor((oy + CHUNK) / MC); gy++) for (let gx = Math.floor(ox / MC); gx <= Math.floor((ox + CHUNK) / MC); gx++) {
+      for (let k = 0; k < 2; k++) {
+        const h1 = hash2(gx, gy, 101 + k * 10), h2 = hash2(gx, gy, 102 + k * 10), h3 = hash2(gx, gy, 103 + k * 10), h4 = hash2(gx, gy, 104 + k * 10), h5 = hash2(gx, gy, 105 + k * 10);
+        const wx = (gx + h1) * MC, wy = (gy + h2) * MC;
+        if (!inChunk(wx, wy)) continue;
+        const s = this.sample(wx, wy);
+        if (s.land < 0.55 || !this.isLand(wx, wy + 40)) continue;
+        if (this.inLocZone(wx, wy, 260) || this.onRoad(wx, wy)) continue;
+        if (lmCleared(wx, wy, 260) || this.nearProcFall(wx, wy, 700)) continue;
+        const e = s.elev;
+        if (k === 1 && e < 0.75) continue; // 高山区第二座（叠峦）
+        let w = 0, hh = 0, style: MtnStyle;
+        if (e > 0.42) {
+          const p = clamp((e - 0.42) * 2.4, 0, 0.97);
+          if (h3 > p) continue;
+          style = this.mountainStyle(wx, wy, s, h4);
+          { const LM = landmarkAt(wx, wy); if (LM?.mtnStyle && style !== 'snow') style = LM.mtnStyle; }
+          w = (560 + (e - 0.42) * 2000 * (0.6 + h4 * 0.7)) * (k ? 0.75 : 1);
+          w = Math.min(w, 2300);
+          hh = w * (0.42 + Math.min(1, e) * 0.32) * (0.8 + h5 * 0.45);
+          if (style === 'karst') hh *= 1.15;
+          if (style === 'desert') hh *= 0.6;
+          if (style === 'hill') hh *= 0.5;
+        } else if (e > 0.24) {
+          if (h3 > 0.32) continue;
+          style = s.arid > 0.75 ? 'desert' : this.mountainStyle(wx, wy, s, h4) === 'island' ? 'island' : s.cold > 0.42 ? 'snow' : 'hill';
+          w = 360 + h4 * 380; hh = w * (0.32 + h5 * 0.15);
+        } else continue;
+        const id = `m${gx}_${gy}_${k}`;
+        const big = w > 1100;
+        const spec: MtnSpec = {
+          seed: (gx * 92821 + gy * 68917 + k * 7) >>> 0, style, w, h: hh,
+          cliff: h5 < 0.35 && style !== 'hill', waterfall: e > 0.62 && s.arid < 0.5 && s.cold < 0.5 && h1 < 0.3 && style !== 'desert' && style !== 'demon',
+          path: h2 < 0.08 && style !== 'snow', snowcap: e > 0.9 && style !== 'snow' && style !== 'desert' && style !== 'hill' && s.arid < 0.6, pavilion: h2 < 0.05, clouds: big && h4 < 0.6, layers: big ? 3 : w > 600 ? 2 : 1,
+        };
+        out.push({ kind: 'mtn', id, spec, x: wx, y: wy + 30, w, h: hh, flip: h5 < 0.5 });
+      }
+    }
+    // ---------- 1b. 原著名地的山峰、名山 ----------
+    const named = [...SCENIC.peaks];
+    for (const L of LANDMARKS) if (Math.abs(L.x - ox) < L.r + CHUNK * 2 && Math.abs(L.y - oy) < L.r + CHUNK * 2) named.push(...L.peaks as any);
+    for (const p of named) {
+      if (!inChunk(p.x, p.y)) continue;
+      const big = p.w > 1100;
+      const spec: MtnSpec = { seed: p.seed >>> 0, style: p.style, w: p.w, h: p.h, cliff: p.style !== 'danxia', waterfall: !!p.waterfall, path: false, pavilion: false, snowcap: !!p.snow, clouds: !!p.clouds, layers: big ? 3 : 2 };
+      out.push({ kind: 'mtn', id: p.id, spec, x: p.x, y: p.y, w: p.w, h: p.h, flip: !!p.flip });
+    }
+    // ---------- 1c. 瀑布 ----------
+    for (const f of [...SCENIC.falls, ...this.procFallsNear(ox + CHUNK / 2, oy + CHUNK / 2, CHUNK)]) {
+      if (!inChunk(f.x, f.y)) continue;
+      out.push({ kind: 'fall', id: f.id, x: f.x, y: f.y, w: f.w, h: f.h, seed: f.seed, tiers: f.tiers, name: f.name });
+      // 背后的山：瀑布挂在山脚的崖壁上，不至于孤零零立在平地
+      const s0 = this.sample(f.x, f.y);
+      const bst: MtnStyle = s0.cold > 0.42 ? 'snow' : landmarkAt(f.x, f.y)?.mtnStyle ?? (this.mountainStyle(f.x, f.y, s0, 0.3) === 'karst' ? 'karst' : 'qinglv');
+      const bw = Math.min(2300, f.w * 2.6), bh = Math.max(f.h * 1.7, bw * 0.62);
+      out.push({ kind: 'mtn', id: f.id + '_bg', spec: { seed: (f.seed * 31 + 7) >>> 0, style: bst, w: bw, h: bh, cliff: true, waterfall: false, path: false, pavilion: false, snowcap: false, clouds: bw > 1300, layers: 3 }, x: f.x + (hash2(f.x | 0, 1, 3) - 0.5) * f.w * 0.3, y: f.y - f.h * 0.42, w: bw, h: bh, flip: hash2(f.x | 0, 2, 3) < 0.5 });
+    }
+    // ---------- 1d. 花林（桃、杏，冬梅秋枫）----------
+    for (const gv of this.grovesNear(ox + CHUNK / 2, oy + CHUNK / 2, CHUNK)) {
+      const SP = 70;
+      const rnd = mulberry32((gv.seed ^ 0x9e37) >>> 0);
+      for (let yy = Math.floor((oy) / SP); yy <= Math.floor((oy + CHUNK) / SP); yy++) for (let xx = Math.floor(ox / SP); xx <= Math.floor((ox + CHUNK) / SP); xx++) {
+        const j1 = hash2(xx, yy, 301), j2 = hash2(xx, yy, 302), j3 = hash2(xx, yy, 303);
+        const x = (xx + j1 * 0.8) * SP, y = (yy + j2 * 0.8) * SP;
+        if (!inChunk(x, y)) continue;
+        const dx = (x - gv.x) / gv.r, dy = (y - gv.y) / (gv.r * 0.75);
+        const q = dx * dx + dy * dy + (valueNoise(x / 160, y / 160, gv.seed & 255) - 0.5) * 0.5;
+        if (q > 1) continue;
+        if (q > 0.6 && j3 < (q - 0.6) * 1.6) continue;           // 林缘稀疏
+        if (j3 > 0.86) continue;                                // 林间空地
+        if (!this.isLand(x, y) || this.onRoad(x, y) || this.inLocZone(x, y, 200) || this.riverEdge(x, y) < 40 || lmCleared(x, y)) continue;
+        let sp = gv.sp;
+        if ((gv as any).mix) sp = GROVE_MIX[Math.floor(hash2(xx, yy, 304) * GROVE_MIX.length)];
+        else if (hash2(xx, yy, 305) < 0.12) sp = sp === 'peach' ? 'apricot' : sp === 'apricot' ? 'peach' : sp;
+        const sc = (0.82 + hash2(xx, yy, 306) * 0.36) * (1.08 - q * 0.2);
+        const base = TREE_SIZE[sp] * sc;
+        out.push({ kind: 'tree', sp, v: Math.floor(hash2(xx, yy, 307) * TREE_VARIANTS), x, y, w: base * 1.2, h: base * 1.35, s: sc, flip: rnd() < 0.5, ph: rnd() * Math.PI * 2, lod: (xx + yy) % 3 });
+      }
+    }
+    // ---------- 2. 树林（成片的林子，大小不一）----------
+    const GC = 640;
+    for (let gy = Math.floor((oy - 700) / GC); gy <= Math.floor((oy + CHUNK + 700) / GC); gy++) for (let gx = Math.floor((ox - 700) / GC); gx <= Math.floor((ox + CHUNK + 700) / GC); gx++) {
+      const h1 = hash2(gx, gy, 201), h2 = hash2(gx, gy, 202), h3 = hash2(gx, gy, 203), h4 = hash2(gx, gy, 204);
+      const gcx = (gx + h1) * GC, gcy = (gy + h2) * GC;
+      const s = this.sample(gcx, gcy);
+      if (s.land < 0.5) continue;
+      const nearW = this.nearRiver(gcx, gcy) || s.land < 0.66;
+      let dens = s.forest * 1.15 + 0.14;
+      if (s.arid > 0.8) dens = 0.06; else if (s.arid > 0.45) dens = 0.1 + s.forest * 0.3;
+      if (s.cold > 0.62) dens = 0.12 + s.forest * 0.5;
+      if (nearW) dens += 0.25;
+      if (s.elev > 0.6) dens *= 0.35;
+      dens *= 0.42;                                   // 第三步：野外树木大幅减少，留出开阔田野
+      if (this.inLocZone(gcx, gcy, 900)) dens *= 0.3; // 城镇宗门周边空旷
+      if (h3 > dens) continue;
+      const island = !pointInPoly(gcx / WORLD_SCALE, gcy / WORLD_SCALE, MAINLAND);
+      const zq = zoneAt(gcx, gcy);   // 第三十步：魔道地界多枫与枯木，阴地多枯木与柏
+      const zone = this.inLocZone(gcx, gcy, 2600)?.id === 'huangfeng' ? 'ymaple' : zq.k > 0.3 ? (zq.t === 1 ? 'demon' : 'ghost') : undefined;
+      const R = (90 + h4 * 230 + s.forest * 180) * (s.arid > 0.6 ? 0.5 : 1);
+      const sp1 = pickSpecies(h4, { ...s, nearWater: nearW, island, zone });
+      const sp2 = pickSpecies(hash2(gx, gy, 205), { ...s, nearWater: nearW, island, zone });
+      const spacing = s.forest > 0.5 ? 74 : 100;
+      const n = Math.min(42, Math.max(1, Math.round((Math.PI * R * R) / (spacing * spacing) * (0.45 + s.forest * 0.6))));
+      const rnd = mulberry32((gx * 73856093) ^ (gy * 19349663) ^ 0x7777);
+      for (let i = 0; i < n; i++) {
+        const a = rnd() * Math.PI * 2, rr = Math.sqrt(rnd()) * R;
+        const x = gcx + Math.cos(a) * rr, y = gcy + Math.sin(a) * rr * 0.75;
+        const hv = rnd(), hs = rnd(), hf = rnd(), hp = rnd(), hsp = rnd();
+        if (!inChunk(x, y)) continue;
+        if (!this.isLand(x, y)) continue;
+        if (this.onRoad(x, y) || this.inLocZone(x, y, 260)) continue;
+        if (this.riverEdge(x, y) < 40) continue;
+        if (lmCleared(x, y) || this.groveHere(x, y) || this.nearProcFall(x, y, 260)) continue;
+        const ss = this.sample(x, y);
+        if (ss.elev > 0.62 && hsp < 0.8) continue;
+        let sp: Species = hsp < 0.72 ? sp1 : sp2;
+        const LM = landmarkAt(x, y);
+        if (LM?.trees) { if (LM.treeK !== undefined && LM.treeK < 1 && hv > LM.treeK) continue; sp = LM.trees[Math.floor(hsp * LM.trees.length) % LM.trees.length]; }
+        if (sp === 'willow' && !(this.nearRiver(x, y) || ss.land < 0.66)) sp = s.cold > 0.4 ? 'pine' : 'broad';
+        // 边缘的树小一点，林心大
+        const sc = (0.78 + hs * 0.4) * (1.1 - (rr / R) * 0.25);
+        const base = TREE_SIZE[sp] * sc;
+        out.push({ kind: 'tree', sp, v: Math.floor(hv * TREE_VARIANTS), x, y, w: base * 1.2, h: base * 1.35, s: sc, flip: hf < 0.5, ph: hp * Math.PI * 2, lod: i % 3 });
+      }
+    }
+    // ---------- 3. 小装饰（芦苇、浪花、草丛、山石、灌木、毡帐）----------
+    const n = CHUNK / CELL;
+    for (let gy = 0; gy < Math.ceil(n); gy++) for (let gx = 0; gx < Math.ceil(n); gx++) {
+      const X = Math.floor(ox / CELL) + gx, Y = Math.floor(oy / CELL) + gy;
+      const h1 = hash2(X, Y, 1), h2 = hash2(X, Y, 2), h3 = hash2(X, Y, 3), h4 = hash2(X, Y, 4), h5 = hash2(X, Y, 5);
+      const wx = X * CELL + h1 * CELL, wy = Y * CELL + h2 * CELL;
+      if (!inChunk(wx, wy)) continue;
+      const s = this.sample(wx, wy);
+      const onLand = this.isLand(wx, wy);
+      if (!onLand) {
+        if (s.land < 0.3 && h3 < 0.06 && this.waveGlyph) out.push({ kind: 'img', img: this.waveGlyph, x: wx, y: wy, w: 150, h: 56, flip: h4 < 0.5, alpha: 0.7 });
+        else if (s.land > 0.36 && s.land < 0.5 && h3 < 0.35 && this.reedGlyph && s.cold < 0.5) out.push({ kind: 'img', img: this.reedGlyph, x: wx, y: wy, w: 62, h: 70, flip: h4 < 0.5, alpha: 0.9 });
+        continue;
+      }
+      if (this.inLocZone(wx, wy, 40) || this.nearRoad(wx, wy, 40)) continue;
+      const rock = this.rockGlyphs.length ? this.rockGlyphs[(h5 * 3) | 0] : null;
+      const re = this.riverEdge(wx, wy);
+      if (re < -18) continue;
+      if (re < 70 && this.reedGlyph && h3 < 0.55 && s.cold < 0.5) out.push({ kind: 'img', img: this.reedGlyph, x: wx, y: wy, w: 62, h: 70, flip: h4 < 0.5, alpha: 0.9 });
+      else if (s.elev > 0.3) { if (rock && h3 < 0.18) { const k = 0.7 + h4 * 0.6; out.push({ kind: 'img', img: rock, x: wx, y: wy, w: 120 * k, h: 86 * k, flip: h4 < 0.5, alpha: 1 }); } }
+      else if (s.arid > 0.8) {
+        if (this.shrubGlyph && h3 < 0.14) out.push({ kind: 'img', img: this.shrubGlyph, x: wx, y: wy, w: 80 + h4 * 40, h: (80 + h4 * 40) * 0.82, flip: h4 < 0.5, alpha: 0.95 });
+        else if (h3 > 0.93 && rock) out.push({ kind: 'img', img: rock, x: wx, y: wy, w: 110, h: 76, flip: h4 < 0.5, alpha: 1 });
+      } else if (s.arid > 0.45) {
+        if (h3 > 0.95 && rock) out.push({ kind: 'img', img: rock, x: wx, y: wy, w: 100, h: 69, flip: h4 < 0.5, alpha: 1 });
+      } else if (h3 > 0.965 && rock) out.push({ kind: 'img', img: rock, x: wx, y: wy, w: 90, h: 62, flip: h4 < 0.5, alpha: 1 });
+    }
+    return out;
+  }
+
+  // ---------- 全图（世界地图界面用） ----------
+  overviewBase: HTMLCanvasElement | null = null;
+  buildOverview(scale = 1): HTMLCanvasElement {
+    const W = this.W * scale, H = this.H * scale;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const g = cv.getContext('2d')!;
+    const img = g.createImageData(W, H);
+    this.overviewRows(img, 0, 0, scale, 0, H);
+    g.putImageData(img, 0, 0);
+    // 不带图标的底色副本（小地图放大时先把它平滑放大，再在上面画清晰的矢量）
+    const base = document.createElement('canvas'); base.width = W; base.height = H; base.getContext('2d')!.drawImage(cv, 0, 0);
+    this.overviewBase = base;
+    this.overviewVectors(g, 0, 0, W, H, scale);
+    return cv;
+  }
+
+  /** 第二十步：小地图放大用的局部高清底图——逐行填像素（可分帧），x0/y0 为宏观单位，img 尺寸 = 区域 × scale */
+  overviewRows(img: ImageData, x0: number, y0: number, scale: number, rowFrom: number, rowTo: number) {
+    const W = img.width, col = [0, 0, 0];
+    for (let y = rowFrom; y < rowTo; y++) for (let x = 0; x < W; x++) {
+      this.colorAt((x0 + (x + 0.5) / scale) * WORLD_SCALE, (y0 + (y + 0.5) / scale) * WORLD_SCALE, col);
+      const k = (y * W + x) * 4;
+      img.data[k] = col[0]; img.data[k + 1] = col[1]; img.data[k + 2] = col[2]; img.data[k + 3] = 255;
+    }
+  }
+
+  /** 河流、道路、山林小图标（矢量），画到以 (x0,y0) 宏观单位为左上角、每单位 scale 像素的画布上 */
+  overviewVectors(g: CanvasRenderingContext2D, x0: number, y0: number, Wpx: number, Hpx: number, scale: number) {
+    const ux0 = x0 - 12, uy0 = y0 - 4, ux1 = x0 + Wpx / scale + 12, uy1 = y0 + Hpx / scale + 20;
+    g.save(); g.scale(scale, scale); g.translate(-x0, -y0);
+    // 河流
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    // 第三十步：按包围盒剔除——放大地图时每块只描与之相交的河 / 路（整条描边、尤其是虚线，很贵）
+    const off = (o: any) => { let b = o._bb; if (!b) { b = o._bb = [1e9, 1e9, -1e9, -1e9]; for (const [x, y] of o.pts) { if (x < b[0]) b[0] = x; if (y < b[1]) b[1] = y; if (x > b[2]) b[2] = x; if (y > b[3]) b[3] = y; } } return b[2] < ux0 - 4 || b[0] > ux1 + 4 || b[3] < uy0 - 4 || b[1] > uy1 + 4; };
+    for (const rv of this.rivers) {
+      if (off(rv)) continue;
+      g.beginPath(); rv.pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+      g.strokeStyle = 'rgba(120,150,155,0.9)'; g.lineWidth = 0.9 * rv.w; g.stroke();
+    }
+    // 道路
+    // 放大时山林图标更小更密（每 3 单位一格），免得一座山占半张小地图
+    const fine = scale >= 3, iconK = fine ? 0.4 : 1, step = fine ? 3 : 6, jit = fine ? 2 : 4;
+    g.setLineDash([2 / Math.max(1, scale / 3), 2 / Math.max(1, scale / 3)]);
+    for (const rd of this.roads) {
+      if (off(rd)) continue;
+      g.beginPath(); rd.pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+      g.strokeStyle = 'rgba(120,96,60,0.55)'; g.lineWidth = (rd.major ? 1.1 : 0.7) / Math.max(1, scale / 2); g.stroke();
+    }
+    g.setLineDash([]);
+    // 山与林的小图标（代码绘制）
+    const gy0 = Math.max(4, 4 + Math.floor((uy0 - 4) / step) * step), gx0 = Math.max(4, 4 + Math.floor((ux0 - 4) / step) * step);
+    for (let y = gy0; y < this.H && y < uy1; y += step) for (let x = gx0; x < this.W && x < ux1; x += step) {
+      const jx = x + (hash2(x, y, 5) - 0.5) * jit, jy = y + (hash2(x, y, 6) - 0.5) * jit;
+      const i = (jy | 0) * this.W + (jx | 0);
+      if (this.land[i] < 0.55) continue;
+      const e = this.elev[i];
+      if (e > 0.45 && hash2(x, y, 8) < (e - 0.3) * 1.6) {
+        const w = (6 + e * 9) * iconK, h = w * (0.55 + hash2(x, y, 9) * 0.4);
+        const snow = this.cold[i] > 0.42, desert = this.arid[i] > 0.75;
+        const base = snow ? '#c8d0dc' : desert ? '#c09a62' : '#6f8a7a';
+        g.beginPath(); g.moveTo(jx - w / 2, jy); g.quadraticCurveTo(jx - w * 0.15, jy - h * 0.7, jx, jy - h); g.quadraticCurveTo(jx + w * 0.2, jy - h * 0.6, jx + w / 2, jy); g.closePath();
+        g.fillStyle = base; g.fill();
+        g.beginPath(); g.moveTo(jx, jy - h); g.quadraticCurveTo(jx + w * 0.2, jy - h * 0.6, jx + w / 2, jy); g.lineTo(jx + w * 0.05, jy); g.closePath();
+        g.fillStyle = 'rgba(30,40,40,0.28)'; g.fill();
+        if (snow || e > 0.95) { g.beginPath(); g.moveTo(jx - w * 0.12, jy - h * 0.75); g.lineTo(jx, jy - h); g.lineTo(jx + w * 0.1, jy - h * 0.78); g.closePath(); g.fillStyle = '#fafcff'; g.fill(); }
+        g.strokeStyle = 'rgba(40,40,36,0.6)'; g.lineWidth = fine ? 0.22 : 0.5;
+        g.beginPath(); g.moveTo(jx - w / 2, jy); g.quadraticCurveTo(jx - w * 0.15, jy - h * 0.7, jx, jy - h); g.quadraticCurveTo(jx + w * 0.2, jy - h * 0.6, jx + w / 2, jy); g.stroke();
+      } else if (this.forest[i] > 0.5 && hash2(x, y, 7) < 0.7) {
+        g.fillStyle = this.cold[i] > 0.5 ? 'rgba(50,80,70,0.7)' : 'rgba(60,100,60,0.65)';
+        const fk = fine ? 0.5 : 1;
+        for (let k = 0; k < 3; k++) { g.beginPath(); g.arc(jx + (k - 1) * 1.6 * fk, jy - (k % 2) * 1.2 * fk, 1.4 * fk, 0, Math.PI * 2); g.fill(); }
+      }
+    }
+    g.restore();
+  }
+}
