@@ -1,0 +1,322 @@
+<!DOCTYPE html><html lang='zh-CN'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>评审01 · 让游戏真正好玩起来</title><style>
+body{max-width:880px;margin:40px auto;padding:0 20px;
+ font-family:-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif;
+ line-height:1.85;color:#24292f;background:#fbfbfa;font-size:16px}
+h1{font-size:1.7em;border-bottom:3px solid #d0b070;padding-bottom:.4em}
+h2{font-size:1.35em;margin-top:1.9em;border-bottom:1px solid #ddd;padding-bottom:.3em;color:#7a5a1a}
+h3{font-size:1.15em;margin-top:1.5em;color:#333}
+blockquote{margin:1em 0;padding:.6em 1.1em;background:#f6f1e4;border-left:4px solid #d0b070;color:#5a4a22;border-radius:0 6px 6px 0}
+blockquote strong{color:#7a4a00}
+table{border-collapse:collapse;width:100%;margin:1.2em 0;font-size:.94em;display:block;overflow-x:auto}
+th,td{border:1px solid #d8d2c4;padding:8px 11px;text-align:left;vertical-align:top}
+th{background:#efe6d0;color:#5a4a22;white-space:nowrap}
+tr:nth-child(even) td{background:#f6f3ec}
+code{font-family:"Cascadia Code",Consolas,"JetBrains Mono",monospace;font-size:.88em;background:#eee9dd;padding:2px 5px;border-radius:4px;color:#8a3a1a}
+pre{background:#2d2a26;color:#e8e2d2;padding:14px 16px;border-radius:8px;overflow-x:auto;line-height:1.55}
+pre code{background:none;color:inherit;padding:0}
+hr{border:none;border-top:1px dashed #c9bfa8;margin:2.2em 0}
+em{color:#666}
+li{margin:.35em 0}
+@media print{body{max-width:none;margin:0;background:#fff}}
+</style></head><body><h1>《凡人修仙传 · 2D 同人》v0.46 评审 · 一：让游戏真正"好玩"起来</h1>
+<blockquote>
+<p><strong>写给负责人：</strong> 源码包（fanren-v046-zhongsheng）我完整拉下来了，46,349 行 TS 逐模块看过，依赖装好、<code>tsc --noEmit</code> 跑过、
+自带的天道节奏模拟（<code>tools/test-tiandao.ts</code>）也实测复现过。下面先说实测结论，再说我对"为什么还是不好玩"的诊断，
+最后给一套<strong>不推翻现有架构、不牺牲开放世界自由度</strong>的改造方案。</p>
+</blockquote>
+<hr />
+<h2>〇、实测结论（先报平安，再报问题）</h2>
+<h3>0.1 能跑通的</h3>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>npm ci</code> + <code>tsc --noEmit</code></td>
+<td><strong>零错误</strong>，46k 行类型全绿，底子很干净</td>
+</tr>
+<tr>
+<td><code>tools/test-tiandao.ts</code> 节奏模拟</td>
+<td>复现成功：韩立式 筑基 38 · 结丹 135 · 元婴 296；苦修派结丹 209 岁（19/20 成功）、<strong>20/20 坐化于元婴前</strong>；狂刷派 20/20 炼气坐化</td>
+</tr>
+<tr>
+<td><code>vite preview</code> 伺服 dist</td>
+<td>HTTP 200，正常加载</td>
+</tr>
+</tbody>
+</table>
+<h3>0.2 发现的三个工程问题（建议先修）</h3>
+<ol>
+<li><strong>dist 是旧的。</strong> dist 里 <code>index.html</code> 的标题还是 <code>v0.45 · 天道 · 结婴天象 · 山河胜景</code>——v0.46 的源码改完<strong>没有重新打包</strong>。玩家拿到的包玩的还是 0.45。</li>
+<li><strong>v0.46 把 node 工具链弄断了。</strong> <code>src/world/combatfx.ts</code> 顶部直接 <code>import ... from '../assets/fx/jy_soul.webp'</code>，node + tsx 不认 webp，导致 <code>tools/test-fun.ts</code>、<code>test-living.ts</code> 等所有引到 Game 的冒烟测试<strong>全部启动即崩</strong>（<code>ERR_UNKNOWN_FILE_EXTENSION</code>）。建议在 <code>tools/env.ts</code> 里注册 webp loader（返回空串即可），或把贴图 import 挪进懒加载。</li>
+<li><strong>测试断了没人知道。</strong> 正因为 2，v0.46 的"众生/天象"没有一条自动化测试護着。建议修好后把 <code>test-fun</code> 挂进提交前脚本。</li>
+</ol>
+<h3>0.3 "玩"的实测印象</h3>
+<p>我顺着代码把一个玩家的典型一小时走了一遍（主线序章 → 自由期 → 坊市 → 野外 → 奇遇 → 斗法 → 被击倒）。系统<strong>广度</strong>惊人：
+作息、营生、心声、恩怨网、宗门名册、战争、寿元、天象……但广度堆出来的是"热闹"，不是"紧张"。
+下面说为什么。</p>
+<hr />
+<h2>一、诊断：这个世界"活"了，但不"险"</h2>
+<h3>1.1 核心判断一句话</h3>
+<blockquote>
+<p><strong>现在的众生系统做到了"人人有日子过"，但没做到"人人有欲望、且会为欲望骗你"。</strong>
+修仙世界的本质张力 = 资源有限 + 寿元有限 + <strong>人心不可测</strong>。前两条 v0.45/0.46 已经补得很好，第三条几乎是零。</p>
+</blockquote>
+<h3>1.2 证据（直接从代码里数出来的）</h3>
+<ul>
+<li>全部 <code>src/world/*.ts</code> + <code>src/data/*.ts</code> 里，"骗"字只出现 <strong>2 次</strong>；"背叛 / 出卖 / 暗算 / 设局 / 圈套 / 构陷"加起来只有 <code>events.ts</code> 一处沾边；
+  "夺舍"只存在于序章剧情（墨大夫，<code>story.ts</code>），开放世界里一次也不会发生。</li>
+<li><strong>NPC 的恶意全是明牌的阳谋</strong>：劫道是当面要钱（<code>happen.ts</code>）、仇人是见面就动手（<code>relations.ts</code> grudge≥1）、
+  悬赏是公开张贴。没有任何一个 NPC 会<strong>笑着接近你然后捅刀</strong>。</li>
+<li><strong>游戏里所有信息都是真的</strong>：toast 是真的、传闻是真的、藏宝图是真的、求救是真的、传音玉符是真的。
+  玩家从第一分钟就学会了"字面意思全信"，于是所有决策都退化成数值比大小。</li>
+<li><strong>v0.46 的"心声"系统反而把最后一点深浅给抹平了</strong>：走近任何人，他头顶的云朵泡直接显示<strong>真实内心</strong>
+  （<code>alive.ts</code> drawMindBubble，连"贪婪者盯着你的储物袋"都明写）。等于全桌亮牌打麻将——
+  这是本版本最用力、也最伤"尔虞我诈"的一个功能。</li>
+<li><strong>死亡没有牙齿</strong>：<code>game.ts onPlayerDown()</code> 的全部代价 = 感悟池里 10% 修为 + 10% 灵石 + 2 件随机杂物 + 回城躺 3 天。
+  没有道伤、没有储物袋被搜、没有法宝被夺、没有仇家补刀。原著里韩立每一次保命都倾家荡产，我们这儿被元婴老魔打死
+  跟在野外淋了场雨差不多。</li>
+<li><strong>资源不逼人抢</strong>：坊市按 <code>market.ts</code> 的区域规则无限补货，灵草野外刷新。血色禁地"没有同门只有敌人"的味道是对的，
+  但出了禁地，整个开放世界里没有第二处"我要的东西在你手里"。</li>
+</ul>
+<h3>1.3 为什么"难度不高"其实是同一个问题</h3>
+<p>节奏（天道）已经压到原著水平了——38 岁筑基、296 岁元婴，<strong>时间难度够了</strong>。
+现在缺的是<strong>决策难度</strong>：玩家没有需要带着怀疑做的决定，没有做错会真疼的决定。
+把下面第二章的"人心"做进去，难度自然上来，而且是"修仙小说的难"，不是"怪物血条翻倍的难"。</p>
+<hr />
+<h2>二、方案：給世界装上"人心"——尔虞我诈四件套</h2>
+<blockquote>
+<p>原则：<strong>全部长在现有骨架上</strong>。<code>hate/ties</code>（恩怨网）、<code>plan</code>（眼下的打算）、<code>favor/grudge</code>、心声、<code>happen</code>（街头事件池）、
+<code>relations</code>（声望/悬赏/雇凶）这些系统一个不扔，只给它们加一层"表里不一"。</p>
+</blockquote>
+<h3>2.1 第一件：表里系统——每个 NPC 两张脸（工程量 ★★）</h3>
+<p><strong>现状</strong>：<code>NpcData.favor</code> 一个数，既是他对你的态度，也是他表现出来的态度。</p>
+<p><strong>改法</strong>：拆成两层——</p>
+<pre><code>favor   → 真实态度（照旧参与所有 AI 决策）
+shown   → 表演态度（对话语气、心声泡、行礼/冷脸用这个）
+</code></pre>
+<ul>
+<li><code>shown</code> 由性格驱动偏差：<code>ruthless/greedy</code> 的人 <code>shown = favor + 伪装值</code>（他贪你的储物袋时反而对你<strong>更热情</strong>）；
+  <code>righteous/aloof</code> 的人两值几乎相等（正人君子不装）。</li>
+<li><strong>心声泡改造（关键！这是现成的显示管道）</strong>：</li>
+<li>你的境界 ≥ 对方 2 个大境界，或神识压制（<code>suppress.ts</code> 已有 sup 等级）→ 显示<strong>真心声</strong>（泡边缘描金）；</li>
+<li>否则显示<strong>表演心声</strong>——贪婪者心声是"这位道友好生面善"，其实在打量你的袋子；</li>
+<li>老怪物（结丹+ 且 ruthless）连被压制时的心声都是假的，要靠下面 2.2 的情报手段才能戳穿。</li>
+<li>这一改，v0.46 最大的投入（心声）从"剧透器"变成"读心博弈"：<strong>看穿人心本身成了修为的奖励</strong>，
+  完全符合"神识"的设定，一行不浪费。</li>
+</ul>
+<h3>2.2 第二件：谎言与情报——把"消息"做成一个对象（工程量 ★★★）</h3>
+<p><strong>现状</strong>：所有消息直接 toast / 对话写死，天然为真。</p>
+<p><strong>改法</strong>：加一个 <code>Rumor</code> 类型，游戏里<strong>一切非亲眼所见的信息</strong>都走它：</p>
+<pre><code class="language-ts">interface Rumor {
+  text: string;          // 玩家看到的说法
+  truth: number;         // 0 假 / 0.5 半真 / 1 真
+  src: string;           // 谁说的（接 ties 网）
+  motive?: 'honest' | 'bait' | 'smear' | 'proxy';  // 诚实 / 设饵 / 诋毁 / 借刀
+}
+</code></pre>
+<ul>
+<li>藏宝图可能画的是伏击圈；"某地异宝出世"可能是魔修聚人头的局；有人托你带信，信里写的是"持信人可杀"。</li>
+<li><strong>玩家的反制手段（全是修仙味的玩法）</strong>：
+  1. <strong>多方印证</strong>——同一传闻去问第二个来源，<code>truth</code> 低的会对不上（茶楼说书人、坊市掌柜就是现成的情报节点，v0.46 刚画好的吃茶/说书场景直接复用）；
+  2. <strong>神识探查</strong>——对信使用 2.1 的读心；
+  3. <strong>灵石收买</strong>——花钱买"这消息谁放出来的"；
+  4. <strong>赌一把</strong>——不验证直接去，开放世界嘛。</li>
+<li><code>relations.ts</code> 里已有"人与人之间会传话：挚友美言、仇人诋毁挑拨"的雏形——把"挑拨"从好感数值暗改，升级成玩家<strong>看得见、会上当</strong>的假情报，就是这套系统的第一个用户。</li>
+</ul>
+<h3>2.3 第三件：骗局池——12 个开放世界骗局模板（工程量 ★★★，可逐个上线）</h3>
+<p>照 <code>happen.ts</code> 现有事件池的写法（每个 60–150 行），按优先级排：</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>骗局</th>
+<th>钩子 → 反转</th>
+<th>复用的现有系统</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>合作探宝，分赃翻脸</strong></td>
+<td>散修邀你同探遗府（现有组队/护法），开到宝箱那一刻他出手</td>
+<td>melee 组队、sites 遗府、2.1 表里</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>假丹药 / 假玉简</strong></td>
+<td>坊市地摊三折"筑基丹"，服用才知是淬体丹染的色；玉简是残篇</td>
+<td>market、items；衍生<strong>鉴定玩法</strong>（神识扫描/找丹师掌眼）</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>借刀杀人</strong></td>
+<td>"道友，前面山谷有魔修害我全家"——其实是他的宿敌，你杀完背上血仇</td>
+<td>hate/ties 血仇网原样接住后果</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>美人局</strong></td>
+<td>合欢宗（hehuan 已在魔道六宗表里）修士扮柔弱求护送，夜里摄魂</td>
+<td>happen 护送事件反写</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>夺舍老魔</strong></td>
+<td>重伤"前辈"求你渡一口灵力，接触瞬间夺舍判定（神识对抗，败了进心魔战）</td>
+<td>xinmo 幻境战直接复用！</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>拍卖托</strong></td>
+<td>大城拍卖会上有托抬价（garrison 大城已有坐镇名册当托）</td>
+<td>market、大城系统</td>
+</tr>
+<tr>
+<td>7</td>
+<td><strong>假悬赏</strong></td>
+<td>榜上"妖修"其实是得罪了贴榜人的正派散修，杀了才知道</td>
+<td>悬赏系统反写、rep 反噬</td>
+</tr>
+<tr>
+<td>8</td>
+<td><strong>结拜图谋</strong></td>
+<td>主动求结拜的"义兄"看上的是你的功法/本命法宝，熟了之后下药</td>
+<td>bond 结拜系统</td>
+</tr>
+<tr>
+<td>9</td>
+<td><strong>渡劫局</strong></td>
+<td>求你护法的人，劫云里混着他雇来趁劫出手的杀手——护法的你是真正目标</td>
+<td>happen 渡劫事件已有三方，加一方</td>
+</tr>
+<tr>
+<td>10</td>
+<td><strong>洞府以次充好</strong></td>
+<td>牙人卖你"上品灵脉洞府"，住进去发现灵脉早被抽干</td>
+<td>home 洞府系统</td>
+</tr>
+<tr>
+<td>11</td>
+<td><strong>商队夹带</strong></td>
+<td>护送报酬异常高的商队，箱子里是魔道的"货"，半路正道执法队把你当同伙</td>
+<td>caravan + 宗门声望</td>
+</tr>
+<tr>
+<td>12</td>
+<td><strong>血婴哭声</strong></td>
+<td>荒野小孩哭着求救——血婴傀儡，围上来的是炼它的魔修</td>
+<td>魔修祭坛事件延伸</td>
+</tr>
+</tbody>
+</table>
+<p><strong>频率控制</strong>：骗局占同类事件的 15–25%（谨慎性格的 NPC 几乎不骗、ruthless/greedy 高发），
+让玩家保持怀疑但不至于草木皆兵；每类骗局上过一次当后，角色获得对应"阅历"条目（见 2.5），下次有辨识加成——<strong>吃亏长记性</strong>，这就是修仙小说主角的成长曲线。</p>
+<h3>2.4 第四件：玩家也能骗人——自由度的另一半（工程量 ★★）</h3>
+<p>尔虞我诈不能只许 NPC 放火：</p>
+<ul>
+<li><strong>报假名号</strong>（<code>happen.ts</code> 劫道里已有"虚张声势"，把它推广成通用对话选项）：冒充黄枫谷执法弟子吓退散修——被真弟子撞破则宗门声望大跌；</li>
+<li><strong>卖假货</strong>：地摊可以上架染色丹药（炼丹系统低品丹 + 一味"伪灵粉"）——赚快钱，但 <code>hate</code> 网如实记账，被识破的买家按"被骗"记仇、找你寻仇、坏你名声；</li>
+<li><strong>散布假情报</strong>：花灵石让说书人放风"某处异宝出世"，把仇家调虎离山——他若活着回来，知道是你；</li>
+<li><strong>分赃时刻</strong>：组队探宝的战利品结算屏上，永远有一个红色选项。杀人夺宝一时爽，<code>ties</code> 网里他的师门、道侣、结拜兄弟记你一辈子（这套报复链 <code>relations.ts</code> <strong>已经写好了</strong>，就缺这个入口）；</li>
+<li><strong>信誉是硬通货</strong>：新增 <code>ws.cred</code>（江湖信义，独立于正邪 rep）。骗局得手降 cred，低 cred 的玩家——没人跟你组队、坊市压你价、求救没人来。<strong>骗子玩法玩得起，但世界会用自己的规则回敬你</strong>——这就是开放世界该有的自由与代价。</li>
+</ul>
+<h3>2.5 阅历系统（把上当变成成长，工程量 ★）</h3>
+<p><code>ws.exp2</code>（阅历）：每次识破/吃亏记一条（"曾被假藏宝图诱入伏击"）。阅历影响：
+假心声的破绽提示概率、鉴定成功率、对话里多出"（你想起上次……）"的选项。
+面板上做成一本《韩立随笔》，玩家翻自己的上当史——本身就是叙事。</p>
+<hr />
+<h2>三、难度：让"死"有牙齿，让"强"有代价</h2>
+<blockquote>
+<p>时间难度（天道）已经够了，不要再加倍修为需求——再压就逼玩家挂机了。要加的是<strong>风险难度</strong>。</p>
+</blockquote>
+<h3>3.1 重做战败（工程量 ★★）</h3>
+<p>现在 <code>onPlayerDown()</code> 太温柔。改成<strong>看敌人是谁</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>击倒你的是</th>
+<th>后果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>妖兽</td>
+<td>现状逻辑（它只想吃肉，你被路人所救）+ <strong>道伤</strong></td>
+</tr>
+<tr>
+<td>劫修/仇家</td>
+<td><strong>储物袋被搜走</strong>（非装备栏物品 70–100%），生成"寻仇夺回"追踪：他会花你的钱、卖你的药——去晚了东西真没了（<code>living.ts</code> 的 NPC 买卖系统现成消化赃物）</td>
+</tr>
+<tr>
+<td>死敌（grudge=2）</td>
+<td>直接补刀 → 存档点复活（见 3.2 难度分层），或触发<strong>替身符/舍身保命</strong>消耗链</td>
+</tr>
+<tr>
+<td>魔修</td>
+<td>小概率被掳走炼宝，醒来在魔修洞府里，自己逃（潜行/爆发微玩法）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>道伤</strong>：战败附加 7–60 天的"经脉受损"（修炼速度 -40%、法力上限 -20%），要灵药+闭关才好——
+把"别被打倒"从口头警告变成肌肉记忆，还给疗伤丹/疗伤系红颜事件一个真实用途。</p>
+<h3>3.2 道心难度分层（保自由度的标准答案，工程量 ★）</h3>
+<p>开局（和入魔/正道选择放一起）选道心，可单向上调不可下调：</p>
+<ul>
+<li><strong>天骄</strong>：现状规则（新玩家/剧情党）；</li>
+<li><strong>凡人</strong>（默认推荐）：3.1 全套 + 骗局池全开 + 资源限供；</li>
+<li><strong>天道</strong>：单存档自动盖写、死亡即碑——死后生成一座刻着你生平（<code>bio</code> 系统现成的！）的碑，立在你陨落处，<strong>下一个存档的世界里能遇到</strong>。前任的储物袋就在那个杀了你的 NPC 身上。</li>
+</ul>
+<h3>3.3 敌人 AI 加"心眼"（工程量 ★★，<code>foemind.ts</code> 里改）</h3>
+<ul>
+<li><strong>诈败</strong>：ruthless 敌人血量 40% 时假装遁逃，把你引进同伙包围圈（反用现有"追杀准备 prep"字段）；</li>
+<li><strong>渔翁</strong>：你和妖兽打到残血时，旁观的 greedy 修士才动手——把 v0.45"鹬蚌相争"事件反过来扣在玩家头上；</li>
+<li><strong>先礼后兵</strong>：高阶敌人先传音勒索（交出三成灵石饶你），给钱是真饶——但他记住你好欺负，下月再来；翻脸打赢他，这一片的劫修都绕着你走（接 <code>sense.ts</code> 恶名传播）。</li>
+</ul>
+<h3>3.4 资源限供（工程量 ★★）</h3>
+<ul>
+<li>坊市丹药/灵草<strong>按月限量</strong>（结合 <code>market.ts</code> 的 pz 产区概念），筑基丹主药全天南每年就出那么多株——<strong>注意节奏模拟要同步跑</strong>，别把韩立式玩家的丹药断供成苦修派；</li>
+<li>高价值灵草被你采到一半时，有概率"另一道神识也锁定了这里"（<code>sense.ts</code> 现成的锁定提示）→ 来人可谈、可分、可抢——
+  血色禁地的味道，洒进整个开放世界。</li>
+</ul>
+<hr />
+<h2>四、落地顺序（建议三个小版本）</h2>
+<table>
+<thead>
+<tr>
+<th>版本</th>
+<th>内容</th>
+<th>预估改动</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>v0.47 人心</strong></td>
+<td>修 0.2 三个工程问题；2.1 表里+心声改造；2.3 骗局 #1/#2/#3/#5；3.1 战败重做+道伤</td>
+<td>~2,500 行</td>
+</tr>
+<tr>
+<td><strong>v0.48 江湖</strong></td>
+<td>2.2 Rumor 管道；2.4 玩家骗术+cred；2.3 骗局 #4/#6/#7/#9；3.3 敌人心眼</td>
+<td>~3,000 行</td>
+</tr>
+<tr>
+<td><strong>v0.49 天道（难）</strong></td>
+<td>3.2 道心分层+碑；3.4 资源限供；2.3 剩余骗局；2.5 阅历册</td>
+<td>~2,000 行</td>
+</tr>
+</tbody>
+</table>
+<p>每步都加对应 <code>tools/test-*.ts</code>（骗局触发率、战败掉袋追回链、cred 传播），
+并且把 <code>test-tiandao.ts</code> 扩一个"凡人难度韩立式"档——确认加了难度之后元婴年龄仍在 250–320 岁区间。</p>
+<hr />
+<h2>五、最后说两句</h2>
+<p>这个项目的底子是我见过的同人项目里最扎实的一档：恩怨网、名册、寿命、作息，全是真模拟不是贴纸。
+<strong>缺的不是系统，是"系统之间会说谎"。</strong> 把信息从"全真"变成"七真三假"，把败北从"挠痒"变成"割肉"，
+现有的 46,000 行立刻全部活过来——因为玩家终于需要用上这个世界提供的一切（人脉、声望、神识、阅历）来<strong>自保</strong>了。</p>
+<p>凡人修仙，修的从来不只是灵气，是心眼。</p>
+<p><em>—— 评审完毕。配套的画面意境方案见《02-画面意境提升-AI贴图任务书.md》。</em></p></body></html>
