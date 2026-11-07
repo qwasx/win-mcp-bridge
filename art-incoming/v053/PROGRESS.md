@@ -45,7 +45,7 @@
 
 光罩/光幕：[x] `zf_dome`(1024×768)✔B2 `zf_dome_crack`(同位同尺寸) `zf_shatter`(1024²) `zf_curtain`(512²左右无缝) `zf_link`(1024×128左右无缝)
 
-阵中特效：[ ] `zf_activate` `zf_break` `zf_pillar`(256×1024) `zf_eye`(512²) `zf_sword`(256×768 剑尖朝下) `zf_fire`(512×768) `zf_lightning`(256×1024)
+阵中特效：[x] `zf_activate`✔B3 [x] `zf_break`✔B3 [x] `zf_pillar`(256×1024)✔B3 `zf_eye`(512²) `zf_sword`(256×768 剑尖朝下) `zf_fire`(512×768) `zf_lightning`(256×1024)
 【透】：[ ] `zf_fog`(768² 淡墨灰雾，中心约 60% alpha)
 
 实物（【透】，正面略俯视 30°，person_px=215，manifest 写 anchor）：
@@ -58,7 +58,7 @@
 [ ] `zs_mizong` `zs_gengjin` `zs_wulei` `zs_dihuo` `zs_xuanwu` `zs_liangyi` `zs_huichun` `zs_lianxi` `zs_gujin` `zs_hushan`
 
 破禁小游戏：
-[ ] `ui_board`(1024²，比 zf_gujin 暗一半、无节点) · [ ] `ui_node_jin` `ui_node_mu` `ui_node_shui` `ui_node_huo` `ui_node_tu` `ui_node_trap` `ui_node_broken`（256²，形状即可区分：棱角/叶/涡/焰/方）
+[x] `ui_board`(1024²，比 zf_gujin 暗一半、无节点)✔B3 · [x] `ui_node_jin` `ui_node_mu` `ui_node_shui` `ui_node_huo`✔B3 · [ ] `ui_node_tu` `ui_node_trap` `ui_node_broken`（256²，形状即可区分：棱角/叶/涡/焰/方）
 
 ## 交付
 

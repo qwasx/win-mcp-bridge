@@ -257,6 +257,105 @@
         1024,
         768
       ]
+    },
+    {
+      "id": "zf_shatter",
+      "file": "zhenfa/dome/zf_shatter.png",
+      "bg": "black",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "id": "zf_activate",
+      "file": "zhenfa/fx/zf_activate.png",
+      "bg": "black",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "id": "zf_break",
+      "file": "zhenfa/fx/zf_break.png",
+      "bg": "black",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "id": "ui_board",
+      "file": "zhenfa/ui/ui_board.png",
+      "bg": "black",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "id": "ui_node_jin",
+      "elem": "jin",
+      "file": "zhenfa/ui/ui_node_jin.png",
+      "bg": "black",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "id": "ui_node_mu",
+      "elem": "mu",
+      "file": "zhenfa/ui/ui_node_mu.png",
+      "bg": "black",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "id": "ui_node_shui",
+      "elem": "shui",
+      "file": "zhenfa/ui/ui_node_shui.png",
+      "bg": "black",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "id": "ui_node_huo",
+      "elem": "huo",
+      "file": "zhenfa/ui/ui_node_huo.png",
+      "bg": "black",
+      "size": [
+        256,
+        256
+      ]
+    },
+    {
+      "id": "zf_pillar",
+      "file": "zhenfa/fx/zf_pillar.png",
+      "bg": "black",
+      "size": [
+        256,
+        1024
+      ],
+      "anchor": [
+        128,
+        1024
+      ]
+    },
+    {
+      "id": "zf_dome_crack",
+      "file": "zhenfa/dome/zf_dome_crack.png",
+      "bg": "black",
+      "size": [
+        1024,
+        768
+      ],
+      "align": "zf_dome"
     }
   ]
 }
