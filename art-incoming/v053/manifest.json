@@ -1,0 +1,153 @@
+{
+  "round": "v053",
+  "assets": [
+    {
+      "file": "huaxing/hx_long_idle.png",
+      "bg": "black",
+      "size": [
+        1536,
+        864
+      ],
+      "facing": "right",
+      "center": [
+        768,
+        432
+      ],
+      "id": "hx_long",
+      "pose": "idle"
+    },
+    {
+      "file": "huaxing/hx_long_attack.png",
+      "bg": "black",
+      "size": [
+        1536,
+        864
+      ],
+      "facing": "right",
+      "center": [
+        768,
+        432
+      ],
+      "id": "hx_long",
+      "pose": "attack"
+    },
+    {
+      "file": "huaxing/hx_feng_idle.png",
+      "bg": "black",
+      "size": [
+        1280,
+        832
+      ],
+      "facing": "right",
+      "center": [
+        640,
+        416
+      ],
+      "id": "hx_feng",
+      "pose": "idle"
+    },
+    {
+      "file": "huaxing/hx_feng_attack.png",
+      "bg": "black",
+      "size": [
+        1280,
+        832
+      ],
+      "facing": "right",
+      "center": [
+        640,
+        416
+      ],
+      "id": "hx_feng",
+      "pose": "attack"
+    },
+    {
+      "file": "huaxing/hx_hu_idle.png",
+      "bg": "black",
+      "size": [
+        1024,
+        672
+      ],
+      "facing": "right",
+      "center": [
+        512,
+        336
+      ],
+      "id": "hx_hu",
+      "pose": "idle"
+    },
+    {
+      "file": "huaxing/hx_hu_attack.png",
+      "bg": "black",
+      "size": [
+        1024,
+        672
+      ],
+      "facing": "right",
+      "center": [
+        512,
+        336
+      ],
+      "id": "hx_hu",
+      "pose": "attack"
+    },
+    {
+      "file": "huaxing/hx_gui_idle.png",
+      "bg": "black",
+      "size": [
+        1024,
+        704
+      ],
+      "facing": "right",
+      "center": [
+        512,
+        352
+      ],
+      "id": "hx_gui",
+      "pose": "idle"
+    },
+    {
+      "file": "huaxing/hx_gui_attack.png",
+      "bg": "black",
+      "size": [
+        1024,
+        704
+      ],
+      "facing": "right",
+      "center": [
+        512,
+        352
+      ],
+      "id": "hx_gui",
+      "pose": "attack"
+    },
+    {
+      "file": "huaxing/hx_gather.png",
+      "bg": "black",
+      "size": [
+        1024,
+        1024
+      ],
+      "facing": "right",
+      "center": [
+        512,
+        512
+      ],
+      "id": "hx_gather"
+    },
+    {
+      "file": "huaxing/hx_dissolve.png",
+      "bg": "black",
+      "size": [
+        1024,
+        1024
+      ],
+      "facing": "right",
+      "center": [
+        512,
+        512
+      ],
+      "id": "hx_dissolve"
+    }
+  ]
+}
