@@ -7,7 +7,7 @@
 ## 风格定调
 
 - [x] `style_key_long.png`（= hx_long_idle 副本）
-- [ ] `style_key_zhenfa.png`（= zf_gengjin 副本，Batch 2 一起交）
+- [x] `style_key_zhenfa.png`（= zf_gengjin 副本，Batch 2 已交）
 
 ## A · 灵力化形（26）
 
@@ -24,8 +24,10 @@
 
 ## B · 元婴出窍（10）
 
-- [ ] `yy_fly`（1024²）`yy_cast`（1024²）`yy_out`（512×1024）`yy_in`（512×1024）
-- [ ] `yy_shell`（1024²）`yy_blink`（1024×512）`yy_wave`（1024²）
+- [x] `yy_fly`（1024²）`yy_cast`（1024²）`yy_out`（512×1024）  ← Batch 2
+- [ ] `yy_in`（512×1024）
+- [x] `yy_shell`（1024²）  ← Batch 2
+- [ ] `yy_blink`（1024×512）`yy_wave`（1024²）
 - [ ] 图标 3：`skill_yuanying` `skill_yy_blink` `skill_yy_return`（【透】256²）
 - 造型锚点（无 R1 图时的文字锚）：一尺高婴孩、头顶单发髻、眉心一点灵光、半睁、神情宁静威严、金色带紫蓝流光半透明身体、身周淡光晕
 
@@ -33,15 +35,15 @@
 
 阵纹圆盘（【黑】1024²，正俯视、居中、旋转对称、直径 94%、笔意线条、阵旗光点数）：
 
-- [ ] `zf_kun` 4 旗 青 `#60d8d0` · [ ] `zf_mizong` 6 银灰白 · [ ] `zf_wuxing` 5 五色
-- [ ] `zf_gengjin` 8 金白 `#fff0b0` · [ ] `zf_wulei` 5 紫白 · [ ] `zf_dihuo` 6 赤橙
-- [ ] `zf_xuanwu` 4 青金+金 · [ ] `zf_liangyi` 2 黑白（阴面用淡蓝灰，禁黑）
-- [ ] `zf_juling` 4 白绿 · [ ] `zf_huichun` 6 翠绿 · [ ] `zf_lianxi` 4 淡紫（整体偏暗）
-- [ ] `zf_gujin` 9 暗紫+古金（饕餮/云雷纹，可残缺） · [ ] `zf_hushan` 12 金青+金（最宏大）
+- [ ] `zf_kun`[4旗✔B2] 4 旗 青 `#60d8d0` · [ ] `zf_mizong` 6 银灰白 · [ ] `zf_wuxing` 5 五色
+- [ ] `zf_gengjin`[8旗✔B2] 8 金白 `#fff0b0` · [ ] `zf_wulei` 5 紫白 · [ ] `zf_dihuo` 6 赤橙
+- [ ] `zf_xuanwu`[4旗✔B2] 4 青金+金 · [ ] `zf_liangyi` 2 黑白（阴面用淡蓝灰，禁黑）
+- [ ] `zf_juling`[4旗✔B2] 4 白绿 · [ ] `zf_huichun` 6 翠绿 · [ ] `zf_lianxi` 4 淡紫（整体偏暗）
+- [ ] `zf_gujin`[9旗✔B2] 9 暗紫+古金（饕餮/云雷纹，可残缺） · [ ] `zf_hushan` 12 金青+金（最宏大）
 
 分层（【黑】1024²，纯白）：[ ] `zf_layer_outer` `zf_layer_band` `zf_layer_bagua` `zf_layer_core`
 
-光罩/光幕：[ ] `zf_dome`(1024×768) `zf_dome_crack`(同位同尺寸) `zf_shatter`(1024²) `zf_curtain`(512²左右无缝) `zf_link`(1024×128左右无缝)
+光罩/光幕：[x] `zf_dome`(1024×768)✔B2 `zf_dome_crack`(同位同尺寸) `zf_shatter`(1024²) `zf_curtain`(512²左右无缝) `zf_link`(1024×128左右无缝)
 
 阵中特效：[ ] `zf_activate` `zf_break` `zf_pillar`(256×1024) `zf_eye`(512²) `zf_sword`(256×768 剑尖朝下) `zf_fire`(512×768) `zf_lightning`(256×1024)
 【透】：[ ] `zf_fog`(768² 淡墨灰雾，中心约 60% alpha)
@@ -62,4 +64,4 @@
 
 - [x] `manifest.json`（Batch 1 已写 10 条，后续每批追加）
 - [ ] 各目录 `preview/` 拼图（[x] huaxing）；阵纹圆盘另需一张压扁 45% 贴草地色 `#5d7a50` 的效果图
-- [ ] 全部完成后 zip
+- [ ] 全部完成后 zip（每批单独打包 `v053_batchN.zip` 方便取用）

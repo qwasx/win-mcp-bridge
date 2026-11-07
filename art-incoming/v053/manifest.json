@@ -148,6 +148,115 @@
         512
       ],
       "id": "hx_dissolve"
+    },
+    {
+      "id": "yy_fly",
+      "center": [
+        512,
+        512
+      ],
+      "facing": "right",
+      "file": "yuanying/yy_fly.png",
+      "bg": "black",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "id": "yy_cast",
+      "center": [
+        512,
+        512
+      ],
+      "facing": "right",
+      "file": "yuanying/yy_cast.png",
+      "bg": "black",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "id": "yy_out",
+      "anchor": [
+        256,
+        768
+      ],
+      "file": "yuanying/yy_out.png",
+      "bg": "black",
+      "size": [
+        512,
+        1024
+      ]
+    },
+    {
+      "id": "yy_shell",
+      "file": "yuanying/yy_shell.png",
+      "bg": "black",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "id": "zf_kun",
+      "flags": 4,
+      "file": "zhenfa/circle/zf_kun.png",
+      "bg": "black",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "id": "zf_gengjin",
+      "flags": 8,
+      "file": "zhenfa/circle/zf_gengjin.png",
+      "bg": "black",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "id": "zf_xuanwu",
+      "flags": 4,
+      "file": "zhenfa/circle/zf_xuanwu.png",
+      "bg": "black",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "id": "zf_juling",
+      "flags": 4,
+      "file": "zhenfa/circle/zf_juling.png",
+      "bg": "black",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "id": "zf_gujin",
+      "flags": 9,
+      "file": "zhenfa/circle/zf_gujin.png",
+      "bg": "black",
+      "size": [
+        1024,
+        1024
+      ]
+    },
+    {
+      "id": "zf_dome",
+      "file": "zhenfa/dome/zf_dome.png",
+      "bg": "black",
+      "size": [
+        1024,
+        768
+      ]
     }
   ]
 }
